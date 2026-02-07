@@ -12,6 +12,7 @@ body = http.get("https://example.com")
 | Module | Description |
 |--------|-------------|
 | [cli](modules/cli.md) | CLI app builder with commands, flags, and dispatch |
+| [color](modules/color.md) | ANSI terminal colors and styles |
 | [http](modules/http.md) | HTTP client |
 | [os](modules/os.md) | Shell execution and process control |
 | [conv](modules/conv.md) | Type conversions |

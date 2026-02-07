@@ -13,6 +13,7 @@ import (
 
 	"github.com/rubiojr/rugo/compiler"
 	_ "github.com/rubiojr/rugo/modules/cli"
+	_ "github.com/rubiojr/rugo/modules/color"
 	_ "github.com/rubiojr/rugo/modules/conv"
 	_ "github.com/rubiojr/rugo/modules/http"
 	_ "github.com/rubiojr/rugo/modules/os"
@@ -22,7 +23,7 @@ import (
 	"golang.org/x/term"
 )
 
-var version = "v0.1.0"
+var version = "v0.1.2"
 
 func main() {
 	cmd := &cli.Command{
