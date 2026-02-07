@@ -8,28 +8,28 @@ import (
 	"github.com/rubiojr/rugo/parser"
 )
 
-// Walker converts the flat []int32 AST from egg into typed AST nodes.
-type Walker struct {
+// walker converts the flat []int32 AST from egg into typed AST nodes.
+type walker struct {
 	p       *parser.Parser
 	ast     []int32
 	lineMap []int // maps preprocessed line → original source line (nil if 1:1)
 }
 
-// Walk converts a flat AST into a typed Program.
-func Walk(p *parser.Parser, ast []int32) (*Program, error) {
-	w := &Walker{p: p, ast: ast}
+// walk converts a flat AST into a typed Program.
+func walk(p *parser.Parser, ast []int32) (*Program, error) {
+	w := &walker{p: p, ast: ast}
 	return w.walkProgram()
 }
 
-// WalkWithLineMap converts a flat AST into a typed Program, applying a line map
+// walkWithLineMap converts a flat AST into a typed Program, applying a line map
 // from preprocessed lines back to original source lines.
-func WalkWithLineMap(p *parser.Parser, ast []int32, lineMap []int) (*Program, error) {
-	w := &Walker{p: p, ast: ast, lineMap: lineMap}
+func walkWithLineMap(p *parser.Parser, ast []int32, lineMap []int) (*Program, error) {
+	w := &walker{p: p, ast: ast, lineMap: lineMap}
 	return w.walkProgram()
 }
 
 // tokenLine returns the original source line for a token index.
-func (w *Walker) tokenLine(idx int32) int {
+func (w *walker) tokenLine(idx int32) int {
 	tok := w.p.Token(idx)
 	line := tok.Position().Line
 	if w.lineMap != nil && line > 0 && line <= len(w.lineMap) {
@@ -40,7 +40,7 @@ func (w *Walker) tokenLine(idx int32) int {
 
 // firstTokenLine returns the original source line from the first terminal token
 // found by recursively traversing into non-terminals.
-func (w *Walker) firstTokenLine(ast []int32) int {
+func (w *walker) firstTokenLine(ast []int32) int {
 	for i := 0; i < len(ast); i++ {
 		if ast[i] >= 0 {
 			return w.tokenLine(ast[i])
@@ -61,7 +61,7 @@ func (w *Walker) firstTokenLine(ast []int32) int {
 }
 
 // readNonTerminal reads a non-terminal header (-sym, count) and returns the symbol and sub-slice.
-func (w *Walker) readNonTerminal(ast []int32) (parser.Symbol, []int32, []int32) {
+func (w *walker) readNonTerminal(ast []int32) (parser.Symbol, []int32, []int32) {
 	if len(ast) < 2 || ast[0] >= 0 {
 		return 0, nil, ast
 	}
@@ -73,7 +73,7 @@ func (w *Walker) readNonTerminal(ast []int32) (parser.Symbol, []int32, []int32) 
 }
 
 // readToken reads a terminal token index and returns it.
-func (w *Walker) readToken(ast []int32) (token, []int32) {
+func (w *walker) readToken(ast []int32) (token, []int32) {
 	if len(ast) == 0 {
 		return token{}, ast
 	}
@@ -90,7 +90,7 @@ type token struct {
 	ch  parser.Symbol
 }
 
-func (w *Walker) walkProgram() (*Program, error) {
+func (w *walker) walkProgram() (*Program, error) {
 	sym, children, _ := w.readNonTerminal(w.ast)
 	if sym != parser.RugoProgram {
 		return nil, fmt.Errorf("expected Program, got %v", sym)
@@ -115,7 +115,7 @@ func (w *Walker) walkProgram() (*Program, error) {
 	return prog, nil
 }
 
-func (w *Walker) walkStatement(ast []int32) (Statement, []int32, error) {
+func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 	sym, children, rest := w.readNonTerminal(ast)
 	if sym != parser.RugoStatement {
 		return nil, rest, fmt.Errorf("expected Statement, got %v", sym)
@@ -189,7 +189,7 @@ func (w *Walker) walkStatement(ast []int32) (Statement, []int32, error) {
 	return stmt, rest, nil
 }
 
-func (w *Walker) walkImportStmt(ast []int32) (Statement, error) {
+func (w *walker) walkImportStmt(ast []int32) (Statement, error) {
 	// ImportStmt = "import" str_lit .
 	_, ast = w.readToken(ast) // skip "import"
 	tok, _ := w.readToken(ast)
@@ -197,7 +197,7 @@ func (w *Walker) walkImportStmt(ast []int32) (Statement, error) {
 	return &ImportStmt{Module: module}, nil
 }
 
-func (w *Walker) walkRequireStmt(ast []int32) (Statement, error) {
+func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {
 	// RequireStmt = "require" str_lit [ "as" str_lit ] .
 	_, ast = w.readToken(ast) // skip "require"
 	tok, ast := w.readToken(ast)
@@ -215,7 +215,7 @@ func (w *Walker) walkRequireStmt(ast []int32) (Statement, error) {
 	return &RequireStmt{Path: path, Alias: alias}, nil
 }
 
-func (w *Walker) walkTestDef(ast []int32) (Statement, error) {
+func (w *walker) walkTestDef(ast []int32) (Statement, error) {
 	// TestDef = "test" str_lit Body "end" .
 	_, ast = w.readToken(ast) // skip "test"
 	nameTok, ast := w.readToken(ast)
@@ -237,7 +237,7 @@ func (w *Walker) walkTestDef(ast []int32) (Statement, error) {
 	return &TestDef{Name: name, Body: body}, nil
 }
 
-func (w *Walker) walkFuncDef(ast []int32) (Statement, error) {
+func (w *walker) walkFuncDef(ast []int32) (Statement, error) {
 	// FuncDef = "def" ident '(' [ ParamList ] ')' Body "end" .
 	_, ast = w.readToken(ast) // "def"
 	nameTok, ast := w.readToken(ast)
@@ -274,7 +274,7 @@ func (w *Walker) walkFuncDef(ast []int32) (Statement, error) {
 	return &FuncDef{Name: nameTok.src, Params: params, Body: body}, nil
 }
 
-func (w *Walker) walkParamList(ast []int32) []string {
+func (w *walker) walkParamList(ast []int32) []string {
 	// ParamList = ident { ',' ident } .
 	var params []string
 	for len(ast) > 0 {
@@ -288,7 +288,7 @@ func (w *Walker) walkParamList(ast []int32) []string {
 	return params
 }
 
-func (w *Walker) walkBody(ast []int32) ([]Statement, error) {
+func (w *walker) walkBody(ast []int32) ([]Statement, error) {
 	// Body = { Statement } .
 	var stmts []Statement
 	for len(ast) > 0 {
@@ -302,7 +302,7 @@ func (w *Walker) walkBody(ast []int32) ([]Statement, error) {
 	return stmts, nil
 }
 
-func (w *Walker) walkIfStmt(ast []int32) (Statement, error) {
+func (w *walker) walkIfStmt(ast []int32) (Statement, error) {
 	// IfStmt = "if" Expr Body { "elsif" Expr Body } [ "else" Body ] "end" .
 	_, ast = w.readToken(ast) // "if"
 
@@ -375,7 +375,7 @@ func (w *Walker) walkIfStmt(ast []int32) (Statement, error) {
 	}, nil
 }
 
-func (w *Walker) walkWhileStmt(ast []int32) (Statement, error) {
+func (w *walker) walkWhileStmt(ast []int32) (Statement, error) {
 	// WhileStmt = "while" Expr Body "end" .
 	_, ast = w.readToken(ast) // "while"
 	cond, ast, err := w.walkExpr(ast)
@@ -394,7 +394,7 @@ func (w *Walker) walkWhileStmt(ast []int32) (Statement, error) {
 	return &WhileStmt{Condition: cond, Body: body}, nil
 }
 
-func (w *Walker) walkForStmt(ast []int32) (Statement, error) {
+func (w *walker) walkForStmt(ast []int32) (Statement, error) {
 	// ForStmt = "for" ident [ ',' ident ] "in" Expr Body "end" .
 	_, ast = w.readToken(ast) // "for"
 	varTok, ast := w.readToken(ast)
@@ -430,7 +430,7 @@ func (w *Walker) walkForStmt(ast []int32) (Statement, error) {
 	return &ForStmt{Var: varTok.src, IndexVar: indexVar, Collection: coll, Body: body}, nil
 }
 
-func (w *Walker) walkReturnStmt(ast []int32) (Statement, error) {
+func (w *walker) walkReturnStmt(ast []int32) (Statement, error) {
 	// ReturnStmt = "return" [ Expr ] .
 	_, ast = w.readToken(ast) // "return"
 	if len(ast) == 0 {
@@ -443,7 +443,7 @@ func (w *Walker) walkReturnStmt(ast []int32) (Statement, error) {
 	return &ReturnStmt{Value: val}, nil
 }
 
-func (w *Walker) walkAssignOrExpr(ast []int32) (Statement, error) {
+func (w *walker) walkAssignOrExpr(ast []int32) (Statement, error) {
 	// AssignOrExpr = Expr [ '=' Expr ] .
 	lhs, ast, err := w.walkExpr(ast)
 	if err != nil {
@@ -468,7 +468,7 @@ func (w *Walker) walkAssignOrExpr(ast []int32) (Statement, error) {
 	return &ExprStmt{Expression: lhs}, nil
 }
 
-func (w *Walker) walkExpr(ast []int32) (Expr, []int32, error) {
+func (w *walker) walkExpr(ast []int32) (Expr, []int32, error) {
 	// Expr = OrExpr .
 	sym, children, rest := w.readNonTerminal(ast)
 	if sym != parser.RugoExpr {
@@ -478,7 +478,7 @@ func (w *Walker) walkExpr(ast []int32) (Expr, []int32, error) {
 	return expr, rest, err
 }
 
-func (w *Walker) walkOrExpr(ast []int32) (Expr, error) {
+func (w *walker) walkOrExpr(ast []int32) (Expr, error) {
 	// OrExpr = AndExpr { "||" AndExpr } .
 	sym, children, rest := w.readNonTerminal(ast)
 	if sym != parser.RugoOrExpr {
@@ -503,7 +503,7 @@ func (w *Walker) walkOrExpr(ast []int32) (Expr, error) {
 	return left, nil
 }
 
-func (w *Walker) walkAndExpr(ast []int32) (Expr, []int32, error) {
+func (w *walker) walkAndExpr(ast []int32) (Expr, []int32, error) {
 	// AndExpr = CompExpr { "&&" CompExpr } .
 	sym, children, rest := w.readNonTerminal(ast)
 	if sym != parser.RugoAndExpr {
@@ -526,7 +526,7 @@ func (w *Walker) walkAndExpr(ast []int32) (Expr, []int32, error) {
 	return left, rest, nil
 }
 
-func (w *Walker) walkCompExpr(ast []int32) (Expr, []int32, error) {
+func (w *walker) walkCompExpr(ast []int32) (Expr, []int32, error) {
 	// CompExpr = AddExpr [ comp_op AddExpr ] .
 	sym, children, rest := w.readNonTerminal(ast)
 	if sym != parser.RugoCompExpr {
@@ -548,7 +548,7 @@ func (w *Walker) walkCompExpr(ast []int32) (Expr, []int32, error) {
 	return left, rest, nil
 }
 
-func (w *Walker) walkAddExpr(ast []int32) (Expr, []int32, error) {
+func (w *walker) walkAddExpr(ast []int32) (Expr, []int32, error) {
 	// AddExpr = MulExpr { ('+' | '-') MulExpr } .
 	sym, children, rest := w.readNonTerminal(ast)
 	if sym != parser.RugoAddExpr {
@@ -571,7 +571,7 @@ func (w *Walker) walkAddExpr(ast []int32) (Expr, []int32, error) {
 	return left, rest, nil
 }
 
-func (w *Walker) walkMulExpr(ast []int32) (Expr, []int32, error) {
+func (w *walker) walkMulExpr(ast []int32) (Expr, []int32, error) {
 	// MulExpr = UnaryExpr { ('*' | '/' | '%') UnaryExpr } .
 	sym, children, rest := w.readNonTerminal(ast)
 	if sym != parser.RugoMulExpr {
@@ -594,7 +594,7 @@ func (w *Walker) walkMulExpr(ast []int32) (Expr, []int32, error) {
 	return left, rest, nil
 }
 
-func (w *Walker) walkUnaryExpr(ast []int32) (Expr, []int32, error) {
+func (w *walker) walkUnaryExpr(ast []int32) (Expr, []int32, error) {
 	// UnaryExpr = '!' Postfix | '-' Postfix | Postfix .
 	sym, children, rest := w.readNonTerminal(ast)
 	if sym != parser.RugoUnaryExpr {
@@ -619,7 +619,7 @@ func (w *Walker) walkUnaryExpr(ast []int32) (Expr, []int32, error) {
 	return expr, rest, err
 }
 
-func (w *Walker) walkPostfix(ast []int32) (Expr, error) {
+func (w *walker) walkPostfix(ast []int32) (Expr, error) {
 	// Postfix = Primary { Suffix } .
 	sym, children, _ := w.readNonTerminal(ast)
 	if sym != parser.RugoPostfix {
@@ -647,7 +647,7 @@ func (w *Walker) walkPostfix(ast []int32) (Expr, error) {
 	return expr, nil
 }
 
-func (w *Walker) walkSuffix(obj Expr, ast []int32) (Expr, error) {
+func (w *walker) walkSuffix(obj Expr, ast []int32) (Expr, error) {
 	// Suffix = '(' [ ArgList ] ')' | '[' Expr ']' .
 	if len(ast) == 0 {
 		return obj, nil
@@ -698,7 +698,7 @@ func (w *Walker) walkSuffix(obj Expr, ast []int32) (Expr, error) {
 	return obj, nil
 }
 
-func (w *Walker) walkArgList(ast []int32) ([]Expr, error) {
+func (w *walker) walkArgList(ast []int32) ([]Expr, error) {
 	// ArgList = Expr { ',' Expr } .
 	var args []Expr
 	for len(ast) > 0 {
@@ -717,7 +717,7 @@ func (w *Walker) walkArgList(ast []int32) ([]Expr, error) {
 	return args, nil
 }
 
-func (w *Walker) walkPrimary(ast []int32) (Expr, []int32, error) {
+func (w *walker) walkPrimary(ast []int32) (Expr, []int32, error) {
 	// Primary = ident | integer | float_lit | str_lit | "true" | "false" | "nil"
 	//         | ArrayLit | HashLit | '(' Expr ')' .
 	sym, children, rest := w.readNonTerminal(ast)
@@ -776,7 +776,7 @@ func (w *Walker) walkPrimary(ast []int32) (Expr, []int32, error) {
 	}
 }
 
-func (w *Walker) walkArrayLit(ast []int32) (Expr, error) {
+func (w *walker) walkArrayLit(ast []int32) (Expr, error) {
 	// ArrayLit = '[' [ Expr { ',' Expr } ] ']' .
 	_, ast = w.readToken(ast) // '['
 	var elems []Expr
@@ -802,7 +802,7 @@ func (w *Walker) walkArrayLit(ast []int32) (Expr, error) {
 	return &ArrayLiteral{Elements: elems}, nil
 }
 
-func (w *Walker) walkHashLit(ast []int32) (Expr, error) {
+func (w *walker) walkHashLit(ast []int32) (Expr, error) {
 	// HashLit = '{' [ HashEntry { ',' HashEntry } ] '}' .
 	_, ast = w.readToken(ast) // '{'
 	var pairs []HashPair
@@ -838,7 +838,7 @@ func (w *Walker) walkHashLit(ast []int32) (Expr, error) {
 	return &HashLiteral{Pairs: pairs}, nil
 }
 
-func (w *Walker) walkTryExpr(ast []int32) (Expr, error) {
+func (w *walker) walkTryExpr(ast []int32) (Expr, error) {
 	// TryExpr = "try" Expr "or" ident Body "end" .
 	_, ast = w.readToken(ast) // "try"
 
@@ -868,7 +868,7 @@ func (w *Walker) walkTryExpr(ast []int32) (Expr, error) {
 	}, nil
 }
 
-func (w *Walker) walkSpawnExpr(ast []int32) (Expr, error) {
+func (w *walker) walkSpawnExpr(ast []int32) (Expr, error) {
 	// SpawnExpr = "spawn" Body "end" .
 	_, ast = w.readToken(ast) // "spawn"
 
@@ -888,7 +888,7 @@ func (w *Walker) walkSpawnExpr(ast []int32) (Expr, error) {
 	}, nil
 }
 
-func (w *Walker) walkParallelExpr(ast []int32) (Expr, error) {
+func (w *walker) walkParallelExpr(ast []int32) (Expr, error) {
 	// ParallelExpr = "parallel" Body "end" .
 	_, ast = w.readToken(ast) // "parallel"
 

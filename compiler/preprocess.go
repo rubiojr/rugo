@@ -6,25 +6,21 @@ import (
 	"unicode"
 )
 
-// LineMap tracks the mapping from preprocessed line numbers to original source line numbers.
+// lineMap tracks the mapping from preprocessed line numbers to original source line numbers.
 // Index is 0-based preprocessed line, value is 1-based original line.
-type LineMap struct {
+type lineMap struct {
 	mapping []int
 }
 
-// NewLineMap creates a 1:1 line map for n lines.
-func NewLineMap(n int) *LineMap {
+// newLineMap creates a 1:1 line map for n lines.
+func newLineMap(n int) *lineMap {
 	m := make([]int, n)
 	for i := range m {
 		m[i] = i + 1
 	}
-	return &LineMap{mapping: m}
+	return &lineMap{mapping: m}
 }
 
-// Mapping returns the preprocessed→original line mapping slice.
-func (lm *LineMap) Mapping() []int {
-	return lm.mapping
-}
 
 var rugoKeywords = map[string]bool{
 	"if": true, "elsif": true, "else": true, "end": true,
@@ -40,8 +36,8 @@ var rugoBuiltins = map[string]bool{
 	"len": true, "append": true,
 }
 
-// StripComments removes # comments from source, respecting string boundaries.
-func StripComments(src string) string {
+// stripComments removes # comments from source, respecting string boundaries.
+func stripComments(src string) string {
 	var sb strings.Builder
 	inString := false
 	escaped := false
@@ -76,7 +72,7 @@ func StripComments(src string) string {
 	return sb.String()
 }
 
-// Preprocess performs line-level transformations:
+// preprocess performs line-level transformations:
 // 1. Parenthesis-free function calls: `puts "foo"` → `puts("foo")`
 // 2. Shell fallback: unknown idents → `__shell__("cmd line")`
 //
@@ -86,7 +82,7 @@ func StripComments(src string) string {
 //
 // Returns the preprocessed source and a line map (preprocessed line 0-indexed
 // → original line 1-indexed). If lineMap is nil, the mapping is 1:1.
-func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
+func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// Desugar compound assignment operators before other transformations.
 	src = expandCompoundAssign(src)
 
@@ -348,9 +344,9 @@ func shellEscape(s string) string {
 	return s
 }
 
-// ScanFuncDefs does a quick scan to find all `def name(` patterns
+// scanFuncDefs does a quick scan to find all `def name(` patterns
 // so the preprocessor knows which identifiers are user functions.
-func ScanFuncDefs(src string) map[string]bool {
+func scanFuncDefs(src string) map[string]bool {
 	funcs := make(map[string]bool)
 	lines := strings.Split(src, "\n")
 	for _, line := range lines {
@@ -366,9 +362,9 @@ func ScanFuncDefs(src string) map[string]bool {
 	return funcs
 }
 
-// ProcessInterpolation converts "Hello #{expr}" to format string + args.
+// processInterpolation converts "Hello #{expr}" to format string + args.
 // Returns the format string and a list of expression strings.
-func ProcessInterpolation(s string) (format string, exprs []string) {
+func processInterpolation(s string) (format string, exprs []string) {
 	var fmt strings.Builder
 	i := 0
 	for i < len(s) {
@@ -396,8 +392,8 @@ func ProcessInterpolation(s string) (format string, exprs []string) {
 	return fmt.String(), exprs
 }
 
-// HasInterpolation checks if a string contains #{} interpolation.
-func HasInterpolation(s string) bool {
+// hasInterpolation checks if a string contains #{} interpolation.
+func hasInterpolation(s string) bool {
 	for i := 0; i+1 < len(s); i++ {
 		if s[i] == '#' && s[i+1] == '{' {
 			return true

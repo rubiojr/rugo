@@ -49,7 +49,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	// Generate Go source
-	goSrc, err := Generate(resolved, filename)
+	goSrc, err := generate(resolved, filename)
 	if err != nil {
 		return nil, fmt.Errorf("code generation: %w", err)
 	}
@@ -188,14 +188,14 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 	}
 
 	// Strip comments
-	cleaned := StripComments(string(src))
+	cleaned := stripComments(string(src))
 
 	// Scan for user-defined function names (quick pass for def lines)
-	userFuncs := ScanFuncDefs(cleaned)
+	userFuncs := scanFuncDefs(cleaned)
 
-	// Preprocess: paren-free calls + shell fallback
+	// preprocess: paren-free calls + shell fallback
 	var lineMap []int
-	cleaned, lineMap, err = Preprocess(cleaned, userFuncs)
+	cleaned, lineMap, err = preprocess(cleaned, userFuncs)
 	if err != nil {
 		return nil, fmt.Errorf("preprocessing %s: %w", filename, err)
 	}
@@ -211,7 +211,7 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 		return nil, fmt.Errorf("parsing %s: %w", filename, err)
 	}
 
-	prog, err := WalkWithLineMap(p, ast, lineMap)
+	prog, err := walkWithLineMap(p, ast, lineMap)
 	if err != nil {
 		return nil, fmt.Errorf("walking AST for %s: %w", filename, err)
 	}

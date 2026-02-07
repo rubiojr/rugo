@@ -19,8 +19,8 @@ var runtimeCorePost string
 //go:embed templates/runtime_spawn.go.tmpl
 var runtimeSpawn string
 
-// CodeGen generates Go source code from a typed AST.
-type CodeGen struct {
+// codeGen generates Go source code from a typed AST.
+type codeGen struct {
 	sb              strings.Builder
 	indent          int
 	declared        map[string]bool // track declared variables per scope
@@ -33,9 +33,9 @@ type CodeGen struct {
 	usesTaskMethods bool            // whether .value/.done/.wait appear
 }
 
-// Generate produces Go source code from a Program AST.
-func Generate(prog *Program, sourceFile string) (string, error) {
-	g := &CodeGen{
+// generate produces Go source code from a Program AST.
+func generate(prog *Program, sourceFile string) (string, error) {
+	g := &codeGen{
 		declared:   make(map[string]bool),
 		scopes:     []map[string]bool{make(map[string]bool)},
 		imports:    make(map[string]bool),
@@ -44,7 +44,7 @@ func Generate(prog *Program, sourceFile string) (string, error) {
 	return g.generate(prog)
 }
 
-func (g *CodeGen) generate(prog *Program) (string, error) {
+func (g *codeGen) generate(prog *Program) (string, error) {
 	// Collect imports and separate functions, tests, and top-level statements
 	var funcs []*FuncDef
 	var tests []*TestDef
@@ -180,7 +180,7 @@ func (g *CodeGen) generate(prog *Program) (string, error) {
 	return g.sb.String(), nil
 }
 
-func (g *CodeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, setup, teardown *FuncDef) (string, error) {
+func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, setup, teardown *FuncDef) (string, error) {
 	// Emit each test as a function
 	for i, t := range tests {
 		funcName := fmt.Sprintf("rugo_test_%d", i)
@@ -277,7 +277,7 @@ func (g *CodeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, se
 	return g.sb.String(), nil
 }
 
-func (g *CodeGen) writeRuntime() {
+func (g *codeGen) writeRuntime() {
 	g.sb.WriteString(runtimeCorePre)
 
 	// Module runtimes (only for imported modules)
@@ -294,14 +294,14 @@ func (g *CodeGen) writeRuntime() {
 	}
 }
 
-func (g *CodeGen) writeSpawnRuntime() {
+func (g *codeGen) writeSpawnRuntime() {
 	g.sb.WriteString(runtimeSpawn)
 }
 
 // writeDispatchMaps generates typed dispatch maps for modules that declare DispatchEntry.
 // Each map maps user-defined function names to their Go implementations.
 // Only non-namespaced functions with exactly 1 parameter are included (handler convention).
-func (g *CodeGen) writeDispatchMaps(funcs []*FuncDef) {
+func (g *codeGen) writeDispatchMaps(funcs []*FuncDef) {
 	for _, name := range importedModuleNames(g.imports) {
 		m, ok := modules.Get(name)
 		if !ok || m.DispatchEntry == "" {
@@ -321,7 +321,7 @@ func (g *CodeGen) writeDispatchMaps(funcs []*FuncDef) {
 	}
 }
 
-func (g *CodeGen) writeFunc(f *FuncDef) error {
+func (g *codeGen) writeFunc(f *FuncDef) error {
 	params := make([]string, len(f.Params))
 	for i, p := range f.Params {
 		params[i] = p + " interface{}"
@@ -357,13 +357,13 @@ func (g *CodeGen) writeFunc(f *FuncDef) error {
 }
 
 // emitLineDirective writes a //line directive for the original source file.
-func (g *CodeGen) emitLineDirective(line int) {
+func (g *codeGen) emitLineDirective(line int) {
 	if line > 0 && g.sourceFile != "" {
 		g.sb.WriteString(fmt.Sprintf("//line %s:%d\n", g.sourceFile, line))
 	}
 }
 
-func (g *CodeGen) writeStmt(s Statement) error {
+func (g *codeGen) writeStmt(s Statement) error {
 	g.emitLineDirective(s.StmtLine())
 	switch st := s.(type) {
 	case *AssignStmt:
@@ -400,7 +400,7 @@ func (g *CodeGen) writeStmt(s Statement) error {
 	}
 }
 
-func (g *CodeGen) writeAssign(a *AssignStmt) error {
+func (g *codeGen) writeAssign(a *AssignStmt) error {
 	expr, err := g.exprString(a.Value)
 	if err != nil {
 		return err
@@ -416,7 +416,7 @@ func (g *CodeGen) writeAssign(a *AssignStmt) error {
 	return nil
 }
 
-func (g *CodeGen) writeIndexAssign(ia *IndexAssignStmt) error {
+func (g *codeGen) writeIndexAssign(ia *IndexAssignStmt) error {
 	obj, err := g.exprString(ia.Object)
 	if err != nil {
 		return err
@@ -433,7 +433,7 @@ func (g *CodeGen) writeIndexAssign(ia *IndexAssignStmt) error {
 	return nil
 }
 
-func (g *CodeGen) writeExprStmt(e *ExprStmt) error {
+func (g *codeGen) writeExprStmt(e *ExprStmt) error {
 	expr, err := g.exprString(e.Expression)
 	if err != nil {
 		return err
@@ -442,7 +442,7 @@ func (g *CodeGen) writeExprStmt(e *ExprStmt) error {
 	return nil
 }
 
-func (g *CodeGen) writeIf(i *IfStmt) error {
+func (g *codeGen) writeIf(i *IfStmt) error {
 	cond, err := g.exprString(i.Condition)
 	if err != nil {
 		return err
@@ -489,7 +489,7 @@ func (g *CodeGen) writeIf(i *IfStmt) error {
 	return nil
 }
 
-func (g *CodeGen) writeWhile(w *WhileStmt) error {
+func (g *codeGen) writeWhile(w *WhileStmt) error {
 	cond, err := g.exprString(w.Condition)
 	if err != nil {
 		return err
@@ -508,7 +508,7 @@ func (g *CodeGen) writeWhile(w *WhileStmt) error {
 	return nil
 }
 
-func (g *CodeGen) writeFor(f *ForStmt) error {
+func (g *codeGen) writeFor(f *ForStmt) error {
 	coll, err := g.exprString(f.Collection)
 	if err != nil {
 		return err
@@ -548,7 +548,7 @@ func (g *CodeGen) writeFor(f *ForStmt) error {
 	return nil
 }
 
-func (g *CodeGen) writeReturn(r *ReturnStmt) error {
+func (g *codeGen) writeReturn(r *ReturnStmt) error {
 	if r.Value == nil {
 		g.writeln("return nil")
 	} else {
@@ -561,7 +561,7 @@ func (g *CodeGen) writeReturn(r *ReturnStmt) error {
 	return nil
 }
 
-func (g *CodeGen) exprString(e Expr) (string, error) {
+func (g *codeGen) exprString(e Expr) (string, error) {
 	switch ex := e.(type) {
 	case *IntLiteral:
 		return fmt.Sprintf("interface{}(%s)", ex.Value), nil
@@ -603,9 +603,9 @@ func (g *CodeGen) exprString(e Expr) (string, error) {
 	}
 }
 
-func (g *CodeGen) stringLiteral(value string) (string, error) {
-	if HasInterpolation(value) {
-		format, exprStrs := ProcessInterpolation(value)
+func (g *codeGen) stringLiteral(value string) (string, error) {
+	if hasInterpolation(value) {
+		format, exprStrs := processInterpolation(value)
 		args := make([]string, len(exprStrs))
 		for i, exprStr := range exprStrs {
 			// Parse the interpolated expression through the rugo pipeline
@@ -626,7 +626,7 @@ func (g *CodeGen) stringLiteral(value string) (string, error) {
 }
 
 // compileInterpolatedExpr parses a rugo expression string and generates Go code.
-func (g *CodeGen) compileInterpolatedExpr(exprStr string) (string, error) {
+func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, error) {
 	// Wrap in a dummy statement so the parser can handle it
 	src := exprStr + "\n"
 	p := &parser.Parser{}
@@ -636,7 +636,7 @@ func (g *CodeGen) compileInterpolatedExpr(exprStr string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("parsing: %w", err)
 	}
-	prog, err := Walk(p, ast)
+	prog, err := walk(p, ast)
 	if err != nil {
 		return "", fmt.Errorf("walking: %w", err)
 	}
@@ -678,7 +678,7 @@ func goEscapeString(s string) string {
 	return sb.String()
 }
 
-func (g *CodeGen) binaryExpr(e *BinaryExpr) (string, error) {
+func (g *codeGen) binaryExpr(e *BinaryExpr) (string, error) {
 	left, err := g.exprString(e.Left)
 	if err != nil {
 		return "", err
@@ -709,7 +709,7 @@ func (g *CodeGen) binaryExpr(e *BinaryExpr) (string, error) {
 	}
 }
 
-func (g *CodeGen) unaryExpr(e *UnaryExpr) (string, error) {
+func (g *codeGen) unaryExpr(e *UnaryExpr) (string, error) {
 	operand, err := g.exprString(e.Operand)
 	if err != nil {
 		return "", err
@@ -724,7 +724,7 @@ func (g *CodeGen) unaryExpr(e *UnaryExpr) (string, error) {
 	}
 }
 
-func (g *CodeGen) dotExpr(e *DotExpr) (string, error) {
+func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
 	// Stdlib or namespace access without call
 	if ns, ok := e.Object.(*IdentExpr); ok {
 		nsName := ns.Name
@@ -761,7 +761,7 @@ func (g *CodeGen) dotExpr(e *DotExpr) (string, error) {
 	return fmt.Sprintf("interface{}(%s)", obj), nil
 }
 
-func (g *CodeGen) callExpr(e *CallExpr) (string, error) {
+func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	args := make([]string, len(e.Args))
 	for i, a := range e.Args {
 		s, err := g.exprString(a)
@@ -844,7 +844,7 @@ func (g *CodeGen) callExpr(e *CallExpr) (string, error) {
 	return fmt.Sprintf("%s.(%s)(%s)", funcExpr, "func(...interface{}) interface{}", argStr), nil
 }
 
-func (g *CodeGen) indexExpr(e *IndexExpr) (string, error) {
+func (g *codeGen) indexExpr(e *IndexExpr) (string, error) {
 	obj, err := g.exprString(e.Object)
 	if err != nil {
 		return "", err
@@ -856,7 +856,7 @@ func (g *CodeGen) indexExpr(e *IndexExpr) (string, error) {
 	return fmt.Sprintf("func() interface{} { switch o := (%s).(type) { case []interface{}: return o[rugo_to_int(%s)]; case map[interface{}]interface{}: return o[%s]; default: panic(fmt.Sprintf(\"cannot index %%T\", o)) } }()", obj, idx, idx), nil
 }
 
-func (g *CodeGen) arrayLiteral(e *ArrayLiteral) (string, error) {
+func (g *codeGen) arrayLiteral(e *ArrayLiteral) (string, error) {
 	elems := make([]string, len(e.Elements))
 	for i, el := range e.Elements {
 		s, err := g.exprString(el)
@@ -868,7 +868,7 @@ func (g *CodeGen) arrayLiteral(e *ArrayLiteral) (string, error) {
 	return fmt.Sprintf("interface{}([]interface{}{%s})", strings.Join(elems, ", ")), nil
 }
 
-func (g *CodeGen) hashLiteral(e *HashLiteral) (string, error) {
+func (g *codeGen) hashLiteral(e *HashLiteral) (string, error) {
 	pairs := make([]string, len(e.Pairs))
 	for i, p := range e.Pairs {
 		key, err := g.exprString(p.Key)
@@ -884,7 +884,7 @@ func (g *CodeGen) hashLiteral(e *HashLiteral) (string, error) {
 	return fmt.Sprintf("interface{}(map[interface{}]interface{}{%s})", strings.Join(pairs, ", ")), nil
 }
 
-func (g *CodeGen) tryExpr(e *TryExpr) (string, error) {
+func (g *codeGen) tryExpr(e *TryExpr) (string, error) {
 	exprStr, err := g.exprString(e.Expr)
 	if err != nil {
 		return "", err
@@ -944,7 +944,7 @@ func (g *CodeGen) tryExpr(e *TryExpr) (string, error) {
 	return handlerBuf.String(), nil
 }
 
-func (g *CodeGen) spawnExpr(e *SpawnExpr) (string, error) {
+func (g *codeGen) spawnExpr(e *SpawnExpr) (string, error) {
 	// Generate the body code in a temporary buffer.
 	savedSB := g.sb
 	g.sb = strings.Builder{}
@@ -998,7 +998,7 @@ func (g *CodeGen) spawnExpr(e *SpawnExpr) (string, error) {
 	return buf.String(), nil
 }
 
-func (g *CodeGen) parallelExpr(e *ParallelExpr) (string, error) {
+func (g *codeGen) parallelExpr(e *ParallelExpr) (string, error) {
 	// Each statement becomes a goroutine; collect results in an ordered array.
 	n := len(e.Body)
 
@@ -1077,19 +1077,19 @@ func (g *CodeGen) parallelExpr(e *ParallelExpr) (string, error) {
 }
 
 // Scope management
-func (g *CodeGen) pushScope() {
+func (g *codeGen) pushScope() {
 	g.scopes = append(g.scopes, make(map[string]bool))
 }
 
-func (g *CodeGen) popScope() {
+func (g *codeGen) popScope() {
 	g.scopes = g.scopes[:len(g.scopes)-1]
 }
 
-func (g *CodeGen) declareVar(name string) {
+func (g *codeGen) declareVar(name string) {
 	g.scopes[len(g.scopes)-1][name] = true
 }
 
-func (g *CodeGen) isDeclared(name string) bool {
+func (g *codeGen) isDeclared(name string) bool {
 	for i := len(g.scopes) - 1; i >= 0; i-- {
 		if g.scopes[i][name] {
 			return true
@@ -1099,11 +1099,11 @@ func (g *CodeGen) isDeclared(name string) bool {
 }
 
 // Output helpers
-func (g *CodeGen) writeln(s string) {
+func (g *codeGen) writeln(s string) {
 	g.writef("%s\n", s)
 }
 
-func (g *CodeGen) writef(format string, args ...interface{}) {
+func (g *codeGen) writef(format string, args ...interface{}) {
 	line := fmt.Sprintf(format, args...)
 	if strings.HasSuffix(strings.TrimRight(line, "\n"), "\n") || line == "\n" {
 		g.sb.WriteString(line)
@@ -1125,7 +1125,7 @@ func importedModuleNames(imports map[string]bool) []string {
 
 // astUsesSpawn checks if any SpawnExpr exists in the AST.
 func astUsesSpawn(prog *Program) bool {
-	return WalkExpressions(prog, func(e Expr) bool {
+	return walkExpressions(prog, func(e Expr) bool {
 		_, ok := e.(*SpawnExpr)
 		return ok
 	})
@@ -1133,7 +1133,7 @@ func astUsesSpawn(prog *Program) bool {
 
 // astUsesTaskMethods checks if any DotExpr uses .value, .done, or .wait on a non-module target.
 func astUsesTaskMethods(prog *Program) bool {
-	return WalkExpressions(prog, func(e Expr) bool {
+	return walkExpressions(prog, func(e Expr) bool {
 		dot, ok := e.(*DotExpr)
 		if !ok || !taskMethodNames[dot.Field] {
 			return false
@@ -1151,7 +1151,7 @@ var taskMethodNames = map[string]bool{"value": true, "done": true, "wait": true}
 
 // astUsesParallel checks if any ParallelExpr exists in the AST.
 func astUsesParallel(prog *Program) bool {
-	return WalkExpressions(prog, func(e Expr) bool {
+	return walkExpressions(prog, func(e Expr) bool {
 		_, ok := e.(*ParallelExpr)
 		return ok
 	})

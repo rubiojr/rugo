@@ -12,7 +12,7 @@ import (
 // Helper to parse and walk a rugo source string into a typed AST.
 func parseAndWalk(t *testing.T, src string) *Program {
 	t.Helper()
-	cleaned := StripComments(src)
+	cleaned := stripComments(src)
 	if !strings.HasSuffix(cleaned, "\n") {
 		cleaned += "\n"
 	}
@@ -21,7 +21,7 @@ func parseAndWalk(t *testing.T, src string) *Program {
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
-	prog, err := Walk(p, ast)
+	prog, err := walk(p, ast)
 	if err != nil {
 		t.Fatalf("Walk error: %v", err)
 	}

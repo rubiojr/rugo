@@ -1,8 +1,8 @@
 package compiler
 
-// WalkExpressions traverses the entire AST and calls fn on every Expr node.
+// walkExpressions traverses the entire AST and calls fn on every Expr node.
 // Returns true as soon as fn returns true for any expression.
-func WalkExpressions(prog *Program, fn func(Expr) bool) bool {
+func walkExpressions(prog *Program, fn func(Expr) bool) bool {
 	for _, s := range prog.Statements {
 		if walkStmtExprs(s, fn) {
 			return true
