@@ -86,6 +86,37 @@ x += 1          # desugared to: x = x + 1
 arr[0] += 5     # desugared to: arr[0] = arr[0] + 5
 ```
 
+### Constants
+
+Identifiers starting with an uppercase letter are constants (Ruby convention). They can be assigned once but never reassigned — attempting to do so is a compile-time error.
+
+```ruby
+PI = 3.14           # constant (uppercase)
+MAX_RETRIES = 5     # constant
+name = "mutable"    # variable (lowercase) — can be reassigned
+
+PI = 99             # compile error: cannot reassign constant PI
+```
+
+Constants are scoped: a constant defined inside a function is independent from one with the same name in another function or at the top level.
+
+```ruby
+MAX = 100           # top-level constant
+
+def limit()
+  MAX = 50          # separate constant, local to this function
+  return MAX
+end
+```
+
+Hash and array bindings declared as constants protect the binding (you can't point the name at a different value) but their contents can still be mutated:
+
+```ruby
+Config = {"host" => "localhost"}
+Config["port"] = 8080   # OK — mutates contents, not the binding
+Config = {}             # compile error — reassigns the binding
+```
+
 ### Control Flow
 
 Control flow uses Ruby-style `end`-delimited blocks:

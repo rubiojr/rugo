@@ -25,6 +25,7 @@ type codeGen struct {
 	indent          int
 	declared        map[string]bool // track declared variables per scope
 	scopes          []map[string]bool
+	constScopes     []map[string]bool // track constant bindings (uppercase names)
 	inFunc          bool
 	imports         map[string]bool // stdlib modules imported
 	sourceFile      string          // original .rg filename for //line directives
@@ -36,10 +37,11 @@ type codeGen struct {
 // generate produces Go source code from a Program AST.
 func generate(prog *Program, sourceFile string) (string, error) {
 	g := &codeGen{
-		declared:   make(map[string]bool),
-		scopes:     []map[string]bool{make(map[string]bool)},
-		imports:    make(map[string]bool),
-		sourceFile: sourceFile,
+		declared:    make(map[string]bool),
+		scopes:      []map[string]bool{make(map[string]bool)},
+		constScopes: []map[string]bool{make(map[string]bool)},
+		imports:     make(map[string]bool),
+		sourceFile:  sourceFile,
 	}
 	return g.generate(prog)
 }
@@ -401,6 +403,11 @@ func (g *codeGen) writeStmt(s Statement) error {
 }
 
 func (g *codeGen) writeAssign(a *AssignStmt) error {
+	// Uppercase names are constants — reject reassignment
+	if g.isConstant(a.Target) {
+		return fmt.Errorf("line %d: cannot reassign constant %s", a.SourceLine, a.Target)
+	}
+
 	expr, err := g.exprString(a.Value)
 	if err != nil {
 		return err
@@ -410,6 +417,9 @@ func (g *codeGen) writeAssign(a *AssignStmt) error {
 	} else {
 		g.writef("%s := %s\n", a.Target, expr)
 		g.declareVar(a.Target)
+		if len(a.Target) > 0 && a.Target[0] >= 'A' && a.Target[0] <= 'Z' {
+			g.declareConst(a.Target)
+		}
 	}
 	// Suppress "declared but not used" by referencing with _
 	g.writef("_ = %s\n", a.Target)
@@ -1101,10 +1111,12 @@ func (g *codeGen) parallelExpr(e *ParallelExpr) (string, error) {
 // Scope management
 func (g *codeGen) pushScope() {
 	g.scopes = append(g.scopes, make(map[string]bool))
+	g.constScopes = append(g.constScopes, make(map[string]bool))
 }
 
 func (g *codeGen) popScope() {
 	g.scopes = g.scopes[:len(g.scopes)-1]
+	g.constScopes = g.constScopes[:len(g.constScopes)-1]
 }
 
 func (g *codeGen) declareVar(name string) {
@@ -1114,6 +1126,19 @@ func (g *codeGen) declareVar(name string) {
 func (g *codeGen) isDeclared(name string) bool {
 	for i := len(g.scopes) - 1; i >= 0; i-- {
 		if g.scopes[i][name] {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *codeGen) declareConst(name string) {
+	g.constScopes[len(g.constScopes)-1][name] = true
+}
+
+func (g *codeGen) isConstant(name string) bool {
+	for i := len(g.constScopes) - 1; i >= 0; i-- {
+		if g.constScopes[i][name] {
 			return true
 		}
 	}

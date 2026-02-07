@@ -36,5 +36,19 @@ msg += ", World!"
 puts msg
 ```
 
+## Constants
+
+Names starting with an uppercase letter are constants — they can only be assigned once:
+
+```ruby
+PI = 3.14
+MAX_RETRIES = 5
+AppName = "MyApp"
+
+PI = 99   # compile error: cannot reassign constant PI
+```
+
+Lowercase names remain freely reassignable. This follows Ruby convention.
+
 ---
 Next: [Strings](03-strings.md)
