@@ -152,9 +152,9 @@ func isRugoScript(path string) bool {
 }
 
 func testAction(ctx context.Context, cmd *cli.Command) error {
-	target := "."
-	if cmd.NArg() > 0 {
-		target = cmd.Args().First()
+	targets := cmd.Args().Slice()
+	if len(targets) == 0 {
+		targets = []string{"."}
 	}
 
 	// Set NO_COLOR if --no-color flag, non-interactive, or NO_COLOR already set.
@@ -170,26 +170,28 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 
 	// Collect .rt files
 	var files []string
-	info, err := os.Stat(target)
-	if err != nil {
-		return fmt.Errorf("cannot access %s: %w", target, err)
-	}
-	if info.IsDir() {
-		entries, err := os.ReadDir(target)
+	for _, target := range targets {
+		info, err := os.Stat(target)
 		if err != nil {
-			return fmt.Errorf("reading directory %s: %w", target, err)
+			return fmt.Errorf("cannot access %s: %w", target, err)
 		}
-		for _, e := range entries {
-			if !e.IsDir() && strings.HasSuffix(e.Name(), ".rt") {
-				files = append(files, filepath.Join(target, e.Name()))
+		if info.IsDir() {
+			entries, err := os.ReadDir(target)
+			if err != nil {
+				return fmt.Errorf("reading directory %s: %w", target, err)
 			}
+			for _, e := range entries {
+				if !e.IsDir() && strings.HasSuffix(e.Name(), ".rt") {
+					files = append(files, filepath.Join(target, e.Name()))
+				}
+			}
+		} else {
+			files = append(files, target)
 		}
-	} else {
-		files = []string{target}
 	}
 
 	if len(files) == 0 {
-		return fmt.Errorf("no .rt test files found in %s", target)
+		return fmt.Errorf("no .rt test files found")
 	}
 
 	// Single file: run directly (no subprocess overhead)
@@ -244,7 +246,8 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	// Stream results in file order as they complete and accumulate totals
 	anyFailed := false
 	grandTests, grandPassed, grandFailed, grandSkipped := 0, 0, 0, 0
-	summaryRe := regexp.MustCompile(`(\d+) tests, (\d+) passed, (\d+) failed, (\d+) skipped`)
+	ansi := `(?:\x1b\[[0-9;]*m)*`
+	summaryRe := regexp.MustCompile(ansi + `(\d+) tests, ` + ansi + `(\d+) passed` + ansi + `, ` + ansi + `(\d+) failed` + ansi + `, (\d+) skipped`)
 	for i := range results {
 		<-results[i].done
 		out := results[i].output.Bytes()

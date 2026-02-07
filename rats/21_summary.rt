@@ -1,0 +1,19 @@
+# RATS: Multi-file summary aggregation
+import "test"
+
+# Regression: the grand total summary must parse per-file summaries
+# even when they contain ANSI color codes.
+
+test "multi-file summary aggregates test counts"
+  result = test.run("./rugo test rats/fixtures/summary/ 2>&1 | grep 'files,'")
+  test.assert_contains(result["output"], "2 files, 3 tests,")
+  test.assert_contains(result["output"], "3 passed")
+  test.assert_contains(result["output"], "0 failed")
+end
+
+test "multi-file summary aggregates with ANSI colors"
+  result = test.run("RUGO_FORCE_COLOR=1 NO_COLOR= ./rugo test rats/fixtures/summary/ 2>&1 | grep 'files,'")
+  test.assert_contains(result["output"], "2 files, 3 tests,")
+  test.assert_contains(result["output"], "3 passed")
+  test.assert_contains(result["output"], "0 failed")
+end

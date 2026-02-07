@@ -1,0 +1,9 @@
+import "test"
+
+test "summary b passes"
+  test.assert_eq(2, 2)
+end
+
+test "summary b also passes"
+  test.assert_eq(3, 3)
+end
