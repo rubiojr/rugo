@@ -119,13 +119,11 @@ def show_stories(endpoint, label, emoji)
 
   body = http.get(endpoint)
   ids = json.parse(body)
+  ids = ids[0, count]
 
   # Fetch all items concurrently
   tasks = []
   for i, id in ids
-    if i >= count
-      break
-    end
     t = spawn
       fetch_item(id)
     end
