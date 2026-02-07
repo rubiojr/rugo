@@ -201,6 +201,50 @@ name = `whoami`     # captures output, strips trailing newline
 
 These are rewritten to `__capture__("...")` calls.
 
+### Pipe Operator
+
+The pipe operator `|` connects expressions left-to-right, passing the output of the left side to the right side:
+
+- **Shell command on left** → stdout is captured (like backticks)
+- **Function/expression on left** → return value is used
+- **Function on right** → piped value becomes the first argument
+- **Shell command on right** → piped value is fed to stdin
+
+```ruby
+# Shell output → function
+echo "hello world" | puts           # puts receives "hello world"
+
+# Chaining: shell → module → builtin
+echo "hello" | str.upper | puts     # prints "HELLO"
+
+# Expression → function
+len("hello") | puts                 # prints 5
+
+# Value → shell stdin → function
+"hello" | tr a-z A-Z | puts         # prints "HELLO"
+
+# Assignment with pipe
+name = echo "rugo" | str.upper      # name = "RUGO"
+
+# Piped value prepended before existing args
+echo "world" | puts "hello"         # prints "world hello"
+```
+
+**Key rules:**
+
+- When **all** segments are shell commands (e.g. `ls | grep foo`), the line is left as a native shell pipe — backward compatible.
+- Only when at least one segment is a Rugo construct (builtin, user function, module function, or expression) does pipe expansion activate.
+- The `||` logical OR operator is never confused with the pipe `|`.
+- Pipes inside strings (`"a | b"`) are not expanded.
+- The pipe passes **return values**, not stdout output. `puts` and `print` return `nil`, so using them as a **non-final** segment in a pipe chain is a compile-time error:
+
+```ruby
+ls | puts | head        # ✗ compile error — puts returns nil, breaks the chain
+ls | head | puts        # ✓ puts at the end, receives head's captured output
+```
+
+The preprocessor rewrites pipe expressions before parsing. For example, `echo "hello" | str.upper | puts` becomes `puts(str.upper(__capture__("echo \"hello\"")))`.
+
 ### String Interpolation
 
 String interpolation uses `#{expr}` syntax inside double-quoted strings:
@@ -274,11 +318,12 @@ This expansion also tracks a line map so error messages reference the original s
 
 Each line is classified and transformed:
 
-1. **Keywords** (`if`, `def`, `while`, etc.) — left untouched.
-2. **Assignments** (`x = ...`) — left untouched.
-3. **Parenthesized calls** (`func(...)`) — left untouched.
-4. **Known function, paren-free** (`puts "hi"`) — rewritten to `puts("hi")`.
-5. **Unknown identifier** — rewritten to shell fallback: `__shell__("...")`.
+1. **Pipe expansion** — lines with top-level `|` (not `||`) are split into segments. If at least one segment is a Rugo construct (function/builtin/dotted ident/expression), the pipe is expanded into nested calls. All-shell pipes are left for the shell to handle natively.
+2. **Keywords** (`if`, `def`, `while`, etc.) — left untouched.
+3. **Assignments** (`x = ...`) — left untouched.
+4. **Parenthesized calls** (`func(...)`) — left untouched.
+5. **Known function, paren-free** (`puts "hi"`) — rewritten to `puts("hi")`.
+6. **Unknown identifier** — rewritten to shell fallback: `__shell__("...")`.
 
 Function name resolution is *positional* at the top level: a `def` must appear before its paren-free usage. Inside function bodies, all function names are visible (allowing forward references).
 

@@ -133,6 +133,17 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			funcs = topLevelFuncs
 		}
 
+		// Expand pipes before normal line processing
+		var pipeErr error
+		line, pipeErr = expandPipeLine(line, funcs)
+		if pipeErr != nil {
+			origLine := i + 1
+			if tryLineMap != nil && i < len(tryLineMap) {
+				origLine = tryLineMap[i]
+			}
+			return "", nil, fmt.Errorf("line %d: %s", origLine, pipeErr.Error())
+		}
+
 		processed := preprocessLine(line, funcs)
 		// Detect orphan "or" on shell fallback lines
 		if strings.Contains(processed, `__shell__("`) {
@@ -765,4 +776,248 @@ func expandBackticks(src string) (string, error) {
 		sb.WriteByte(ch)
 	}
 	return sb.String(), nil
+}
+
+// rugoVoidBuiltins are builtins that return nil. Using them as non-final
+// segments in a pipe chain is almost certainly a mistake (the downstream
+// segments would receive nil).
+var rugoVoidBuiltins = map[string]bool{
+	"puts": true, "print": true,
+}
+
+// expandPipeLine detects top-level | operators in a line and rewrites them
+// into function calls. A | connects the output of the left side to the input
+// of the right side:
+//   - Shell command on left → captured stdout (like backticks)
+//   - Function/expr on left → return value
+//   - Function on right → piped value becomes first argument
+//   - Shell command on right → piped value fed to stdin
+//
+// If ALL segments are shell commands, the line is returned unchanged so the
+// shell handles native pipes (e.g. `ls | grep foo`).
+// Returns an error if a void-returning builtin (puts, print) appears as a
+// non-final segment.
+func expandPipeLine(line string, funcs map[string]bool) (string, error) {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return line, nil
+	}
+	indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+
+	// Don't expand pipes on keyword-prefixed lines
+	firstTok, _ := scanFirstToken(trimmed)
+	if rugoKeywords[firstTok] {
+		return line, nil
+	}
+
+	// Extract assignment prefix: "x = EXPR" → prefix="x = ", expr="EXPR"
+	prefix, expr := extractPipeAssignPrefix(trimmed)
+
+	// Find top-level pipe positions (not ||, not inside strings/parens/brackets)
+	pipes := findTopLevelPipes(expr)
+	if len(pipes) == 0 {
+		return line, nil
+	}
+
+	// Split into segments
+	segments := splitAtPositions(expr, pipes)
+
+	// If ALL segments are shell commands, return unchanged (shell handles native pipes)
+	hasRugo := false
+	for _, seg := range segments {
+		if isRugoSegment(strings.TrimSpace(seg), funcs) {
+			hasRugo = true
+			break
+		}
+	}
+	if !hasRugo {
+		return line, nil
+	}
+
+	// Validate: void-returning builtins (puts, print) in non-final position
+	// break the chain since they return nil.
+	for i := 0; i < len(segments)-1; i++ {
+		seg := strings.TrimSpace(segments[i])
+		tok, _ := scanFirstToken(seg)
+		if rugoVoidBuiltins[tok] {
+			return "", fmt.Errorf("`%s` returns nil — piping it further discards results; move `%s` to the end of the pipe chain", tok, tok)
+		}
+	}
+
+	// Build the piped expression
+	result := buildPipedExpr(segments, funcs)
+	return indent + prefix + result, nil
+}
+
+// extractPipeAssignPrefix detects simple "ident = EXPR" assignment and returns
+// the prefix and expression parts. Returns ("", fullLine) if no assignment found.
+func extractPipeAssignPrefix(trimmed string) (string, string) {
+	tok, rest := scanFirstToken(trimmed)
+	if tok == "" || rugoKeywords[tok] || !isIdent(tok) {
+		return "", trimmed
+	}
+	restTrimmed := strings.TrimSpace(rest)
+	if len(restTrimmed) > 0 && restTrimmed[0] == '=' &&
+		(len(restTrimmed) < 2 || restTrimmed[1] != '=') {
+		expr := strings.TrimSpace(restTrimmed[1:])
+		return tok + " = ", expr
+	}
+	return "", trimmed
+}
+
+// findTopLevelPipes finds positions of | characters that are pipe operators
+// (not part of ||, not inside strings, parens, or brackets).
+func findTopLevelPipes(s string) []int {
+	var positions []int
+	depth := 0
+	inDouble := false
+	inSingle := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
+			continue
+		}
+		if ch == '(' || ch == '[' || ch == '{' {
+			depth++
+			continue
+		}
+		if ch == ')' || ch == ']' || ch == '}' {
+			depth--
+			continue
+		}
+		if depth == 0 && ch == '|' {
+			// Skip || (logical OR)
+			if i+1 < len(s) && s[i+1] == '|' {
+				i++
+				continue
+			}
+			positions = append(positions, i)
+		}
+	}
+	return positions
+}
+
+// splitAtPositions splits a string at the given positions, excluding the
+// character at each position.
+func splitAtPositions(s string, positions []int) []string {
+	var segments []string
+	prev := 0
+	for _, pos := range positions {
+		segments = append(segments, s[prev:pos])
+		prev = pos + 1
+	}
+	segments = append(segments, s[prev:])
+	return segments
+}
+
+// isRugoSegment returns true if the segment is a Rugo construct (function call,
+// builtin, dotted ident, literal) rather than a shell command.
+func isRugoSegment(seg string, funcs map[string]bool) bool {
+	if seg == "" {
+		return false
+	}
+	firstTok, _ := scanFirstToken(seg)
+	if firstTok == "" {
+		return false
+	}
+	if rugoBuiltins[firstTok] || funcs[firstTok] {
+		return true
+	}
+	if isDottedIdent(firstTok) {
+		return true
+	}
+	// Starts with non-identifier char (string literal, number, paren) → Rugo expr
+	if !isIdent(firstTok) && !isHyphenatedCommand(firstTok) {
+		return true
+	}
+	return false
+}
+
+// isShellPipeSegment returns true if the segment should be treated as a shell
+// command in a pipe chain.
+func isShellPipeSegment(seg string, funcs map[string]bool) bool {
+	return !isRugoSegment(seg, funcs)
+}
+
+// buildPipedExpr builds the final expression from pipe segments.
+// Each segment's output becomes the input of the next.
+func buildPipedExpr(segments []string, funcs map[string]bool) string {
+	first := strings.TrimSpace(segments[0])
+	var acc string
+
+	if isShellPipeSegment(first, funcs) {
+		acc = `__capture__("` + shellEscape(first) + `")`
+	} else {
+		acc = segmentToExpr(first, funcs)
+	}
+
+	for i := 1; i < len(segments); i++ {
+		seg := strings.TrimSpace(segments[i])
+		if isShellPipeSegment(seg, funcs) {
+			acc = `__pipe_shell__("` + shellEscape(seg) + `", ` + acc + `)`
+		} else {
+			acc = segmentWithPipedArg(seg, acc, funcs)
+		}
+	}
+
+	return acc
+}
+
+// segmentToExpr converts a pipe segment to a Rugo expression, adding parens
+// for paren-free calls.
+func segmentToExpr(seg string, funcs map[string]bool) string {
+	firstTok, rest := scanFirstToken(seg)
+	restTrimmed := strings.TrimSpace(rest)
+
+	if rugoBuiltins[firstTok] || funcs[firstTok] || isDottedIdent(firstTok) {
+		if restTrimmed == "" {
+			return firstTok + "()"
+		}
+		if len(restTrimmed) > 0 && restTrimmed[0] == '(' {
+			return seg
+		}
+		return firstTok + "(" + restTrimmed + ")"
+	}
+	return seg
+}
+
+// segmentWithPipedArg wraps a Rugo function/builtin call with the piped value
+// prepended as the first argument.
+func segmentWithPipedArg(seg string, piped string, funcs map[string]bool) string {
+	firstTok, rest := scanFirstToken(seg)
+	restTrimmed := strings.TrimSpace(rest)
+
+	if rugoBuiltins[firstTok] || funcs[firstTok] || isDottedIdent(firstTok) {
+		if restTrimmed == "" {
+			return firstTok + "(" + piped + ")"
+		}
+		if len(restTrimmed) > 0 && restTrimmed[0] == '(' {
+			if restTrimmed == "()" {
+				return firstTok + "(" + piped + ")"
+			}
+			// func(args...) → func(piped, args...)
+			return firstTok + "(" + piped + ", " + restTrimmed[1:]
+		}
+		// Paren-free: func arg1, arg2 → func(piped, arg1, arg2)
+		return firstTok + "(" + piped + ", " + restTrimmed + ")"
+	}
+	// Fallback: treat as function call
+	return firstTok + "(" + piped + ")"
 }

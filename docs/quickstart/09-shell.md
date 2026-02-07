@@ -59,6 +59,39 @@ puts "still running"
 
 See [Error Handling](11-error-handling.md) for the full `try/or` reference.
 
+## Pipe Operator
+
+The `|` pipe operator connects shell commands with Rugo functions. The left side's output flows as input to the right side.
+
+```ruby
+# Shell output to a function
+echo "hello world" | puts
+
+# Chain through module functions
+import "str"
+echo "hello" | str.upper | puts    # HELLO
+
+# Pipe a value to a shell command's stdin
+"hello" | tr a-z A-Z | puts        # HELLO
+
+# Assign piped result
+name = echo "rugo" | str.upper
+puts name                           # RUGO
+```
+
+Shell-to-shell pipes still work as before:
+
+```ruby
+echo "hello" | tr a-z A-Z          # handled by the shell natively
+```
+
+**Note:** The pipe passes **return values**, not stdout. `puts` and `print` return `nil`, so using them in the middle of a chain is a compile error — always put them at the end:
+
+```ruby
+ls | puts | head        # ✗ compile error
+ls | head | puts        # ✓ puts at the end
+```
+
 ## Known Limitations
 
 - **`#` comments:** Rugo strips `#` comments before shell fallback detection, so unquoted `#` in shell commands is treated as a comment. Use quotes: `echo "issue #123"` instead of `echo issue #123`.

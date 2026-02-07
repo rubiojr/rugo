@@ -1,0 +1,91 @@
+import "test"
+
+# --- Happy path tests ---
+
+rats "pipe: shell to function"
+  result = test.run("rugo run rats/fixtures/pipe_shell_to_func.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello from pipe")
+end
+
+rats "pipe: shell output prepended as first arg"
+  result = test.run("rugo run rats/fixtures/pipe_prepend_arg.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "world hello")
+end
+
+rats "pipe: chain shell → module → builtin"
+  result = test.run("rugo run rats/fixtures/pipe_chain.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO WORLD")
+end
+
+rats "pipe: assignment with pipe"
+  result = test.run("rugo run rats/fixtures/pipe_assign.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO")
+end
+
+rats "pipe: expression to function"
+  result = test.run("rugo run rats/fixtures/pipe_expr_to_func.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "5")
+end
+
+rats "pipe: value piped to shell stdin"
+  result = test.run("rugo run rats/fixtures/pipe_func_to_shell.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO WORLD")
+end
+
+rats "pipe: user-defined function in chain"
+  result = test.run("rugo run rats/fixtures/pipe_user_func.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello hello")
+end
+
+rats "pipe: shell-to-shell backward compat"
+  result = test.run("rugo run rats/fixtures/pipe_shell_to_shell.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO WORLD")
+end
+
+rats "pipe: || (logical OR) not confused with |"
+  result = test.run("rugo run rats/fixtures/pipe_or_preserved.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+end
+
+rats "pipe: try/or with piped expression"
+  result = test.run("rugo run rats/fixtures/pipe_try_or.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "caught")
+end
+
+rats "pipe: inside function body"
+  result = test.run("rugo run rats/fixtures/pipe_in_func.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "from function")
+end
+
+rats "pipe: | inside strings not treated as pipe"
+  result = test.run("rugo run rats/fixtures/pipe_in_string.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "a | b")
+  test.assert_contains(result["output"], "one|two|three")
+end
+
+rats "pipe: native binary with pipes"
+  result = test.run("rugo build rats/fixtures/pipe_binary.rg -o /tmp/rugo_pipe_binary")
+  test.assert_eq(result["status"], 0)
+  result = test.run("/tmp/rugo_pipe_binary")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello binary")
+end
+
+rats "pipe: puts/print in mid-chain is compile error"
+  result = test.run("rugo run rats/fixtures/pipe_void_mid_chain.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "puts")
+  test.assert_contains(result["output"], "returns nil")
+end

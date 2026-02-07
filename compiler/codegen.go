@@ -853,6 +853,8 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 			return fmt.Sprintf("rugo_shell(%s)", argStr), nil
 		case "__capture__":
 			return fmt.Sprintf("rugo_capture(%s)", argStr), nil
+		case "__pipe_shell__":
+			return fmt.Sprintf("rugo_pipe_shell(%s)", argStr), nil
 		case "len":
 			return fmt.Sprintf("rugo_len(%s)", argStr), nil
 		case "append":
