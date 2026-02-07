@@ -8,7 +8,7 @@ import "conv"
 puts "==============================="
 puts "  Building rugo"
 puts "==============================="
-`cd /home/rubiojr/git/rubiojr/rugo && go build -o /tmp/rugo_runner .`
+go build -o /tmp/rugo_runner .
 puts "  OK"
 puts ""
 
@@ -23,7 +23,7 @@ puts "==============================="
 puts "  Running Go tests"
 puts "==============================="
 puts ""
-__shell__("cd /home/rubiojr/git/rubiojr/rugo && go test ./... -count=1")
+__shell__("go test ./... -count=1")
 puts ""
 
 # Discover and run examples
