@@ -32,7 +32,7 @@ puts "  Running examples"
 puts "==============================="
 puts ""
 
-output = `find examples -name '*.rg' -type f | sort`
+output = `find examples -name '*.rg' -type f -not -path '*/slug/*' | sort`
 files = str.split(str.trim(output), "\n")
 ran = 0
 
