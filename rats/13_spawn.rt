@@ -115,13 +115,11 @@ end
 # --- Positive: build to native binary ---
 
 test "spawn compiles to native binary"
-  test.run("rm -f /tmp/rugo_test_spawn_bin")
-  result = test.run("./rugo build -o /tmp/rugo_test_spawn_bin rats/fixtures/spawn_value.rg")
+  result = test.run("./rugo build -o " + test.tmpdir() + "/spawn_bin rats/fixtures/spawn_value.rg")
   test.assert_eq(result["status"], 0)
-  result = test.run("/tmp/rugo_test_spawn_bin")
+  result = test.run(test.tmpdir() + "/spawn_bin")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
-  test.run("rm -f /tmp/rugo_test_spawn_bin")
 end
 
 # --- Negative: syntax errors ---

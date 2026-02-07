@@ -11,13 +11,11 @@ end
 
 # Test: rugo build produces a binary
 test "rugo build creates binary"
-  test.run("rm -f /tmp/rugo_test_hello")
-  result = test.run("./rugo build -o /tmp/rugo_test_hello examples/hello.rg")
+  result = test.run("./rugo build -o " + test.tmpdir() + "/hello examples/hello.rg")
   test.assert_eq(result["status"], 0)
-  result = test.run("/tmp/rugo_test_hello")
+  result = test.run(test.tmpdir() + "/hello")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello")
-  test.run("rm -f /tmp/rugo_test_hello")
 end
 
 # Test: rugo emit outputs Go source

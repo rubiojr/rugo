@@ -2,79 +2,70 @@
 import "test"
 
 test "os.exec runs commands"
-  test.run("printf 'import \"os\"\nresult = os.exec(\"echo hello\")\nputs(result)\n' > /tmp/rugo_test_os.rg")
-  result = test.run("./rugo run /tmp/rugo_test_os.rg")
+  test.run("printf 'import \"os\"\nresult = os.exec(\"echo hello\")\nputs(result)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello")
-  test.run("rm -f /tmp/rugo_test_os.rg")
 end
 
 test "os.exit sets exit code"
-  test.run("printf 'import \"os\"\nos.exit(0)\n' > /tmp/rugo_test_exit.rg")
-  result = test.run("./rugo run /tmp/rugo_test_exit.rg")
+  test.run("printf 'import \"os\"\nos.exit(0)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f /tmp/rugo_test_exit.rg")
 end
 
 test "conv.to_i converts string to int"
-  test.run("printf 'import \"conv\"\nx = conv.to_i(\"42\")\nputs(x + 1)\n' > /tmp/rugo_test_conv.rg")
-  result = test.run("./rugo run /tmp/rugo_test_conv.rg")
+  test.run("printf 'import \"conv\"\nx = conv.to_i(\"42\")\nputs(x + 1)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "43")
-  test.run("rm -f /tmp/rugo_test_conv.rg")
 end
 
 test "conv.to_s converts int to string"
-  test.run("printf 'import \"conv\"\nx = conv.to_s(42)\nputs(x)\n' > /tmp/rugo_test_tos.rg")
-  result = test.run("./rugo run /tmp/rugo_test_tos.rg")
+  test.run("printf 'import \"conv\"\nx = conv.to_s(42)\nputs(x)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
-  test.run("rm -f /tmp/rugo_test_tos.rg")
 end
 
 test "str.contains works"
-  test.run("printf 'import \"str\"\nputs(str.contains(\"hello world\", \"world\"))\nputs(str.contains(\"hello\", \"xyz\"))\n' > /tmp/rugo_test_strmod.rg")
-  result = test.run("./rugo run /tmp/rugo_test_strmod.rg")
+  test.run("printf 'import \"str\"\nputs(str.contains(\"hello world\", \"world\"))\nputs(str.contains(\"hello\", \"xyz\"))\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "true")
   test.assert_eq(lines[1], "false")
-  test.run("rm -f /tmp/rugo_test_strmod.rg")
 end
 
 test "str.split works"
-  test.run("printf 'import \"str\"\narr = str.split(\"a,b,c\", \",\")\nputs(arr[0])\nputs(arr[1])\nputs(arr[2])\nputs(len(arr))\n' > /tmp/rugo_test_split.rg")
-  result = test.run("./rugo run /tmp/rugo_test_split.rg")
+  test.run("printf 'import \"str\"\narr = str.split(\"a,b,c\", \",\")\nputs(arr[0])\nputs(arr[1])\nputs(arr[2])\nputs(len(arr))\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "a")
   test.assert_eq(lines[1], "b")
   test.assert_eq(lines[2], "c")
   test.assert_eq(lines[3], "3")
-  test.run("rm -f /tmp/rugo_test_split.rg")
 end
 
 test "str.trim works"
-  test.run("printf 'import \"str\"\nputs(str.trim(\"  hello  \"))\n' > /tmp/rugo_test_trim.rg")
-  result = test.run("./rugo run /tmp/rugo_test_trim.rg")
+  test.run("printf 'import \"str\"\nputs(str.trim(\"  hello  \"))\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
-  test.run("rm -f /tmp/rugo_test_trim.rg")
 end
 
 test "str.upper and str.lower"
-  test.run("printf 'import \"str\"\nputs(str.upper(\"hello\"))\nputs(str.lower(\"WORLD\"))\n' > /tmp/rugo_test_case.rg")
-  result = test.run("./rugo run /tmp/rugo_test_case.rg")
+  test.run("printf 'import \"str\"\nputs(str.upper(\"hello\"))\nputs(str.lower(\"WORLD\"))\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "HELLO")
   test.assert_eq(lines[1], "world")
-  test.run("rm -f /tmp/rugo_test_case.rg")
 end
 
 test "unknown module import fails"
-  test.run("printf 'import \"nonexistent\"\n' > /tmp/rugo_test_badmod.rg")
-  result = test.run("./rugo run /tmp/rugo_test_badmod.rg")
+  test.run("printf 'import \"nonexistent\"\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_neq(result["status"], 0)
-  test.run("rm -f /tmp/rugo_test_badmod.rg")
 end

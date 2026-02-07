@@ -23,7 +23,7 @@ import (
 	"golang.org/x/term"
 )
 
-var version = "v0.1.3"
+var version = "v0.1.4"
 
 func main() {
 	cmd := &cli.Command{

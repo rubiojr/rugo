@@ -15,6 +15,7 @@ func init() {
 		Type: "Test",
 		Funcs: []modules.FuncDef{
 			{Name: "run", Args: []modules.ArgType{modules.String}},
+			{Name: "tmpdir", Args: []modules.ArgType{}},
 			{Name: "assert_eq", Args: []modules.ArgType{modules.Any, modules.Any}},
 			{Name: "assert_neq", Args: []modules.ArgType{modules.Any, modules.Any}},
 			{Name: "assert_true", Args: []modules.ArgType{modules.Any}},

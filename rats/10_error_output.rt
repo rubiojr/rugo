@@ -45,13 +45,11 @@ test "successful scripts have clean output"
 end
 
 test "built binary shows script line in errors"
-  test.run("rm -f /tmp/rugo_test_errbin")
-  result = test.run("./rugo build -o /tmp/rugo_test_errbin rats/fixtures/error_index.rg")
+  result = test.run("./rugo build -o " + test.tmpdir() + "/errbin rats/fixtures/error_index.rg")
   test.assert_eq(result["status"], 0)
-  result = test.run("/tmp/rugo_test_errbin")
+  result = test.run(test.tmpdir() + "/errbin")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error:")
   test.assert_contains(result["output"], "error_index.rg:2")
   test.assert_false(str.contains(result["output"], "goroutine"))
-  test.run("rm -f /tmp/rugo_test_errbin")
 end

@@ -256,7 +256,7 @@ func (g *CodeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, se
 	if teardown != nil {
 		teardownArg = "rugofn_teardown"
 	}
-	g.writef("}, %s, %s)\n", setupArg, teardownArg)
+	g.writef("}, %s, %s, _test)\n", setupArg, teardownArg)
 
 	g.popScope()
 	g.indent--

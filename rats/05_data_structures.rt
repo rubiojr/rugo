@@ -2,34 +2,31 @@
 import "test"
 
 test "array creation and access"
-  test.run("printf 'arr = [1, 2, 3]\nputs(arr[0])\nputs(arr[2])\nputs(len(arr))\n' > /tmp/rugo_test_arr.rg")
-  result = test.run("./rugo run /tmp/rugo_test_arr.rg")
+  test.run("printf 'arr = [1, 2, 3]\nputs(arr[0])\nputs(arr[2])\nputs(len(arr))\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "1")
   test.assert_eq(lines[1], "3")
   test.assert_eq(lines[2], "3")
-  test.run("rm -f /tmp/rugo_test_arr.rg")
 end
 
 test "array append"
-  test.run("printf 'arr = [1, 2]\narr = append(arr, 3)\nputs(len(arr))\nputs(arr[2])\n' > /tmp/rugo_test_append.rg")
-  result = test.run("./rugo run /tmp/rugo_test_append.rg")
+  test.run("printf 'arr = [1, 2]\narr = append(arr, 3)\nputs(len(arr))\nputs(arr[2])\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "3")
   test.assert_eq(lines[1], "3")
-  test.run("rm -f /tmp/rugo_test_append.rg")
 end
 
 test "hash creation and access"
-  test.run("printf 'h = {\"a\" => 1, \"b\" => 2}\nputs(h[\"a\"])\nputs(h[\"b\"])\n' > /tmp/rugo_test_hash.rg")
-  result = test.run("./rugo run /tmp/rugo_test_hash.rg")
+  test.run("printf 'h = {\"a\" => 1, \"b\" => 2}\nputs(h[\"a\"])\nputs(h[\"b\"])\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "1")
   test.assert_eq(lines[1], "2")
-  test.run("rm -f /tmp/rugo_test_hash.rg")
 end
 
 test "arrays and hashes example"

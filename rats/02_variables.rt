@@ -2,79 +2,71 @@
 import "test"
 
 test "variables and arithmetic"
-  test.run("printf 'x = 10\ny = 20\nputs(x + y)\n' > /tmp/rugo_test_vars.rg")
-  result = test.run("./rugo run /tmp/rugo_test_vars.rg")
+  test.run("printf 'x = 10\ny = 20\nputs(x + y)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "30")
-  test.run("rm -f /tmp/rugo_test_vars.rg")
 end
 
 test "string concatenation"
-  test.run("printf 'name = \"world\"\nputs(\"hello \" + name)\n' > /tmp/rugo_test_str.rg")
-  result = test.run("./rugo run /tmp/rugo_test_str.rg")
+  test.run("printf 'name = \"world\"\nputs(\"hello \" + name)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello world")
-  test.run("rm -f /tmp/rugo_test_str.rg")
 end
 
 test "boolean values"
-  test.run("printf 'puts(true)\nputs(false)\n' > /tmp/rugo_test_bool.rg")
-  result = test.run("./rugo run /tmp/rugo_test_bool.rg")
+  test.run("printf 'puts(true)\nputs(false)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "true")
   test.assert_eq(lines[1], "false")
-  test.run("rm -f /tmp/rugo_test_bool.rg")
 end
 
 test "nil value"
-  test.run("printf 'x = nil\nputs(x)\n' > /tmp/rugo_test_nil.rg")
-  result = test.run("./rugo run /tmp/rugo_test_nil.rg")
+  test.run("printf 'x = nil\nputs(x)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "<nil>")
-  test.run("rm -f /tmp/rugo_test_nil.rg")
 end
 
 test "string interpolation"
-  test.run("printf 'name = \"rugo\"\nputs(\"hello \" + name)\n' > /tmp/rugo_test_interp.rg")
-  result = test.run("./rugo run /tmp/rugo_test_interp.rg")
+  test.run("printf 'name = \"rugo\"\nputs(\"hello \" + name)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello rugo")
-  test.run("rm -f /tmp/rugo_test_interp.rg")
 end
 
 test "arithmetic operations"
-  test.run("printf 'puts(2 + 3)\nputs(10 - 4)\nputs(3 * 7)\nputs(15 / 3)\n' > /tmp/rugo_test_arith.rg")
-  result = test.run("./rugo run /tmp/rugo_test_arith.rg")
+  test.run("printf 'puts(2 + 3)\nputs(10 - 4)\nputs(3 * 7)\nputs(15 / 3)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "5")
   test.assert_eq(lines[1], "6")
   test.assert_eq(lines[2], "21")
   test.assert_eq(lines[3], "5")
-  test.run("rm -f /tmp/rugo_test_arith.rg")
 end
 
 test "comparison operators"
-  test.run("printf 'puts(1 == 1)\nputs(1 != 2)\nputs(3 > 2)\nputs(2 < 3)\n' > /tmp/rugo_test_cmp.rg")
-  result = test.run("./rugo run /tmp/rugo_test_cmp.rg")
+  test.run("printf 'puts(1 == 1)\nputs(1 != 2)\nputs(3 > 2)\nputs(2 < 3)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "true")
   test.assert_eq(lines[1], "true")
   test.assert_eq(lines[2], "true")
   test.assert_eq(lines[3], "true")
-  test.run("rm -f /tmp/rugo_test_cmp.rg")
 end
 
 test "logical operators"
-  test.run("printf 'puts(true && true)\nputs(true && false)\nputs(false || true)\nputs(false || false)\n' > /tmp/rugo_test_logic.rg")
-  result = test.run("./rugo run /tmp/rugo_test_logic.rg")
+  test.run("printf 'puts(true && true)\nputs(true && false)\nputs(false || true)\nputs(false || false)\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "true")
   test.assert_eq(lines[1], "false")
   test.assert_eq(lines[2], "true")
   test.assert_eq(lines[3], "false")
-  test.run("rm -f /tmp/rugo_test_logic.rg")
 end

@@ -36,8 +36,7 @@ test "NO_COLOR disables ANSI codes"
 end
 
 test "color module compiles to native binary"
-  test.run("./rugo build -o /tmp/rugo_color_test rats/fixtures/color_basic.rg")
-  result = test.run("NO_COLOR= /tmp/rugo_color_test | grep -cP '\\x1b\\[31mhello\\x1b\\[0m'")
+  test.run("./rugo build -o " + test.tmpdir() + "/color_test rats/fixtures/color_basic.rg")
+  result = test.run("NO_COLOR= " + test.tmpdir() + "/color_test | grep -cP '\\x1b\\[31mhello\\x1b\\[0m'")
   test.assert_eq(result["output"], "1")
-  test.run("rm -f /tmp/rugo_color_test")
 end

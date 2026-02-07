@@ -56,9 +56,8 @@ test "octal escape in emit output produces valid Go"
 end
 
 test "escape sequences compile to native binary"
-  test.run("./rugo build -o /tmp/rugo_escape_test rats/fixtures/escape_hex_ascii.rg")
-  result = test.run("/tmp/rugo_escape_test")
+  test.run("./rugo build -o " + test.tmpdir() + "/escape_test rats/fixtures/escape_hex_ascii.rg")
+  result = test.run(test.tmpdir() + "/escape_test")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello")
-  test.run("rm -f /tmp/rugo_escape_test")
 end

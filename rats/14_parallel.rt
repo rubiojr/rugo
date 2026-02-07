@@ -65,16 +65,14 @@ end
 # --- Positive: build to binary ---
 
 test "parallel compiles to native binary"
-  test.run("rm -f /tmp/rugo_test_par_bin")
-  result = test.run("./rugo build -o /tmp/rugo_test_par_bin rats/fixtures/parallel_basic.rg")
+  result = test.run("./rugo build -o " + test.tmpdir() + "/par_bin rats/fixtures/parallel_basic.rg")
   test.assert_eq(result["status"], 0)
-  result = test.run("/tmp/rugo_test_par_bin")
+  result = test.run(test.tmpdir() + "/par_bin")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "10")
   test.assert_eq(lines[1], "20")
   test.assert_eq(lines[2], "30")
-  test.run("rm -f /tmp/rugo_test_par_bin")
 end
 
 # --- Negative: syntax errors ---

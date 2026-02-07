@@ -12,7 +12,13 @@ import (
 type rugoTestSkip string
 type rugoTestFail string
 
-type Test struct{}
+type Test struct {
+	TmpDir string
+}
+
+func (t *Test) Tmpdir() interface{} {
+	return t.TmpDir
+}
 
 // Run executes a command and returns a hash with status, output, and lines.
 func (*Test) Run(command string) interface{} {
@@ -104,7 +110,7 @@ type rugoTestCase struct {
 }
 
 // rugo_test_runner executes tests and produces TAP output with optional color.
-func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}) {
+func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}, testInstance *Test) {
 	colorOK := "\033[32m"
 	colorFail := "\033[31m"
 	colorSkip := "\033[33m"
@@ -126,6 +132,15 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}) 
 	for i, t := range tests {
 		testNum := i + 1
 		totalTests++
+
+		// Create per-test temp directory
+		tmpDir, tmpErr := os.MkdirTemp("", "rats-*")
+		if tmpErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to create temp dir: %v\n", tmpErr)
+			os.Exit(1)
+		}
+		testInstance.TmpDir = tmpDir
+
 		if setup != nil {
 			setup()
 		}
@@ -133,6 +148,11 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}) 
 		if teardown != nil {
 			teardown()
 		}
+
+		// Cleanup per-test temp directory
+		os.RemoveAll(tmpDir)
+		testInstance.TmpDir = ""
+
 		if skipped {
 			fmt.Printf("%sok%s %d - %s # SKIP %s\n", colorSkip, colorReset, testNum, t.Name, skipReason)
 			totalSkipped++

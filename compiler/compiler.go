@@ -96,6 +96,7 @@ func (c *Compiler) Run(filename string, extraArgs ...string) error {
 	cmd.Stdin = os.Stdin
 	if err := cmd.Run(); err != nil {
 		if exitErr, ok := err.(*exec.ExitError); ok {
+			os.RemoveAll(tmpDir)
 			os.Exit(exitErr.ExitCode())
 		}
 		return err
