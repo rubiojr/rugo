@@ -1,6 +1,11 @@
-//go:build ignore
-
 package testmod
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+)
 
 // --- test module ---
 

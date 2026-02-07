@@ -1,6 +1,11 @@
-//go:build ignore
-
 package osmod
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"strings"
+)
 
 // --- os module ---
 

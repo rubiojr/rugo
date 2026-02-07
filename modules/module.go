@@ -43,6 +43,11 @@ type Module struct {
 	GoImports []string
 	// Runtime is the Go source for the struct type and its methods (from embedded runtime.go).
 	Runtime string
+	// DispatchEntry, when set, names the module function that triggers dispatch.
+	// The compiler generates a typed map (rugo_<mod>_dispatch) mapping user-defined
+	// function names to their Go implementations, which the module's runtime uses
+	// to route commands to handlers.
+	DispatchEntry string
 }
 
 var registry = make(map[string]*Module)
@@ -88,16 +93,31 @@ func Names() []string {
 	return names
 }
 
-// CleanRuntime strips //go:build directives and the package declaration
-// from embedded Go source so it can be emitted into a generated program.
+// CleanRuntime strips //go:build directives, the package declaration, and
+// import blocks from Go source so it can be emitted into a generated program.
 func CleanRuntime(src string) string {
 	lines := strings.Split(src, "\n")
 	var result []string
+	inImport := false
 	started := false
 	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+
+		// Skip import block
+		if !started && trimmed == "import (" {
+			inImport = true
+			continue
+		}
+		if inImport {
+			if trimmed == ")" {
+				inImport = false
+			}
+			continue
+		}
+
 		if !started {
-			trimmed := strings.TrimSpace(line)
-			if trimmed == "" || strings.HasPrefix(trimmed, "//go:build") || strings.HasPrefix(trimmed, "package ") {
+			// Skip leading blanks, build tags, package decl, single-line imports
+			if trimmed == "" || strings.HasPrefix(trimmed, "//go:build") || strings.HasPrefix(trimmed, "package ") || strings.HasPrefix(trimmed, "import ") {
 				continue
 			}
 			started = true

@@ -1,6 +1,9 @@
-//go:build ignore
-
 package convmod
+
+import (
+	"fmt"
+	"strconv"
+)
 
 // --- conv module ---
 

@@ -131,6 +131,9 @@ func (g *CodeGen) generate(prog *Program) (string, error) {
 		g.writeln("")
 	}
 
+	// Dispatch maps for modules that declare DispatchEntry
+	g.writeDispatchMaps(funcs)
+
 	if len(tests) > 0 {
 		return g.generateTestHarness(tests, topStmts, setupFunc, teardownFunc)
 	}
@@ -281,6 +284,29 @@ func (g *CodeGen) writeRuntime() {
 
 func (g *CodeGen) writeSpawnRuntime() {
 	g.sb.WriteString(runtimeSpawn)
+}
+
+// writeDispatchMaps generates typed dispatch maps for modules that declare DispatchEntry.
+// Each map maps user-defined function names to their Go implementations.
+// Only non-namespaced functions with exactly 1 parameter are included (handler convention).
+func (g *CodeGen) writeDispatchMaps(funcs []*FuncDef) {
+	for _, name := range importedModuleNames(g.imports) {
+		m, ok := modules.Get(name)
+		if !ok || m.DispatchEntry == "" {
+			continue
+		}
+		g.writef("var rugo_%s_dispatch = map[string]func(interface{}) interface{}{\n", m.Name)
+		g.indent++
+		for _, f := range funcs {
+			if f.Namespace != "" || len(f.Params) != 1 {
+				continue
+			}
+			g.writef("%q: rugofn_%s,\n", f.Name, f.Name)
+		}
+		g.indent--
+		g.writeln("}")
+		g.writeln("")
+	}
 }
 
 func (g *CodeGen) writeFunc(f *FuncDef) error {

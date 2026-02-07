@@ -1,6 +1,11 @@
-//go:build ignore
-
 package httpmod
+
+import (
+	"fmt"
+	"io"
+	"net/http"
+	"strings"
+)
 
 // --- http module ---
 

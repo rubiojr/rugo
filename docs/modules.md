@@ -11,6 +11,7 @@ body = http.get("https://example.com")
 
 | Module | Description |
 |--------|-------------|
+| [cli](modules/cli.md) | CLI app builder with commands, flags, and dispatch |
 | [http](modules/http.md) | HTTP client |
 | [os](modules/os.md) | Shell execution and process control |
 | [conv](modules/conv.md) | Type conversions |

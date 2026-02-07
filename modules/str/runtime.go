@@ -1,6 +1,6 @@
-//go:build ignore
-
 package strmod
+
+import "strings"
 
 // --- str module ---
 

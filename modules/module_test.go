@@ -112,6 +112,24 @@ func TestCleanRuntime(t *testing.T) {
 			want:    "func a() {}\n\n\nfunc b() {}",
 			notWant: "//go:build",
 		},
+		{
+			name:    "strips import block",
+			input:   "package foo\n\nimport (\n\t\"fmt\"\n\t\"os\"\n)\n\nfunc bar() {}\n",
+			want:    "func bar() {}",
+			notWant: "import",
+		},
+		{
+			name:    "strips single-line import",
+			input:   "package foo\n\nimport \"fmt\"\n\nfunc bar() {}\n",
+			want:    "func bar() {}",
+			notWant: "import",
+		},
+		{
+			name:    "strips package + imports + build tag together",
+			input:   "package foo\n\nimport (\n\t\"fmt\"\n\t\"strings\"\n)\n\n// --- module ---\n\ntype Foo struct{}\n",
+			want:    "// --- module ---",
+			notWant: "import",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

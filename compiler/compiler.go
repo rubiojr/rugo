@@ -57,8 +57,8 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename}, nil
 }
 
-// Run compiles and runs a .rg file.
-func (c *Compiler) Run(filename string) error {
+// Run compiles and runs a .rg file, passing extraArgs to the compiled binary.
+func (c *Compiler) Run(filename string, extraArgs ...string) error {
 	result, err := c.Compile(filename)
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (c *Compiler) Run(filename string) error {
 		return fmt.Errorf("compilation failed: %w", err)
 	}
 
-	cmd := exec.Command(binFile)
+	cmd := exec.Command(binFile, extraArgs...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin

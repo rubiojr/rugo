@@ -200,8 +200,18 @@ func preprocessLine(line string, userFuncs map[string]bool) string {
 		return line
 	}
 
-	// If first token is not an identifier, leave alone (e.g. starts with number, string, bracket)
+	// If first token is not an identifier, check for dotted ident (module.func paren-free call)
 	if !isIdent(firstToken) {
+		if isDottedIdent(firstToken) {
+			rt := strings.TrimSpace(rest)
+			if rt == "" {
+				// Bare dotted ident: `cli.run` → `cli.run()`
+				return indent + firstToken + "()"
+			}
+			if rt[0] != '(' && rt[0] != '=' && !isOperatorStart(rt[0]) {
+				return indent + firstToken + "(" + rt + ")"
+			}
+		}
 		return line
 	}
 
@@ -315,6 +325,12 @@ func isIdent(s string) bool {
 		}
 	}
 	return true
+}
+
+// isDottedIdent checks for "ident.ident" format (e.g. "cli.name", "http.get").
+func isDottedIdent(s string) bool {
+	parts := strings.SplitN(s, ".", 2)
+	return len(parts) == 2 && isIdent(parts[0]) && isIdent(parts[1])
 }
 
 func isOperatorStart(ch byte) bool {

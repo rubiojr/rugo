@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/rubiojr/rugo/compiler"
+	_ "github.com/rubiojr/rugo/modules/cli"
 	_ "github.com/rubiojr/rugo/modules/conv"
 	_ "github.com/rubiojr/rugo/modules/http"
 	_ "github.com/rubiojr/rugo/modules/os"
@@ -35,17 +36,18 @@ func main() {
 				arg := cmd.Args().First()
 				if strings.HasSuffix(arg, ".rg") || isRugoScript(arg) {
 					comp := &compiler.Compiler{}
-					return comp.Run(arg)
+					return comp.Run(arg, cmd.Args().Tail()...)
 				}
 			}
 			return cli.DefaultShowRootCommandHelp(cmd)
 		},
 		Commands: []*cli.Command{
 			{
-				Name:      "run",
-				Usage:     "Compile and run a .rg file",
-				ArgsUsage: "<file.rg>",
-				Action:    runAction,
+				Name:            "run",
+				Usage:           "Compile and run a .rg file",
+				ArgsUsage:       "<file.rg> [args...]",
+				SkipFlagParsing: true,
+				Action:          runAction,
 			},
 			{
 				Name:      "build",
@@ -101,10 +103,10 @@ func main() {
 
 func runAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
-		return fmt.Errorf("usage: rugo run <file.rg>")
+		return fmt.Errorf("usage: rugo run <file.rg> [args...]")
 	}
 	comp := &compiler.Compiler{}
-	return comp.Run(cmd.Args().First())
+	return comp.Run(cmd.Args().First(), cmd.Args().Tail()...)
 }
 
 func buildAction(ctx context.Context, cmd *cli.Command) error {

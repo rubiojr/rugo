@@ -10,6 +10,7 @@ directory under `modules/` and self-registers at startup via Go's `init()`.
 | `os`   | `exec`, `exit` | Shell execution and process control |
 | `http` | `get`, `post` | HTTP client |
 | `conv` | `to_i`, `to_f`, `to_s` | Type conversions |
+| `cli`  | `name`, `version`, `about`, `cmd`, `flag`, `bool_flag`, `run`, `parse`, `command`, `get`, `args`, `help` | CLI app builder with commands, flags, and dispatch |
 
 ### Usage in Rugo
 
@@ -31,7 +32,8 @@ puts conv.to_s(42)
 ```
 modules/mymod/
   mymod.go       # Registration
-  runtime.go     # Runtime Go code (//go:build ignore)
+  runtime.go     # Runtime Go code (struct + methods)
+  stubs.go       # Runtime helper stubs (for standalone compilation)
 ```
 
 ### 2. Write the runtime as typed Go code
@@ -39,9 +41,9 @@ modules/mymod/
 `modules/mymod/runtime.go`:
 
 ```go
-//go:build ignore
-
 package mymod
+
+import "fmt"
 
 type MyMod struct{}
 
@@ -59,15 +61,33 @@ validation and type conversion.
 Method names are derived from rugo function names via snake_case → PascalCase
 (`get` → `Get`, `to_s` → `ToS`, `my_func` → `MyFunc`).
 
-The `//go:build ignore` tag excludes this file from compilation — it's only
-embedded as a string. The `package` declaration lets editors provide syntax
-highlighting. Both are stripped by `CleanRuntime` before emission.
+Runtime files are normal Go code — they compile as part of the package and can
+be tested directly. `CleanRuntime` strips the `package`, `import`, and
+`//go:build` lines before embedding into generated programs.
 
 Runtime functions can call base runtime helpers (`rugo_to_string`, `rugo_to_int`,
-`rugo_to_float`, `rugo_to_bool`) and any Go stdlib package from the base import
-set (`fmt`, `os`, `os/exec`, `strings`).
+`rugo_to_float`, `rugo_to_bool`) — these are provided by `stubs.go` for
+standalone compilation and by the Rugo runtime in generated programs.
 
-### 3. Register the module with typed function definitions
+### 3. Add runtime helper stubs (if needed)
+
+If your runtime code calls `rugo_to_string`, `rugo_to_int`, `rugo_to_float`,
+or `rugo_to_bool`, add a `stubs.go` that provides them so the module compiles
+standalone and is testable:
+
+`modules/mymod/stubs.go`:
+
+```go
+package mymod
+
+import "fmt"
+
+func rugo_to_string(v interface{}) string { return fmt.Sprintf("%v", v) }
+```
+
+Only include the helpers your runtime actually uses.
+
+### 4. Register the module with typed function definitions
 
 `modules/mymod/mymod.go`:
 
@@ -102,7 +122,7 @@ names the Go struct. The framework generates a `var _mymod = &MyMod{}`
 instance and a wrapper `rugo_mymod_hello` that validates args, converts
 `args[0]` to `string`, and calls `_mymod.Hello(...)`.
 
-### 4. Wire it up in `main.go`
+### 5. Wire it up in `main.go`
 
 Add a blank import so the module's `init()` runs:
 
@@ -112,7 +132,7 @@ import (
 )
 ```
 
-### 5. Use it in Rugo
+### 6. Use it in Rugo
 
 ```ruby
 import "mymod"
@@ -139,11 +159,12 @@ type FuncDef struct {
 }
 
 type Module struct {
-    Name      string      // Rugo import name (e.g. "os")
-    Type      string      // Go struct type name (e.g. "OS", "HTTP")
-    Funcs     []FuncDef   // Function definitions with typed args
-    GoImports []string    // Additional Go imports (e.g. ["net/http"])
-    Runtime   string      // Struct type + methods from runtime.go
+    Name          string      // Rugo import name (e.g. "os")
+    Type          string      // Go struct type name (e.g. "OS", "HTTP")
+    Funcs         []FuncDef   // Function definitions with typed args
+    GoImports     []string    // Additional Go imports (e.g. ["net/http"])
+    Runtime       string      // Struct type + methods from runtime.go
+    DispatchEntry string      // Module function that triggers dispatch (optional)
 }
 ```
 
@@ -180,8 +201,8 @@ The base set (`fmt`, `os`, `os/exec`, `strings`) is always available.
 
 **Runtime** — Go source containing the struct type definition and its methods,
 embedded from `runtime.go`. Use `//go:embed` and `modules.CleanRuntime()` to
-strip the build tag and package header. Can include `var _ = pkg.Symbol` lines
-to silence unused import warnings.
+strip the package declaration, imports, and build tags before emission. Can
+include `var _ = pkg.Symbol` lines to silence unused import warnings.
 
 ## Registry API
 
@@ -205,11 +226,18 @@ modules/
   module_test.go     # Registry and FullRuntime tests
   os/
     os.go            # Registration (embeds runtime.go)
-    runtime.go       # Go runtime code (//go:build ignore)
+    runtime.go       # Go runtime code (struct + methods)
   http/
     http.go          # Registration (embeds runtime.go)
-    runtime.go       # Go runtime code (//go:build ignore)
+    runtime.go       # Go runtime code (struct + methods)
+    stubs.go         # Runtime helper stubs
   conv/
     conv.go          # Registration (embeds runtime.go)
-    runtime.go       # Go runtime code (//go:build ignore)
+    runtime.go       # Go runtime code (struct + methods)
+    stubs.go         # Runtime helper stubs
+  cli/
+    cli.go           # Registration with DispatchEntry (embeds runtime.go)
+    runtime.go       # CLI builder, parser, help, dispatch runner
+    stubs.go         # Runtime helper stubs + dispatch var
+    cli_test.go      # Unit tests
 ```
