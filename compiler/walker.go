@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/rubiojr/rugo/parser"
@@ -911,10 +912,58 @@ func unquoteString(s string) string {
 	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
 		s = s[1 : len(s)-1]
 	}
-	s = strings.ReplaceAll(s, `\n`, "\n")
-	s = strings.ReplaceAll(s, `\r`, "\r")
-	s = strings.ReplaceAll(s, `\t`, "\t")
-	s = strings.ReplaceAll(s, `\"`, "\"")
-	s = strings.ReplaceAll(s, `\\`, "\\")
-	return s
+	var sb strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' || i+1 >= len(s) {
+			sb.WriteByte(s[i])
+			continue
+		}
+		next := s[i+1]
+		switch {
+		case next == 'n':
+			sb.WriteByte('\n')
+			i++
+		case next == 'r':
+			sb.WriteByte('\r')
+			i++
+		case next == 't':
+			sb.WriteByte('\t')
+			i++
+		case next == '"':
+			sb.WriteByte('"')
+			i++
+		case next == '\\':
+			sb.WriteByte('\\')
+			i++
+		case next == 'x' || next == 'X':
+			// Hex escape: \xHH
+			if i+3 < len(s) {
+				hex := s[i+2 : i+4]
+				val, err := strconv.ParseUint(hex, 16, 8)
+				if err == nil {
+					sb.WriteByte(byte(val))
+					i += 3
+					continue
+				}
+			}
+			sb.WriteByte(s[i])
+		case next >= '0' && next <= '7':
+			// Octal escape: \0 to \377 (up to 3 digits)
+			end := i + 2
+			for end < len(s) && end < i+4 && s[end] >= '0' && s[end] <= '7' {
+				end++
+			}
+			oct := s[i+1 : end]
+			val, err := strconv.ParseUint(oct, 8, 8)
+			if err == nil {
+				sb.WriteByte(byte(val))
+				i = end - 1
+				continue
+			}
+			sb.WriteByte(s[i])
+		default:
+			sb.WriteByte(s[i])
+		}
+	}
+	return sb.String()
 }

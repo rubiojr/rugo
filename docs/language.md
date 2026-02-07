@@ -239,7 +239,7 @@ The preprocessor produces a line map that tracks the correspondence between prep
 
 ## Parser
 
-The parser is generated from an LL(1) grammar defined in `parser/rugo.ebnf` using the [egg](https://github.com/nicholasgasior/egg) parser generator tool:
+The parser is generated from an LL(1) grammar defined in `parser/rugo.ebnf` using the [egg](https://pkg.go.dev/modernc.org/egg) parser generator tool:
 
 ```
 egg -o parser.go -package parser -start Program -type Parser -constprefix Rugo rugo.ebnf

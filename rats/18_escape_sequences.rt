@@ -1,0 +1,64 @@
+# RATS: Test escape sequences in string literals
+import "test"
+
+test "hex escape \\x1b produces ANSI escape"
+  result = test.run("./rugo run rats/fixtures/escape_hex.rg")
+  test.assert_eq(result["status"], 0)
+  # Output should contain the ESC character (0x1b) followed by ANSI codes
+  result = test.run("./rugo run rats/fixtures/escape_hex.rg | cat -v")
+  test.assert_contains(result["output"], "^[[32mgreen^[[0m")
+end
+
+test "octal escape \\033 produces ANSI escape"
+  result = test.run("./rugo run rats/fixtures/escape_octal.rg")
+  test.assert_eq(result["status"], 0)
+  result = test.run("./rugo run rats/fixtures/escape_octal.rg | cat -v")
+  test.assert_contains(result["output"], "^[[31mred^[[0m")
+end
+
+test "hex escapes produce correct ASCII characters"
+  result = test.run("./rugo run rats/fixtures/escape_hex_ascii.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello")
+end
+
+test "octal escapes produce correct ASCII characters"
+  result = test.run("./rugo run rats/fixtures/escape_octal_ascii.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello")
+end
+
+test "hex escapes work with string interpolation"
+  result = test.run("./rugo run rats/fixtures/escape_interpolation.rg | cat -v")
+  test.assert_contains(result["output"], "^[[32mgreen^[[0m")
+end
+
+test "classic escapes still work (\\n \\t)"
+  result = test.run("./rugo run rats/fixtures/escape_classic.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "a\tb\tc")
+  test.assert_eq(lines[1], "line1")
+  test.assert_eq(lines[2], "line2")
+end
+
+test "hex escape in emit output produces valid Go"
+  result = test.run("./rugo emit rats/fixtures/escape_hex.rg | grep -c 'x1b' || true")
+  test.assert_eq(result["status"], 0)
+  # grep -c returns count of matching lines; should be at least 1
+  test.assert_neq(result["output"], "0")
+end
+
+test "octal escape in emit output produces valid Go"
+  result = test.run("./rugo emit rats/fixtures/escape_octal.rg | grep -c 'x1b' || true")
+  test.assert_eq(result["status"], 0)
+  test.assert_neq(result["output"], "0")
+end
+
+test "escape sequences compile to native binary"
+  test.run("./rugo build -o /tmp/rugo_escape_test rats/fixtures/escape_hex_ascii.rg")
+  result = test.run("/tmp/rugo_escape_test")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello")
+  test.run("rm -f /tmp/rugo_escape_test")
+end

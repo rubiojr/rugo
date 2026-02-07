@@ -643,11 +643,27 @@ func (g *CodeGen) compileInterpolatedExpr(exprStr string) (string, error) {
 }
 
 func goEscapeString(s string) string {
-	s = strings.ReplaceAll(s, `\`, `\\`)
-	s = strings.ReplaceAll(s, `"`, `\"`)
-	s = strings.ReplaceAll(s, "\n", `\n`)
-	s = strings.ReplaceAll(s, "\t", `\t`)
-	return s
+	var sb strings.Builder
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		switch {
+		case ch == '\\':
+			sb.WriteString(`\\`)
+		case ch == '"':
+			sb.WriteString(`\"`)
+		case ch == '\n':
+			sb.WriteString(`\n`)
+		case ch == '\r':
+			sb.WriteString(`\r`)
+		case ch == '\t':
+			sb.WriteString(`\t`)
+		case ch < 0x20 || ch == 0x7f:
+			fmt.Fprintf(&sb, `\x%02x`, ch)
+		default:
+			sb.WriteByte(ch)
+		}
+	}
+	return sb.String()
 }
 
 func (g *CodeGen) binaryExpr(e *BinaryExpr) (string, error) {
