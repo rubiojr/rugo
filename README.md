@@ -14,6 +14,8 @@ Will it burn the planet? perhaps, in the meantime, we'll have great companies.
 
 Can we escape this? In a world currently dominated by software, unlikely.
 
+In a future where code will be written by agents, do we even care about languages? maybe not.
+
 > [!WARNING]
 > In case it's not clear enough, Rugo is an agent product.
 > Treat it like a ☢️  experiment, totally subject to break.
