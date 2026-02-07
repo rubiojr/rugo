@@ -1,0 +1,10 @@
+# Fixture: all tests pass, for color output testing
+import "test"
+
+test "passes one"
+  test.assert_eq(1, 1)
+end
+
+test "passes two"
+  test.assert_true(true)
+end

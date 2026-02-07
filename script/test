@@ -1,0 +1,49 @@
+#!/usr/bin/env rugo
+
+# Rugo test runner - runs Go tests and discovers all examples
+import "str"
+import "conv"
+
+# Build rugo first
+puts "==============================="
+puts "  Building rugo"
+puts "==============================="
+`cd /home/rubiojr/git/rubiojr/rugo && go build -o /tmp/rugo_runner .`
+puts "  OK"
+puts ""
+
+def run_example(path)
+  puts "--- example: " + path
+  __shell__("/tmp/rugo_runner run " + path)
+  puts ""
+end
+
+# Go tests
+puts "==============================="
+puts "  Running Go tests"
+puts "==============================="
+puts ""
+__shell__("cd /home/rubiojr/git/rubiojr/rugo && go test ./... -count=1")
+puts ""
+
+# Discover and run examples
+puts "==============================="
+puts "  Running examples"
+puts "==============================="
+puts ""
+
+output = `find examples -name '*.rg' -type f | sort`
+files = str.split(str.trim(output), "\n")
+ran = 0
+
+for file in files
+  run_example(file)
+  ran += 1
+end
+
+# Cleanup
+rm /tmp/rugo_runner
+
+puts "============================================="
+puts "  All done: " + conv.to_s(ran) + " examples ran, " + conv.to_s(len(files)) + " discovered"
+puts "============================================="

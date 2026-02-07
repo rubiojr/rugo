@@ -1,0 +1,134 @@
+# Tests for compile-time and runtime error messages.
+# Ensures errors are clear, point to correct lines, and don't false-positive.
+
+import "test"
+import "str"
+
+# --- Runtime type errors ---
+
+test "cannot iterate over scalar"
+  result = test.run("./rugo run rats/fixtures/err_iterate_scalar.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot iterate over int")
+  test.assert_contains(result["output"], "err_iterate_scalar.rg:2")
+end
+
+test "cannot index-assign to scalar"
+  result = test.run("./rugo run rats/fixtures/err_index_assign_scalar.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot index-assign int")
+end
+
+test "cannot index scalar"
+  result = test.run("./rugo run rats/fixtures/err_index_scalar.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot index int")
+end
+
+test "cannot subtract strings"
+  result = test.run("./rugo run rats/fixtures/err_string_subtract.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot subtract string and string")
+end
+
+test "cannot multiply string by int"
+  result = test.run("./rugo run rats/fixtures/err_string_multiply.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot multiply string and int")
+end
+
+test "cannot add nil and int"
+  result = test.run("./rugo run rats/fixtures/err_nil_add.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot add")
+end
+
+test "integer divide by zero"
+  result = test.run("./rugo run rats/fixtures/err_divide_by_zero.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "integer divide by zero")
+end
+
+test "integer modulo by zero"
+  result = test.run("./rugo run rats/fixtures/err_modulo_zero.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "integer divide by zero")
+end
+
+# --- Builtin function errors ---
+
+test "len with no arguments"
+  result = test.run("./rugo run rats/fixtures/err_len_no_args.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "len requires one argument")
+end
+
+test "len on non-indexable type"
+  result = test.run("./rugo run rats/fixtures/err_len_scalar.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot get length of int")
+end
+
+test "append on non-array"
+  result = test.run("./rugo run rats/fixtures/err_append_non_array.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "first argument to append must be an array")
+end
+
+# --- Compile-time errors ---
+
+test "unknown stdlib module"
+  result = test.run("./rugo run rats/fixtures/err_unknown_module.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unknown stdlib module")
+end
+
+test "missing end keyword"
+  result = test.run("./rugo run rats/fixtures/err_missing_end.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+test "mismatched bracket"
+  result = test.run("./rugo run rats/fixtures/err_mismatched_bracket.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+# --- Orphan or detection ---
+
+test "orphan or without try produces error"
+  result = test.run("./rugo run rats/fixtures/err_orphan_or.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "or")
+  test.assert_contains(result["output"], "try")
+end
+
+test "or inside string literal is not flagged"
+  result = test.run("./rugo run rats/fixtures/ok_or_in_string.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello or world")
+end
+
+test "or as part of a word is not flagged"
+  result = test.run("./rugo run rats/fixtures/ok_or_in_word.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ordering")
+end
+
+# --- Error output format ---
+
+test "runtime errors have no Go stacktrace"
+  result = test.run("./rugo run rats/fixtures/err_divide_by_zero.rg")
+  test.assert_neq(result["status"], 0)
+  lines = result["lines"]
+  for line in lines
+    test.assert_false(str.contains(line, "goroutine"))
+    test.assert_false(str.contains(line, "main.go"))
+  end
+end
+
+test "runtime errors show .rg filename and line"
+  result = test.run("./rugo run rats/fixtures/err_divide_by_zero.rg")
+  test.assert_contains(result["output"], "err_divide_by_zero.rg:1")
+end

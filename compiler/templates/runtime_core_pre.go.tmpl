@@ -1,0 +1,243 @@
+// --- Rugo Runtime ---
+
+type rugoShellError struct {
+	code int
+	cmd  string
+}
+func (e rugoShellError) Error() string {
+	return fmt.Sprintf("shell command failed (exit %d): %s", e.code, e.cmd)
+}
+
+func rugo_to_bool(v interface{}) bool {
+	switch val := v.(type) {
+	case bool:
+		return val
+	case int:
+		return val != 0
+	case float64:
+		return val != 0
+	case string:
+		return val != ""
+	case nil:
+		return false
+	default:
+		return true
+	}
+}
+
+func rugo_to_int(v interface{}) int {
+	switch val := v.(type) {
+	case int:
+		return val
+	case float64:
+		return int(val)
+	case bool:
+		if val { return 1 }
+		return 0
+	default:
+		panic(fmt.Sprintf("cannot convert %T to int", v))
+	}
+}
+
+func rugo_to_float(v interface{}) float64 {
+	switch val := v.(type) {
+	case float64:
+		return val
+	case int:
+		return float64(val)
+	default:
+		panic(fmt.Sprintf("cannot convert %T to float", v))
+	}
+}
+
+func rugo_to_string(v interface{}) string {
+	return fmt.Sprintf("%v", v)
+}
+
+func rugo_add(a, b interface{}) interface{} {
+	switch av := a.(type) {
+	case int:
+		if bv, ok := b.(int); ok { return av + bv }
+		if bv, ok := b.(float64); ok { return float64(av) + bv }
+	case float64:
+		if bv, ok := b.(float64); ok { return av + bv }
+		if bv, ok := b.(int); ok { return av + float64(bv) }
+	case string:
+		return av + rugo_to_string(b)
+	}
+	panic(fmt.Sprintf("cannot add %T and %T", a, b))
+}
+
+func rugo_sub(a, b interface{}) interface{} {
+	switch av := a.(type) {
+	case int:
+		if bv, ok := b.(int); ok { return av - bv }
+		if bv, ok := b.(float64); ok { return float64(av) - bv }
+	case float64:
+		if bv, ok := b.(float64); ok { return av - bv }
+		if bv, ok := b.(int); ok { return av - float64(bv) }
+	}
+	panic(fmt.Sprintf("cannot subtract %T and %T", a, b))
+}
+
+func rugo_mul(a, b interface{}) interface{} {
+	switch av := a.(type) {
+	case int:
+		if bv, ok := b.(int); ok { return av * bv }
+		if bv, ok := b.(float64); ok { return float64(av) * bv }
+	case float64:
+		if bv, ok := b.(float64); ok { return av * bv }
+		if bv, ok := b.(int); ok { return av * float64(bv) }
+	}
+	panic(fmt.Sprintf("cannot multiply %T and %T", a, b))
+}
+
+func rugo_div(a, b interface{}) interface{} {
+	switch av := a.(type) {
+	case int:
+		if bv, ok := b.(int); ok { return av / bv }
+		if bv, ok := b.(float64); ok { return float64(av) / bv }
+	case float64:
+		if bv, ok := b.(float64); ok { return av / bv }
+		if bv, ok := b.(int); ok { return av / float64(bv) }
+	}
+	panic(fmt.Sprintf("cannot divide %T and %T", a, b))
+}
+
+func rugo_mod(a, b interface{}) interface{} {
+	return rugo_to_int(a) % rugo_to_int(b)
+}
+
+func rugo_negate(a interface{}) interface{} {
+	switch av := a.(type) {
+	case int:
+		return -av
+	case float64:
+		return -av
+	}
+	panic(fmt.Sprintf("cannot negate %T", a))
+}
+
+func rugo_not(a interface{}) interface{} {
+	return !rugo_to_bool(a)
+}
+
+func rugo_compare(op string, a, b interface{}) interface{} {
+	switch op {
+	case "==":
+		return a == b
+	case "!=":
+		return a != b
+	}
+	// Numeric comparisons
+	af, bf := rugo_to_float(a), rugo_to_float(b)
+	switch op {
+	case "<":
+		return af < bf
+	case ">":
+		return af > bf
+	case "<=":
+		return af <= bf
+	case ">=":
+		return af >= bf
+	}
+	panic("unknown comparison operator: " + op)
+}
+
+func rugo_puts(args ...interface{}) interface{} {
+	parts := make([]string, len(args))
+	for i, a := range args {
+		parts[i] = rugo_to_string(a)
+	}
+	fmt.Println(strings.Join(parts, " "))
+	return nil
+}
+
+func rugo_print(args ...interface{}) interface{} {
+	parts := make([]string, len(args))
+	for i, a := range args {
+		parts[i] = rugo_to_string(a)
+	}
+	fmt.Print(strings.Join(parts, " "))
+	return nil
+}
+
+func rugo_shell(args ...interface{}) interface{} {
+	if len(args) == 0 { panic("shell requires at least one argument") }
+	cmdStr := rugo_to_string(args[0])
+	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	err := cmd.Run()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			panic(rugoShellError{code: exitErr.ExitCode(), cmd: cmdStr})
+		}
+		panic(fmt.Sprintf("shell failed: %v", err))
+	}
+	return 0
+}
+
+func rugo_capture(args ...interface{}) interface{} {
+	if len(args) == 0 { panic("capture requires at least one argument") }
+	cmdStr := rugo_to_string(args[0])
+	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd.Stderr = os.Stderr
+	out, err := cmd.Output()
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			panic(rugoShellError{code: exitErr.ExitCode(), cmd: cmdStr})
+		}
+		panic(fmt.Sprintf("shell failed: %v", err))
+	}
+	return strings.TrimRight(string(out), "\n")
+}
+
+func rugo_len(args ...interface{}) interface{} {
+	if len(args) == 0 { panic("len requires one argument") }
+	switch v := args[0].(type) {
+	case string:
+		return len(v)
+	case []interface{}:
+		return len(v)
+	case map[interface{}]interface{}:
+		return len(v)
+	}
+	panic(fmt.Sprintf("cannot get length of %T", args[0]))
+}
+
+func rugo_append(args ...interface{}) interface{} {
+	if len(args) < 2 { panic("append requires array and value arguments") }
+	arr, ok := args[0].([]interface{})
+	if !ok { panic("first argument to append must be an array") }
+	return append(arr, args[1])
+}
+
+type rugo_kv struct { Key, Val interface{} }
+
+func rugo_iterable(v interface{}) []rugo_kv {
+	switch c := v.(type) {
+	case []interface{}:
+		r := make([]rugo_kv, len(c))
+		for i, v := range c { r[i] = rugo_kv{interface{}(i), v} }
+		return r
+	case map[interface{}]interface{}:
+		r := make([]rugo_kv, 0, len(c))
+		for k, v := range c { r = append(r, rugo_kv{k, v}) }
+		return r
+	}
+	panic(fmt.Sprintf("cannot iterate over %T", v))
+}
+
+func rugo_index_set(obj, idx, val interface{}) {
+	switch o := obj.(type) {
+	case []interface{}:
+		o[rugo_to_int(idx)] = val
+	case map[interface{}]interface{}:
+		o[idx] = val
+	default:
+		panic(fmt.Sprintf("cannot index-assign %T", obj))
+	}
+}
+

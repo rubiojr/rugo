@@ -1,0 +1,12 @@
+# RATS: Test require (user modules) with namespaces
+import "test"
+
+test "require loads module functions"
+  result = test.run("./rugo run examples/modules/main.rg")
+  test.assert_eq(result["status"], 0)
+end
+
+test "shell fallback runs commands"
+  result = test.run("./rugo run examples/shell_fallback.rg")
+  test.assert_eq(result["status"], 0)
+end

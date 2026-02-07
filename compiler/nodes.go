@@ -1,0 +1,306 @@
+package compiler
+
+// Node is the interface for all AST nodes.
+type Node interface {
+	node()
+}
+
+// Statement is the interface for statement nodes.
+type Statement interface {
+	Node
+	stmt()
+	StmtLine() int
+}
+
+// BaseStmt provides common fields for all statements.
+type BaseStmt struct {
+	SourceLine int // line number in the original .rg source
+}
+
+func (b BaseStmt) StmtLine() int { return b.SourceLine }
+
+// Expr is the interface for expression nodes.
+type Expr interface {
+	Node
+	expr()
+}
+
+// Program is the root node.
+type Program struct {
+	Statements []Statement
+}
+
+func (p *Program) node() {}
+
+// ImportStmt represents import "stdlib_module".
+type ImportStmt struct {
+	BaseStmt
+	Module string
+}
+
+func (i *ImportStmt) node() {}
+func (i *ImportStmt) stmt() {}
+
+// RequireStmt represents require "path" [as "alias"].
+type RequireStmt struct {
+	BaseStmt
+	Path  string
+	Alias string // empty means use filename as namespace
+}
+
+func (r *RequireStmt) node() {}
+func (r *RequireStmt) stmt() {}
+
+// FuncDef represents def name(params) body end.
+type FuncDef struct {
+	BaseStmt
+	Name      string
+	Params    []string
+	Body      []Statement
+	Namespace string // set during require resolution for namespaced functions
+}
+
+func (f *FuncDef) node() {}
+func (f *FuncDef) stmt() {}
+
+// TestDef represents test "name" body end.
+type TestDef struct {
+	BaseStmt
+	Name string
+	Body []Statement
+}
+
+func (t *TestDef) node() {}
+func (t *TestDef) stmt() {}
+
+// IfStmt represents if/elsif/else/end.
+type IfStmt struct {
+	BaseStmt
+	Condition    Expr
+	Body         []Statement
+	ElsifClauses []ElsifClause
+	ElseBody     []Statement
+}
+
+func (i *IfStmt) node() {}
+func (i *IfStmt) stmt() {}
+
+// ElsifClause is one elsif branch.
+type ElsifClause struct {
+	Condition Expr
+	Body      []Statement
+}
+
+// WhileStmt represents while cond body end.
+type WhileStmt struct {
+	BaseStmt
+	Condition Expr
+	Body      []Statement
+}
+
+func (w *WhileStmt) node() {}
+func (w *WhileStmt) stmt() {}
+
+// ForStmt represents for var [, var2] in expr body end.
+type ForStmt struct {
+	BaseStmt
+	Var        string // value variable (or key for hashes)
+	IndexVar   string // optional second variable (index for arrays, value for hashes)
+	Collection Expr
+	Body       []Statement
+}
+
+func (f *ForStmt) node() {}
+func (f *ForStmt) stmt() {}
+
+// BreakStmt represents break.
+type BreakStmt struct{ BaseStmt }
+
+func (b *BreakStmt) node() {}
+func (b *BreakStmt) stmt() {}
+
+// NextStmt represents next (continue).
+type NextStmt struct{ BaseStmt }
+
+func (n *NextStmt) node() {}
+func (n *NextStmt) stmt() {}
+
+// ReturnStmt represents return [expr].
+type ReturnStmt struct {
+	BaseStmt
+	Value Expr // nil if bare return
+}
+
+func (r *ReturnStmt) node() {}
+func (r *ReturnStmt) stmt() {}
+
+// ExprStmt is a statement that is just an expression.
+type ExprStmt struct {
+	BaseStmt
+	Expression Expr
+}
+
+func (e *ExprStmt) node() {}
+func (e *ExprStmt) stmt() {}
+
+// AssignStmt represents target = value.
+type AssignStmt struct {
+	BaseStmt
+	Target string
+	Value  Expr
+}
+
+func (a *AssignStmt) node() {}
+func (a *AssignStmt) stmt() {}
+
+// IndexAssignStmt represents obj[index] = value.
+type IndexAssignStmt struct {
+	BaseStmt
+	Object Expr
+	Index  Expr
+	Value  Expr
+}
+
+func (ia *IndexAssignStmt) node() {}
+func (ia *IndexAssignStmt) stmt() {}
+
+// BinaryExpr represents left op right.
+type BinaryExpr struct {
+	Left  Expr
+	Op    string
+	Right Expr
+}
+
+func (b *BinaryExpr) node() {}
+func (b *BinaryExpr) expr() {}
+
+// UnaryExpr represents op operand.
+type UnaryExpr struct {
+	Op      string
+	Operand Expr
+}
+
+func (u *UnaryExpr) node() {}
+func (u *UnaryExpr) expr() {}
+
+// CallExpr represents func(args...).
+type CallExpr struct {
+	Func Expr
+	Args []Expr
+}
+
+func (c *CallExpr) node() {}
+func (c *CallExpr) expr() {}
+
+// IndexExpr represents obj[index].
+type IndexExpr struct {
+	Object Expr
+	Index  Expr
+}
+
+func (i *IndexExpr) node() {}
+func (i *IndexExpr) expr() {}
+
+// DotExpr represents obj.field (used for namespace.func access).
+type DotExpr struct {
+	Object Expr
+	Field  string
+}
+
+func (d *DotExpr) node() {}
+func (d *DotExpr) expr() {}
+
+// IdentExpr is a variable/function reference.
+type IdentExpr struct {
+	Name string
+}
+
+func (i *IdentExpr) node() {}
+func (i *IdentExpr) expr() {}
+
+// IntLiteral is an integer literal.
+type IntLiteral struct {
+	Value string
+}
+
+func (i *IntLiteral) node() {}
+func (i *IntLiteral) expr() {}
+
+// FloatLiteral is a floating point literal.
+type FloatLiteral struct {
+	Value string
+}
+
+func (f *FloatLiteral) node() {}
+func (f *FloatLiteral) expr() {}
+
+// StringLiteral is a string literal (with quotes stripped).
+type StringLiteral struct {
+	Value string // raw string content including interpolation markers
+}
+
+func (s *StringLiteral) node() {}
+func (s *StringLiteral) expr() {}
+
+// BoolLiteral is true or false.
+type BoolLiteral struct {
+	Value bool
+}
+
+func (b *BoolLiteral) node() {}
+func (b *BoolLiteral) expr() {}
+
+// NilLiteral represents nil.
+type NilLiteral struct{}
+
+func (n *NilLiteral) node() {}
+func (n *NilLiteral) expr() {}
+
+// ArrayLiteral is [elem, ...].
+type ArrayLiteral struct {
+	Elements []Expr
+}
+
+func (a *ArrayLiteral) node() {}
+func (a *ArrayLiteral) expr() {}
+
+// HashLiteral is {key => value, ...}.
+type HashLiteral struct {
+	Pairs []HashPair
+}
+
+func (h *HashLiteral) node() {}
+func (h *HashLiteral) expr() {}
+
+// HashPair is a key => value pair.
+type HashPair struct {
+	Key   Expr
+	Value Expr
+}
+
+// TryExpr represents try expr or err handler end.
+type TryExpr struct {
+	Expr    Expr        // expression to try
+	ErrVar  string      // error variable name
+	Handler []Statement // handler body; last expression is the result
+}
+
+func (t *TryExpr) node() {}
+func (t *TryExpr) expr() {}
+
+// SpawnExpr represents spawn body end (goroutine-backed concurrency).
+type SpawnExpr struct {
+	Body []Statement // last expression is the task result
+}
+
+func (s *SpawnExpr) node() {}
+func (s *SpawnExpr) expr() {}
+
+// ParallelExpr represents parallel body end (fan-out concurrency).
+// Each statement in Body runs in its own goroutine; returns an array of results.
+type ParallelExpr struct {
+	Body []Statement
+}
+
+func (p *ParallelExpr) node() {}
+func (p *ParallelExpr) expr() {}

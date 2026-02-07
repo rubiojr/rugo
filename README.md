@@ -1,0 +1,108 @@
+<p align="center">
+  <img src="images/banner.svg" alt="Rugo — Ruby syntax - Shell power - Go binaries" width="700"/>
+</p>
+
+# Rugo
+
+Ruby syntax - Shell power - Go binaries.
+
+In a world of software aboundance, agents create your favorite languages.
+
+Will they work? maybe.
+
+Will it burn the planet? perhaps, in the meantime, we'll have great companies.
+
+Can we escape this? In a world currently dominated by software, unlikely.
+
+> [!WARNING]
+> In case it's not clear enough, Rugo is an agent product.
+> Treat it like a ☢️  experiment, totally subject to break.
+
+## Features
+
+- Ruby-like syntax
+- Compiles to native binaries — no runtime needed
+- Shell fallback — unknown commands run as shell commands, like Bash
+- Modules with namespaces
+- User modules
+- Error handling
+- Built-in [BATS like](https://bats-core.readthedocs.io) test support with [rats](docs/rats.md)
+- Concurrency
+
+```ruby
+import "http"
+
+# Fetch something from the web
+body = http.get("https://httpbin.org/get")
+puts body
+
+# Shell commands just work
+ls -la | head -5
+
+# Functions
+def greet(name)
+  puts "Hello, #{name}!"
+end
+
+greet "World"
+
+# for..in with string interpolation
+scores = [90, 85, 72]
+for score in scores
+  if score >= 90
+    puts "#{score} → A"
+  else
+    puts "#{score} → B"
+  end
+end
+
+# Hashes and compound assignment
+counts = {}
+words = ["hello", "world", "hello", "hello", "world"]
+for word in words
+  if counts[word]
+    counts[word] += 1
+  else
+    counts[word] = 1
+  end
+end
+for k, v in counts
+  puts "#{k}: #{v}"
+end
+
+# Error handling
+hostname = try `hostname` or "localhost"
+puts "Running on #{hostname}"
+
+# Concurrency with spawn
+task = spawn http.get("https://httpbin.org/get")
+puts task.value
+
+# Parallel execution
+results = parallel
+  http.get("https://httpbin.org/get")
+  http.get("https://httpbin.org/headers")
+end
+puts results[0]
+puts results[1]
+```
+
+## Install
+
+```
+go install github.com/rubiojr/rugo@latest
+```
+
+## Usage
+
+```bash
+rugo run script.rg        # compile and run
+rugo build script.rg      # compile to native binary
+rugo emit script.rg       # print generated Go code
+```
+
+## Documentation
+
+- [Quickstart Guide](docs/quickstart.md)
+- [Modules Reference](docs/modules.md)
+

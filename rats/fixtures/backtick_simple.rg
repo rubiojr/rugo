@@ -1,0 +1,2 @@
+name = `whoami`
+puts name

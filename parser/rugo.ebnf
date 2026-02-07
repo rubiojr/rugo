@@ -1,0 +1,75 @@
+# Rugo Language Grammar (LL(1))
+# A minimal Ruby-inspired language that transpiles to Go.
+
+# Entry point
+Program     = { Statement } .
+
+# Statements
+Statement   = ImportStmt
+            | RequireStmt
+            | FuncDef
+            | TestDef
+            | IfStmt
+            | WhileStmt
+            | ForStmt
+            | BreakStmt
+            | NextStmt
+            | ReturnStmt
+            | AssignOrExpr .
+
+ImportStmt  = "import" str_lit .
+RequireStmt = "require" str_lit [ "as" str_lit ] .
+FuncDef     = "def" ident '(' [ ParamList ] ')' Body "end" .
+TestDef     = "test" str_lit Body "end" .
+ParamList   = ident { ',' ident } .
+Body        = { Statement } .
+IfStmt      = "if" Expr Body { "elsif" Expr Body } [ "else" Body ] "end" .
+WhileStmt   = "while" Expr Body "end" .
+ForStmt     = "for" ident [ ',' ident ] "in" Expr Body "end" .
+BreakStmt   = "break" .
+NextStmt    = "next" .
+ReturnStmt  = "return" [ Expr ] .
+AssignOrExpr = Expr [ '=' Expr ] .
+
+# Expressions (lowest to highest precedence)
+Expr        = OrExpr .
+OrExpr      = AndExpr { "||" AndExpr } .
+AndExpr     = CompExpr { "&&" CompExpr } .
+CompExpr    = AddExpr [ comp_op AddExpr ] .
+AddExpr     = MulExpr { ('+' | '-') MulExpr } .
+MulExpr     = UnaryExpr { ('*' | '/' | '%') UnaryExpr } .
+UnaryExpr   = '!' Postfix | '-' Postfix | Postfix .
+Postfix     = Primary { Suffix } .
+Suffix      = '(' [ ArgList ] ')' | '[' Expr ']' | '.' ident .
+ArgList     = Expr { ',' Expr } .
+
+# Primary expressions
+Primary     = ident
+            | integer
+            | float_lit
+            | str_lit
+            | "true"
+            | "false"
+            | "nil"
+            | ArrayLit
+            | HashLit
+            | TryExpr
+            | SpawnExpr
+            | ParallelExpr
+            | '(' Expr ')' .
+
+TryExpr      = "try" Expr "or" ident Body "end" .
+SpawnExpr    = "spawn" Body "end" .
+ParallelExpr = "parallel" Body "end" .
+
+ArrayLit    = '[' [ Expr { ',' Expr } ] ']' .
+HashLit     = '{' [ HashEntry { ',' HashEntry } ] '}' .
+HashEntry   = Expr "=>" Expr .
+
+# Lexical tokens (lowercase = terminal)
+comp_op     = "==" | "!=" | "<=" | ">=" | '<' | '>' .
+ident       = `[a-zA-Z_][a-zA-Z0-9_]*` .
+integer     = `[0-9]+` .
+float_lit   = `[0-9]+\.[0-9]+` .
+str_lit     = '"' { `[^"\\]` | '\\' `[nrt"\\]` } '"' .
+white_space = ` |\t|\n|\r` .

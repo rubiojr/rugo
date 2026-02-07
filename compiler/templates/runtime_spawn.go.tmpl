@@ -1,0 +1,52 @@
+// --- Rugo Spawn Runtime ---
+
+type rugoTask struct {
+	result interface{}
+	err    string
+	done   chan struct{}
+}
+
+func rugo_task_value(t interface{}) interface{} {
+	task, ok := t.(*rugoTask)
+	if !ok {
+		panic(fmt.Sprintf("cannot call .value on %T — expected a spawn task", t))
+	}
+	<-task.done
+	if task.err != "" {
+		panic(task.err)
+	}
+	return task.result
+}
+
+func rugo_task_done(t interface{}) interface{} {
+	task, ok := t.(*rugoTask)
+	if !ok {
+		panic(fmt.Sprintf("cannot call .done on %T — expected a spawn task", t))
+	}
+	select {
+	case <-task.done:
+		return true
+	default:
+		return false
+	}
+}
+
+func rugo_task_wait(t interface{}, seconds interface{}) interface{} {
+	task, ok := t.(*rugoTask)
+	if !ok {
+		panic(fmt.Sprintf("cannot call .wait on %T — expected a spawn task", t))
+	}
+	secs := rugo_to_int(seconds)
+	select {
+	case <-task.done:
+		if task.err != "" {
+			panic(task.err)
+		}
+		return task.result
+	case <-time.After(time.Duration(secs) * time.Second):
+		panic(fmt.Sprintf("task timed out after %d seconds", secs))
+	}
+}
+
+// --- End Rugo Spawn Runtime ---
+

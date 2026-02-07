@@ -1,0 +1,57 @@
+# Error Handling
+
+Rugo uses `try` / `or` for error handling. Three levels of control.
+
+## Silent Recovery
+
+`try` alone returns `nil` on failure:
+
+```ruby
+result = try `nonexistent_command`
+# result is nil — script continues
+```
+
+Fire and forget:
+
+```ruby
+try `might_fail`
+puts "still running"
+```
+
+## Default Value
+
+`try ... or default` returns a fallback on failure:
+
+```ruby
+hostname = try `hostname` or "localhost"
+puts hostname
+```
+
+```ruby
+import "conv"
+
+port = try conv.to_i("not_a_number") or 8080
+puts port   # 8080
+```
+
+## Error Handler Block
+
+`try ... or err ... end` runs a block on failure. The error message is available as the named variable. The last expression in the block becomes the result.
+
+```ruby
+data = try `cat /missing/file` or err
+  puts "Error: #{err}"
+  "fallback"
+end
+puts data   # fallback
+```
+
+Shell commands work with `try` too:
+
+```ruby
+result = try nonexistent_command or "default"
+puts result   # default
+```
+
+---
+That's it! You now know enough Rugo to build real scripts. See the [examples/](../../examples/) directory for more.

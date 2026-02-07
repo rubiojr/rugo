@@ -1,0 +1,2 @@
+if true
+  puts "hello"

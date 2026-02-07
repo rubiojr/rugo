@@ -1,0 +1,2 @@
+spawn
+  puts "hello"
