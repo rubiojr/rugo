@@ -29,7 +29,7 @@ end
 result = try `might-not-exist`
 
 # Fire and forget — don't care about the result
-try `rm /tmp/old-file`
+try rm /tmp/old-file
 ```
 
 Use this when you don't care about failures — you just want the script to

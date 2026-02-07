@@ -40,7 +40,10 @@ func TestStripComments(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := stripComments(tt.input)
+			result, err := stripComments(tt.input)
+			if err != nil {
+				t.Fatalf("stripComments(%q) unexpected error: %v", tt.input, err)
+			}
 			if result != tt.expect {
 				t.Errorf("stripComments(%q) = %q, want %q", tt.input, result, tt.expect)
 			}
@@ -715,7 +718,10 @@ func TestCompilerAliasedRequire(t *testing.T) {
 func TestPreprocessFullPipeline(t *testing.T) {
 	// Test that a full program with mixed shell/rugo preprocesses correctly
 	src := "x = 42\nputs \"hello\"\nls -la\nif x > 0\necho \"yes\"\nend\n"
-	cleaned := stripComments(src)
+	cleaned, err := stripComments(src)
+	if err != nil {
+		t.Fatalf("stripComments error: %v", err)
+	}
 	userFuncs := scanFuncDefs(cleaned)
 	result, _, _ := preprocess(cleaned, userFuncs)
 	lines := strings.Split(result, "\n")
@@ -915,7 +921,10 @@ func TestCompoundAssignInString(t *testing.T) {
 
 func TestCompoundAssignCompilesToGo(t *testing.T) {
 	src := "x = 10\nx += 5\n"
-	cleaned := stripComments(src)
+	cleaned, err := stripComments(src)
+	if err != nil {
+		t.Fatalf("stripComments error: %v", err)
+	}
 	userFuncs := scanFuncDefs(cleaned)
 	preprocessed, _, _ := preprocess(cleaned, userFuncs)
 	if !strings.Contains(preprocessed, "x = x + 5") {

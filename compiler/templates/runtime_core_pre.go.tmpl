@@ -125,9 +125,31 @@ func rugo_not(a interface{}) interface{} {
 func rugo_compare(op string, a, b interface{}) interface{} {
 	switch op {
 	case "==":
+		// Numeric coercion: 1 == 1.0 should be true
+		if rugo_is_numeric(a) && rugo_is_numeric(b) {
+			return rugo_to_float(a) == rugo_to_float(b)
+		}
 		return a == b
 	case "!=":
+		if rugo_is_numeric(a) && rugo_is_numeric(b) {
+			return rugo_to_float(a) != rugo_to_float(b)
+		}
 		return a != b
+	}
+	// String comparisons (lexicographic)
+	if as, ok := a.(string); ok {
+		if bs, ok := b.(string); ok {
+			switch op {
+			case "<":
+				return as < bs
+			case ">":
+				return as > bs
+			case "<=":
+				return as <= bs
+			case ">=":
+				return as >= bs
+			}
+		}
 	}
 	// Numeric comparisons
 	af, bf := rugo_to_float(a), rugo_to_float(b)
@@ -142,6 +164,14 @@ func rugo_compare(op string, a, b interface{}) interface{} {
 		return af >= bf
 	}
 	panic("unknown comparison operator: " + op)
+}
+
+func rugo_is_numeric(v interface{}) bool {
+	switch v.(type) {
+	case int, float64:
+		return true
+	}
+	return false
 }
 
 func rugo_puts(args ...interface{}) interface{} {

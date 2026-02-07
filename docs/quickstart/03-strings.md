@@ -48,6 +48,20 @@ Raw and double-quoted strings can be concatenated:
 puts 'raw\n' + "escaped\n"  # raw\nescaped<newline>
 ```
 
+## String Comparison
+
+Strings support all comparison operators with lexicographic ordering:
+
+```ruby
+if "apple" < "banana"
+  puts "apple comes first"
+end
+
+if "hello" == "hello"
+  puts "equal"
+end
+```
+
 ## String Module
 
 Import `str` for string utilities:

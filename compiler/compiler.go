@@ -188,7 +188,10 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 	}
 
 	// Strip comments
-	cleaned := stripComments(string(src))
+	cleaned, err := stripComments(string(src))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", filename, err)
+	}
 
 	// Scan for user-defined function names (quick pass for def lines)
 	userFuncs := scanFuncDefs(cleaned)

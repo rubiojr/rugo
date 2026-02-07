@@ -36,13 +36,27 @@ var rugoBuiltins = map[string]bool{
 }
 
 // stripComments removes # comments from source, respecting string boundaries.
-func stripComments(src string) string {
+// Returns an error if an unterminated string literal is found.
+func stripComments(src string) (string, error) {
 	var sb strings.Builder
 	inDouble := false
 	inSingle := false
 	escaped := false
+	stringStartLine := 0
+	lineNum := 1
 	for i := 0; i < len(src); i++ {
 		ch := src[i]
+		if ch == '\n' {
+			// Detect unterminated string: if we're inside a string at a newline,
+			// it's unclosed (Rugo doesn't support multiline strings).
+			if inDouble {
+				return "", fmt.Errorf("line %d: unterminated string literal (opened on line %d)", lineNum, stringStartLine)
+			}
+			if inSingle {
+				return "", fmt.Errorf("line %d: unterminated string literal (opened on line %d)", lineNum, stringStartLine)
+			}
+			lineNum++
+		}
 		if escaped {
 			sb.WriteByte(ch)
 			escaped = false
@@ -54,11 +68,17 @@ func stripComments(src string) string {
 			continue
 		}
 		if ch == '"' && !inSingle {
+			if !inDouble {
+				stringStartLine = lineNum
+			}
 			inDouble = !inDouble
 			sb.WriteByte(ch)
 			continue
 		}
 		if ch == '\'' && !inDouble {
+			if !inSingle {
+				stringStartLine = lineNum
+			}
 			inSingle = !inSingle
 			sb.WriteByte(ch)
 			continue
@@ -69,12 +89,16 @@ func stripComments(src string) string {
 			}
 			if i < len(src) {
 				sb.WriteByte('\n')
+				lineNum++
 			}
 			continue
 		}
 		sb.WriteByte(ch)
 	}
-	return sb.String()
+	if inDouble || inSingle {
+		return "", fmt.Errorf("line %d: unterminated string literal (opened on line %d)", lineNum, stringStartLine)
+	}
+	return sb.String(), nil
 }
 
 // preprocess performs line-level transformations:
@@ -92,7 +116,10 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	src = expandCompoundAssign(src)
 
 	// Expand backtick expressions before try sugar (backticks may appear inside try).
-	src = expandBackticks(src)
+	src, err := expandBackticks(src)
+	if err != nil {
+		return "", nil, err
+	}
 
 	// Expand single-line try forms into block form before line processing.
 	var tryLineMap []int
@@ -732,13 +759,18 @@ func findCompoundOp(s string, op string) int {
 
 // expandBackticks converts `cmd` expressions to __capture__("cmd") calls.
 // Backticks inside string literals are left untouched.
-func expandBackticks(src string) string {
+// Returns an error if an unclosed backtick is found.
+func expandBackticks(src string) (string, error) {
 	var sb strings.Builder
 	inDouble := false
 	inSingle := false
 	escaped := false
+	lineNum := 1
 	for i := 0; i < len(src); i++ {
 		ch := src[i]
+		if ch == '\n' {
+			lineNum++
+		}
 		if escaped {
 			sb.WriteByte(ch)
 			escaped = false
@@ -760,19 +792,21 @@ func expandBackticks(src string) string {
 			continue
 		}
 		if ch == '`' && !inDouble && !inSingle {
+			btLine := lineNum
 			// Find the closing backtick
 			j := i + 1
 			for j < len(src) && src[j] != '`' {
 				j++
 			}
-			if j < len(src) {
-				cmd := src[i+1 : j]
-				sb.WriteString(`__capture__("` + shellEscape(cmd) + `")`)
-				i = j
-				continue
+			if j >= len(src) {
+				return "", fmt.Errorf("line %d: unterminated backtick expression", btLine)
 			}
+			cmd := src[i+1 : j]
+			sb.WriteString(`__capture__("` + shellEscape(cmd) + `")`)
+			i = j
+			continue
 		}
 		sb.WriteByte(ch)
 	}
-	return sb.String()
+	return sb.String(), nil
 }

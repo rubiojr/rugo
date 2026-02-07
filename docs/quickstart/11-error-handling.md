@@ -14,7 +14,7 @@ result = try `nonexistent_command`
 Fire and forget:
 
 ```ruby
-try `might_fail`
+try nonexistent_command
 puts "still running"
 ```
 

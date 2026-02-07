@@ -132,3 +132,17 @@ test "runtime errors show .rg filename and line"
   result = test.run("./rugo run rats/fixtures/err_divide_by_zero.rg")
   test.assert_contains(result["output"], "err_divide_by_zero.rg:1")
 end
+
+# --- Unterminated literals ---
+
+test "unclosed backtick produces clear error"
+  result = test.run("./rugo run rats/fixtures/err_unclosed_backtick.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unterminated backtick")
+end
+
+test "unclosed string produces clear error"
+  result = test.run("./rugo run rats/fixtures/err_unclosed_string.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unterminated string")
+end

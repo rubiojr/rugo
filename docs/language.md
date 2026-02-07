@@ -66,6 +66,10 @@ Arithmetic and comparison operators are dispatched dynamically through runtime h
 
 The `+` operator supports string concatenation: when the left operand is a string, the right operand is automatically coerced to string.
 
+**Comparison semantics:**
+- **Equality** (`==`, `!=`): Numeric coercion applies — `1 == 1.0` is `true`. Non-numeric types use strict equality.
+- **Ordering** (`<`, `>`, `<=`, `>=`): Supports both numeric and string operands. Strings are compared lexicographically. Comparing incompatible types (e.g., string vs int) panics.
+
 ### Variables and Assignment
 
 Variables are implicitly declared on first assignment. The codegen tracks declared variables per scope and emits `:=` for first assignment and `=` for subsequent ones. There are no explicit type annotations.
