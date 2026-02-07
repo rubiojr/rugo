@@ -1,17 +1,8 @@
-#!/usr/bin/env rugo
+#!/usr/bin/env bash
+set -e
 
-# RATS runner - builds rugo and runs the RATS test suite
-import "os"
+echo "Building rugo..."
+go build -o ./rugo .
 
-puts "==============================="
-puts "  Building rugo"
-puts "==============================="
-os.exec("go build -o ./rugo .")
-puts "  OK"
-puts ""
-
-puts "==============================="
-puts "  Running RATS suite"
-puts "==============================="
-puts ""
-__shell__("./rugo test --jobs 4 rats/")
+echo "Running RATS suite..."
+./rugo test --jobs 4 rats/

@@ -4,7 +4,8 @@ import "str"
 test "backtick captures command output"
   result = test.run("./rugo run rats/fixtures/backtick_simple.rg")
   test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "rubiojr")
+  expected = str.trim(`whoami`)
+  test.assert_contains(result["output"], expected)
 end
 
 test "backtick works with pipes"
