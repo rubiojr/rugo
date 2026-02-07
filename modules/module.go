@@ -41,6 +41,11 @@ type Module struct {
 	Funcs []FuncDef
 	// GoImports lists additional Go imports this module needs beyond the base set.
 	GoImports []string
+	// GoDeps lists Go module dependencies (require lines for go.mod) that the
+	// generated program needs. Each entry should be "module version", e.g.
+	// "github.com/gosimple/slug v1.15.0". Only needed for external modules
+	// that depend on third-party Go packages.
+	GoDeps []string
 	// Runtime is the Go source for the struct type and its methods (from embedded runtime.go).
 	Runtime string
 	// DispatchEntry, when set, names the module function that triggers dispatch.
@@ -91,6 +96,26 @@ func Names() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// CollectGoDeps returns all GoDeps from the named modules (deduped, sorted).
+func CollectGoDeps(moduleNames []string) []string {
+	seen := make(map[string]bool)
+	var deps []string
+	for _, name := range moduleNames {
+		m, ok := registry[name]
+		if !ok {
+			continue
+		}
+		for _, dep := range m.GoDeps {
+			if !seen[dep] {
+				seen[dep] = true
+				deps = append(deps, dep)
+			}
+		}
+	}
+	sort.Strings(deps)
+	return deps
 }
 
 // CleanRuntime strips //go:build directives, the package declaration, and

@@ -57,6 +57,27 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename}, nil
 }
 
+// goModContent generates a go.mod with require lines for any external
+// dependencies declared by the imported modules.
+func goModContent(prog *Program) string {
+	var modNames []string
+	for _, stmt := range prog.Statements {
+		if imp, ok := stmt.(*ImportStmt); ok {
+			modNames = append(modNames, imp.Module)
+		}
+	}
+
+	goMod := "module rugo_program\n\ngo 1.21\n"
+	if deps := modules.CollectGoDeps(modNames); len(deps) > 0 {
+		goMod += "\nrequire (\n"
+		for _, dep := range deps {
+			goMod += "\t" + dep + "\n"
+		}
+		goMod += ")\n"
+	}
+	return goMod
+}
+
 // Run compiles and runs a .rg file, passing extraArgs to the compiled binary.
 func (c *Compiler) Run(filename string, extraArgs ...string) error {
 	result, err := c.Compile(filename)
@@ -76,15 +97,16 @@ func (c *Compiler) Run(filename string, extraArgs ...string) error {
 		return fmt.Errorf("writing Go source: %w", err)
 	}
 
-	goMod := "module rugo_program\n\ngo 1.21\n"
+	goMod := goModContent(result.Program)
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
 		return fmt.Errorf("writing go.mod: %w", err)
 	}
 
 	// Build to a binary first, then run it
 	binFile := filepath.Join(tmpDir, "rugo_program")
-	buildCmd := exec.Command("go", "build", "-o", binFile, ".")
+	buildCmd := exec.Command("go", "build", "-mod=mod", "-o", binFile, ".")
 	buildCmd.Dir = tmpDir
+	buildCmd.Env = appendGoNoSumCheck(os.Environ())
 	buildCmd.Stderr = os.Stderr
 	if err := buildCmd.Run(); err != nil {
 		return fmt.Errorf("compilation failed: %w", err)
@@ -124,7 +146,7 @@ func (c *Compiler) Build(filename, output string) error {
 	}
 
 	// Create a go.mod so go build works properly
-	goMod := "module rugo_program\n\ngo 1.21\n"
+	goMod := goModContent(result.Program)
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
 		return fmt.Errorf("writing go.mod: %w", err)
 	}
@@ -139,8 +161,9 @@ func (c *Compiler) Build(filename, output string) error {
 		return fmt.Errorf("resolving output path: %w", err)
 	}
 
-	cmd := exec.Command("go", "build", "-o", absOutput, ".")
+	cmd := exec.Command("go", "build", "-mod=mod", "-o", absOutput, ".")
 	cmd.Dir = tmpDir
+	cmd.Env = appendGoNoSumCheck(os.Environ())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
@@ -268,4 +291,16 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 	}
 
 	return &Program{Statements: resolved}, nil
+}
+
+// appendGoNoSumCheck adds GONOSUMCHECK=* to the environment if not already set,
+// allowing temporary build directories to resolve module dependencies without
+// requiring a pre-populated go.sum.
+func appendGoNoSumCheck(env []string) []string {
+	for _, e := range env {
+		if strings.HasPrefix(e, "GONOSUMCHECK=") {
+			return env
+		}
+	}
+	return append(env, "GONOSUMCHECK=*")
 }

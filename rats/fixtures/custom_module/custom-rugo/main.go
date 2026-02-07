@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/rubiojr/rugo/cmd"
+
+	// Standard Rugo modules
 	_ "github.com/rubiojr/rugo/modules/cli"
 	_ "github.com/rubiojr/rugo/modules/color"
 	_ "github.com/rubiojr/rugo/modules/conv"
@@ -10,10 +12,11 @@ import (
 	_ "github.com/rubiojr/rugo/modules/os"
 	_ "github.com/rubiojr/rugo/modules/str"
 	_ "github.com/rubiojr/rugo/modules/test"
+
+	// Custom module
+	_ "github.com/rubiojr/rugo/rats/fixtures/custom_module/module"
 )
 
-var version = "v0.2.0"
-
 func main() {
-	cmd.Execute(version)
+	cmd.Execute("v0.0.0-test")
 }

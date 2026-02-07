@@ -142,6 +142,101 @@ import "mymod"
 puts mymod.hello("developer")
 ```
 
+## External Modules (Custom Rugo Builds)
+
+You can create Rugo modules in **your own Go packages** — no changes to the
+Rugo codebase needed. Then build a custom Rugo binary that includes your
+modules alongside the standard ones.
+
+This uses the same pattern as Caddy, Hugo, and other extensible Go tools.
+
+### How it works
+
+The Rugo CLI logic lives in the `cmd` package and is called via
+`cmd.Execute(version)`. The default `main.go` simply imports the standard
+modules and calls `Execute`. To add custom modules, create your own `main.go`
+that imports your modules too.
+
+### 1. Create a module package
+
+Write a normal Rugo module in its own Go package (can be in any repo):
+
+```go
+// mymod/mymod.go
+package mymod
+
+import (
+    _ "embed"
+    "github.com/rubiojr/rugo/modules"
+)
+
+//go:embed runtime.go
+var runtime string
+
+func init() {
+    modules.Register(&modules.Module{
+        Name: "mymod",
+        Type: "MyMod",
+        Funcs: []modules.FuncDef{
+            {Name: "hello", Args: []modules.ArgType{modules.String}},
+        },
+        Runtime: modules.CleanRuntime(runtime),
+    })
+}
+```
+
+If your module depends on external Go packages, add `GoDeps` so the generated
+programs can resolve them:
+
+```go
+modules.Register(&modules.Module{
+    Name: "mymod",
+    GoDeps: []string{"github.com/some/pkg v1.2.0"},
+    GoImports: []string{`somepkg "github.com/some/pkg"`},
+    // ...
+})
+```
+
+### 2. Build a custom Rugo binary
+
+Create a `main.go` that imports your module:
+
+```go
+package main
+
+import (
+    "github.com/rubiojr/rugo/cmd"
+
+    // Standard modules
+    _ "github.com/rubiojr/rugo/modules/cli"
+    _ "github.com/rubiojr/rugo/modules/color"
+    _ "github.com/rubiojr/rugo/modules/conv"
+    _ "github.com/rubiojr/rugo/modules/http"
+    _ "github.com/rubiojr/rugo/modules/json"
+    _ "github.com/rubiojr/rugo/modules/os"
+    _ "github.com/rubiojr/rugo/modules/str"
+    _ "github.com/rubiojr/rugo/modules/test"
+
+    // Your custom module
+    _ "github.com/yourorg/rugo-mymod"
+)
+
+func main() { cmd.Execute("v1.0.0-custom") }
+```
+
+Then `go build -o myrugo .` and use it like normal Rugo.
+
+### 3. Use it in Rugo scripts
+
+```ruby
+import "mymod"
+
+puts mymod.hello("world")
+```
+
+See `examples/modules/slug/` for a complete working example that wraps
+the [gosimple/slug](https://github.com/gosimple/slug) Go library.
+
 ## Module Struct Reference
 
 ```go
@@ -165,6 +260,7 @@ type Module struct {
     Type          string      // Go struct type name (e.g. "OS", "HTTP")
     Funcs         []FuncDef   // Function definitions with typed args
     GoImports     []string    // Additional Go imports (e.g. ["net/http"])
+    GoDeps        []string    // Go module deps (e.g. ["github.com/foo/bar v1.0.0"])
     Runtime       string      // Struct type + methods from runtime.go
     DispatchEntry string      // Module function that triggers dispatch (optional)
 }
@@ -199,7 +295,14 @@ automatically, so methods use pointer receivers and can mutate struct fields.
 By convention, use PascalCase: `os` → `OS`, `http` → `HTTP`, `conv` → `Conv`.
 
 **GoImports** — Go import paths needed by the Runtime code beyond the base set.
-The base set (`fmt`, `os`, `os/exec`, `strings`) is always available.
+The base set (`fmt`, `os`, `os/exec`, `strings`) is always available. Aliased
+imports are supported: `gosimpleslug "github.com/gosimple/slug"` (entries
+containing `"` are emitted verbatim).
+
+**GoDeps** — Go module dependencies (require lines for go.mod) that the
+generated program needs. Each entry should be `"module version"`, e.g.
+`"github.com/gosimple/slug v1.15.0"`. Only needed for external modules that
+depend on third-party Go packages not in the Go standard library.
 
 **Runtime** — Go source containing the struct type definition and its methods,
 embedded from `runtime.go`. Use `//go:embed` and `modules.CleanRuntime()` to
@@ -216,6 +319,7 @@ modules.Get(name string) (*Module, bool)               // Lookup by name
 modules.IsModule(name string) bool                     // Check if registered
 modules.LookupFunc(module, func string) (string, bool) // Resolve module.func → wrapper name
 modules.Names() []string                               // All registered names (sorted)
+modules.CollectGoDeps(names []string) []string         // GoDeps from named modules
 modules.CleanRuntime(src string) string                // Strip //go:build + package header
 m.FullRuntime() string                                 // Impl code + generated wrappers
 ```

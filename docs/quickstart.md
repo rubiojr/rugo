@@ -31,3 +31,7 @@ rugo emit script.rg       # print generated Go code
 11. [Error Handling](quickstart/11-error-handling.md)
 12. [Concurrency](quickstart/12-concurrency.md)
 13. [Testing with RATS](quickstart/13-testing.md)
+
+### Advanced
+
+14. [Custom Modules](quickstart/14-custom-modules.md)

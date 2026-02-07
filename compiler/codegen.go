@@ -95,10 +95,22 @@ func (g *CodeGen) generate(prog *Program) (string, error) {
 	if needsSpawnRuntime {
 		g.writeln(`"time"`)
 	}
+	baseImports := map[string]bool{
+		"fmt": true, "os": true, "os/exec": true,
+		"runtime/debug": true, "strings": true,
+	}
 	for _, name := range importedModuleNames(g.imports) {
 		if m, ok := modules.Get(name); ok {
 			for _, imp := range m.GoImports {
-				g.writef("\"%s\"\n", imp)
+				if baseImports[imp] {
+					continue
+				}
+				if strings.Contains(imp, `"`) {
+					// Already formatted (e.g. aliased import: alias "path")
+					g.writef("%s\n", imp)
+				} else {
+					g.writef("\"%s\"\n", imp)
+				}
 			}
 		}
 	}
