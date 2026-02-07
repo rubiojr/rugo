@@ -19,7 +19,7 @@ if true
 end
 
 # shells out
-ping -c 1 -W 1 google.com
+ping -c 1 -W 1 127.0.0.1
 
 def ping(s)
   puts s
