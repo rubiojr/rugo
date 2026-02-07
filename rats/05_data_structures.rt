@@ -33,3 +33,16 @@ test "arrays and hashes example"
   result = test.run("./rugo run examples/arrays_hashes.rg")
   test.assert_eq(result["status"], 0)
 end
+
+test "array slice basic"
+  result = test.run("./rugo run rats/fixtures/slice_basic.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "1")
+  test.assert_eq(lines[2], "3")
+  test.assert_eq(lines[3], "4")
+  test.assert_eq(lines[4], "4")
+  test.assert_eq(lines[5], "2")
+  test.assert_eq(lines[6], "0")
+end

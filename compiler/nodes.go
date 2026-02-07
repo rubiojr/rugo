@@ -201,6 +201,16 @@ type IndexExpr struct {
 func (i *IndexExpr) node() {}
 func (i *IndexExpr) expr() {}
 
+// SliceExpr represents obj[start, length].
+type SliceExpr struct {
+	Object Expr
+	Start  Expr
+	Length Expr
+}
+
+func (s *SliceExpr) node() {}
+func (s *SliceExpr) expr() {}
+
 // DotExpr represents obj.field (used for namespace.func access).
 type DotExpr struct {
 	Object Expr

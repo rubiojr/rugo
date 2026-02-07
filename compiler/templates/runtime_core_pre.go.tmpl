@@ -241,3 +241,22 @@ func rugo_index_set(obj, idx, val interface{}) {
 	}
 }
 
+func rugo_slice(obj, start, length interface{}) interface{} {
+	arr, ok := obj.([]interface{})
+	if !ok {
+		panic(fmt.Sprintf("cannot slice %T", obj))
+	}
+	s := rugo_to_int(start)
+	l := rugo_to_int(length)
+	if s >= len(arr) {
+		return interface{}([]interface{}{})
+	}
+	end := s + l
+	if end > len(arr) {
+		end = len(arr)
+	}
+	result := make([]interface{}, end-s)
+	copy(result, arr[s:end])
+	return interface{}(result)
+}
+

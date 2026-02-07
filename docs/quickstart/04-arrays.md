@@ -27,6 +27,23 @@ matrix = [[1, 2], [3, 4]]
 puts matrix[0]        # [1, 2]
 ```
 
+## Slicing
+
+Extract a sub-range with `arr[start, length]`:
+
+```ruby
+numbers = [10, 20, 30, 40, 50]
+first_two = numbers[0, 2]   # [10, 20]
+middle    = numbers[1, 3]   # [20, 30, 40]
+```
+
+Out-of-bounds slices are clamped silently — no panics:
+
+```ruby
+numbers[3, 100]   # [40, 50] — clamped to end
+numbers[99, 5]    # []       — empty array
+```
+
 ## Iterating
 
 ```ruby

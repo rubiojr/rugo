@@ -682,10 +682,23 @@ func (w *walker) walkSuffix(obj Expr, ast []int32) (Expr, error) {
 		return &CallExpr{Func: obj, Args: args}, nil
 
 	case parser.RugoTOK_005b: // '['
-		// Index access
+		// Index access or slice: arr[expr] or arr[expr, expr]
 		idx, rest, err := w.walkExpr(rest)
 		if err != nil {
 			return nil, err
+		}
+		// Check for comma (slice syntax)
+		if len(rest) > 0 && rest[0] >= 0 {
+			nextTok := w.p.Token(rest[0])
+			if parser.Symbol(nextTok.Ch) == parser.RugoTOK_002c { // ','
+				_, rest = w.readToken(rest) // consume ','
+				length, rest2, err := w.walkExpr(rest)
+				if err != nil {
+					return nil, err
+				}
+				_ = rest2 // consume ']'
+				return &SliceExpr{Object: obj, Start: idx, Length: length}, nil
+			}
 		}
 		_ = rest // consume ']'
 		return &IndexExpr{Object: obj, Index: idx}, nil

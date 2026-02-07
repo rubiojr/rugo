@@ -4813,7 +4813,7 @@ state1:
 
 // Suffix grammar:
 //
-//	Suffix      = '(' [ ArgList ] ')' | '[' Expr ']' | '.' ident .
+//	Suffix      = '(' [ ArgList ] ')' | '[' Expr [ ',' Expr ] ']' | '.' ident .
 //
 //	State 0
 //		on  '('
@@ -4839,6 +4839,14 @@ state1:
 //		on  "false", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, str_lit, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, ArrayLit, HashLit
 //			call Expr and goto state 6
 //	State 6
+//		on  ']'
+//			shift and goto state 2
+//		on  ','
+//			shift and goto state 7
+//	State 7
+//		on  "false", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, str_lit, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, ArrayLit, HashLit
+//			call Expr and goto state 8
+//	State 8
 //		on  ']'
 //			shift and goto state 2
 //
@@ -4899,6 +4907,25 @@ state5:
 	}
 	return p.stop(r, accept, errorSet)
 state6:
+	accept, errorSet = false, 23
+	switch Symbol(p.tok.Ch) {
+	case RugoTOK_005d:
+		r = append(r, p.shift())
+		goto state2
+	case RugoTOK_002c:
+		r = append(r, p.shift())
+		goto state7
+	}
+	return p.stop(r, accept, errorSet)
+state7:
+	accept, errorSet = false, 46
+	switch Symbol(p.tok.Ch) {
+	case RugoTOK_false, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoArrayLit, RugoHashLit:
+		r = p.add(r, p.Expr())
+		goto state8
+	}
+	return p.stop(r, accept, errorSet)
+state8:
 	accept, errorSet = false, 28
 	switch Symbol(p.tok.Ch) {
 	case RugoTOK_005d:

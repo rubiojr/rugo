@@ -588,6 +588,8 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 		return g.callExpr(ex)
 	case *IndexExpr:
 		return g.indexExpr(ex)
+	case *SliceExpr:
+		return g.sliceExpr(ex)
 	case *ArrayLiteral:
 		return g.arrayLiteral(ex)
 	case *HashLiteral:
@@ -854,6 +856,22 @@ func (g *codeGen) indexExpr(e *IndexExpr) (string, error) {
 		return "", err
 	}
 	return fmt.Sprintf("func() interface{} { switch o := (%s).(type) { case []interface{}: return o[rugo_to_int(%s)]; case map[interface{}]interface{}: return o[%s]; default: panic(fmt.Sprintf(\"cannot index %%T\", o)) } }()", obj, idx, idx), nil
+}
+
+func (g *codeGen) sliceExpr(e *SliceExpr) (string, error) {
+	obj, err := g.exprString(e.Object)
+	if err != nil {
+		return "", err
+	}
+	start, err := g.exprString(e.Start)
+	if err != nil {
+		return "", err
+	}
+	length, err := g.exprString(e.Length)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("rugo_slice(%s, %s, %s)", obj, start, length), nil
 }
 
 func (g *codeGen) arrayLiteral(e *ArrayLiteral) (string, error) {

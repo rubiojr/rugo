@@ -21,7 +21,6 @@ func newLineMap(n int) *lineMap {
 	return &lineMap{mapping: m}
 }
 
-
 var rugoKeywords = map[string]bool{
 	"if": true, "elsif": true, "else": true, "end": true,
 	"while": true, "for": true, "in": true, "def": true,

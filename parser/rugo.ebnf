@@ -40,7 +40,7 @@ AddExpr     = MulExpr { ('+' | '-') MulExpr } .
 MulExpr     = UnaryExpr { ('*' | '/' | '%') UnaryExpr } .
 UnaryExpr   = '!' Postfix | '-' Postfix | Postfix .
 Postfix     = Primary { Suffix } .
-Suffix      = '(' [ ArgList ] ')' | '[' Expr ']' | '.' ident .
+Suffix      = '(' [ ArgList ] ')' | '[' Expr [ ',' Expr ] ']' | '.' ident .
 ArgList     = Expr { ',' Expr } .
 
 # Primary expressions

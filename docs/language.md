@@ -267,7 +267,7 @@ AddExpr     = MulExpr { ('+' | '-') MulExpr }
 MulExpr     = UnaryExpr { ('*' | '/' | '%') UnaryExpr }
 UnaryExpr   = '!' Postfix | '-' Postfix | Postfix
 Postfix     = Primary { Suffix }
-Suffix      = '(' [ ArgList ] ')' | '[' Expr ']' | '.' ident
+Suffix      = '(' [ ArgList ] ')' | '[' Expr [ ',' Expr ] ']' | '.' ident
 ```
 
 Operator precedence (lowest to highest):
@@ -313,6 +313,7 @@ Node (interface)
     ├── UnaryExpr         — op operand
     ├── CallExpr          — func(args...)
     ├── IndexExpr         — obj[index]
+    ├── SliceExpr         — obj[start, length]
     ├── DotExpr           — obj.field
     ├── IdentExpr         — variable/function reference
     ├── IntLiteral        — integer
@@ -348,6 +349,8 @@ The code generator (`compiler/codegen.go`) traverses the typed AST and emits a s
 **`for..in` loops**: Compiled using `rugo_iterable()` which returns `[]rugo_kv` (key-value pairs) for uniform array/hash iteration. Arrays produce `{index, value}` pairs; hashes produce `{key, value}` pairs.
 
 **Index assignment**: `arr[0] = x` and `hash["key"] = y` compile to `rugo_index_set(obj, idx, val)`, which type-switches on the target.
+
+**Array slicing**: `arr[start, length]` compiles to `rugo_slice(obj, start, length)`, which returns a new array. Out-of-bounds indices are clamped silently (Ruby behavior) rather than panicking.
 
 **`try/or` expressions**: Compile to a Go IIFE with `defer/recover`. The tried expression is the return value; if it panics, the recovery handler runs and produces the fallback value.
 
