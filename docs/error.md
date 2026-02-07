@@ -139,7 +139,7 @@ end
 ### Logging errors without stopping
 
 ```ruby
-try `optional-cleanup` or err
+try optional-cleanup or err
   puts "cleanup warning: " + err
   nil
 end

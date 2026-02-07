@@ -240,6 +240,11 @@ func preprocessLine(line string, userFuncs map[string]bool) string {
 				return indent + firstToken + "(" + rt + ")"
 			}
 		}
+		// Hyphenated command: `docker-compose up`, `apt-get install`, etc.
+		// Hyphens are invalid in Rugo identifiers, so this is always a shell command.
+		if isHyphenatedCommand(firstToken) {
+			return indent + `__shell__("` + shellEscape(trimmed) + `")`
+		}
 		return line
 	}
 
@@ -364,6 +369,30 @@ func isIdent(s string) bool {
 func isDottedIdent(s string) bool {
 	parts := strings.SplitN(s, ".", 2)
 	return len(parts) == 2 && isIdent(parts[0]) && isIdent(parts[1])
+}
+
+// isHyphenatedCommand checks for hyphenated tokens like "docker-compose", "apt-get".
+// These start with a letter and contain only ident chars plus hyphens, with at least one hyphen.
+// Since hyphens are invalid in Rugo identifiers, these are always shell commands.
+func isHyphenatedCommand(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	ch := rune(s[0])
+	if !unicode.IsLetter(ch) && ch != '_' {
+		return false
+	}
+	hasHyphen := false
+	for _, c := range s[1:] {
+		if c == '-' {
+			hasHyphen = true
+			continue
+		}
+		if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_' {
+			return false
+		}
+	}
+	return hasHyphen
 }
 
 func isOperatorStart(ch byte) bool {
