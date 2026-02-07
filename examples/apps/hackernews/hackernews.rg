@@ -51,10 +51,11 @@ def fetch_item(id)
   return json.parse(body)
 end
 
-def time_ago(ts)
-  # HN timestamps are unix seconds; approximate relative time
-  now_str = `date +%s`
-  now = conv.to_i(str.trim(now_str))
+def current_time()
+  return conv.to_i(str.trim(`date +%s`))
+end
+
+def time_ago(ts, now)
   diff = now - ts
 
   if diff < 60
@@ -72,7 +73,7 @@ def time_ago(ts)
   return "#{days}d ago"
 end
 
-def print_story(rank, item)
+def print_story(rank, item, now)
   title = conv.to_s(item["title"])
   score = conv.to_s(item["score"])
   author = conv.to_s(item["by"])
@@ -91,7 +92,7 @@ def print_story(rank, item)
     puts color.dim("   (#{host})")
   end
 
-  age = time_ago(item["time"])
+  age = time_ago(item["time"], now)
   comment_str = conv.to_s(comments)
   puts color.gray("   #{score} points by #{author} | #{age} | #{comment_str} comments")
   puts ""
@@ -112,17 +113,28 @@ end
 
 def show_stories(endpoint, label, emoji)
   count = conv.to_i(cli.get("count"))
+  now = current_time()
   puts color.bold("#{emoji} #{label}")
   puts ""
 
   body = http.get(endpoint)
   ids = json.parse(body)
 
-  i = 0
-  while i < count
-    item = fetch_item(ids[i])
-    print_story(i + 1, item)
-    i += 1
+  # Fetch all items concurrently
+  tasks = []
+  for i, id in ids
+    if i >= count
+      break
+    end
+    t = spawn
+      fetch_item(id)
+    end
+    tasks = append(tasks, t)
+  end
+
+  # Print in order
+  for i, t in tasks
+    print_story(i + 1, t.value, now)
   end
 end
 
@@ -167,7 +179,7 @@ def show(args)
 
   score = conv.to_s(item["score"])
   author = conv.to_s(item["by"])
-  age = time_ago(item["time"])
+  age = time_ago(item["time"], current_time())
   comments = 0
   if item["descendants"] != nil
     comments = item["descendants"]
