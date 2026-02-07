@@ -38,7 +38,8 @@ var rugoBuiltins = map[string]bool{
 // stripComments removes # comments from source, respecting string boundaries.
 func stripComments(src string) string {
 	var sb strings.Builder
-	inString := false
+	inDouble := false
+	inSingle := false
 	escaped := false
 	for i := 0; i < len(src); i++ {
 		ch := src[i]
@@ -47,17 +48,22 @@ func stripComments(src string) string {
 			escaped = false
 			continue
 		}
-		if ch == '\\' && inString {
+		if ch == '\\' && (inDouble || inSingle) {
 			sb.WriteByte(ch)
 			escaped = true
 			continue
 		}
-		if ch == '"' {
-			inString = !inString
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
 			sb.WriteByte(ch)
 			continue
 		}
-		if ch == '#' && !inString {
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			sb.WriteByte(ch)
+			continue
+		}
+		if ch == '#' && !inDouble && !inSingle {
 			for i < len(src) && src[i] != '\n' {
 				i++
 			}
@@ -274,13 +280,18 @@ func preprocessLine(line string, userFuncs map[string]bool) string {
 //
 //	try timeout 30 ping host or "fallback"
 func hasOrphanOr(line string) bool {
-	inStr := false
+	inDouble := false
+	inSingle := false
 	for i := 0; i < len(line); i++ {
-		if line[i] == '"' {
-			inStr = !inStr
+		if line[i] == '"' && !inSingle {
+			inDouble = !inDouble
 			continue
 		}
-		if inStr {
+		if line[i] == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
 			continue
 		}
 		// Match " or " or " or" at end of line, as a word boundary
@@ -405,7 +416,8 @@ func hasInterpolation(s string) bool {
 // This resolves the conflict between `test` as a keyword and as a module name.
 func rewriteTestModule(line string) string {
 	var sb strings.Builder
-	inString := false
+	inDouble := false
+	inSingle := false
 	escaped := false
 	i := 0
 	for i < len(line) {
@@ -416,19 +428,25 @@ func rewriteTestModule(line string) string {
 			i++
 			continue
 		}
-		if ch == '\\' && inString {
+		if ch == '\\' && (inDouble || inSingle) {
 			sb.WriteByte(ch)
 			escaped = true
 			i++
 			continue
 		}
-		if ch == '"' {
-			inString = !inString
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
 			sb.WriteByte(ch)
 			i++
 			continue
 		}
-		if !inString && i+5 <= len(line) && line[i:i+5] == "test." {
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			sb.WriteByte(ch)
+			i++
+			continue
+		}
+		if !inDouble && !inSingle && i+5 <= len(line) && line[i:i+5] == "test." {
 			// Make sure it's a word boundary (not part of a larger identifier)
 			if i == 0 || !isIdentChar(line[i-1]) {
 				sb.WriteString("__tmod__.")
@@ -596,7 +614,8 @@ func expandSpawnSugar(src string, lineMap []int) (string, []int) {
 // Returns the index of the start of " or " in s, or -1 if not found.
 func findTopLevelOr(s string) int {
 	depth := 0
-	inString := false
+	inDouble := false
+	inSingle := false
 	escaped := false
 	for i := 0; i < len(s); i++ {
 		ch := s[i]
@@ -604,15 +623,19 @@ func findTopLevelOr(s string) int {
 			escaped = false
 			continue
 		}
-		if ch == '\\' && inString {
+		if ch == '\\' && (inDouble || inSingle) {
 			escaped = true
 			continue
 		}
-		if ch == '"' {
-			inString = !inString
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
 			continue
 		}
-		if inString {
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
 			continue
 		}
 		if ch == '(' || ch == '[' || ch == '{' {
@@ -668,7 +691,8 @@ func expandCompoundAssign(src string) string {
 // findCompoundOp finds a compound operator (e.g. "+=") at the top level of a line,
 // not inside strings, parens, or brackets. Returns the index or -1.
 func findCompoundOp(s string, op string) int {
-	inString := false
+	inDouble := false
+	inSingle := false
 	escaped := false
 	depth := 0
 	for i := 0; i < len(s); i++ {
@@ -677,15 +701,19 @@ func findCompoundOp(s string, op string) int {
 			escaped = false
 			continue
 		}
-		if ch == '\\' && inString {
+		if ch == '\\' && (inDouble || inSingle) {
 			escaped = true
 			continue
 		}
-		if ch == '"' {
-			inString = !inString
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
 			continue
 		}
-		if inString {
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
 			continue
 		}
 		if ch == '(' || ch == '[' || ch == '{' {
@@ -706,7 +734,8 @@ func findCompoundOp(s string, op string) int {
 // Backticks inside string literals are left untouched.
 func expandBackticks(src string) string {
 	var sb strings.Builder
-	inString := false
+	inDouble := false
+	inSingle := false
 	escaped := false
 	for i := 0; i < len(src); i++ {
 		ch := src[i]
@@ -715,17 +744,22 @@ func expandBackticks(src string) string {
 			escaped = false
 			continue
 		}
-		if ch == '\\' && inString {
+		if ch == '\\' && (inDouble || inSingle) {
 			sb.WriteByte(ch)
 			escaped = true
 			continue
 		}
-		if ch == '"' {
-			inString = !inString
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
 			sb.WriteByte(ch)
 			continue
 		}
-		if ch == '`' && !inString {
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			sb.WriteByte(ch)
+			continue
+		}
+		if ch == '`' && !inDouble && !inSingle {
 			// Find the closing backtick
 			j := i + 1
 			for j < len(src) && src[j] != '`' {

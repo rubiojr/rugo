@@ -48,6 +48,7 @@ Primary     = ident
             | integer
             | float_lit
             | str_lit
+            | raw_str_lit
             | "true"
             | "false"
             | "nil"
@@ -72,4 +73,5 @@ ident       = `[a-zA-Z_][a-zA-Z0-9_]*` .
 integer     = `[0-9]+` .
 float_lit   = `[0-9]+\.[0-9]+` .
 str_lit     = '"' { `[^"\\]` | '\\' 'x' `[0-9a-fA-F]` `[0-9a-fA-F]` | '\\' `[0-7]` `[0-7]` `[0-7]` | '\\' `[nrt"\\]` } '"' .
+raw_str_lit = "'" { `[^'\\]` | "\\" `[^\n]` } "'" .
 white_space = ` |\t|\n|\r` .

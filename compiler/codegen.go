@@ -575,6 +575,10 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 	case *NilLiteral:
 		return "interface{}(nil)", nil
 	case *StringLiteral:
+		if ex.Raw {
+			escaped := goEscapeString(ex.Value)
+			return fmt.Sprintf(`interface{}("%s")`, escaped), nil
+		}
 		return g.stringLiteral(ex.Value)
 	case *IdentExpr:
 		return fmt.Sprintf("interface{}(%s)", ex.Name), nil

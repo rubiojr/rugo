@@ -775,6 +775,8 @@ func (w *walker) walkPrimary(ast []int32) (Expr, []int32, error) {
 		return &FloatLiteral{Value: tok.src}, rest, nil
 	case parser.Rugostr_lit:
 		return &StringLiteral{Value: unquoteString(tok.src)}, rest, nil
+	case parser.Rugoraw_str_lit:
+		return &StringLiteral{Value: unquoteRawString(tok.src), Raw: true}, rest, nil
 	case parser.RugoTOK_true:
 		return &BoolLiteral{Value: true}, rest, nil
 	case parser.RugoTOK_false:
@@ -977,6 +979,27 @@ func unquoteString(s string) string {
 		default:
 			sb.WriteByte(s[i])
 		}
+	}
+	return sb.String()
+}
+
+// unquoteRawString removes surrounding single quotes and only processes \\ and \'.
+// All other backslash sequences are kept literal (Ruby-style raw strings).
+func unquoteRawString(s string) string {
+	if len(s) >= 2 && s[0] == '\'' && s[len(s)-1] == '\'' {
+		s = s[1 : len(s)-1]
+	}
+	var sb strings.Builder
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			next := s[i+1]
+			if next == '\\' || next == '\'' {
+				sb.WriteByte(next)
+				i++
+				continue
+			}
+		}
+		sb.WriteByte(s[i])
 	}
 	return sb.String()
 }

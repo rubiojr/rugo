@@ -178,6 +178,20 @@ puts "1 + 2 = #{1 + 2}"
 
 The preprocessor handles the `#{...}` extraction, and the codegen compiles interpolated strings to `fmt.Sprintf` calls. Interpolated expressions are fully parsed through the Rugo parser to support arbitrary expressions.
 
+### Raw Strings
+
+Single-quoted strings are raw literals where no escape processing or interpolation happens (like Ruby's single-quoted strings):
+
+```ruby
+puts 'hello\nworld'        # prints: hello\nworld (literal backslash-n)
+puts '\x1b[32mgreen'       # prints: \x1b[32mgreen (no ANSI processing)
+puts 'no #{interpolation}'  # prints: no #{interpolation} (no interpolation)
+```
+
+Only two escape sequences are recognized in raw strings: `\\` (literal backslash) and `\'` (literal single quote). All other backslash sequences are kept as-is.
+
+Raw strings are parsed by a separate `raw_str_lit` lexer rule in the grammar and produce `StringLiteral` nodes with `Raw: true`. The codegen emits these strings directly to Go string literals with appropriate escaping, bypassing the interpolation pipeline.
+
 ## Preprocessor
 
 The preprocessor (`compiler/preprocess.go`) runs before parsing and performs line-level source transformations. It operates in multiple passes:
@@ -318,7 +332,7 @@ Node (interface)
     ├── IdentExpr         — variable/function reference
     ├── IntLiteral        — integer
     ├── FloatLiteral      — float
-    ├── StringLiteral     — string
+    ├── StringLiteral     — string (Raw: true for single-quoted)
     ├── BoolLiteral       — true/false
     ├── NilLiteral        — nil
     ├── ArrayLiteral      — [elem, ...]

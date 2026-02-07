@@ -247,6 +247,7 @@ func (f *FloatLiteral) expr() {}
 // StringLiteral is a string literal (with quotes stripped).
 type StringLiteral struct {
 	Value string // raw string content including interpolation markers
+	Raw   bool   // true for single-quoted raw strings (no escape processing)
 }
 
 func (s *StringLiteral) node() {}

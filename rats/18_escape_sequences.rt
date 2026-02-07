@@ -43,16 +43,16 @@ test "classic escapes still work (\\n \\t)"
 end
 
 test "hex escape in emit output produces valid Go"
-  result = test.run("./rugo emit rats/fixtures/escape_hex.rg | grep -c 'x1b' || true")
+  result = test.run("./rugo emit rats/fixtures/escape_hex.rg")
   test.assert_eq(result["status"], 0)
-  # grep -c returns count of matching lines; should be at least 1
-  test.assert_neq(result["output"], "0")
+  # With raw strings, we can directly check for the literal \x1b pattern
+  test.assert_contains(result["output"], '\x1b')
 end
 
 test "octal escape in emit output produces valid Go"
-  result = test.run("./rugo emit rats/fixtures/escape_octal.rg | grep -c 'x1b' || true")
+  result = test.run("./rugo emit rats/fixtures/escape_octal.rg")
   test.assert_eq(result["status"], 0)
-  test.assert_neq(result["output"], "0")
+  test.assert_contains(result["output"], '\x1b')
 end
 
 test "escape sequences compile to native binary"

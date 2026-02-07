@@ -1,6 +1,6 @@
 # Strings
 
-Double-quoted strings support interpolation with `#{}`:
+Double-quoted strings support escape sequences and interpolation with `#{}`:
 
 ```ruby
 name = "World"
@@ -14,11 +14,38 @@ x = 10
 puts "#{x} squared is #{x * x}"
 ```
 
+## Raw Strings
+
+Single-quoted strings are raw — no escape processing and no interpolation:
+
+```ruby
+puts 'hello\nworld'       # prints: hello\nworld (literal, no newline)
+puts '\x1b[32mgreen'      # prints: \x1b[32mgreen (literal, no ANSI)
+puts 'no #{interpolation}' # prints: no #{interpolation}
+```
+
+Only `\\` (literal backslash) and `\'` (literal single quote) are recognized:
+
+```ruby
+puts 'it\'s raw'          # prints: it's raw
+puts 'back\\slash'        # prints: back\slash
+```
+
+Raw strings are useful for regex patterns, Windows paths, and test assertions where you need exact literal text.
+
+## Concatenation
+
 Concatenation with `+`:
 
 ```ruby
 greeting = "Hello" + ", " + "World!"
 puts greeting
+```
+
+Raw and double-quoted strings can be concatenated:
+
+```ruby
+puts 'raw\n' + "escaped\n"  # raw\nescaped<newline>
 ```
 
 ## String Module
