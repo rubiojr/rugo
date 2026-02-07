@@ -16,6 +16,7 @@ body = http.get("https://example.com")
 | [http](modules/http.md) | HTTP client |
 | [os](modules/os.md) | Shell execution and process control |
 | [conv](modules/conv.md) | Type conversions |
+| [json](modules/json.md) | JSON parsing and encoding |
 | [str](modules/str.md) | String utilities |
 | [test](modules/test.md) | Testing and assertions |
 

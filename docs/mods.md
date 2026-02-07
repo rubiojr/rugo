@@ -12,6 +12,7 @@ directory under `modules/` and self-registers at startup via Go's `init()`.
 | `conv` | `to_i`, `to_f`, `to_s` | Type conversions |
 | `cli`  | `name`, `version`, `about`, `cmd`, `flag`, `bool_flag`, `run`, `parse`, `command`, `get`, `args`, `help` | CLI app builder with commands, flags, and dispatch |
 | `color` | `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`, `bg_*`, `bold`, `dim`, `underline` | ANSI terminal colors and styles |
+| `json` | `parse`, `encode` | JSON parsing and encoding |
 
 ### Usage in Rugo
 
@@ -241,4 +242,7 @@ modules/
     runtime.go       # CLI builder, parser, help, dispatch runner
     stubs.go         # Runtime helper stubs + dispatch var
     cli_test.go      # Unit tests
+  json/
+    json.go          # Registration (embeds runtime.go)
+    runtime.go       # JSON parse/encode with Rugo type conversion
 ```
