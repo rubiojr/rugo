@@ -1,0 +1,40 @@
+# RATS: Test negative array indexing
+import "test"
+
+test "negative index reads from end"
+  result = test.run("./rugo run rats/fixtures/negative_index.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "50")
+  test.assert_eq(lines[1], "40")
+  test.assert_eq(lines[2], "10")
+end
+
+test "negative index assignment"
+  result = test.run("./rugo run rats/fixtures/negative_index_assign.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "99")
+end
+
+test "negative index -1 returns last element"
+  test.run("printf 'arr = [\"a\", \"b\", \"c\"]\nputs(arr[-1])\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "c")
+end
+
+test "positive indices still work"
+  test.run("printf 'arr = [10, 20, 30]\nputs(arr[0])\nputs(arr[2])\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "10")
+  test.assert_eq(lines[1], "30")
+end
+
+test "hash with negative integer key still works"
+  test.run("printf 'h = {-1 => \"neg\"}\nputs(h[-1])\n' > " + test.tmpdir() + "/test.rg")
+  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "neg")
+end

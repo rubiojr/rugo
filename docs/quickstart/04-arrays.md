@@ -44,6 +44,23 @@ numbers[3, 100]   # [40, 50] — clamped to end
 numbers[99, 5]    # []       — empty array
 ```
 
+## Negative Indexing
+
+Use negative indices to count from the end of an array:
+
+```ruby
+arr = [10, 20, 30, 40, 50]
+puts arr[-1]    # 50 (last element)
+puts arr[-2]    # 40 (second-to-last)
+```
+
+Negative indexing also works with assignment:
+
+```ruby
+arr[-1] = 99
+puts arr[4]     # 99
+```
+
 ## Iterating
 
 ```ruby

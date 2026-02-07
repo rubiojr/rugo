@@ -32,6 +32,7 @@ type codeGen struct {
 	hasSpawn        bool            // whether spawn is used
 	hasParallel     bool            // whether parallel is used
 	usesTaskMethods bool            // whether .value/.done/.wait appear
+	funcDefs        map[string]int  // user function name → param count
 }
 
 // generate produces Go source code from a Program AST.
@@ -42,6 +43,7 @@ func generate(prog *Program, sourceFile string) (string, error) {
 		constScopes: []map[string]bool{make(map[string]bool)},
 		imports:     make(map[string]bool),
 		sourceFile:  sourceFile,
+		funcDefs:    make(map[string]int),
 	}
 	return g.generate(prog)
 }
@@ -73,6 +75,15 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 			topStmts = append(topStmts, s)
 		}
 		_ = s
+	}
+
+	// Build function definition registry for argument count validation
+	for _, f := range funcs {
+		key := f.Name
+		if f.Namespace != "" {
+			key = f.Namespace + "." + f.Name
+		}
+		g.funcDefs[key] = len(f.Params)
 	}
 
 	// Detect spawn/parallel usage to gate runtime emission and imports
@@ -810,7 +821,13 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 				g.usesTaskMethods = true
 				return fmt.Sprintf("rugo_task_done(%s)", nsName), nil
 			}
-			// User module namespace call
+			// User module namespace call — validate argument count
+			nsKey := nsName + "." + dot.Field
+			if expected, ok := g.funcDefs[nsKey]; ok {
+				if len(e.Args) != expected {
+					return "", fmt.Errorf("wrong number of arguments for %s.%s (%d for %d)", nsName, dot.Field, len(e.Args), expected)
+				}
+			}
 			return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, argStr), nil
 		}
 		// Non-ident object: e.g. tasks[i].wait(n)
@@ -847,7 +864,12 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 		case "append":
 			return fmt.Sprintf("rugo_append(%s)", argStr), nil
 		default:
-			// User-defined function
+			// User-defined function — validate argument count
+			if expected, ok := g.funcDefs[ident.Name]; ok {
+				if len(e.Args) != expected {
+					return "", fmt.Errorf("wrong number of arguments for %s (%d for %d)", ident.Name, len(e.Args), expected)
+				}
+			}
 			return fmt.Sprintf("rugofn_%s(%s)", ident.Name, argStr), nil
 		}
 	}
@@ -869,7 +891,7 @@ func (g *codeGen) indexExpr(e *IndexExpr) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("func() interface{} { switch o := (%s).(type) { case []interface{}: return o[rugo_to_int(%s)]; case map[interface{}]interface{}: return o[%s]; default: panic(fmt.Sprintf(\"cannot index %%T\", o)) } }()", obj, idx, idx), nil
+	return fmt.Sprintf("func() interface{} { switch o := (%s).(type) { case []interface{}: return rugo_array_index(o, rugo_to_int(%s)); case map[interface{}]interface{}: return o[%s]; default: panic(fmt.Sprintf(\"cannot index %%T\", o)) } }()", obj, idx, idx), nil
 }
 
 func (g *codeGen) sliceExpr(e *SliceExpr) (string, error) {

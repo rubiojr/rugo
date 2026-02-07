@@ -397,9 +397,13 @@ The code generator (`compiler/codegen.go`) traverses the typed AST and emits a s
 
 **`for..in` loops**: Compiled using `rugo_iterable()` which returns `[]rugo_kv` (key-value pairs) for uniform array/hash iteration. Arrays produce `{index, value}` pairs; hashes produce `{key, value}` pairs.
 
-**Index assignment**: `arr[0] = x` and `hash["key"] = y` compile to `rugo_index_set(obj, idx, val)`, which type-switches on the target.
+**Index assignment**: `arr[0] = x` and `hash["key"] = y` compile to `rugo_index_set(obj, idx, val)`, which type-switches on the target. Negative indices are supported for arrays (e.g., `arr[-1] = x` sets the last element).
+
+**Negative array indexing**: Array access supports negative indices (Ruby behavior). `arr[-1]` returns the last element, `arr[-2]` the second-to-last, etc. This is handled by the `rugo_array_index` runtime helper, which normalizes negative indices by adding `len(arr)`.
 
 **Array slicing**: `arr[start, length]` compiles to `rugo_slice(obj, start, length)`, which returns a new array. Out-of-bounds indices are clamped silently (Ruby behavior) rather than panicking.
+
+**Argument count validation**: User-defined function calls are validated during code generation. If the number of arguments doesn't match the function's parameter count, a Rugo-specific error is emitted (e.g., `wrong number of arguments for greet (2 for 1)`) instead of exposing internal Go compiler errors.
 
 **`try/or` expressions**: Compile to a Go IIFE with `defer/recover`. The tried expression is the return value; if it panics, the recovery handler runs and produces the fallback value.
 

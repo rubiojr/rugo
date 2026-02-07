@@ -263,12 +263,23 @@ func rugo_iterable(v interface{}) []rugo_kv {
 func rugo_index_set(obj, idx, val interface{}) {
 	switch o := obj.(type) {
 	case []interface{}:
-		o[rugo_to_int(idx)] = val
+		i := rugo_to_int(idx)
+		if i < 0 {
+			i += len(o)
+		}
+		o[i] = val
 	case map[interface{}]interface{}:
 		o[idx] = val
 	default:
 		panic(fmt.Sprintf("cannot index-assign %T", obj))
 	}
+}
+
+func rugo_array_index(arr []interface{}, idx int) interface{} {
+	if idx < 0 {
+		idx += len(arr)
+	}
+	return arr[idx]
 }
 
 func rugo_slice(obj, start, length interface{}) interface{} {
