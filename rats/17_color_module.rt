@@ -1,33 +1,33 @@
 # RATS: Test color module (ANSI colors, styles, NO_COLOR)
 import "test"
 
-test "color.red wraps text in ANSI red"
-  result = test.run("NO_COLOR= ./rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[31mhello\\x1b\\[0m'")
+rats "color.red wraps text in ANSI red"
+  result = test.run("NO_COLOR= rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[31mhello\\x1b\\[0m'")
   test.assert_eq(result["output"], "1")
 end
 
-test "color.green wraps text in ANSI green"
-  result = test.run("NO_COLOR= ./rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[32mok\\x1b\\[0m'")
+rats "color.green wraps text in ANSI green"
+  result = test.run("NO_COLOR= rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[32mok\\x1b\\[0m'")
   test.assert_eq(result["output"], "1")
 end
 
-test "color.bold wraps text in ANSI bold"
-  result = test.run("NO_COLOR= ./rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[1mstrong\\x1b\\[0m'")
+rats "color.bold wraps text in ANSI bold"
+  result = test.run("NO_COLOR= rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[1mstrong\\x1b\\[0m'")
   test.assert_eq(result["output"], "1")
 end
 
-test "color.bg_blue wraps text in ANSI background blue"
-  result = test.run("NO_COLOR= ./rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[44minfo\\x1b\\[0m'")
+rats "color.bg_blue wraps text in ANSI background blue"
+  result = test.run("NO_COLOR= rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[44minfo\\x1b\\[0m'")
   test.assert_eq(result["output"], "1")
 end
 
-test "colors compose (bold + red)"
-  result = test.run("NO_COLOR= ./rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[1m\\x1b\\[31mcritical'")
+rats "colors compose (bold + red)"
+  result = test.run("NO_COLOR= rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[1m\\x1b\\[31mcritical'")
   test.assert_eq(result["output"], "1")
 end
 
-test "NO_COLOR disables ANSI codes"
-  result = test.run("NO_COLOR=1 ./rugo run rats/fixtures/color_basic.rg")
+rats "NO_COLOR disables ANSI codes"
+  result = test.run("NO_COLOR=1 rugo run rats/fixtures/color_basic.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "hello")
@@ -35,8 +35,8 @@ test "NO_COLOR disables ANSI codes"
   test.assert_eq(lines[2], "strong")
 end
 
-test "color module compiles to native binary"
-  test.run("./rugo build -o " + test.tmpdir() + "/color_test rats/fixtures/color_basic.rg")
+rats "color module compiles to native binary"
+  test.run("rugo build -o " + test.tmpdir() + "/color_test rats/fixtures/color_basic.rg")
   result = test.run("NO_COLOR= " + test.tmpdir() + "/color_test | grep -cP '\\x1b\\[31mhello\\x1b\\[0m'")
   test.assert_eq(result["output"], "1")
 end

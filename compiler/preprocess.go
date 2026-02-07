@@ -6,27 +6,12 @@ import (
 	"unicode"
 )
 
-// lineMap tracks the mapping from preprocessed line numbers to original source line numbers.
-// Index is 0-based preprocessed line, value is 1-based original line.
-type lineMap struct {
-	mapping []int
-}
-
-// newLineMap creates a 1:1 line map for n lines.
-func newLineMap(n int) *lineMap {
-	m := make([]int, n)
-	for i := range m {
-		m[i] = i + 1
-	}
-	return &lineMap{mapping: m}
-}
-
 var rugoKeywords = map[string]bool{
 	"if": true, "elsif": true, "else": true, "end": true,
 	"while": true, "for": true, "in": true, "def": true,
 	"return": true, "require": true, "break": true, "next": true,
 	"true": true, "false": true, "nil": true, "import": true,
-	"test": true, "try": true, "or": true,
+	"rats": true, "try": true, "or": true,
 	"spawn": true, "parallel": true,
 }
 
@@ -172,8 +157,8 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			if isIdent(name) {
 				topLevelFuncs[name] = true
 			}
-		case "test":
-			blockStack = append(blockStack, "test")
+		case "rats":
+			blockStack = append(blockStack, "rats")
 		case "if":
 			blockStack = append(blockStack, "if")
 		case "while":
@@ -207,12 +192,6 @@ func preprocessLine(line string, userFuncs map[string]bool) string {
 
 	// Extract leading whitespace
 	indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
-
-	// Rewrite `test.func(...)` to `__tmod__.func(...)` anywhere in the line,
-	// since `test` is both a keyword (for test blocks) and a module name.
-	// Only rewrite outside of string literals.
-	line = rewriteTestModule(line)
-	trimmed = strings.TrimSpace(line)
 
 	// Check if line is assignment: `ident = ...` — leave alone
 	// Check if line starts with keyword — leave alone
@@ -466,58 +445,6 @@ func hasInterpolation(s string) bool {
 		}
 	}
 	return false
-}
-
-// rewriteTestModule replaces `test.` with `__tmod__.` outside of string literals.
-// This resolves the conflict between `test` as a keyword and as a module name.
-func rewriteTestModule(line string) string {
-	var sb strings.Builder
-	inDouble := false
-	inSingle := false
-	escaped := false
-	i := 0
-	for i < len(line) {
-		ch := line[i]
-		if escaped {
-			sb.WriteByte(ch)
-			escaped = false
-			i++
-			continue
-		}
-		if ch == '\\' && (inDouble || inSingle) {
-			sb.WriteByte(ch)
-			escaped = true
-			i++
-			continue
-		}
-		if ch == '"' && !inSingle {
-			inDouble = !inDouble
-			sb.WriteByte(ch)
-			i++
-			continue
-		}
-		if ch == '\'' && !inDouble {
-			inSingle = !inSingle
-			sb.WriteByte(ch)
-			i++
-			continue
-		}
-		if !inDouble && !inSingle && i+5 <= len(line) && line[i:i+5] == "test." {
-			// Make sure it's a word boundary (not part of a larger identifier)
-			if i == 0 || !isIdentChar(line[i-1]) {
-				sb.WriteString("__tmod__.")
-				i += 5
-				continue
-			}
-		}
-		sb.WriteByte(ch)
-		i++
-	}
-	return sb.String()
-}
-
-func isIdentChar(ch byte) bool {
-	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_'
 }
 
 // expandTrySugar expands single-line try forms into the full block form.

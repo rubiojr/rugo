@@ -1,46 +1,46 @@
 # RATS: Test variables, types, and expressions
 import "test"
 
-test "variables and arithmetic"
+rats "variables and arithmetic"
   test.run("printf 'x = 10\ny = 20\nputs(x + y)\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "30")
 end
 
-test "string concatenation"
+rats "string concatenation"
   test.run("printf 'name = \"world\"\nputs(\"hello \" + name)\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello world")
 end
 
-test "boolean values"
+rats "boolean values"
   test.run("printf 'puts(true)\nputs(false)\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "true")
   test.assert_eq(lines[1], "false")
 end
 
-test "nil value"
+rats "nil value"
   test.run("printf 'x = nil\nputs(x)\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "<nil>")
 end
 
-test "string interpolation"
+rats "string interpolation"
   test.run("printf 'name = \"rugo\"\nputs(\"hello \" + name)\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello rugo")
 end
 
-test "arithmetic operations"
+rats "arithmetic operations"
   test.run("printf 'puts(2 + 3)\nputs(10 - 4)\nputs(3 * 7)\nputs(15 / 3)\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "5")
@@ -49,9 +49,9 @@ test "arithmetic operations"
   test.assert_eq(lines[3], "5")
 end
 
-test "comparison operators"
+rats "comparison operators"
   test.run("printf 'puts(1 == 1)\nputs(1 != 2)\nputs(3 > 2)\nputs(2 < 3)\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "true")
@@ -60,9 +60,9 @@ test "comparison operators"
   test.assert_eq(lines[3], "true")
 end
 
-test "logical operators"
+rats "logical operators"
   test.run("printf 'puts(true && true)\nputs(true && false)\nputs(false || true)\nputs(false || false)\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "true")

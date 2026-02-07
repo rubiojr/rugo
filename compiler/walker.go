@@ -216,8 +216,8 @@ func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {
 }
 
 func (w *walker) walkTestDef(ast []int32) (Statement, error) {
-	// TestDef = "test" str_lit Body "end" .
-	_, ast = w.readToken(ast) // skip "test"
+	// TestDef = "rats" str_lit Body "end" .
+	_, ast = w.readToken(ast) // skip "rats"
 	nameTok, ast := w.readToken(ast)
 	name := unquoteString(nameTok.src)
 

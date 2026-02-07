@@ -1,35 +1,35 @@
 import "test"
 import "str"
 
-test "error shows script filename and line for index out of range"
-  result = test.run("./rugo run rats/fixtures/error_index.rg")
+rats "error shows script filename and line for index out of range"
+  result = test.run("rugo run rats/fixtures/error_index.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error:")
   test.assert_contains(result["output"], "error_index.rg:2")
 end
 
-test "error shows correct line for type errors"
-  result = test.run("./rugo run rats/fixtures/error_type.rg")
+rats "error shows correct line for type errors"
+  result = test.run("rugo run rats/fixtures/error_type.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error_type.rg:3")
   test.assert_contains(result["output"], "cannot add")
 end
 
-test "error inside function shows function body line"
-  result = test.run("./rugo run rats/fixtures/error_in_func.rg")
+rats "error inside function shows function body line"
+  result = test.run("rugo run rats/fixtures/error_in_func.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error_in_func.rg:2")
   test.assert_contains(result["output"], "divide by zero")
 end
 
-test "error lines account for comments"
-  result = test.run("./rugo run rats/fixtures/error_with_comments.rg")
+rats "error lines account for comments"
+  result = test.run("rugo run rats/fixtures/error_with_comments.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error_with_comments.rg:6")
 end
 
-test "no panic stacktrace in error output"
-  result = test.run("./rugo run rats/fixtures/error_index.rg")
+rats "no panic stacktrace in error output"
+  result = test.run("rugo run rats/fixtures/error_index.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error:")
   # Must NOT contain Go panic artifacts
@@ -38,14 +38,14 @@ test "no panic stacktrace in error output"
   test.assert_false(str.contains(result["output"], "main.go"))
 end
 
-test "successful scripts have clean output"
-  result = test.run("./rugo run rats/fixtures/error_none.rg")
+rats "successful scripts have clean output"
+  result = test.run("rugo run rats/fixtures/error_none.rg")
   test.assert_eq(result["status"], 0)
   test.assert_false(str.contains(result["output"], "error:"))
 end
 
-test "built binary shows script line in errors"
-  result = test.run("./rugo build -o " + test.tmpdir() + "/errbin rats/fixtures/error_index.rg")
+rats "built binary shows script line in errors"
+  result = test.run("rugo build -o " + test.tmpdir() + "/errbin rats/fixtures/error_index.rg")
   test.assert_eq(result["status"], 0)
   result = test.run(test.tmpdir() + "/errbin")
   test.assert_neq(result["status"], 0)

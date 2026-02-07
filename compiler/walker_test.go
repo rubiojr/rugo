@@ -492,7 +492,7 @@ func TestWalkHashAssign(t *testing.T) {
 // --- New walker tests for uncovered node types ---
 
 func TestWalkTestDef(t *testing.T) {
-	prog := parseAndWalk(t, "test \"my test\"\n  puts(\"hello\")\nend\n")
+	prog := parseAndWalk(t, "rats \"my test\"\n  puts(\"hello\")\nend\n")
 	require.Len(t, prog.Statements, 1)
 	td, ok := prog.Statements[0].(*TestDef)
 	require.True(t, ok, "expected *TestDef, got %T", prog.Statements[0])

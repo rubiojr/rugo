@@ -2,7 +2,9 @@
 set -e
 
 echo "Building rugo..."
-go build -o ./rugo .
+mkdir -p bin
+go build -o bin/rugo .
+export PATH="$PWD/bin:$PATH"
 
 echo "Running RATS suite..."
-./rugo test --jobs 4 rats/
+rugo rats --jobs 4 rats/

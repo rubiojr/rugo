@@ -1,18 +1,18 @@
 # RATS: Test require (user modules) with namespaces
 import "test"
 
-test "require loads module functions"
-  result = test.run("./rugo run examples/modules/main.rg")
+rats "require loads module functions"
+  result = test.run("rugo run examples/modules/main.rg")
   test.assert_eq(result["status"], 0)
 end
 
-test "shell fallback runs commands"
-  result = test.run("./rugo run examples/shell_fallback.rg")
+rats "shell fallback runs commands"
+  result = test.run("rugo run examples/shell_fallback.rg")
   test.assert_eq(result["status"], 0)
 end
 
-test "hyphenated commands are shell fallback"
-  result = test.run("./rugo run rats/fixtures/shell_hyphenated_cmd.rg")
+rats "hyphenated commands are shell fallback"
+  result = test.run("rugo run rats/fixtures/shell_hyphenated_cmd.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "caught")
   test.assert_contains(result["output"], "7")

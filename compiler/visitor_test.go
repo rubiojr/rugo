@@ -1,6 +1,10 @@
 package compiler
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/rubiojr/rugo/modules"
+)
 
 func TestWalkExpressionsFindsSpawn(t *testing.T) {
 	prog := &Program{
@@ -49,17 +53,20 @@ func TestWalkExpressionsFindsTaskMethods(t *testing.T) {
 }
 
 func TestWalkExpressionsTaskMethodOnModuleIgnored(t *testing.T) {
+	// Register a test module so IsModule returns true
+	modules.Register(&modules.Module{Name: "visitortest"})
+
 	// .value on a known module should not count as a task method
 	prog := &Program{
 		Statements: []Statement{
 			&ExprStmt{Expression: &DotExpr{
-				Object: &IdentExpr{Name: "__tmod__"},
+				Object: &IdentExpr{Name: "visitortest"},
 				Field:  "value",
 			}},
 		},
 	}
 	if astUsesTaskMethods(prog) {
-		t.Error("expected astUsesTaskMethods to ignore __tmod__.value")
+		t.Error("expected astUsesTaskMethods to ignore visitortest.value")
 	}
 }
 

@@ -1,45 +1,45 @@
 # RATS: Test the RATS framework itself
 import "test"
 
-test "test.assert_eq passes on equal values"
+rats "test.assert_eq passes on equal values"
   test.assert_eq(1, 1)
   test.assert_eq("hello", "hello")
   test.assert_eq(true, true)
 end
 
-test "test.assert_neq passes on different values"
+rats "test.assert_neq passes on different values"
   test.assert_neq(1, 2)
   test.assert_neq("a", "b")
   test.assert_neq(true, false)
 end
 
-test "test.assert_true passes on truthy"
+rats "test.assert_true passes on truthy"
   test.assert_true(true)
   test.assert_true(1)
   test.assert_true("notempty")
 end
 
-test "test.assert_false passes on falsy"
+rats "test.assert_false passes on falsy"
   test.assert_false(false)
   test.assert_false(nil)
 end
 
-test "test.assert_contains works"
+rats "test.assert_contains works"
   test.assert_contains("hello world", "world")
   test.assert_contains("foobar", "bar")
 end
 
-test "test.assert_nil passes on nil"
+rats "test.assert_nil passes on nil"
   test.assert_nil(nil)
 end
 
-test "test.run returns status and output"
+rats "test.run returns status and output"
   result = test.run("echo ok")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "ok")
 end
 
-test "test.run returns lines array"
+rats "test.run returns lines array"
   result = test.run("printf 'line1\nline2\nline3'")
   lines = result["lines"]
   test.assert_eq(len(lines), 3)
@@ -48,12 +48,12 @@ test "test.run returns lines array"
   test.assert_eq(lines[2], "line3")
 end
 
-test "test.run captures nonzero exit"
+rats "test.run captures nonzero exit"
   result = test.run("exit 1")
   test.assert_eq(result["status"], 1)
 end
 
-test "test.skip skips the test"
+rats "test.skip skips the test"
   test.skip("testing skip")
   test.fail("should not reach here")
 end

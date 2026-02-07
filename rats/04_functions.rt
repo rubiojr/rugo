@@ -1,28 +1,28 @@
 # RATS: Test functions
 import "test"
 
-test "user defined function"
+rats "user defined function"
   test.run("printf 'def greet(name)\n  puts(\"hi \" + name)\nend\ngreet(\"rugo\")\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hi rugo")
 end
 
-test "function with return value"
+rats "function with return value"
   test.run("printf 'def double(x)\n  return x * 2\nend\nputs(double(21))\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
-test "function calling another function"
+rats "function calling another function"
   test.run("printf 'def add(a, b)\n  return a + b\nend\ndef add3(a, b, c)\n  return add(add(a, b), c)\nend\nputs(add3(1, 2, 3))\n' > " + test.tmpdir() + "/test.rg")
-  result = test.run("./rugo run " + test.tmpdir() + "/test.rg")
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "6")
 end
 
-test "paren-free function calls"
-  result = test.run("./rugo run examples/paren_free.rg")
+rats "paren-free function calls"
+  result = test.run("rugo run examples/paren_free.rg")
   test.assert_eq(result["status"], 0)
 end

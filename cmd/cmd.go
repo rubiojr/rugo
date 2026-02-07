@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/rubiojr/rugo/compiler"
 	"github.com/urfave/cli/v3"
@@ -64,7 +66,7 @@ func Execute(version string) {
 				Action:    emitAction,
 			},
 			{
-				Name:      "test",
+				Name:      "rats",
 				Usage:     "Run .rt test files",
 				ArgsUsage: "[file.rt | directory]",
 				Flags: []cli.Flag{
@@ -215,47 +217,75 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("cannot find rugo binary: %w", err)
 	}
 
+	ansi := `(?:\x1b\[[0-9;]*m)*`
+	summaryRe := regexp.MustCompile(ansi + `(\d+) tests, ` + ansi + `(\d+) passed` + ansi + `, ` + ansi + `(\d+) failed` + ansi + `, (\d+) skipped`)
+
 	type fileResult struct {
-		output bytes.Buffer
+		output []byte
 		failed bool
-		done   chan struct{}
 	}
 
 	results := make([]fileResult, len(files))
-	for i := range results {
-		results[i].done = make(chan struct{})
-	}
 
-	// Semaphore for bounded concurrency
-	sem := make(chan struct{}, jobs)
-
-	for i, f := range files {
-		go func(i int, f string) {
-			sem <- struct{}{}
-			defer func() { <-sem }()
-			defer close(results[i].done)
-			cmd := exec.Command(self, "test", f)
-			cmd.Stdout = &results[i].output
-			cmd.Stderr = &results[i].output
-			if err := cmd.Run(); err != nil {
+	if jobs == 1 {
+		// Sequential: run each file with live output
+		for i, f := range files {
+			c := exec.Command(self, "rats", f)
+			var buf bytes.Buffer
+			c.Stdout = io.MultiWriter(os.Stdout, &buf)
+			c.Stderr = io.MultiWriter(os.Stderr, &buf)
+			if err := c.Run(); err != nil {
 				results[i].failed = true
 			}
-		}(i, f)
+			results[i].output = buf.Bytes()
+		}
+	} else {
+		// Parallel: buffer output per file, print in order
+		type asyncResult struct {
+			buf  bytes.Buffer
+			done chan struct{}
+		}
+		async := make([]asyncResult, len(files))
+		for i := range async {
+			async[i].done = make(chan struct{})
+		}
+		work := make(chan int, len(files))
+		for i := range files {
+			work <- i
+		}
+		close(work)
+		var wg sync.WaitGroup
+		for range jobs {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for i := range work {
+					c := exec.Command(self, "rats", files[i])
+					c.Stdout = &async[i].buf
+					c.Stderr = &async[i].buf
+					if err := c.Run(); err != nil {
+						results[i].failed = true
+					}
+					close(async[i].done)
+				}
+			}()
+		}
+		for i := range async {
+			<-async[i].done
+			out := async[i].buf.Bytes()
+			os.Stdout.Write(out)
+			results[i].output = out
+		}
 	}
 
-	// Stream results in file order as they complete and accumulate totals
+	// Accumulate totals and print grand summary
 	anyFailed := false
 	grandTests, grandPassed, grandFailed, grandSkipped := 0, 0, 0, 0
-	ansi := `(?:\x1b\[[0-9;]*m)*`
-	summaryRe := regexp.MustCompile(ansi + `(\d+) tests, ` + ansi + `(\d+) passed` + ansi + `, ` + ansi + `(\d+) failed` + ansi + `, (\d+) skipped`)
-	for i := range results {
-		<-results[i].done
-		out := results[i].output.Bytes()
-		os.Stdout.Write(out)
-		if results[i].failed {
+	for _, r := range results {
+		if r.failed {
 			anyFailed = true
 		}
-		if m := summaryRe.FindSubmatch(out); m != nil {
+		if m := summaryRe.FindSubmatch(r.output); m != nil {
 			t, _ := strconv.Atoi(string(m[1]))
 			p, _ := strconv.Atoi(string(m[2]))
 			f, _ := strconv.Atoi(string(m[3]))
@@ -267,7 +297,6 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	// Print grand total summary
 	noColor := os.Getenv("NO_COLOR") != ""
 	colorOK, colorFail, colorReset := "\033[32m", "\033[31m", "\033[0m"
 	if noColor {

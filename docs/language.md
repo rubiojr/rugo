@@ -346,7 +346,7 @@ Node (interface)
 │   ├── ImportStmt        — import "module"
 │   ├── RequireStmt       — require "path" [as "alias"]
 │   ├── FuncDef           — def name(params) body end
-│   ├── TestDef           — test "name" body end
+│   ├── TestDef           — rats "name" body end
 │   ├── IfStmt            — if/elsif/else/end
 │   ├── WhileStmt         — while cond body end
 │   ├── ForStmt           — for var [, var2] in expr body end
@@ -409,7 +409,7 @@ The code generator (`compiler/codegen.go`) traverses the typed AST and emits a s
 
 **`//line` directives**: The codegen emits `//line file.rg:N` directives before each statement so that Go runtime panics show `.rg` source locations instead of generated Go line numbers.
 
-**Test harness**: When `test` blocks are present, the codegen generates a TAP-compliant test runner instead of a regular `main()`. Each test block becomes a separate function, with optional `setup`/`teardown` hooks.
+**Test harness**: When `rats` blocks are present, the codegen generates a TAP-compliant test runner instead of a regular `main()`. Each test block becomes a separate function, with optional `setup`/`teardown` hooks.
 
 ### Function Naming Conventions
 
@@ -479,16 +479,16 @@ These functions are always available without any `import`:
 
 ## Testing
 
-Rugo includes a built-in test framework using `test/end` blocks:
+Rugo includes a built-in test framework using `rats/end` blocks:
 
 ```ruby
 import "test"
 
-test "arithmetic works"
+rats "arithmetic works"
   test.assert_eq(1 + 1, 2)
 end
 
-test "string interpolation"
+rats "string interpolation"
   name = "World"
   test.assert_eq("Hello, #{name}!", "Hello, World!")
 end

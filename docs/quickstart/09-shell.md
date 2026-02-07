@@ -62,7 +62,6 @@ See [Error Handling](11-error-handling.md) for the full `try/or` reference.
 ## Known Limitations
 
 - **`#` comments:** Rugo strips `#` comments before shell fallback detection, so unquoted `#` in shell commands is treated as a comment. Use quotes: `echo "issue #123"` instead of `echo issue #123`.
-- **`test` keyword:** The shell command `test` conflicts with Rugo's `test` keyword (used for test blocks). Use `bash -c "test -f /etc/hosts"` as a workaround.
 - **Shell variable syntax:** `FOO=bar` is interpreted as a Rugo assignment, not a shell environment variable. Use `bash -c "FOO=bar command"` instead.
 
 ---

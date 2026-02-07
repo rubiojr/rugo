@@ -56,25 +56,25 @@ def teardown()
   # runs after each test
 end
 
-test "greets the user"
+rats "greets the user"
   result = test.run("./myapp greet World")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, World!")
 end
 
-test "fails on missing arguments"
+rats "fails on missing arguments"
   result = test.run("./myapp greet")
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "missing argument")
 end
 
-test "lists files"
+rats "lists files"
   result = test.run("ls /tmp")
   test.assert_eq(result["status"], 0)
   test.assert_true(len(result["lines"]) > 0)
 end
 
-test "can be skipped"
+rats "can be skipped"
   test.skip("not ready yet")
 end
 ```
@@ -82,18 +82,18 @@ end
 ### CLI
 
 ```bash
-rugo test                       # run all .rt files in test/
-rugo test test/myapp.rt         # run specific file
-rugo test --filter "greet"      # filter by test name
-rugo test -j 4                  # run with 4 parallel workers
-rugo test -j 1                  # run sequentially
-rugo test --tap                 # raw TAP output
+rugo rats                       # run all .rt files in test/
+rugo rats test/myapp.rt         # run specific file
+rugo rats --filter "greet"      # filter by test name
+rugo rats -j 4                  # run with 4 parallel workers
+rugo rats -j 1                  # run sequentially
+rugo rats --tap                 # raw TAP output
 ```
 
 ### Output
 
 ```
-$ rugo test
+$ rugo rats
  ✓ greets the user
  ✓ fails on missing arguments
  ✓ lists files
@@ -147,11 +147,11 @@ result = test.run("echo hello")
 
 ## How the Test Runner Works
 
-The `rugo test` command would:
+The `rugo rats` command would:
 
 1. Discover `.rt` files (in `test/` by default, or specified paths)
 2. For each file:
-   a. Parse and find all `test "name" ... end` blocks
+   a. Parse and find all `rats "name" ... end` blocks
    b. Find `setup`/`teardown` if defined
    c. Generate a Go program that:
       - Defines each test as a function
@@ -165,7 +165,7 @@ The `rugo test` command would:
 
 For a test like:
 ```ruby
-test "greets the user"
+rats "greets the user"
   result = test.run("./myapp greet World")
   test.assert_eq(result["status"], 0)
 end
@@ -194,14 +194,14 @@ Assertions use `panic()` to abort the test on failure — Go's `recover()` catch
 
 ## New Language Features Required
 
-### 1. `test "name" ... end` block (Required)
+### 1. `rats "name" ... end` block (Required)
 
 New grammar production:
 ```
-TestDef = "test" str_lit Body "end" .
+TestDef = "rats" str_lit Body "end" .
 ```
 
-This is like `def` but with a string description instead of an ident name, and no parameters. The `test` keyword must be added to the grammar and the preprocessor keyword list.
+This is like `def` but with a string description instead of an ident name, and no parameters. The `rats` keyword must be added to the grammar and the preprocessor keyword list.
 
 **Effort: Small** — follows the same pattern as `FuncDef`.
 
@@ -235,7 +235,7 @@ Functions needed:
 
 **Effort: Small** — all are one-liners wrapping Go `strings` package.
 
-### 3. Test runner (`rugo test` command) (Required)
+### 3. Test runner (`rugo rats` command) (Required)
 
 A new subcommand in `main.go` that:
 - Scans for `.rt` files
@@ -270,7 +270,7 @@ These BATS features can be deferred or aren't needed:
 | BATS Feature | RATS Status | Reason |
 |---|---|---|
 | `setup_file`/`teardown_file` | Defer | `setup`/`teardown` per-test is sufficient initially |
-| `--jobs` parallel | ✅ Done | `rugo test -j N`, defaults to NumCPU |
+| `--jobs` parallel | ✅ Done | `rugo rats -j N`, defaults to NumCPU |
 | `--filter-tags` | Defer | `--filter` regex is enough |
 | `load` helper | Already have `require` | `require "test_helper"` works |
 | `bats_pipe` | Not needed | `test.run("cmd1 \| cmd2")` works since it runs via `sh -c` |
@@ -279,9 +279,9 @@ These BATS features can be deferred or aren't needed:
 ## Implementation Order
 
 1. **`str` stdlib module** — needed by assertions, useful generally
-2. **`test "name" ... end` syntax** — grammar + walker + codegen
+2. **`rats "name" ... end` syntax** — grammar + walker + codegen
 3. **`test` stdlib module** — `run()`, assertions, `skip()`, `fail()`
-4. **`rugo test` command** — test runner with TAP output
+4. **`rugo rats` command** — test runner with TAP output
 5. **Pretty output formatter** — ✓/✗ display with colors
 
 ## Example: Testing a Rugo Script
@@ -305,13 +305,13 @@ greet("World")
 # test/greet.rt
 import "test"
 
-test "outputs greeting"
+rats "outputs greeting"
   result = test.run("rugo run greet.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello, World!")
 end
 
-test "greet binary works"
+rats "greet binary works"
   test.run("rugo build greet.rg -o /tmp/greet")
   result = test.run("/tmp/greet")
   test.assert_eq(result["status"], 0)
@@ -320,7 +320,7 @@ end
 ```
 
 ```
-$ rugo test test/greet.rt
+$ rugo rats test/greet.rt
  ✓ outputs greeting
  ✓ greet binary works
 

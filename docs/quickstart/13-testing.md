@@ -10,7 +10,7 @@ Create a file called `test/greet.rt`:
 ```ruby
 import "test"
 
-test "prints hello"
+rats "prints hello"
   result = test.run("rugo run greet.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello")
@@ -20,9 +20,9 @@ end
 ## Running Tests
 
 ```bash
-rugo test                       # run all .rt files in test/
-rugo test test/greet.rt         # run a specific file
-rugo test --filter "hello"      # filter by test name
+rugo rats                       # run all .rt files in test/
+rugo rats test/greet.rt         # run a specific file
+rugo rats --filter "hello"      # filter by test name
 ```
 
 Output looks like:
@@ -44,7 +44,7 @@ Output looks like:
 ```ruby
 import "test"
 
-test "captures output lines"
+rats "captures output lines"
   result = test.run("printf 'a\nb\nc'")
   test.assert_eq(result["status"], 0)
   test.assert_eq(len(result["lines"]), 3)
@@ -67,7 +67,7 @@ end
 ## Skipping Tests
 
 ```ruby
-test "not ready yet"
+rats "not ready yet"
   test.skip("pending feature")
   test.fail("should not reach here")
 end
@@ -86,7 +86,7 @@ You can build a Rugo script and test the resulting binary:
 ```ruby
 import "test"
 
-test "binary works"
+rats "binary works"
   test.run("rugo build greet.rg -o /tmp/greet")
   result = test.run("/tmp/greet")
   test.assert_eq(result["status"], 0)

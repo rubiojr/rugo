@@ -6,6 +6,13 @@ import "fmt"
 // generated programs. They are defined here so runtime.go compiles as a normal
 // Go package and can be tested directly.
 
+var (
+	_ = rugo_to_string
+	_ = rugo_to_int
+	_ = rugo_to_float
+	_ = rugo_to_bool
+)
+
 func rugo_to_string(v interface{}) string {
 	return fmt.Sprintf("%v", v)
 }

@@ -141,7 +141,7 @@ func (c *CLI) parseArgs(args []string) {
 	i := 0
 
 	// Find command (first non-flag arg)
-	for i < len(args) {
+	if i < len(args) {
 		arg := args[i]
 		if arg == "--help" || arg == "-h" {
 			if c.matched != "" {
@@ -157,20 +157,14 @@ func (c *CLI) parseArgs(args []string) {
 		}
 		if arg == "--" {
 			i++
-			break
-		}
-		if strings.HasPrefix(arg, "-") {
+		} else if strings.HasPrefix(arg, "-") {
 			// Global flag or premature flag — skip for now, re-parse below
-			break
-		}
-		// Match against known commands — try longest (multi-word) match first
-		if matched, consumed := c.matchCommand(args[i:]); matched != "" {
+		} else if matched, consumed := c.matchCommand(args[i:]); matched != "" {
+			// Match against known commands — try longest (multi-word) match first
 			c.matched = matched
 			i += consumed
-			break
 		}
 		// Unknown positional — treat as remaining
-		break
 	}
 
 	// Parse flags and remaining args
@@ -240,15 +234,6 @@ func (c *CLI) parseArgs(args []string) {
 		}
 		i++
 	}
-}
-
-func (c *CLI) isCommand(name string) bool {
-	for _, cmd := range c.commands {
-		if cmd.Name == name {
-			return true
-		}
-	}
-	return false
 }
 
 // matchCommand tries to match the longest multi-word command from the given args.

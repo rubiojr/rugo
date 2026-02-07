@@ -103,6 +103,9 @@ func (*Test) Skip(reason interface{}) interface{} {
 	panic(rugoTestSkip(rugo_to_string(reason)))
 }
 
+// Used in generated test programs, not directly in this package.
+var _ = rugo_test_runner
+
 // rugoTestCase describes a single test for the runner.
 type rugoTestCase struct {
 	Name string

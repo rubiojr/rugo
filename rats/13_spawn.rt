@@ -6,35 +6,35 @@ import "str"
 
 # --- Positive: spawn block with .value ---
 
-test "spawn block returns value via .value"
-  result = test.run("./rugo run rats/fixtures/spawn_value.rg")
+rats "spawn block returns value via .value"
+  result = test.run("rugo run rats/fixtures/spawn_value.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
-test "spawn fire-and-forget runs in background"
-  result = test.run("./rugo run rats/fixtures/spawn_fire_forget.rg")
+rats "spawn fire-and-forget runs in background"
+  result = test.run("rugo run rats/fixtures/spawn_fire_forget.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "bg")
   test.assert_contains(result["output"], "main")
 end
 
-test "spawn one-liner sugar"
-  result = test.run("./rugo run rats/fixtures/spawn_oneliner.rg")
+rats "spawn one-liner sugar"
+  result = test.run("rugo run rats/fixtures/spawn_oneliner.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
-test "spawn multi-line body"
-  result = test.run("./rugo run rats/fixtures/spawn_multiline.rg")
+rats "spawn multi-line body"
+  result = test.run("rugo run rats/fixtures/spawn_multiline.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "30")
 end
 
 # --- Positive: parallel fan-out ---
 
-test "spawn fan-out collects ordered results"
-  result = test.run("./rugo run rats/fixtures/spawn_fanout.rg")
+rats "spawn fan-out collects ordered results"
+  result = test.run("rugo run rats/fixtures/spawn_fanout.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "10")
@@ -44,67 +44,67 @@ end
 
 # --- Positive: error handling with try/or ---
 
-test "spawn error caught with try/or default"
-  result = test.run("./rugo run rats/fixtures/spawn_try_or.rg")
+rats "spawn error caught with try/or default"
+  result = test.run("rugo run rats/fixtures/spawn_try_or.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "caught")
 end
 
-test "spawn error caught with try/or handler block"
-  result = test.run("./rugo run rats/fixtures/spawn_try_handler.rg")
+rats "spawn error caught with try/or handler block"
+  result = test.run("rugo run rats/fixtures/spawn_try_handler.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "err:")
 end
 
 # --- Positive: task.done polling ---
 
-test "task.done returns true after completion"
-  result = test.run("./rugo run rats/fixtures/spawn_done.rg")
+rats "task.done returns true after completion"
+  result = test.run("rugo run rats/fixtures/spawn_done.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "finished")
 end
 
 # --- Positive: task.wait with timeout ---
 
-test "task.wait succeeds when task completes in time"
-  result = test.run("./rugo run rats/fixtures/spawn_wait_ok.rg")
+rats "task.wait succeeds when task completes in time"
+  result = test.run("rugo run rats/fixtures/spawn_wait_ok.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end
 
-test "task.wait times out and caught with try/or"
-  result = test.run("./rugo run rats/fixtures/spawn_timeout.rg")
+rats "task.wait times out and caught with try/or"
+  result = test.run("rugo run rats/fixtures/spawn_timeout.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "timed out")
 end
 
 # --- Positive: spawn inside function ---
 
-test "spawn returned from a function"
-  result = test.run("./rugo run rats/fixtures/spawn_in_func.rg")
+rats "spawn returned from a function"
+  result = test.run("rugo run rats/fixtures/spawn_in_func.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "500")
 end
 
 # --- Positive: empty body ---
 
-test "spawn with empty body does not crash"
-  result = test.run("./rugo run rats/fixtures/spawn_empty_body.rg")
+rats "spawn with empty body does not crash"
+  result = test.run("rugo run rats/fixtures/spawn_empty_body.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "done")
 end
 
 # --- Positive: no spawn means no spawn runtime ---
 
-test "files without spawn omit spawn runtime"
-  result = test.run("./rugo emit rats/fixtures/spawn_no_spawn.rg")
+rats "files without spawn omit spawn runtime"
+  result = test.run("rugo emit rats/fixtures/spawn_no_spawn.rg")
   test.assert_eq(result["status"], 0)
   test.assert_false(str.contains(result["output"], "rugoTask"))
   test.assert_false(str.contains(result["output"], "rugo_task_value"))
 end
 
-test "files with spawn include spawn runtime"
-  result = test.run("./rugo emit rats/fixtures/spawn_value.rg")
+rats "files with spawn include spawn runtime"
+  result = test.run("rugo emit rats/fixtures/spawn_value.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "rugoTask")
   test.assert_contains(result["output"], "rugo_task_value")
@@ -114,8 +114,8 @@ end
 
 # --- Positive: build to native binary ---
 
-test "spawn compiles to native binary"
-  result = test.run("./rugo build -o " + test.tmpdir() + "/spawn_bin rats/fixtures/spawn_value.rg")
+rats "spawn compiles to native binary"
+  result = test.run("rugo build -o " + test.tmpdir() + "/spawn_bin rats/fixtures/spawn_value.rg")
   test.assert_eq(result["status"], 0)
   result = test.run(test.tmpdir() + "/spawn_bin")
   test.assert_eq(result["status"], 0)
@@ -124,8 +124,8 @@ end
 
 # --- Negative: syntax errors ---
 
-test "spawn missing end is a parse error"
-  result = test.run("./rugo run rats/fixtures/err_spawn_missing_end.rg")
+rats "spawn missing end is a parse error"
+  result = test.run("rugo run rats/fixtures/err_spawn_missing_end.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error:")
   test.assert_contains(result["output"], "end")
@@ -133,8 +133,8 @@ end
 
 # --- Negative: .value on non-task ---
 
-test ".value on non-task is a runtime error"
-  result = test.run("./rugo run rats/fixtures/err_spawn_value_non_task.rg")
+rats ".value on non-task is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_spawn_value_non_task.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot call .value on int")
   test.assert_contains(result["output"], "expected a spawn task")
@@ -143,8 +143,8 @@ end
 
 # --- Negative: .done on non-task ---
 
-test ".done on non-task is a runtime error"
-  result = test.run("./rugo run rats/fixtures/err_spawn_done_non_task.rg")
+rats ".done on non-task is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_spawn_done_non_task.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot call .done on int")
   test.assert_contains(result["output"], "expected a spawn task")
@@ -153,8 +153,8 @@ end
 
 # --- Negative: .wait on non-task ---
 
-test ".wait on non-task is a runtime error"
-  result = test.run("./rugo run rats/fixtures/err_spawn_wait_non_task.rg")
+rats ".wait on non-task is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_spawn_wait_non_task.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot call .wait on int")
   test.assert_contains(result["output"], "expected a spawn task")
@@ -163,16 +163,16 @@ end
 
 # --- Negative: panic inside spawn propagates on .value ---
 
-test "panic in spawn propagates through .value"
-  result = test.run("./rugo run rats/fixtures/err_spawn_panic_value.rg")
+rats "panic in spawn propagates through .value"
+  result = test.run("rugo run rats/fixtures/err_spawn_panic_value.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "integer divide by zero")
 end
 
 # --- Negative: error output format ---
 
-test "spawn runtime errors show .rg file and line"
-  result = test.run("./rugo run rats/fixtures/err_spawn_panic_value.rg")
+rats "spawn runtime errors show .rg file and line"
+  result = test.run("rugo run rats/fixtures/err_spawn_panic_value.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "err_spawn_panic_value.rg:")
   # No Go stack traces leak

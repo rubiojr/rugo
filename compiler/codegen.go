@@ -755,9 +755,6 @@ func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
 	// Stdlib or namespace access without call
 	if ns, ok := e.Object.(*IdentExpr); ok {
 		nsName := ns.Name
-		if nsName == "__tmod__" {
-			nsName = "test"
-		}
 		if goFunc, ok := modules.LookupFunc(nsName, e.Field); ok {
 			return fmt.Sprintf("interface{}(%s)", goFunc), nil
 		}
@@ -803,9 +800,6 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	if dot, ok := e.Func.(*DotExpr); ok {
 		if ns, ok := dot.Object.(*IdentExpr); ok {
 			nsName := ns.Name
-			if nsName == "__tmod__" {
-				nsName = "test"
-			}
 			if goFunc, ok := modules.LookupFunc(nsName, dot.Field); ok {
 				return fmt.Sprintf("%s(%s)", goFunc, argStr), nil
 			}
@@ -1208,7 +1202,7 @@ func astUsesTaskMethods(prog *Program) bool {
 			return false
 		}
 		if ident, ok := dot.Object.(*IdentExpr); ok {
-			if modules.IsModule(ident.Name) || ident.Name == "__tmod__" {
+			if modules.IsModule(ident.Name) {
 				return false
 			}
 		}

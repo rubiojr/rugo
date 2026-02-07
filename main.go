@@ -12,7 +12,7 @@ import (
 	_ "github.com/rubiojr/rugo/modules/test"
 )
 
-var version = "v0.2.6"
+var version = "v0.3.0"
 
 func main() {
 	cmd.Execute(version)
