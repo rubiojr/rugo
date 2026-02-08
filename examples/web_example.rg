@@ -32,14 +32,15 @@ web.end_group()
 # --- Handlers ---
 
 def home(req)
-  return web.html(<<~HTML
+  page = <<~HTML
     <h1>Welcome to Rugo Web!</h1>
     <p>Try these endpoints:</p>
     <ul>
       <li><a href="/health">/health</a></li>
       <li><a href="/api/users">/api/users</a> (needs Authorization header)</li>
     </ul>
-  HTML)
+  HTML
+  return web.html(page)
 end
 
 def health(req)

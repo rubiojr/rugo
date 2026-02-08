@@ -104,6 +104,26 @@ end
 web.listen(3000)
 ```
 
+Built-in middleware: `"logger"`, `"real_ip"`, `"rate_limiter"`.
+
+### Real IP
+
+Resolves the real client IP from proxy headers (`X-Forwarded-For`, `X-Real-Ip`):
+
+```ruby
+web.middleware("real_ip")
+web.middleware("logger")    # logger now shows the real IP
+```
+
+### Rate Limiter
+
+Per-IP rate limiting with token bucket algorithm:
+
+```ruby
+web.rate_limit(100)              # 100 requests/second per IP
+web.middleware("rate_limiter")   # returns 429 when exceeded
+```
+
 Route-level middleware (extra arguments after handler name):
 
 ```ruby

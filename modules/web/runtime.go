@@ -8,10 +8,12 @@ import (
 	"io"
 	"log"
 	"math"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -31,11 +33,65 @@ type routeEntry struct {
 
 // Web is the Rugo web module providing chi-like HTTP routing.
 type Web struct {
-	routes          []routeEntry
+	routes           []routeEntry
 	globalMiddleware []string
-	groupPrefix     string
-	groupMiddleware []string
-	inGroup         bool
+	groupPrefix      string
+	groupMiddleware  []string
+	inGroup          bool
+	// rate limiter config
+	rateLimitRPS float64
+	rateLimiter  *tokenBucketLimiter
+}
+
+// --- token bucket rate limiter ---
+
+type tokenBucketLimiter struct {
+	mu      sync.Mutex
+	buckets map[string]*tokenBucket
+	rps     float64
+	burst   int
+}
+
+type tokenBucket struct {
+	tokens    float64
+	lastTime  time.Time
+}
+
+func newTokenBucketLimiter(rps float64) *tokenBucketLimiter {
+	burst := int(rps)
+	if burst < 1 {
+		burst = 1
+	}
+	return &tokenBucketLimiter{
+		buckets: make(map[string]*tokenBucket),
+		rps:     rps,
+		burst:   burst,
+	}
+}
+
+func (l *tokenBucketLimiter) allow(key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	now := time.Now()
+	b, ok := l.buckets[key]
+	if !ok {
+		b = &tokenBucket{tokens: float64(l.burst), lastTime: now}
+		l.buckets[key] = b
+	}
+
+	elapsed := now.Sub(b.lastTime).Seconds()
+	b.tokens += elapsed * l.rps
+	if b.tokens > float64(l.burst) {
+		b.tokens = float64(l.burst)
+	}
+	b.lastTime = now
+
+	if b.tokens >= 1.0 {
+		b.tokens -= 1.0
+		return true
+	}
+	return false
 }
 
 // --- Route registration ---
@@ -69,6 +125,24 @@ func (w *Web) Patch(path string, handler string, extra ...interface{}) interface
 
 func (w *Web) Middleware(name string) interface{} {
 	w.globalMiddleware = append(w.globalMiddleware, name)
+	return nil
+}
+
+// RateLimit configures the built-in rate limiter (requests per second per client IP).
+// Must be called before web.middleware("rate_limiter").
+func (w *Web) RateLimit(rps interface{}) interface{} {
+	switch v := rps.(type) {
+	case int:
+		w.rateLimitRPS = float64(v)
+	case float64:
+		w.rateLimitRPS = v
+	default:
+		panic(fmt.Sprintf("web.rate_limit: expected number, got %T", rps))
+	}
+	if w.rateLimitRPS <= 0 {
+		panic("web.rate_limit: requests per second must be > 0")
+	}
+	w.rateLimiter = newTokenBucketLimiter(w.rateLimitRPS)
 	return nil
 }
 
@@ -228,6 +302,10 @@ func (w *Web) callMiddleware(name string, req interface{}) interface{} {
 	case "recoverer":
 		// recoverer is handled at the handler level — see handleRequest wrapper
 		return nil
+	case "real_ip":
+		return w.mwRealIP(req)
+	case "rate_limiter":
+		return w.mwRateLimiter(req)
 	}
 
 	// User-defined middleware via dispatch
@@ -248,6 +326,71 @@ func (w *Web) mwLogger(req interface{}) interface{} {
 		addr := fmt.Sprintf("%v", m["remote_addr"])
 		log.Printf("%s %s %s", method, path, addr)
 	}
+	return nil
+}
+
+// mwRealIP extracts the real client IP from X-Forwarded-For or X-Real-Ip headers
+// and overwrites req.remote_addr. Place before logger for accurate logging.
+func (w *Web) mwRealIP(req interface{}) interface{} {
+	m, ok := req.(map[interface{}]interface{})
+	if !ok {
+		return nil
+	}
+
+	headers, _ := m["header"].(map[interface{}]interface{})
+	if headers == nil {
+		return nil
+	}
+
+	// Try X-Forwarded-For first (may contain comma-separated list)
+	if xff, ok := headers["X-Forwarded-For"]; ok {
+		if s := strings.TrimSpace(strings.SplitN(fmt.Sprintf("%v", xff), ",", 2)[0]); s != "" {
+			m["remote_addr"] = s
+			return nil
+		}
+	}
+
+	// Fall back to X-Real-Ip
+	if xri, ok := headers["X-Real-Ip"]; ok {
+		if s := strings.TrimSpace(fmt.Sprintf("%v", xri)); s != "" {
+			m["remote_addr"] = s
+			return nil
+		}
+	}
+
+	// Strip port from remote_addr as fallback normalization
+	if addr, ok := m["remote_addr"].(string); ok {
+		if host, _, err := net.SplitHostPort(addr); err == nil {
+			m["remote_addr"] = host
+		}
+	}
+
+	return nil
+}
+
+// mwRateLimiter enforces per-IP rate limiting using a token bucket algorithm.
+// Configure with web.rate_limit(rps) before registering this middleware.
+func (w *Web) mwRateLimiter(req interface{}) interface{} {
+	if w.rateLimiter == nil {
+		// Default: 10 requests/second if not configured
+		w.rateLimiter = newTokenBucketLimiter(10)
+	}
+
+	m, ok := req.(map[interface{}]interface{})
+	if !ok {
+		return nil
+	}
+
+	clientIP := fmt.Sprintf("%v", m["remote_addr"])
+	// Strip port if present
+	if host, _, err := net.SplitHostPort(clientIP); err == nil {
+		clientIP = host
+	}
+
+	if !w.rateLimiter.allow(clientIP) {
+		return makeResponse(429, "application/json; charset=utf-8", `{"error":"rate limit exceeded"}`)
+	}
+
 	return nil
 }
 
@@ -464,3 +607,5 @@ func prepareWebJSON(v interface{}) interface{} {
 var _ = time.Now
 var _ = math.MaxInt
 var _ = log.Printf
+var _ sync.Mutex
+var _ = net.SplitHostPort

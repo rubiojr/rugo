@@ -20,6 +20,7 @@ func init() {
 			{Name: "delete", Args: []modules.ArgType{modules.String, modules.String}, Variadic: true},
 			{Name: "patch", Args: []modules.ArgType{modules.String, modules.String}, Variadic: true},
 			{Name: "middleware", Args: []modules.ArgType{modules.String}},
+			{Name: "rate_limit", Args: []modules.ArgType{modules.Any}},
 			{Name: "group", Args: []modules.ArgType{modules.String}, Variadic: true},
 			{Name: "end_group", Args: nil},
 			{Name: "static", Args: []modules.ArgType{modules.String, modules.String}},
@@ -30,7 +31,7 @@ func init() {
 			{Name: "redirect", Args: []modules.ArgType{modules.String}, Variadic: true},
 			{Name: "status", Args: []modules.ArgType{modules.Int}},
 		},
-		GoImports:     []string{"encoding/json", "fmt", "io", "log", "math", "net/http", "os", "path/filepath", "strings", "time"},
+		GoImports:     []string{"encoding/json", "fmt", "io", "log", "math", "net", "net/http", "os", "path/filepath", "strings", "sync", "time"},
 		DispatchEntry: "listen",
 		Runtime:       modules.CleanRuntime(runtime),
 	})

@@ -196,7 +196,52 @@ web.get("/admin", "admin_panel", "require_auth", "require_admin")
 | Name | Description |
 |------|-------------|
 | `"logger"` | Logs `METHOD /path remote_addr` to stderr |
+| `"real_ip"` | Resolves real client IP from proxy headers (`X-Forwarded-For`, `X-Real-Ip`) |
+| `"rate_limiter"` | Per-IP token bucket rate limiting (returns 429 when exceeded) |
 | `"recoverer"` | Recovers from handler panics (TODO) |
+
+#### `real_ip`
+
+Extracts the real client IP from reverse proxy headers and overwrites `req.remote_addr`. Checks `X-Forwarded-For` first (uses the first IP in the comma-separated list), then falls back to `X-Real-Ip`. If neither header is present, strips the port from the raw `remote_addr`.
+
+Place `real_ip` before `logger` so log entries show the correct IP:
+
+```ruby
+web.middleware("real_ip")
+web.middleware("logger")
+```
+
+#### `rate_limiter`
+
+Per-IP token bucket rate limiter. Configure the rate with `web.rate_limit(rps)` before registering the middleware:
+
+```ruby
+web.rate_limit(10)              # 10 requests/second per IP
+web.middleware("rate_limiter")
+```
+
+When a client exceeds the limit, the middleware returns a `429` JSON response:
+
+```json
+{"error":"rate limit exceeded"}
+```
+
+Tokens replenish continuously — a client limited at 2 rps gets a new token every 500ms. The burst size equals the rps value (e.g., `rate_limit(5)` allows a burst of 5 requests).
+
+If `web.rate_limit()` is not called, the default is **10 requests/second**.
+
+You can also use `rate_limiter` as route-level middleware:
+
+```ruby
+web.rate_limit(5)
+web.get("/api/search", "search", "rate_limiter")  # only this route is limited
+```
+
+Float values are supported for sub-second rates:
+
+```ruby
+web.rate_limit(0.5)  # 1 request every 2 seconds
+```
 
 ### Custom Middleware
 
@@ -208,11 +253,6 @@ def require_auth(req)
   if auth == nil
     return web.json({"error" => "unauthorized"}, 401)
   end
-  return nil
-end
-
-def rate_limit(req)
-  # return nil to allow the request through
   return nil
 end
 ```
@@ -273,8 +313,11 @@ The server logs `web: listening on :PORT` to stderr on startup.
 use "web"
 use "json"
 
-# Middleware
+# Middleware stack
+web.rate_limit(100)
+web.middleware("real_ip")
 web.middleware("logger")
+web.middleware("rate_limiter")
 
 # Public routes
 web.get("/", "home")
