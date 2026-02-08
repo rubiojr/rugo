@@ -6,6 +6,26 @@ type rugoTask struct {
 	done   chan struct{}
 }
 
+// DotGet implements the field accessor interface for dot notation on tasks.
+func (t *rugoTask) DotGet(field string) (interface{}, bool) {
+	switch field {
+	case "value":
+		<-t.done
+		if t.err != "" {
+			panic(t.err)
+		}
+		return t.result, true
+	case "done":
+		select {
+		case <-t.done:
+			return true, true
+		default:
+			return false, true
+		}
+	}
+	return nil, false
+}
+
 func rugo_task_value(t interface{}) interface{} {
 	task, ok := t.(*rugoTask)
 	if !ok {

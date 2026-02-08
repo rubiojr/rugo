@@ -30,6 +30,7 @@ type codeGen struct {
 	inFunc          bool
 	imports         map[string]bool   // Rugo stdlib modules imported (via use)
 	goImports       map[string]string // Go bridge packages: path → alias
+	namespaces      map[string]bool   // known require namespaces
 	sourceFile      string            // original .rg filename for //line directives
 	hasSpawn        bool              // whether spawn is used
 	hasParallel     bool              // whether parallel is used
@@ -46,6 +47,7 @@ func generate(prog *Program, sourceFile string) (string, error) {
 		constScopes: []map[string]bool{make(map[string]bool)},
 		imports:     make(map[string]bool),
 		goImports:   make(map[string]string),
+		namespaces:  make(map[string]bool),
 		sourceFile:  sourceFile,
 		funcDefs:    make(map[string]int),
 	}
@@ -92,6 +94,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		key := f.Name
 		if f.Namespace != "" {
 			key = f.Namespace + "." + f.Name
+			g.namespaces[f.Namespace] = true
 		}
 		g.funcDefs[key] = len(f.Params)
 	}
@@ -498,6 +501,8 @@ func (g *codeGen) writeStmt(s Statement) error {
 		return g.writeAssign(st)
 	case *IndexAssignStmt:
 		return g.writeIndexAssign(st)
+	case *DotAssignStmt:
+		return g.writeDotAssign(st)
 	case *ExprStmt:
 		return g.writeExprStmt(st)
 	case *IfStmt:
@@ -566,6 +571,19 @@ func (g *codeGen) writeIndexAssign(ia *IndexAssignStmt) error {
 		return err
 	}
 	g.writef("rugo_index_set(%s, %s, %s)\n", obj, idx, val)
+	return nil
+}
+
+func (g *codeGen) writeDotAssign(da *DotAssignStmt) error {
+	obj, err := g.exprString(da.Object)
+	if err != nil {
+		return err
+	}
+	val, err := g.exprString(da.Value)
+	if err != nil {
+		return err
+	}
+	g.writef("rugo_dot_set(%s, %q, %s)\n", obj, da.Field, val)
 	return nil
 }
 
@@ -892,31 +910,21 @@ func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
 				return "", fmt.Errorf("Go bridge function %s.%s must be called with arguments", nsName, e.Field)
 			}
 		}
-		// Task method access (no-arg): task.value, task.done
-		switch e.Field {
-		case "value":
-			g.usesTaskMethods = true
-			return fmt.Sprintf("rugo_task_value(%s)", nsName), nil
-		case "done":
-			g.usesTaskMethods = true
-			return fmt.Sprintf("rugo_task_done(%s)", nsName), nil
+		// Known require namespace — function reference
+		if g.namespaces[nsName] {
+			return fmt.Sprintf("interface{}(rugons_%s_%s)", nsName, e.Field), nil
 		}
-		return fmt.Sprintf("interface{}(rugons_%s_%s)", nsName, e.Field), nil
+		// Not a known namespace — dot access (handles both hashes and tasks at runtime)
+		g.usesTaskMethods = g.usesTaskMethods || taskMethodNames[e.Field]
+		return fmt.Sprintf("rugo_dot_get(%s, %q)", nsName, e.Field), nil
 	}
 	obj, err := g.exprString(e.Object)
 	if err != nil {
 		return "", err
 	}
-	// Task method access on non-ident expressions
-	switch e.Field {
-	case "value":
-		g.usesTaskMethods = true
-		return fmt.Sprintf("rugo_task_value(%s)", obj), nil
-	case "done":
-		g.usesTaskMethods = true
-		return fmt.Sprintf("rugo_task_done(%s)", obj), nil
-	}
-	return fmt.Sprintf("interface{}(%s)", obj), nil
+	// Dot access on non-ident expressions (handles both hashes and tasks at runtime)
+	g.usesTaskMethods = g.usesTaskMethods || taskMethodNames[e.Field]
+	return fmt.Sprintf("rugo_dot_get(%s, %q)", obj, e.Field), nil
 }
 
 func (g *codeGen) callExpr(e *CallExpr) (string, error) {
@@ -950,7 +958,18 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 				}
 				return "", fmt.Errorf("unknown function %s.%s in Go bridge package %q", nsName, dot.Field, pkg)
 			}
-			// Task method calls: task.wait(n), task.value(), task.done()
+			// Task method calls on known task variables: task.wait(n), task.value(), task.done()
+			// Also check for known namespace first
+			if g.namespaces[nsName] {
+				nsKey := nsName + "." + dot.Field
+				if expected, ok := g.funcDefs[nsKey]; ok {
+					if len(e.Args) != expected {
+						return "", fmt.Errorf("wrong number of arguments for %s.%s (%d for %d)", nsName, dot.Field, len(e.Args), expected)
+					}
+				}
+				return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, argStr), nil
+			}
+			// Not a known namespace — task method call or error
 			switch dot.Field {
 			case "wait":
 				g.usesTaskMethods = true
@@ -962,14 +981,7 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 				g.usesTaskMethods = true
 				return fmt.Sprintf("rugo_task_done(%s)", nsName), nil
 			}
-			// User module namespace call — validate argument count
-			nsKey := nsName + "." + dot.Field
-			if expected, ok := g.funcDefs[nsKey]; ok {
-				if len(e.Args) != expected {
-					return "", fmt.Errorf("wrong number of arguments for %s.%s (%d for %d)", nsName, dot.Field, len(e.Args), expected)
-				}
-			}
-			return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, argStr), nil
+			return "", fmt.Errorf("cannot call .%s() — %s is not a module or namespace", dot.Field, nsName)
 		}
 		// Non-ident object: e.g. tasks[i].wait(n)
 		obj, oerr := g.exprString(dot.Object)

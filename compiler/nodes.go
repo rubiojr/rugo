@@ -184,6 +184,17 @@ type IndexAssignStmt struct {
 func (ia *IndexAssignStmt) node() {}
 func (ia *IndexAssignStmt) stmt() {}
 
+// DotAssignStmt represents obj.field = value.
+type DotAssignStmt struct {
+	BaseStmt
+	Object Expr
+	Field  string
+	Value  Expr
+}
+
+func (da *DotAssignStmt) node() {}
+func (da *DotAssignStmt) stmt() {}
+
 // BinaryExpr represents left op right.
 type BinaryExpr struct {
 	Left  Expr

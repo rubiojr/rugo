@@ -192,6 +192,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 			s.SourceLine = line
 		case *IndexAssignStmt:
 			s.SourceLine = line
+		case *DotAssignStmt:
+			s.SourceLine = line
 		}
 	}
 	return stmt, rest, nil
@@ -509,6 +511,9 @@ func (w *walker) walkAssignOrExpr(ast []int32) (Statement, error) {
 		}
 		if idx, ok := lhs.(*IndexExpr); ok {
 			return &IndexAssignStmt{Object: idx.Object, Index: idx.Index, Value: rhs}, nil
+		}
+		if dot, ok := lhs.(*DotExpr); ok {
+			return &DotAssignStmt{Object: dot.Object, Field: dot.Field, Value: rhs}, nil
 		}
 		return nil, fmt.Errorf("invalid assignment target")
 	}

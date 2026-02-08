@@ -215,6 +215,10 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 		return nil, fmt.Errorf("%s: %w", filename, err)
 	}
 
+	// Expand struct definitions and method definitions before other preprocessing
+	var structLineMap []int
+	cleaned, structLineMap = expandStructDefs(cleaned)
+
 	// Scan for user-defined function names (quick pass for def lines)
 	userFuncs := scanFuncDefs(cleaned)
 
@@ -223,6 +227,17 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 	cleaned, lineMap, err = preprocess(cleaned, userFuncs)
 	if err != nil {
 		return nil, fmt.Errorf("preprocessing %s: %w", filename, err)
+	}
+
+	// Compose struct line map with preprocess line map for accurate source locations
+	if structLineMap != nil && lineMap != nil {
+		for i, ppLine := range lineMap {
+			if ppLine > 0 && ppLine <= len(structLineMap) {
+				lineMap[i] = structLineMap[ppLine-1]
+			}
+		}
+	} else if structLineMap != nil {
+		lineMap = structLineMap
 	}
 
 	// Ensure source ends with newline

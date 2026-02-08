@@ -27,5 +27,26 @@ func rugo_panic_handler(e interface{}) {
 	os.Exit(1)
 }
 
+func rugo_dot_get(obj interface{}, field string) interface{} {
+	// Task-like objects: check for field accessor interface
+	if fa, ok := obj.(interface{ DotGet(string) (interface{}, bool) }); ok {
+		if val, handled := fa.DotGet(field); handled {
+			return val
+		}
+	}
+	if m, ok := obj.(map[interface{}]interface{}); ok {
+		return m[field]
+	}
+	panic(fmt.Sprintf("cannot access .%s on %T — expected a hash/struct", field, obj))
+}
+
+func rugo_dot_set(obj interface{}, field string, val interface{}) {
+	if m, ok := obj.(map[interface{}]interface{}); ok {
+		m[field] = val
+		return
+	}
+	panic(fmt.Sprintf("cannot set .%s on %T — expected a hash/struct", field, obj))
+}
+
 // --- End Rugo Runtime ---
 

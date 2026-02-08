@@ -19,6 +19,8 @@ func walkStmtExprs(s Statement, fn func(Expr) bool) bool {
 		return walkExpr(st.Value, fn)
 	case *IndexAssignStmt:
 		return walkExpr(st.Object, fn) || walkExpr(st.Index, fn) || walkExpr(st.Value, fn)
+	case *DotAssignStmt:
+		return walkExpr(st.Object, fn) || walkExpr(st.Value, fn)
 	case *IfStmt:
 		if walkExpr(st.Condition, fn) {
 			return true

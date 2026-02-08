@@ -14,6 +14,7 @@ var rugoKeywords = map[string]bool{
 	"true": true, "false": true, "nil": true, "import": true, "use": true,
 	"rats": true, "try": true, "or": true,
 	"spawn": true, "parallel": true, "bench": true,
+	"struct": true,
 }
 
 var rugoBuiltins = map[string]bool{
@@ -364,6 +365,15 @@ func isDottedIdent(s string) bool {
 	return len(parts) == 2 && isIdent(parts[0]) && isIdent(parts[1])
 }
 
+// protectDottedIdent wraps bare dotted idents in parens to prevent the
+// preprocessor from treating them as paren-free module calls (e.g. h.x → h.x()).
+func protectDottedIdent(expr string) string {
+	if isDottedIdent(expr) {
+		return "(" + expr + ")"
+	}
+	return expr
+}
+
 // isHyphenatedCommand checks for hyphenated tokens like "docker-compose", "apt-get".
 // These start with a letter and contain only ident chars plus hyphens, with at least one hyphen.
 // Since hyphens are invalid in Rugo identifiers, these are always shell commands.
@@ -419,6 +429,151 @@ func scanFuncDefs(src string) map[string]bool {
 		}
 	}
 	return funcs
+}
+
+// expandStructDefs rewrites struct definitions and method definitions.
+//
+// struct Dog
+//
+//	name
+//	breed
+//
+// end
+//
+// becomes:
+//
+//	def Dog(name, breed)
+//	  return {"__type__" => "Dog", "name" => name, "breed" => breed}
+//	end
+//	def new(name, breed)
+//	  return Dog(name, breed)
+//	end
+//
+// And:
+//
+//	def Dog.bark()
+//
+// becomes:
+//
+//	def bark(self)
+func expandStructDefs(src string) (string, []int) {
+	lines := strings.Split(src, "\n")
+	var result []string
+	var lineMap []int
+	structNames := make(map[string]bool)
+
+	// First pass: collect struct names
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "struct ") {
+			name := strings.TrimSpace(trimmed[7:])
+			if isIdent(name) {
+				structNames[name] = true
+			}
+		}
+	}
+	singleStruct := len(structNames) == 1
+
+	// Second pass: expand structs and methods
+	i := 0
+	for i < len(lines) {
+		trimmed := strings.TrimSpace(lines[i])
+		origLine := i + 1
+
+		// Expand struct block
+		if strings.HasPrefix(trimmed, "struct ") {
+			name := strings.TrimSpace(trimmed[7:])
+			if !isIdent(name) {
+				result = append(result, lines[i])
+				lineMap = append(lineMap, origLine)
+				i++
+				continue
+			}
+
+			// Collect field names until "end"
+			var fields []string
+			i++
+			for i < len(lines) {
+				ft := strings.TrimSpace(lines[i])
+				if ft == "end" {
+					i++
+					break
+				}
+				if isIdent(ft) {
+					fields = append(fields, ft)
+				}
+				i++
+			}
+
+			// Generate constructor: def Name(field1, field2)
+			params := strings.Join(fields, ", ")
+			var pairs []string
+			for _, f := range fields {
+				pairs = append(pairs, fmt.Sprintf(`"%s" => %s`, f, f))
+			}
+			hashBody := `{"__type__" => "` + name + `"`
+			if len(pairs) > 0 {
+				hashBody += ", " + strings.Join(pairs, ", ")
+			}
+			hashBody += "}"
+
+			result = append(result, fmt.Sprintf("def %s(%s)", name, params))
+			lineMap = append(lineMap, origLine)
+			result = append(result, fmt.Sprintf("  return %s", hashBody))
+			lineMap = append(lineMap, origLine)
+			result = append(result, "end")
+			lineMap = append(lineMap, origLine)
+
+			// Generate new() alias only when the file has a single struct
+			// to avoid redeclaration when multiple structs share the file.
+			if singleStruct {
+				result = append(result, fmt.Sprintf("def new(%s)", params))
+				lineMap = append(lineMap, origLine)
+				result = append(result, fmt.Sprintf("  return %s", hashBody))
+				lineMap = append(lineMap, origLine)
+				result = append(result, "end")
+				lineMap = append(lineMap, origLine)
+			}
+			continue
+		}
+
+		// Expand method definitions: def Name.method(params) → def method(self, params)
+		if strings.HasPrefix(trimmed, "def ") {
+			rest := strings.TrimSpace(trimmed[4:])
+			if dotIdx := strings.Index(rest, "."); dotIdx > 0 {
+				typeName := rest[:dotIdx]
+				if structNames[typeName] {
+					afterDot := rest[dotIdx+1:]
+					// Find the opening paren
+					parenIdx := strings.Index(afterDot, "(")
+					if parenIdx >= 0 {
+						methodName := afterDot[:parenIdx]
+						paramsStr := afterDot[parenIdx+1:]
+						// Remove closing paren if present
+						if idx := strings.Index(paramsStr, ")"); idx >= 0 {
+							paramsStr = paramsStr[:idx]
+						}
+						paramsStr = strings.TrimSpace(paramsStr)
+						if paramsStr != "" {
+							paramsStr = "self, " + paramsStr
+						} else {
+							paramsStr = "self"
+						}
+						result = append(result, fmt.Sprintf("def %s(%s)", methodName, paramsStr))
+						lineMap = append(lineMap, origLine)
+						i++
+						continue
+					}
+				}
+			}
+		}
+
+		result = append(result, lines[i])
+		lineMap = append(lineMap, origLine)
+		i++
+	}
+
+	return strings.Join(result, "\n"), lineMap
 }
 
 // processInterpolation converts "Hello #{expr}" to format string + args.
@@ -762,6 +917,7 @@ func expandTrySugar(src string) (string, []int) {
 				// Split the expression onto its own line so preprocessLine can
 				// apply shell fallback to bare identifiers inside try.
 				expr := strings.TrimSpace(rest[:orIdx])
+				expr = protectDottedIdent(expr)
 				result = append(result, indent+prefix+"try")
 				lineMap = append(lineMap, origLine)
 				result = append(result, indent+"  "+expr)
@@ -774,6 +930,7 @@ func expandTrySugar(src string) (string, []int) {
 			// "try EXPR or DEFAULT" → expand to block form
 			// Put the expression on its own line so preprocessLine can apply shell fallback.
 			expr := strings.TrimSpace(rest[:orIdx])
+			expr = protectDottedIdent(expr)
 			dflt := strings.TrimSpace(rest[orIdx+2:])
 			if dflt == "" {
 				dflt = "nil"
@@ -790,9 +947,10 @@ func expandTrySugar(src string) (string, []int) {
 			lineMap = append(lineMap, origLine)
 		} else {
 			// "try EXPR" with no "or" → silent recovery (nil on failure)
+			tryExpr := protectDottedIdent(rest)
 			result = append(result, indent+prefix+"try")
 			lineMap = append(lineMap, origLine)
-			result = append(result, indent+"  "+rest)
+			result = append(result, indent+"  "+tryExpr)
 			lineMap = append(lineMap, origLine)
 			result = append(result, indent+"or _err")
 			lineMap = append(lineMap, origLine)

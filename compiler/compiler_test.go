@@ -748,9 +748,11 @@ func TestPreprocessShellBeforeDefFuncAfter(t *testing.T) {
 // === Phase 2: Namespace Tests ===
 
 func TestGenDotCall(t *testing.T) {
-	src := compileToGo(t, `ns.func(1, 2)`)
-	if !strings.Contains(src, "rugons_ns_func(") {
-		t.Errorf("expected rugons_ns_func call:\n%s", src)
+	// Unknown ns.func() should error since ns is not a known namespace
+	prog := parseAndWalk(t, `ns.func(1, 2)`)
+	_, err := generate(prog, "test.rg")
+	if err == nil {
+		t.Errorf("expected error for unknown namespace call ns.func()")
 	}
 }
 
