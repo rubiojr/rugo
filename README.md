@@ -24,15 +24,15 @@ In a future where code will be written by agents, do we even care about language
 
 - Ruby-like syntax
 - Compiles to native binaries — no runtime needed
-- Shell fallback — unknown commands run as shell commands, like Bash
-- Modules with namespaces
-- Go stdlib bridge - call Go standard library functions directly
-- User modules
-- Error handling
+- [Shell fallback](docs/quickstart/09-shell.md) — unknown commands run as shell commands, like Bash
+- [Modules](docs/quickstart/10-modules.md) with namespaces
+- [Go stdlib bridge](docs/quickstart/16-go-bridge.md) - call Go standard library functions directly
+- [User modules](docs/quickstart/14-custom-modules.md)
+- [Error handling](docs/quickstart/11-error-handling.md)
 - Built-in [BATS like](https://bats-core.readthedocs.io) test support with [rats](docs/rats.md)
-- Concurrency
-- Lightweight, Go-like OOP
-- Built-in test and benchmarking
+- [Concurrency](docs/quickstart/12-concurrency.md)
+- Lightweight, Go-like [OOP](docs/quickstart/17-structs.md)
+- Built-in [testing](docs/quickstart/13-testing.md) and [benchmarking](docs/quickstart/15-benchmarks.md)
 
 ```ruby
 use "http"
