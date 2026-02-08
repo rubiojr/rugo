@@ -31,6 +31,7 @@ In a future where code will be written by agents, do we even care about language
 - [Error handling](docs/quickstart/11-error-handling.md)
 - Built-in [BATS like](https://bats-core.readthedocs.io) test support with [rats](docs/rats.md)
 - [Concurrency](docs/quickstart/12-concurrency.md)
+- [Lambdas](docs/quickstart/08b-lambdas.md) — first-class anonymous functions
 - Lightweight, Go-like [OOP](docs/quickstart/17-structs.md)
 - Built-in [testing](docs/quickstart/13-testing.md) and [benchmarking](docs/quickstart/15-benchmarks.md)
 
@@ -64,6 +65,10 @@ def greet(name)
 end
 
 greet "World"
+
+# Lambdas — first-class functions
+double = fn(x) x * 2 end
+puts double(5)  # 10
 
 # for..in with string interpolation
 scores = [90, 85, 72]
