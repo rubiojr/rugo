@@ -571,6 +571,10 @@ func parseTokenDescription(s string) string {
 	case "EOF":
 		return "end of file"
 	case "ident":
+		// Hide internal preprocessor names from user-facing errors
+		if tokenVal == "__shell__" || tokenVal == "__capture__" || tokenVal == "__pipe_shell__" {
+			return "expression"
+		}
 		if tokenVal != "" {
 			return "\"" + tokenVal + "\""
 		}
@@ -782,7 +786,8 @@ func detectUnclosedBlock(filename string) string {
 	var stack []blockInfo
 	blockOpeners := map[string]bool{
 		"def": true, "if": true, "while": true, "for": true,
-		"rats": true, "bench": true,
+		"rats": true, "bench": true, "fn": true,
+		"spawn": true, "parallel": true, "try": true,
 	}
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
@@ -822,6 +827,20 @@ func translateBuildError(stderr, sourceFile string) error {
 		// Translate Go terms to Rugo terms
 		line = strings.ReplaceAll(line, "continue is not in a loop", "next is not in a loop")
 		line = strings.ReplaceAll(line, "break is not in a loop, switch, or select", "break is not in a loop")
+		// Translate "not an interface" type assertion error to friendly lambda error
+		if strings.Contains(line, "is not an interface") {
+			// Go error: "invalid operation: x (variable of type int) is not an interface"
+			// Translate to: "cannot call x — not a function (did you mean to assign a fn...end lambda?)"
+			if start := strings.Index(line, "invalid operation: "); start >= 0 {
+				rest := line[start+len("invalid operation: "):]
+				varName := rest
+				if spaceIdx := strings.IndexAny(rest, " ("); spaceIdx >= 0 {
+					varName = rest[:spaceIdx]
+				}
+				prefix := line[:start]
+				line = prefix + "cannot call " + varName + " — not a function (did you mean to assign a fn...end lambda?)"
+			}
+		}
 		// Strip rugofn_ prefix from function names
 		line = strings.ReplaceAll(line, "rugofn_", "")
 		// Clean up temp dir path prefix in file references

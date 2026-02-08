@@ -218,24 +218,12 @@ go test ./... -count=1
 
 ### RATS Regression Tests
 
-RATS (Rugo Automated Test Suite) uses the `test` keyword and `_test.rg` file convention (like Go's `_test.go`):
+RATS (Rugo Automated Testing System) tests live in `rats/` as `_test.rg` files. **Load the `rugo-rats` skill** for full details on test syntax, assertions, the test runner, and the regression test suite.
 
 ```bash
 rugo rats rats/                    # run all _test.rg files in rats/
 rugo rats rats/03_control_flow_test.rg  # run a specific test file
 ```
-
-Test files use `use "test"` and `rats` blocks:
-
-```ruby
-use "test"
-
-rats "addition works"
-  test.assert_eq(1 + 2, 3)
-end
-```
-
-Fixtures live in `rats/fixtures/` (`.rg` files for scripts, `_test.rg` files for test fixtures).
 
 ### Benchmarks
 
@@ -350,11 +338,11 @@ puts results[0]
 
 ### RATS tests
 
-- `rats/13_spawn_test.rg` — 21 tests (block, one-liner, fan-out, try/or, .done, .wait, functions, empty body, codegen gating, native binary, 5 negative tests)
-- `rats/14_parallel_test.rg` — 11 tests (ordered results, shell commands, single expr, nested, try/or, empty body, import gating, native binary, 2 negative tests)
-- `rats/28_bench_test.rg` — 4 tests (basic bench, multi bench, bench with functions, bench keyword in emit)
-- Fixtures in `rats/fixtures/spawn_*.rg`, `rats/fixtures/err_spawn_*.rg`, `rats/fixtures/parallel_*.rg`, `rats/fixtures/err_parallel_*.rg`, `rats/fixtures/bench_*.rg`
-- `rats/gobridge/` — 60 tests across 7 files covering all 8 Go bridge packages (strings, strconv, math, math/rand/v2, filepath, sort, os, time) plus edge cases and aliasing
+See the `rugo-rats` skill for the full regression test inventory. Key test files:
+
+- `rats/13_spawn_test.rg`, `rats/14_parallel_test.rg`, `rats/28_bench_test.rg`
+- `rats/gobridge/` — 60 tests across 7 files covering all 8 Go bridge packages
+- Fixtures in `rats/fixtures/`
 
 ## Common Pitfalls
 

@@ -834,6 +834,8 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 		return g.spawnExpr(ex)
 	case *ParallelExpr:
 		return g.parallelExpr(ex)
+	case *FnExpr:
+		return g.fnExpr(ex)
 	default:
 		return "", fmt.Errorf("unknown expression type: %T", e)
 	}
@@ -1190,6 +1192,13 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 				if len(e.Args) != expected {
 					return "", argCountError(ident.Name, len(e.Args), expected)
 				}
+				// Generate typed call if function has typed params.
+				typedArgs := g.typedCallArgs(ident.Name, args, e.Args)
+				return fmt.Sprintf("rugofn_%s(%s)", ident.Name, typedArgs), nil
+			}
+			// Lambda variable call — dynamic dispatch via type assertion
+			if g.isDeclared(ident.Name) {
+				return fmt.Sprintf("%s.(func(...interface{}) interface{})(%s)", ident.Name, argStr), nil
 			}
 			// Generate typed call if function has typed params.
 			typedArgs := g.typedCallArgs(ident.Name, args, e.Args)
@@ -1369,6 +1378,73 @@ func (g *codeGen) spawnExpr(e *SpawnExpr) (string, error) {
 	buf.WriteString("\t\t}()\n")
 	buf.WriteString("\t\treturn interface{}(t)\n")
 	buf.WriteString("\t}()")
+
+	return buf.String(), nil
+}
+
+func (g *codeGen) fnExpr(e *FnExpr) (string, error) {
+	// Emit: func(_args ...interface{}) interface{} { p1 := _args[0]; ...; body; return nil }
+	bodyCode, cerr := g.captureOutput(func() error {
+		g.pushScope()
+		for _, p := range e.Params {
+			g.declareVar(p)
+		}
+		savedFunc := g.currentFunc
+		savedInFunc := g.inFunc
+		g.inFunc = true
+		for i, s := range e.Body {
+			isLast := i == len(e.Body)-1
+			if isLast {
+				// Last statement: if it's a bare expression, make it the return value
+				if es, ok := s.(*ExprStmt); ok {
+					g.emitLineDirective(es.StmtLine())
+					val, verr := g.exprString(es.Expression)
+					if verr != nil {
+						g.popScope()
+						g.inFunc = savedInFunc
+						g.currentFunc = savedFunc
+						return verr
+					}
+					g.writef("return %s\n", val)
+					continue
+				}
+			}
+			if werr := g.writeStmt(s); werr != nil {
+				g.popScope()
+				g.inFunc = savedInFunc
+				g.currentFunc = savedFunc
+				return werr
+			}
+		}
+		g.inFunc = savedInFunc
+		g.currentFunc = savedFunc
+		g.popScope()
+		return nil
+	})
+	if cerr != nil {
+		return "", cerr
+	}
+
+	var buf strings.Builder
+	buf.WriteString("interface{}(func(_args ...interface{}) interface{} {\n")
+	// Unpack parameters from variadic args
+	for i, p := range e.Params {
+		buf.WriteString(fmt.Sprintf("\t\tvar %s interface{}\n", p))
+		buf.WriteString(fmt.Sprintf("\t\tif len(_args) > %d { %s = _args[%d] }\n", i, p, i))
+	}
+	for _, line := range strings.Split(bodyCode, "\n") {
+		if line != "" {
+			trimmed := strings.TrimLeft(line, "\t")
+			// //line directives must start at column 1 (no indentation)
+			if strings.HasPrefix(trimmed, "//line ") {
+				buf.WriteString(trimmed + "\n")
+			} else {
+				buf.WriteString("\t\t" + trimmed + "\n")
+			}
+		}
+	}
+	buf.WriteString("\t\treturn nil\n")
+	buf.WriteString("\t})")
 
 	return buf.String(), nil
 }

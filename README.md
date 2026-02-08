@@ -36,7 +36,17 @@ In a future where code will be written by agents, do we even care about language
 
 ## Influences
 
-Rugo stands on the shoulders of giants: **Ruby** (syntax, blocks), **Go** (compilation, structs), **Crystal** (spawn concurrency), **V** (try/or error handling), **Zig** (inline catch), **Bash** (shell fallback, pipes), **BATS** (test runner), and **Rust** (inline tests alongside code).
+Rugo stands on the shoulders of giants:
+
+* **Ruby** (syntax, blocks)
+* **Go** (compilation, structs)
+* **Crystal** (spawn concurrency)
+* **V** (try/or error handling)
+* **Zig** (inline catch)
+* **Bash** (shell fallback, pipes)
+* **BATS** (test runner)
+* **Rust** (inline tests alongside code).
+* **Elixir** (Lambdas)
 
 ```ruby
 use "http"

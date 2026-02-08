@@ -249,11 +249,26 @@ end
 
 ## Hashes
 
-Key-value pairs with `=>`:
+Colon syntax for string keys — clean and concise:
 
 ```ruby
-person = {"name" => "Alice", "age" => 30, "city" => "NYC"}
+person = {name: "Alice", age: 30, city: "NYC"}
 puts person["name"]   # Alice
+puts person.name      # Alice
+```
+
+Arrow syntax for expression keys (variables, integers, booleans):
+
+```ruby
+codes = {404 => "Not Found", 500 => "Server Error"}
+key = "greeting"
+h = {key => "hello"}   # key is the variable value, not the string "key"
+```
+
+Both syntaxes can be mixed:
+
+```ruby
+h = {name: "Alice", 42 => "answer"}
 ```
 
 ### Mutation
@@ -384,6 +399,20 @@ end
 greet("World")
 ```
 
+### No-Argument Functions
+
+Functions with no parameters can omit the parentheses:
+
+```ruby
+def say_hello
+  puts "Hello!"
+end
+
+say_hello
+```
+
+Both `def say_hello` and `def say_hello()` are valid.
+
 ### Return Values
 
 ```ruby
@@ -412,6 +441,62 @@ def factorial(n)
 end
 
 puts factorial(5)   # 120
+```
+
+## Lambdas (First-Class Functions)
+
+Anonymous functions using `fn...end` syntax. Can be stored in variables, passed to functions, returned, and stored in data structures.
+
+```ruby
+double = fn(x) x * 2 end
+puts double(5)   # 10
+```
+
+Multi-line:
+
+```ruby
+classify = fn(x)
+  if x > 0
+    return "positive"
+  end
+  return "non-positive"
+end
+```
+
+Passing to functions:
+
+```ruby
+def my_map(f, arr)
+  result = []
+  for item in arr
+    result = append(result, f(item))
+  end
+  return result
+end
+
+nums = my_map(fn(x) x * 2 end, [1, 2, 3])
+puts nums   # [2, 4, 6]
+```
+
+Closures capture by reference:
+
+```ruby
+def make_adder(n)
+  return fn(x) x + n end
+end
+
+add5 = make_adder(5)
+puts add5(10)   # 15
+```
+
+Lambdas in data structures:
+
+```ruby
+ops = {
+  "add" => fn(a, b) a + b end,
+  "mul" => fn(a, b) a * b end
+}
+puts ops["add"](2, 3)   # 5
 ```
 
 ## Shell Commands
@@ -683,6 +768,33 @@ rats "binary works"
 end
 ```
 
+### Inline Tests
+
+Embed `rats` blocks in regular `.rg` files. `rugo run` ignores them; `rugo rats` executes them.
+
+```ruby
+# greet.rg
+use "test"
+
+def greet(name)
+  return "Hello, " + name + "!"
+end
+
+puts greet("World")
+
+rats "greet formats a greeting"
+  test.assert_eq(greet("Rugo"), "Hello, Rugo!")
+  test.assert_contains(greet("World"), "World")
+end
+```
+
+```bash
+rugo run greet.rg       # prints "Hello, World!" — tests ignored
+rugo rats greet.rg      # runs the inline tests
+```
+
+When scanning a directory, `rugo rats` discovers both `_test.rg` files and regular `.rg` files containing `rats` blocks (directories named `fixtures` are skipped).
+
 ## Custom Modules (Advanced)
 
 Create your own Rugo modules in Go and build a custom Rugo binary.
@@ -893,4 +1005,119 @@ puts dog.bark(rex)            # Rexy says woof!
 ```ruby
 rex = Dog("Rex", "Lab")
 puts rex.__type__            # Dog
+```
+
+## Web Server
+
+Build web servers and REST APIs with the `web` module.
+
+```ruby
+use "web"
+
+web.get("/", "home")
+
+def home(req)
+  return web.text("Hello, World!")
+end
+
+web.listen(3000)
+```
+
+### Routes and URL Parameters
+
+Use `:name` to capture path segments:
+
+```ruby
+use "web"
+
+web.get("/users/:id", "show_user")
+web.post("/users", "create_user")
+
+def show_user(req)
+  id = req.params["id"]
+  return web.json({id: id})
+end
+
+def create_user(req)
+  return web.json({created: true}, 201)
+end
+
+web.listen(3000)
+```
+
+All five HTTP methods: `web.get`, `web.post`, `web.put`, `web.delete`, `web.patch`.
+
+### The Request Object
+
+```ruby
+def my_handler(req)
+  req.method        # "GET", "POST", etc.
+  req.path          # "/users/42"
+  req.body          # raw request body
+  req.params["id"]  # URL parameters
+  req.query["page"] # query string parameters
+  req.header["Authorization"]  # request headers
+  req.remote_addr   # client address
+end
+```
+
+### Response Helpers
+
+```ruby
+web.text("hello")                    # 200 text/plain
+web.text("not found", 404)           # 404 text/plain
+web.html("<h1>Hi</h1>")             # 200 text/html
+web.json({key: "val"})              # 200 application/json
+web.json({key: "val"}, 201)         # with status code
+web.redirect("/login")              # 302 redirect
+web.redirect("/new", 301)           # 301 permanent
+web.status(204)                     # empty response
+```
+
+### Middleware
+
+Return `nil` to continue, or a response to stop:
+
+```ruby
+use "web"
+
+web.middleware("require_auth")
+web.get("/secret", "secret_handler")
+
+def require_auth(req)
+  if req.header["Authorization"] == nil
+    return web.json({error: "unauthorized"}, 401)
+  end
+  return nil
+end
+
+def secret_handler(req)
+  return web.text("secret data")
+end
+
+web.listen(3000)
+```
+
+Built-in middleware: `"logger"`, `"real_ip"`, `"rate_limiter"`.
+
+Rate limiting:
+
+```ruby
+web.rate_limit(100)              # 100 requests/second per IP
+web.middleware("rate_limiter")   # returns 429 when exceeded
+```
+
+Route-level middleware:
+
+```ruby
+web.get("/admin", "admin_panel", "require_auth", "require_admin")
+```
+
+### Route Groups
+
+```ruby
+web.group("/api", "require_auth")
+  web.get("/users", "list_users")
+  web.post("/users", "create_user")
+web.end_group()
 ```

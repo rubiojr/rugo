@@ -169,6 +169,49 @@ end
 
 Functions are hoisted to the Go package level during codegen. Inside function bodies, all function names are visible (forward references work). At the top level, function names are only recognized after their `def` line (positional resolution).
 
+### Lambdas (First-Class Functions)
+
+Rugo supports anonymous functions (lambdas) using `fn(params) body end` syntax. Lambdas are first-class values — they can be stored in variables, passed as arguments, returned from functions, and stored in data structures.
+
+```ruby
+# Basic lambda
+double = fn(x) x * 2 end
+puts double(5)   # 10
+
+# Multi-line lambda
+classify = fn(x)
+  if x > 0
+    return "positive"
+  end
+  "non-positive"
+end
+
+# Pass lambda to function
+def my_map(f, arr)
+  result = []
+  for item in arr
+    result = append(result, f(item))
+  end
+  return result
+end
+my_map(fn(x) x * 2 end, [1, 2, 3])
+
+# Return lambda from function (closure)
+def make_adder(n)
+  return fn(x) x + n end
+end
+add5 = make_adder(5)
+puts add5(10)   # 15
+
+# Lambdas in data structures
+ops = {"add" => fn(a, b) a + b end}
+puts ops["add"](2, 3)   # 5
+```
+
+Lambdas compile to Go variadic anonymous functions: `func(_args ...interface{}) interface{} { ... }`. Parameters are unpacked from the variadic args. The last expression in a lambda body is implicitly returned. Closures capture variables by reference (Go's default), so mutations to captured variables are visible inside the lambda.
+
+When a variable holding a lambda is called, the codegen emits a runtime type assertion: `variable.(func(...interface{}) interface{})(args...)`. Calling a non-function variable produces a friendly compile error: `cannot call x — not a function`.
+
 ### Error Handling
 
 Rugo provides three levels of error handling via `try/or`:
@@ -426,7 +469,10 @@ Node (interface)
     ├── NilLiteral        — nil
     ├── ArrayLiteral      — [elem, ...]
     ├── HashLiteral       — {key: value, ...} or {expr => value, ...}
-    └── TryExpr           — try expr or err handler end
+    ├── TryExpr           — try expr or err handler end
+    ├── SpawnExpr         — spawn body end
+    ├── ParallelExpr      — parallel body end
+    └── FnExpr            — fn(params) body end (lambda)
 ```
 
 Every statement node embeds `BaseStmt`, which carries a `SourceLine` field mapping back to the original `.rg` source. This is populated by the walker using the line map from the preprocessor.

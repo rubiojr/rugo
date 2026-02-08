@@ -61,11 +61,13 @@ Primary     = ident
             | TryExpr
             | SpawnExpr
             | ParallelExpr
+            | FnExpr
             | '(' Expr ')' .
 
 TryExpr      = "try" Expr "or" ident Body "end" .
 SpawnExpr    = "spawn" Body "end" .
 ParallelExpr = "parallel" Body "end" .
+FnExpr       = "fn" '(' [ ParamList ] ')' Body "end" .
 
 ArrayLit    = '[' [ Expr { ',' Expr } ] ']' .
 HashLit     = '{' [ HashEntry { ',' HashEntry } ] '}' .

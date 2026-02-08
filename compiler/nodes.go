@@ -347,3 +347,12 @@ type ParallelExpr struct {
 
 func (p *ParallelExpr) node() {}
 func (p *ParallelExpr) expr() {}
+
+// FnExpr represents fn(params) body end (first-class lambda).
+type FnExpr struct {
+	Params []string
+	Body   []Statement
+}
+
+func (f *FnExpr) node() {}
+func (f *FnExpr) expr() {}

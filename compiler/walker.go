@@ -813,6 +813,9 @@ func (w *walker) walkPrimary(ast []int32) (Expr, []int32, error) {
 		case parser.RugoParallelExpr:
 			expr, err := w.walkParallelExpr(children[2 : 2+children[1]])
 			return expr, rest, err
+		case parser.RugoFnExpr:
+			expr, err := w.walkFnExpr(children[2 : 2+children[1]])
+			return expr, rest, err
 		}
 	}
 
@@ -972,6 +975,38 @@ func (w *walker) walkParallelExpr(ast []int32) (Expr, error) {
 	return &ParallelExpr{
 		Body: body,
 	}, nil
+}
+
+func (w *walker) walkFnExpr(ast []int32) (Expr, error) {
+	// FnExpr = "fn" '(' [ ParamList ] ')' Body "end" .
+	_, ast = w.readToken(ast) // "fn"
+	_, ast = w.readToken(ast) // '('
+
+	var params []string
+	if len(ast) > 0 && ast[0] < 0 {
+		sym, children, rest := w.readNonTerminal(ast)
+		if sym == parser.RugoParamList {
+			params = w.walkParamList(children)
+			ast = rest
+		}
+	}
+
+	_, ast = w.readToken(ast) // ')'
+
+	var body []Statement
+	if len(ast) > 0 && ast[0] < 0 {
+		sym, children, _ := w.readNonTerminal(ast)
+		if sym == parser.RugoBody {
+			var err error
+			body, err = w.walkBody(children)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	// "end" consumed by parser
+
+	return &FnExpr{Params: params, Body: body}, nil
 }
 
 // unquoteString removes surrounding quotes and processes escape sequences.

@@ -1,0 +1,129 @@
+use "test"
+use "str"
+
+rats "fn: basic lambda assign and call"
+  result = test.run("rugo run rats/fixtures/fn_basic.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "10")
+end
+
+rats "fn: multi-param lambda"
+  result = test.run("rugo run rats/fixtures/fn_multi_param.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "7")
+end
+
+rats "fn: zero-arg lambda"
+  result = test.run("rugo run rats/fixtures/fn_zero_arg.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello")
+end
+
+rats "fn: multi-line lambda"
+  result = test.run("rugo run rats/fixtures/fn_multiline.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "42")
+end
+
+rats "fn: pass lambda to function"
+  result = test.run("rugo run rats/fixtures/fn_pass_to_func.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "2")
+  test.assert_eq(result["lines"][1], "4")
+  test.assert_eq(result["lines"][2], "6")
+end
+
+rats "fn: return lambda from function (closure)"
+  result = test.run("rugo run rats/fixtures/fn_closure.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "15")
+end
+
+rats "fn: lambda in hash"
+  result = test.run("rugo run rats/fixtures/fn_in_hash.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "5")
+  test.assert_eq(result["lines"][1], "20")
+end
+
+rats "fn: lambda in array"
+  result = test.run("rugo run rats/fixtures/fn_in_array.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "11")
+  test.assert_eq(result["lines"][1], "20")
+end
+
+rats "fn: closure captures by reference"
+  result = test.run("rugo run rats/fixtures/fn_capture_ref.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "20")
+end
+
+rats "fn: nested lambdas (compose)"
+  result = test.run("rugo run rats/fixtures/fn_nested.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "11")
+end
+
+rats "fn: lambda with explicit return"
+  result = test.run("rugo run rats/fixtures/fn_explicit_return.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "positive")
+  test.assert_eq(result["lines"][1], "non-positive")
+end
+
+rats "fn: lambda with string interpolation"
+  result = test.run("rugo run rats/fixtures/fn_interpolation.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello world")
+end
+
+rats "fn: lambda compiles to native binary"
+  result = test.run("rugo build rats/fixtures/fn_basic.rg -o tmp/fn_bin && tmp/fn_bin")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "10")
+end
+
+rats "fn: emit produces valid Go with lambda"
+  result = test.run("rugo emit rats/fixtures/fn_basic.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "func(_args ...interface{}) interface{}")
+end
+
+# --- Negative tests ---
+
+rats "fn: missing end is a parse error"
+  result = test.run("rugo run rats/fixtures/err_fn_missing_end.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "expected \"end\"")
+  test.assert_contains(result["output"], "err_fn_missing_end.rg")
+end
+
+rats "fn: missing ( is a parse error"
+  result = test.run("rugo run rats/fixtures/err_fn_missing_paren.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "expected \"(\"")
+  test.assert_contains(result["output"], "err_fn_missing_paren.rg")
+end
+
+rats "fn: calling non-function variable is a compile error"
+  result = test.run("rugo run rats/fixtures/err_fn_call_non_func.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "not a function")
+  test.assert_false(str.contains(result["output"], "interface"))
+end
+
+rats "fn: runtime error in lambda shows correct line"
+  result = test.run("rugo run rats/fixtures/err_fn_runtime_panic.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "integer divide by zero")
+  test.assert_contains(result["output"], "err_fn_runtime_panic.rg:4")
+end
+
+rats "fn: error output has no Go stacktrace"
+  result = test.run("rugo run rats/fixtures/err_fn_runtime_panic.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_false(str.contains(result["output"], "goroutine"))
+  test.assert_false(str.contains(result["output"], "panic("))
+end
+

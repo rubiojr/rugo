@@ -57,4 +57,4 @@ puts factorial(5)   # 120
 ```
 
 ---
-Next: [Shell Commands](09-shell.md)
+Next: [Lambdas](08b-lambdas.md)
