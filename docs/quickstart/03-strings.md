@@ -33,6 +33,62 @@ puts 'back\\slash'        # prints: back\slash
 
 Raw strings are useful for regex patterns, Windows paths, and test assertions where you need exact literal text.
 
+## Heredoc Strings
+
+Heredocs are multiline string literals. Use `<<DELIM` to start a heredoc and `DELIM` on its own line to close it. Delimiters must be uppercase (`[A-Z_][A-Z0-9_]*`).
+
+### Interpolating heredoc
+
+Works like double-quoted strings — `#{...}` is evaluated:
+
+```ruby
+name = "World"
+html = <<HTML
+<h1>Hello #{name}</h1>
+<p>Welcome!</p>
+HTML
+puts html
+```
+
+### Squiggly heredoc (`<<~`)
+
+Strips common leading whitespace so you can indent the body with your code:
+
+```ruby
+name = "World"
+page = <<~HTML
+  <h1>Hello #{name}</h1>
+  <p>Welcome!</p>
+HTML
+puts page  # no leading spaces in output
+```
+
+### Raw heredoc (`<<'DELIM'`)
+
+No interpolation — content is literal, like single-quoted strings:
+
+```ruby
+template = <<'CODE'
+def #{method_name}
+  puts "hello"
+end
+CODE
+puts template  # #{method_name} printed literally
+```
+
+### Raw squiggly heredoc (`<<~'DELIM'`)
+
+Combines indent stripping with literal content:
+
+```ruby
+config = <<~'YAML'
+  name: myapp
+  version: 1.0
+YAML
+```
+
+The closing delimiter can be indented — leading whitespace is ignored when matching.
+
 ## Concatenation
 
 Concatenation with `+`:

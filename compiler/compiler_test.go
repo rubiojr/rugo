@@ -55,6 +55,91 @@ func TestStripComments(t *testing.T) {
 	}
 }
 
+func TestExpandHeredocs(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{
+			"no heredoc",
+			"x = 1\n",
+			"x = 1\n",
+		},
+		{
+			"basic interpolating",
+			"x = <<TEXT\nHello\nWorld\nTEXT\n",
+			"x = \"Hello\\nWorld\"\n",
+		},
+		{
+			"squiggly strips indent",
+			"x = <<~TEXT\n    Hello\n      World\n    !\nTEXT\n",
+			"x = \"Hello\\n  World\\n!\"\n",
+		},
+		{
+			"raw heredoc",
+			"x = <<'TEXT'\nHello #{name}\nTEXT\n",
+			"x = ('Hello #{name}')\n",
+		},
+		{
+			"raw squiggly",
+			"x = <<~'CODE'\n    def foo\n    end\nCODE\n",
+			"x = ('def foo' + \"\\n\" + 'end')\n",
+		},
+		{
+			"empty heredoc",
+			"x = <<TEXT\nTEXT\n",
+			"x = \"\"\n",
+		},
+		{
+			"indented closing delimiter",
+			"x = <<TEXT\nHello\n  TEXT\n",
+			"x = \"Hello\"\n",
+		},
+		{
+			"escapes double quotes",
+			"x = <<TEXT\nHe said \"hi\"\nTEXT\n",
+			"x = \"He said \\\"hi\\\"\"\n",
+		},
+		{
+			"escapes backslashes",
+			"x = <<TEXT\nC:\\path\nTEXT\n",
+			"x = \"C:\\\\path\"\n",
+		},
+		{
+			"multiple heredocs",
+			"a = <<A\nfoo\nA\nb = <<B\nbar\nB\n",
+			"a = \"foo\"\nb = \"bar\"\n",
+		},
+		{
+			"preserves surrounding code",
+			"y = 1\nx = <<TEXT\nhi\nTEXT\nz = 2\n",
+			"y = 1\nx = \"hi\"\nz = 2\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, err := expandHeredocs(tt.input)
+			if err != nil {
+				t.Fatalf("expandHeredocs error: %v", err)
+			}
+			if result != tt.expect {
+				t.Errorf("expandHeredocs(%q)\n  got:  %q\n  want: %q", tt.input, result, tt.expect)
+			}
+		})
+	}
+}
+
+func TestExpandHeredocsError(t *testing.T) {
+	_, err := expandHeredocs("x = <<TEXT\nHello\n")
+	if err == nil {
+		t.Fatal("expected error for unterminated heredoc")
+	}
+	if !strings.Contains(err.Error(), "unterminated heredoc") {
+		t.Errorf("expected 'unterminated heredoc' in error, got: %v", err)
+	}
+}
+
 func TestHasInterpolation(t *testing.T) {
 	tests := []struct {
 		input  string

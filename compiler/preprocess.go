@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"unicode"
 )
@@ -458,6 +459,251 @@ func hasInterpolation(s string) bool {
 		}
 	}
 	return false
+}
+
+// heredocOpener describes a parsed heredoc opening token (e.g. <<~'DELIM').
+type heredocOpener struct {
+	delimiter string // e.g. "HTML", "SQL"
+	squiggly  bool   // true for <<~ (strip common indentation)
+	raw       bool   // true for <<'DELIM' (no interpolation)
+}
+
+// parseHeredocOpener tries to parse a heredoc token starting at position pos in line.
+// It looks for the pattern <<[~]['"]DELIM['"] where DELIM is [A-Z_][A-Z0-9_]*.
+// Returns the parsed opener, the end position (one past the token), and whether
+// a valid opener was found.
+func parseHeredocOpener(line string, pos int) (heredocOpener, int, bool) {
+	i := pos
+	if i+2 > len(line) || line[i] != '<' || line[i+1] != '<' {
+		return heredocOpener{}, 0, false
+	}
+	i += 2
+
+	var h heredocOpener
+
+	// Optional squiggly ~
+	if i < len(line) && line[i] == '~' {
+		h.squiggly = true
+		i++
+	}
+
+	// Optional single-quote for raw
+	quoted := false
+	if i < len(line) && line[i] == '\'' {
+		h.raw = true
+		quoted = true
+		i++
+	}
+
+	// Delimiter: [A-Z_][A-Z0-9_]*
+	start := i
+	if i >= len(line) || !(line[i] >= 'A' && line[i] <= 'Z' || line[i] == '_') {
+		return heredocOpener{}, 0, false
+	}
+	for i < len(line) && (line[i] >= 'A' && line[i] <= 'Z' || line[i] >= '0' && line[i] <= '9' || line[i] == '_') {
+		i++
+	}
+	h.delimiter = line[start:i]
+
+	// Closing single-quote for raw
+	if quoted {
+		if i >= len(line) || line[i] != '\'' {
+			return heredocOpener{}, 0, false
+		}
+		i++
+	}
+
+	return h, i, true
+}
+
+// findHeredocOpener scans a line for a heredoc token. It only matches
+// <<DELIM that appears after '=' (assignment context) to avoid ambiguity.
+// Returns the opener, the byte offset where the token starts, and whether found.
+func findHeredocOpener(line string) (heredocOpener, int, bool) {
+	// Look for '=' followed by optional whitespace then <<
+	for i := 0; i < len(line); i++ {
+		if line[i] == '=' {
+			// Skip == and !=
+			if i+1 < len(line) && line[i+1] == '=' {
+				i++
+				continue
+			}
+			if i > 0 && (line[i-1] == '!' || line[i-1] == '<' || line[i-1] == '>') {
+				continue
+			}
+			// Found assignment '=', skip whitespace after it
+			j := i + 1
+			for j < len(line) && (line[j] == ' ' || line[j] == '\t') {
+				j++
+			}
+			h, end, ok := parseHeredocOpener(line, j)
+			if !ok {
+				continue
+			}
+			// Ensure nothing meaningful follows the opener on this line
+			rest := strings.TrimSpace(line[end:])
+			if rest != "" {
+				continue
+			}
+			return h, j, true
+		}
+	}
+	return heredocOpener{}, 0, false
+}
+
+// stripCommonIndent removes the common leading whitespace from lines,
+// ignoring blank lines when computing the minimum indent.
+func stripCommonIndent(lines []string) []string {
+	minIndent := math.MaxInt
+	for _, l := range lines {
+		if strings.TrimSpace(l) == "" {
+			continue
+		}
+		indent := 0
+		for _, ch := range l {
+			if ch == ' ' {
+				indent++
+			} else if ch == '\t' {
+				indent += 4 // treat tab as 4 spaces for indent calculation
+			} else {
+				break
+			}
+		}
+		if indent < minIndent {
+			minIndent = indent
+		}
+	}
+	if minIndent == 0 || minIndent == math.MaxInt {
+		return lines
+	}
+
+	result := make([]string, len(lines))
+	for i, l := range lines {
+		if strings.TrimSpace(l) == "" {
+			result[i] = ""
+			continue
+		}
+		// Strip minIndent characters (counting tabs as 4)
+		stripped := 0
+		j := 0
+		for j < len(l) && stripped < minIndent {
+			if l[j] == '\t' {
+				stripped += 4
+			} else {
+				stripped++
+			}
+			j++
+		}
+		result[i] = l[j:]
+	}
+	return result
+}
+
+// escapeForDoubleQuote escapes a string so it can be embedded inside a
+// double-quoted Rugo string literal. Backslashes and double-quotes are escaped.
+func escapeForDoubleQuote(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
+}
+
+// escapeForSingleQuote escapes a string so it can be embedded inside a
+// single-quoted Rugo raw string literal. Backslashes and single-quotes are escaped.
+func escapeForSingleQuote(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, `'`, `\'`)
+	return s
+}
+
+// buildHeredocReplacement converts collected heredoc body lines into a
+// single-line string expression that the rest of the pipeline can parse.
+func buildHeredocReplacement(h heredocOpener, bodyLines []string) string {
+	lines := bodyLines
+	if h.squiggly {
+		lines = stripCommonIndent(lines)
+	}
+
+	if h.raw {
+		// Raw: concatenate single-quoted segments with "\n" between them.
+		// ('line1' + "\n" + 'line2')
+		if len(lines) == 0 {
+			return "''"
+		}
+		var parts []string
+		for i, l := range lines {
+			parts = append(parts, "'"+escapeForSingleQuote(l)+"'")
+			if i < len(lines)-1 {
+				parts = append(parts, `"\n"`)
+			}
+		}
+		return "(" + strings.Join(parts, " + ") + ")"
+	}
+
+	// Interpolating: produce a double-quoted string with \n between lines.
+	// "line1\nline2"
+	var sb strings.Builder
+	sb.WriteByte('"')
+	for i, l := range lines {
+		sb.WriteString(escapeForDoubleQuote(l))
+		if i < len(lines)-1 {
+			sb.WriteString(`\n`)
+		}
+	}
+	sb.WriteByte('"')
+	return sb.String()
+}
+
+// expandHeredocs replaces heredoc syntax with single-line string expressions.
+// Must run before stripComments since heredoc bodies may contain # characters.
+//
+// Supported forms (DELIM is [A-Z_][A-Z0-9_]*):
+//
+//	x = <<DELIM       — interpolating heredoc
+//	x = <<~DELIM      — interpolating, strip common indent
+//	x = <<'DELIM'     — raw heredoc (no interpolation)
+//	x = <<~'DELIM'    — raw, strip common indent
+//
+// The closing delimiter may be indented; leading whitespace is ignored when
+// matching. Body lines between the opener and closer are collected verbatim.
+func expandHeredocs(src string) (string, error) {
+	lines := strings.Split(src, "\n")
+	var result []string
+
+	i := 0
+	for i < len(lines) {
+		h, tokenStart, ok := findHeredocOpener(lines[i])
+		if !ok {
+			result = append(result, lines[i])
+			i++
+			continue
+		}
+
+		// Replace the <<... token with the expanded string expression later.
+		prefix := lines[i][:tokenStart]
+		openerLineNum := i + 1
+
+		// Collect body lines until the closing delimiter.
+		i++
+		var bodyLines []string
+		found := false
+		for i < len(lines) {
+			if strings.TrimSpace(lines[i]) == h.delimiter {
+				found = true
+				i++
+				break
+			}
+			bodyLines = append(bodyLines, lines[i])
+			i++
+		}
+		if !found {
+			return "", fmt.Errorf("line %d: unterminated heredoc (missing closing %s)", openerLineNum, h.delimiter)
+		}
+
+		replacement := buildHeredocReplacement(h, bodyLines)
+		result = append(result, prefix+replacement)
+	}
+
+	return strings.Join(result, "\n"), nil
 }
 
 // expandTrySugar expands single-line try forms into the full block form.

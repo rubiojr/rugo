@@ -197,8 +197,14 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 		return nil, fmt.Errorf("reading %s: %w", filename, err)
 	}
 
+	// Expand heredocs before comment stripping (bodies may contain #).
+	cleaned, err := expandHeredocs(string(src))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", filename, err)
+	}
+
 	// Strip comments
-	cleaned, err := stripComments(string(src))
+	cleaned, err = stripComments(cleaned)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", filename, err)
 	}
