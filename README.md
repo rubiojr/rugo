@@ -109,7 +109,7 @@ go install github.com/rubiojr/rugo@latest
 ## Usage
 
 ```bash
-rugo run script.rg        # compile and run
+rugo script.rg            # compile and run
 rugo build script.rg      # compile to native binary
 rugo emit script.rg       # print generated Go code
 ```
