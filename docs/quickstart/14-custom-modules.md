@@ -90,13 +90,14 @@ go build -o myrugo .
 ## Using Custom Modules in Scripts
 
 ```ruby
-import "hello"
+use "hello"
 
 puts hello.greet("developer")   # hello, developer
 ```
 
 Your custom Rugo binary works exactly like standard Rugo — it just has
-extra modules available.
+extra modules available. Note: custom modules use `use` just like the
+built-in stdlib modules.
 
 ## Wrapping External Go Libraries
 

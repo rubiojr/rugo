@@ -1,8 +1,8 @@
 # RATS: Test spawn concurrency
 # Covers spawn block, one-liner, fan-out, task methods,
 # error propagation, timeouts, and syntax errors.
-import "test"
-import "str"
+use "test"
+use "str"
 
 # --- Positive: spawn block with .value ---
 

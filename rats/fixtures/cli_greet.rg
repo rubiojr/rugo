@@ -1,4 +1,4 @@
-import "cli"
+use "cli"
 
 cli.name "greet"
 cli.version "1.0.0"

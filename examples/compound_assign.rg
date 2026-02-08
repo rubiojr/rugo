@@ -1,5 +1,5 @@
 # Compound assignment operators in Rugo
-import "conv"
+use "conv"
 
 # Basic operators
 x = 10

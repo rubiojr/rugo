@@ -1,4 +1,4 @@
 # Pipe: assignment with pipe
-import "str"
+use "str"
 x = echo "hello" | str.upper
 puts x

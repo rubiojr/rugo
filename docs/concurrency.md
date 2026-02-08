@@ -78,7 +78,7 @@ end
 ### Manual fan-out with `spawn`
 
 ```ruby
-import "http"
+use "http"
 
 urls = [
   "https://api.example.com/users",
@@ -104,7 +104,7 @@ Each statement runs in its own goroutine; the block returns an array of
 results in order.
 
 ```ruby
-import "http"
+use "http"
 
 results = parallel
   http.get("https://api.example.com/users")
@@ -392,8 +392,8 @@ All items have been implemented:
 ## Complete Example: Parallel HTTP Fetcher (spawn)
 
 ```ruby
-import "http"
-import "conv"
+use "http"
+use "conv"
 
 urls = [
   "https://httpbin.org/delay/1",
@@ -427,7 +427,7 @@ three requests fly in parallel — total time ~3 seconds.
 The same pattern, simpler with `parallel`:
 
 ```ruby
-import "http"
+use "http"
 
 results = try parallel
   http.get("https://httpbin.org/delay/1")

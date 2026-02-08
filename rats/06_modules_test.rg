@@ -1,9 +1,9 @@
 # RATS: Test stdlib modules (os, conv, str)
-import "test"
+use "test"
 
 rats "os.exec runs commands"
   script = <<~SCRIPT
-    import "os"
+    use "os"
     result = os.exec("echo hello")
     puts(result)
   SCRIPT
@@ -15,7 +15,7 @@ end
 
 rats "os.exit sets exit code"
   script = <<~SCRIPT
-    import "os"
+    use "os"
     os.exit(0)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
@@ -25,7 +25,7 @@ end
 
 rats "conv.to_i converts string to int"
   script = <<~SCRIPT
-    import "conv"
+    use "conv"
     x = conv.to_i("42")
     puts(x + 1)
   SCRIPT
@@ -37,7 +37,7 @@ end
 
 rats "conv.to_s converts int to string"
   script = <<~SCRIPT
-    import "conv"
+    use "conv"
     x = conv.to_s(42)
     puts(x)
   SCRIPT
@@ -49,7 +49,7 @@ end
 
 rats "str.contains works"
   script = <<~SCRIPT
-    import "str"
+    use "str"
     puts(str.contains("hello world", "world"))
     puts(str.contains("hello", "xyz"))
   SCRIPT
@@ -63,7 +63,7 @@ end
 
 rats "str.split works"
   script = <<~SCRIPT
-    import "str"
+    use "str"
     arr = str.split("a,b,c", ",")
     puts(arr[0])
     puts(arr[1])
@@ -82,7 +82,7 @@ end
 
 rats "str.trim works"
   script = <<~SCRIPT
-    import "str"
+    use "str"
     puts(str.trim("  hello  "))
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
@@ -93,7 +93,7 @@ end
 
 rats "str.upper and str.lower"
   script = <<~SCRIPT
-    import "str"
+    use "str"
     puts(str.upper("hello"))
     puts(str.lower("WORLD"))
   SCRIPT
@@ -107,7 +107,7 @@ end
 
 rats "unknown module import fails"
   script = <<~SCRIPT
-    import "nonexistent"
+    use "nonexistent"
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")

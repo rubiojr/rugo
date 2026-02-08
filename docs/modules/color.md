@@ -3,7 +3,7 @@
 ANSI terminal colors and styles. Respects the [NO_COLOR](https://no-color.org) convention.
 
 ```ruby
-import "color"
+use "color"
 ```
 
 ## Foreground Colors
@@ -57,7 +57,7 @@ When the `NO_COLOR` environment variable is set, all functions return plain text
 ## Example
 
 ```ruby
-import "color"
+use "color"
 
 puts color.bold("Deploy Status")
 puts color.green("  ✓ API server")

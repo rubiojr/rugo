@@ -1,4 +1,4 @@
-import "conv"
+use "conv"
 results = parallel
   conv.to_s(1 * 10)
   conv.to_s(2 * 10)

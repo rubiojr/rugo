@@ -123,7 +123,7 @@ end
 Import `str` for string utilities:
 
 ```ruby
-import "str"
+use "str"
 
 puts str.upper("hello")              # HELLO
 puts str.lower("HELLO")              # hello

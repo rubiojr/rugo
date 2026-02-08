@@ -1,6 +1,6 @@
 # RATS: Module import/require edge cases
-import "test"
-import "str"
+use "test"
+use "str"
 
 # Bug 186d619: require alias matching stdlib name without import should use user module
 rats "require alias with stdlib name calls user module"
@@ -31,7 +31,7 @@ rats "require alias conflicts with imported module"
   HELPERS
   test.write_file(test.tmpdir() + "/t2/helpers.rg", helpers)
   main = <<~MAIN
-    import "str"
+    use "str"
     require "helpers" as "str"
   MAIN
   test.write_file(test.tmpdir() + "/t2/main.rg", main)
@@ -44,7 +44,7 @@ end
 rats "required file imports propagate"
   test.run("mkdir -p " + test.tmpdir() + "/t3")
   helpers = <<~HELPERS
-    import "conv"
+    use "conv"
     def double_str(n)
       return conv.to_s(n * 2)
     end
@@ -64,7 +64,7 @@ end
 rats "import inside function body errors"
   script = <<~SCRIPT
     def foo()
-      import "conv"
+      use "conv"
     end
   SCRIPT
   test.write_file(test.tmpdir() + "/nested_import.rg", script)
@@ -122,8 +122,8 @@ end
 # Bug 6ee382f: duplicate import is silently deduplicated
 rats "duplicate import is deduplicated"
   script = <<~SCRIPT
-    import "conv"
-    import "conv"
+    use "conv"
+    use "conv"
     puts(conv.to_s(42))
   SCRIPT
   test.write_file(test.tmpdir() + "/dup_import.rg", script)
@@ -136,14 +136,14 @@ end
 rats "shared stdlib import across main and required file"
   test.run("mkdir -p " + test.tmpdir() + "/t7")
   helpers = <<~HELPERS
-    import "conv"
+    use "conv"
     def to_int(s)
       return conv.to_i(s)
     end
   HELPERS
   test.write_file(test.tmpdir() + "/t7/helpers.rg", helpers)
   main = <<~MAIN
-    import "conv"
+    use "conv"
     require "helpers"
     x = helpers.to_int("10")
     puts(conv.to_s(x + 5))

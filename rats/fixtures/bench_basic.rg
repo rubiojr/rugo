@@ -1,4 +1,4 @@
-import "bench"
+use "bench"
 
 bench "simple addition"
   x = 1 + 2

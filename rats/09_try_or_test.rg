@@ -1,5 +1,5 @@
 # RATS: Test try/or error handling
-import "test"
+use "test"
 
 rats "silent recovery returns nil on failure"
   result = test.run("rugo run rats/fixtures/try_silent.rg")

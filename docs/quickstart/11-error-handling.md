@@ -28,7 +28,7 @@ puts hostname
 ```
 
 ```ruby
-import "conv"
+use "conv"
 
 port = try conv.to_i("not_a_number") or 8080
 puts port   # 8080

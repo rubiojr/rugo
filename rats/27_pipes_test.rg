@@ -1,4 +1,4 @@
-import "test"
+use "test"
 
 # --- Happy path tests ---
 

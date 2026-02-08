@@ -32,10 +32,20 @@ type Program struct {
 
 func (p *Program) node() {}
 
-// ImportStmt represents import "stdlib_module".
-type ImportStmt struct {
+// UseStmt represents use "rugo_module" (Rugo stdlib module).
+type UseStmt struct {
 	BaseStmt
 	Module string
+}
+
+func (u *UseStmt) node() {}
+func (u *UseStmt) stmt() {}
+
+// ImportStmt represents import "go/pkg" [as alias] (Go stdlib bridge).
+type ImportStmt struct {
+	BaseStmt
+	Package string // Go package path (e.g. "strings", "path/filepath")
+	Alias   string // optional alias (e.g. "fp" for filepath)
 }
 
 func (i *ImportStmt) node() {}

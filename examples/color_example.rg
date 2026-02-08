@@ -1,4 +1,4 @@
-import "color"
+use "color"
 
 puts color.bold("Deploy Status")
 puts color.green("  ✓ API server")

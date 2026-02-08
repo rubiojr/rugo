@@ -1,4 +1,4 @@
-import "cli"
+use "cli"
 
 cli.name "sub"
 cli.cmd "db:migrate", "Run migrations"

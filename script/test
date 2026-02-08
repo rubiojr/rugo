@@ -1,8 +1,8 @@
 #!/usr/bin/env rugo
 
 # Rugo test runner - runs Go tests and discovers all examples
-import "str"
-import "conv"
+use "str"
+use "conv"
 
 # Build rugo first
 puts "==============================="

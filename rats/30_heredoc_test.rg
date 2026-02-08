@@ -1,5 +1,5 @@
 # RATS: Heredoc multiline strings
-import "test"
+use "test"
 
 rats "basic interpolating heredoc"
   result = test.run("rugo run rats/fixtures/heredoc_basic.rg")

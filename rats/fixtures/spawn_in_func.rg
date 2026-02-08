@@ -1,4 +1,4 @@
-import "conv"
+use "conv"
 def compute(n)
   return spawn
     conv.to_s(n * 100)

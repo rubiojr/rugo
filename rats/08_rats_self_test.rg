@@ -1,5 +1,5 @@
 # RATS: Test the RATS framework itself
-import "test"
+use "test"
 
 rats "test.assert_eq passes on equal values"
   test.assert_eq(1, 1)

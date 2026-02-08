@@ -1,6 +1,6 @@
 # Tests for comparison operators including string ordering and numeric coercion.
 
-import "test"
+use "test"
 
 rats "string lexicographic less-than"
   result = test.run("rugo run rats/fixtures/string_compare.rg")

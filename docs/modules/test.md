@@ -3,7 +3,7 @@
 Testing and assertions for Rugo scripts.
 
 ```ruby
-import "test"
+use "test"
 ```
 
 ## run

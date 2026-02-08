@@ -1,5 +1,5 @@
 # RATS: Test custom modules (external module support)
-import "test"
+use "test"
 
 rats "custom rugo binary builds"
   result = test.run("cd rats/fixtures/custom_module/custom-rugo && go build -o " + test.tmpdir() + "/custom-rugo .")
@@ -24,7 +24,7 @@ end
 
 rats "custom rugo still runs standard modules"
   test.run("cd rats/fixtures/custom_module/custom-rugo && go build -o " + test.tmpdir() + "/custom-rugo .")
-  test.run("printf 'import \"str\"\nputs(str.upper(\"hello\"))\n' > " + test.tmpdir() + "/stdlib.rg")
+  test.run("printf 'use \"str\"\nputs(str.upper(\"hello\"))\n' > " + test.tmpdir() + "/stdlib.rg")
   result = test.run(test.tmpdir() + "/custom-rugo " + test.tmpdir() + "/stdlib.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "HELLO")

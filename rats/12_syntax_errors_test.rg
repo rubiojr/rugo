@@ -1,8 +1,8 @@
 # Tests for compile-time and runtime error messages.
 # Ensures errors are clear, point to correct lines, and don't false-positive.
 
-import "test"
-import "str"
+use "test"
+use "str"
 
 # --- Runtime type errors ---
 

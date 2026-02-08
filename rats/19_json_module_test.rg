@@ -1,11 +1,11 @@
 # RATS: Test json module (parse, encode)
-import "test"
-import "conv"
+use "test"
+use "conv"
 
 rats "json.parse parses object"
   script = <<~SCRIPT
-    import "json"
-    import "conv"
+    use "json"
+    use "conv"
     data = json.parse("{\"name\": \"rugo\", \"version\": 1}")
     puts(data["name"])
     puts(conv.to_s(data["version"]))
@@ -20,8 +20,8 @@ end
 
 rats "json.parse parses array"
   script = <<~SCRIPT
-    import "json"
-    import "conv"
+    use "json"
+    use "conv"
     arr = json.parse("[1, 2, 3]")
     puts(conv.to_s(len(arr)))
     puts(conv.to_s(arr[0]))
@@ -38,8 +38,8 @@ end
 
 rats "json.parse converts whole numbers to int"
   script = <<~SCRIPT
-    import "json"
-    import "conv"
+    use "json"
+    use "conv"
     data = json.parse("{\"id\": 12345}")
     puts(conv.to_s(data["id"]))
   SCRIPT
@@ -51,8 +51,8 @@ end
 
 rats "json.parse preserves floats"
   script = <<~SCRIPT
-    import "json"
-    import "conv"
+    use "json"
+    use "conv"
     data = json.parse("{\"pi\": 3.14}")
     puts(conv.to_s(data["pi"]))
   SCRIPT
@@ -64,7 +64,7 @@ end
 
 rats "json.parse handles nested objects"
   script = <<~SCRIPT
-    import "json"
+    use "json"
     data = json.parse("{\"user\": {\"name\": \"rugo\"}}")
     puts(data["user"]["name"])
   SCRIPT
@@ -76,8 +76,8 @@ end
 
 rats "json.parse handles booleans and null"
   script = <<~SCRIPT
-    import "json"
-    import "conv"
+    use "json"
+    use "conv"
     data = json.parse("{\"ok\": true, \"err\": null}")
     puts(conv.to_s(data["ok"]))
     puts(data["err"] == nil)
@@ -92,7 +92,7 @@ end
 
 rats "json.encode converts hash to JSON"
   script = <<~SCRIPT
-    import "json"
+    use "json"
     h = {"a" => 1}
     puts(json.encode(h))
   SCRIPT
@@ -105,7 +105,7 @@ end
 
 rats "json.encode converts array to JSON"
   script = <<~SCRIPT
-    import "json"
+    use "json"
     arr = [1, "two", true]
     puts(json.encode(arr))
   SCRIPT
@@ -117,7 +117,7 @@ end
 
 rats "json.parse roundtrip"
   script = <<~SCRIPT
-    import "json"
+    use "json"
     original = "[1,2,3]"
     parsed = json.parse(original)
     result = json.encode(parsed)
@@ -131,7 +131,7 @@ end
 
 rats "json.parse panics on invalid JSON"
   script = <<~SCRIPT
-    import "json"
+    use "json"
     json.parse("not json")
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)

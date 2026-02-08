@@ -18,7 +18,7 @@ puts "main continues immediately"
 Capture the task and call `.value` to wait for the result:
 
 ```ruby
-import "http"
+use "http"
 
 task = spawn
   http.get("https://httpbin.org/get")
@@ -43,7 +43,7 @@ puts task.value
 Spawn multiple tasks and collect results:
 
 ```ruby
-import "http"
+use "http"
 
 urls = ["https://httpbin.org/get", "https://httpbin.org/ip"]
 
@@ -92,7 +92,7 @@ puts task.value
 Run multiple expressions concurrently and wait for all results:
 
 ```ruby
-import "http"
+use "http"
 
 results = parallel
   http.get("https://api.example.com/users")

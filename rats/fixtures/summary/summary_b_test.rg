@@ -1,4 +1,4 @@
-import "test"
+use "test"
 
 rats "summary b passes"
   test.assert_eq(2, 2)

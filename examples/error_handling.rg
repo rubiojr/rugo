@@ -1,5 +1,5 @@
 # Error handling in Rugo with try/or
-import "conv"
+use "conv"
 
 # ============================================================
 # Level 1: Silent recovery — try EXPR

@@ -45,8 +45,8 @@ Key features:
 
 ```ruby
 # test/myapp_test.rg
-import "test"
-import "os"
+use "test"
+use "os"
 
 def setup()
   # runs before each test
@@ -211,7 +211,7 @@ Assertions like `assert_contains` need string operations. Two options:
 
 **Option A: `str` stdlib module**
 ```ruby
-import "str"
+use "str"
 str.contains("hello world", "world")  # true
 str.split("a,b,c", ",")               # ["a", "b", "c"]
 str.trim("  hello  ")                  # "hello"
@@ -288,7 +288,7 @@ These BATS features can be deferred or aren't needed:
 
 ```ruby
 # greet.rg
-import "os"
+use "os"
 
 def greet(name)
   if name == ""
@@ -303,7 +303,7 @@ greet("World")
 
 ```ruby
 # test/greet_test.rg
-import "test"
+use "test"
 
 rats "outputs greeting"
   result = test.run("rugo run greet.rg")

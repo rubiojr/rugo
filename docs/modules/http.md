@@ -3,7 +3,7 @@
 HTTP client module.
 
 ```ruby
-import "http"
+use "http"
 ```
 
 ## get

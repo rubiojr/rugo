@@ -348,7 +348,7 @@ The grammar defines a standard expression language with precedence levels:
 ```
 Program     = { Statement }
 
-Statement   = ImportStmt | RequireStmt | FuncDef | TestDef
+Statement   = UseStmt | ImportStmt | RequireStmt | FuncDef | TestDef
             | IfStmt | WhileStmt | ForStmt
             | BreakStmt | NextStmt | ReturnStmt
             | AssignOrExpr
@@ -388,7 +388,8 @@ The typed AST is defined in `compiler/nodes.go`. It uses Go interfaces with mark
 Node (interface)
 ├── Statement (interface)
 │   ├── Program           — root node, contains []Statement
-│   ├── ImportStmt        — import "module"
+│   ├── UseStmt           — use "module" (Rugo stdlib)
+│   ├── ImportStmt        — import "go/pkg" [as alias] (Go bridge)
 │   ├── RequireStmt       — require "path" [as "alias"]
 │   ├── FuncDef           — def name(params) body end
 │   ├── TestDef           — rats "name" body end
@@ -469,25 +470,33 @@ The code generator (`compiler/codegen.go`) traverses the typed AST and emits a s
 
 ## Module System
 
-Modules provide namespaced standard library functionality. Each module self-registers via Go `init()` using `modules.Register()`.
+Rugo has three ways to bring in external functionality:
 
-### Module Structure
+| Keyword | Purpose | Example |
+|---------|---------|---------|
+| `use` | Load Rugo stdlib modules | `use "http"` |
+| `import` | Bridge to Go stdlib packages | `import "strings"` |
+| `require` | Load user `.rg` files | `require "helpers"` |
+
+### Rugo Stdlib Modules (`use`)
+
+Modules provide namespaced standard library functionality. Each module self-registers via Go `init()` using `modules.Register()`.
 
 A module consists of:
 
 - **`runtime.go`** — A Go source file with a struct type and methods, tagged with `//go:build ignore` so it's not compiled directly. It's embedded as a string and emitted into the generated program.
 - **Registration file** — Declares the module name, type, function signatures with typed args, required Go imports, and embeds the runtime source.
 
-### How Modules Work at Compile Time
+#### How Modules Work at Compile Time
 
-1. User writes `import "http"` in their `.rg` script.
+1. User writes `use "http"` in their `.rg` script.
 2. The codegen looks up the module in the registry and collects its Go imports.
 3. The module's `FullRuntime()` method generates:
    - The cleaned runtime source (struct + methods)
    - A module instance variable (`var _http = &HTTP{}`)
    - Wrapper functions for each declared function that convert `interface{}` args to typed parameters
 
-### Available Argument Types
+#### Available Argument Types
 
 | ArgType | Go type | Runtime converter |
 |---------|---------|-------------------|
@@ -497,9 +506,23 @@ A module consists of:
 | `Bool` | `bool` | `rugo_to_bool` |
 | `Any` | `interface{}` | none (passed through) |
 
-### User Modules
+### Go Bridge (`import`)
 
-User modules use `require` instead of `import`:
+The `import` keyword provides direct access to whitelisted Go standard library packages. The compiler maintains a static registry of bridgeable Go functions and auto-generates type conversions between Rugo's `interface{}` values and Go's typed parameters.
+
+```ruby
+import "strings"
+import "math"
+
+puts strings.contains("hello world", "world")  # true
+puts math.sqrt(144.0)                           # 12
+```
+
+Function names use `snake_case` in Rugo and are auto-converted to Go's `PascalCase`. Go functions returning `(T, error)` auto-panic on error, integrating with `try/or`. The `as` keyword provides aliasing: `import "os" as go_os`.
+
+### User Modules (`require`)
+
+User modules use `require`:
 
 ```ruby
 require "helpers"            # loads helpers.rg, namespace: helpers
@@ -513,7 +536,7 @@ Required files are parsed and their `def` functions are extracted, namespaced (p
 
 ## Built-in Functions
 
-These functions are always available without any `import`:
+These functions are always available without any `use` or `import`:
 
 | Function | Description |
 |----------|-------------|
@@ -527,7 +550,7 @@ These functions are always available without any `import`:
 Rugo includes a built-in test framework using `rats/end` blocks:
 
 ```ruby
-import "test"
+use "test"
 
 rats "arithmetic works"
   test.assert_eq(1 + 1, 2)

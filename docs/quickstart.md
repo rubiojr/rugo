@@ -35,3 +35,5 @@ rugo emit script.rg       # print generated Go code
 ### Advanced
 
 14. [Custom Modules](quickstart/14-custom-modules.md)
+15. [Benchmarks](quickstart/15-benchmarks.md)
+16. [Go Bridge](quickstart/16-go-bridge.md)

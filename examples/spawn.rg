@@ -1,5 +1,5 @@
 # Concurrency with spawn in Rugo
-import "conv"
+use "conv"
 
 # === Fire and forget ===
 puts "=== Fire and forget ==="

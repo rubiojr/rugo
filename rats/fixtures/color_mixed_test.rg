@@ -1,5 +1,5 @@
 # Fixture: mixed test results (pass, fail, skip) for color output testing
-import "test"
+use "test"
 
 rats "this test passes"
   test.assert_eq(1, 1)

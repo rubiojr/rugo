@@ -1,5 +1,5 @@
 # RATS: Test functions
-import "test"
+use "test"
 
 rats "user defined function"
   script = <<~SCRIPT

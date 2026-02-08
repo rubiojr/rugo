@@ -1,4 +1,4 @@
-import "cli"
+use "cli"
 
 cli.name "pos"
 cli.cmd "echo", "Echo positional args"

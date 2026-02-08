@@ -1,5 +1,5 @@
 # Module loading with namespaces
-import "conv"
+use "conv"
 require "helpers"
 
 helpers.greet_user("Rugo Developer")

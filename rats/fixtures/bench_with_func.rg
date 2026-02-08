@@ -1,4 +1,4 @@
-import "bench"
+use "bench"
 
 def helper()
   return 42

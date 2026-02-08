@@ -77,7 +77,7 @@ end
 status
 
 # 15. Mutual recursion via forward refs
-import "conv"
+use "conv"
 
 def is_even(n)
   if n == 0

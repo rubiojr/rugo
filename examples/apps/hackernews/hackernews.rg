@@ -18,13 +18,13 @@
 #   rugo run hackernews.rg show 12345678
 #
 
-import "cli"
-import "http"
-import "json"
-import "conv"
-import "str"
-import "color"
-import "os"
+use "cli"
+use "http"
+use "json"
+use "conv"
+use "str"
+use "color"
+use "os"
 
 cli.name "hn"
 cli.version "0.1.0"

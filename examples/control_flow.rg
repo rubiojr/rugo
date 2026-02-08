@@ -1,5 +1,5 @@
 # Control flow in Rugo
-import "conv"
+use "conv"
 
 # If/elsif/else
 x = 42

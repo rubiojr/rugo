@@ -1,4 +1,4 @@
-import "color"
+use "color"
 
 puts color.red("hello")
 puts color.green("ok")

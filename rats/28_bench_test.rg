@@ -1,4 +1,4 @@
-import "test"
+use "test"
 
 rats "bench keyword compiles and runs"
   result = test.run("rugo run rats/fixtures/bench_basic.rg")

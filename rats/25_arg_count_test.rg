@@ -1,5 +1,5 @@
 # RATS: Test argument count validation
-import "test"
+use "test"
 
 rats "too many arguments"
   result = test.run("rugo run rats/fixtures/err_too_many_args.rg")

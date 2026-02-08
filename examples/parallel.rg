@@ -1,5 +1,5 @@
 # Parallel block in Rugo
-import "conv"
+use "conv"
 
 # Run expressions in parallel, collect ordered results
 puts "=== Basic parallel ==="

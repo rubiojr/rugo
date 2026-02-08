@@ -1,6 +1,6 @@
 # Control flow benchmarks
 # Tracks: rugo_to_bool overhead, loop/branch efficiency
-import "bench"
+use "bench"
 
 def noop()
   return nil

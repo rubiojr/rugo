@@ -11,7 +11,7 @@ var rugoKeywords = map[string]bool{
 	"if": true, "elsif": true, "else": true, "end": true,
 	"while": true, "for": true, "in": true, "def": true,
 	"return": true, "require": true, "break": true, "next": true,
-	"true": true, "false": true, "nil": true, "import": true,
+	"true": true, "false": true, "nil": true, "import": true, "use": true,
 	"rats": true, "try": true, "or": true,
 	"spawn": true, "parallel": true, "bench": true,
 }

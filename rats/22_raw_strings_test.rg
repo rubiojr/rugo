@@ -1,5 +1,5 @@
 # RATS: Test single-quoted raw string literals
-import "test"
+use "test"
 
 rats "raw strings preserve backslash-n literally"
   result = test.run("rugo run rats/fixtures/raw_string_basic.rg")

@@ -1,0 +1,40 @@
+package gobridge
+
+func init() {
+	Register(&Package{
+		Path: "strings",
+		Funcs: map[string]GoFuncSig{
+			"contains":       {GoName: "Contains", Params: []GoType{GoString, GoString}, Returns: []GoType{GoBool}},
+			"contains_any":   {GoName: "ContainsAny", Params: []GoType{GoString, GoString}, Returns: []GoType{GoBool}},
+			"count":          {GoName: "Count", Params: []GoType{GoString, GoString}, Returns: []GoType{GoInt}},
+			"has_prefix":     {GoName: "HasPrefix", Params: []GoType{GoString, GoString}, Returns: []GoType{GoBool}},
+			"has_suffix":     {GoName: "HasSuffix", Params: []GoType{GoString, GoString}, Returns: []GoType{GoBool}},
+			"index":          {GoName: "Index", Params: []GoType{GoString, GoString}, Returns: []GoType{GoInt}},
+			"join":           {GoName: "Join", Params: []GoType{GoStringSlice, GoString}, Returns: []GoType{GoString}},
+			"last_index":     {GoName: "LastIndex", Params: []GoType{GoString, GoString}, Returns: []GoType{GoInt}},
+			"repeat":         {GoName: "Repeat", Params: []GoType{GoString, GoInt}, Returns: []GoType{GoString}},
+			"replace":        {GoName: "Replace", Params: []GoType{GoString, GoString, GoString, GoInt}, Returns: []GoType{GoString}},
+			"replace_all":    {GoName: "ReplaceAll", Params: []GoType{GoString, GoString, GoString}, Returns: []GoType{GoString}},
+			"split":          {GoName: "Split", Params: []GoType{GoString, GoString}, Returns: []GoType{GoStringSlice}},
+			"split_n":        {GoName: "SplitN", Params: []GoType{GoString, GoString, GoInt}, Returns: []GoType{GoStringSlice}},
+			"to_lower":       {GoName: "ToLower", Params: []GoType{GoString}, Returns: []GoType{GoString}},
+			"to_upper":       {GoName: "ToUpper", Params: []GoType{GoString}, Returns: []GoType{GoString}},
+			"to_title":       {GoName: "ToTitle", Params: []GoType{GoString}, Returns: []GoType{GoString}},
+			"trim":           {GoName: "Trim", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString}},
+			"trim_left":      {GoName: "TrimLeft", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString}},
+			"trim_right":     {GoName: "TrimRight", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString}},
+			"trim_space":     {GoName: "TrimSpace", Params: []GoType{GoString}, Returns: []GoType{GoString}},
+			"trim_prefix":    {GoName: "TrimPrefix", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString}},
+			"trim_suffix":    {GoName: "TrimSuffix", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString}},
+			"equal_fold":     {GoName: "EqualFold", Params: []GoType{GoString, GoString}, Returns: []GoType{GoBool}},
+			"clone":          {GoName: "Clone", Params: []GoType{GoString}, Returns: []GoType{GoString}},
+			"compare":        {GoName: "Compare", Params: []GoType{GoString, GoString}, Returns: []GoType{GoInt}},
+			"cut":            {GoName: "Cut", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString, GoString, GoBool}},
+			"cut_prefix":     {GoName: "CutPrefix", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString, GoBool}},
+			"cut_suffix":     {GoName: "CutSuffix", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString, GoBool}},
+			"fields":         {GoName: "Fields", Params: []GoType{GoString}, Returns: []GoType{GoStringSlice}},
+			"index_any":      {GoName: "IndexAny", Params: []GoType{GoString, GoString}, Returns: []GoType{GoInt}},
+			"last_index_any": {GoName: "LastIndexAny", Params: []GoType{GoString, GoString}, Returns: []GoType{GoInt}},
+		},
+	})
+}

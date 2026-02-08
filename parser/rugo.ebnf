@@ -5,7 +5,8 @@
 Program     = { Statement } .
 
 # Statements
-Statement   = ImportStmt
+Statement   = UseStmt
+            | ImportStmt
             | RequireStmt
             | FuncDef
             | TestDef
@@ -18,7 +19,8 @@ Statement   = ImportStmt
             | ReturnStmt
             | AssignOrExpr .
 
-ImportStmt  = "import" str_lit .
+UseStmt     = "use" str_lit .
+ImportStmt  = "import" str_lit [ "as" ident ] .
 RequireStmt = "require" str_lit [ "as" str_lit ] .
 FuncDef     = "def" ident '(' [ ParamList ] ')' Body "end" .
 TestDef     = "rats" str_lit Body "end" .

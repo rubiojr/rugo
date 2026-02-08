@@ -40,7 +40,7 @@ continue.
 `try EXPR or DEFAULT` returns `DEFAULT` when the expression fails.
 
 ```ruby
-import "conv"
+use "conv"
 
 name = try `whoami` or "unknown"
 port = try conv.to_i(`cat port.txt`) or 8080
@@ -112,7 +112,7 @@ config = try `cat config.json` or "{}"
 ### Conversion with fallback
 
 ```ruby
-import "conv"
+use "conv"
 
 num = try conv.to_i("not_a_number") or 0
 ```

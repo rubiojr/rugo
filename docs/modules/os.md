@@ -3,7 +3,7 @@
 Shell execution and process control.
 
 ```ruby
-import "os"
+use "os"
 ```
 
 ## exec

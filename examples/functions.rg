@@ -1,5 +1,5 @@
 # Functions in Rugo
-import "conv"
+use "conv"
 
 def greet(name)
   puts("Hello, " + name + "!")

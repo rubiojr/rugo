@@ -1,7 +1,7 @@
 # Arithmetic & type-switch overhead benchmarks
 # Tracks: interface{} boxing, rugo_add/sub/mul/div type-switch cost,
 #          rugo_compare string dispatch overhead
-import "bench"
+use "bench"
 
 def fib(n)
   if n <= 1

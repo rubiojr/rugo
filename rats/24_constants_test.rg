@@ -1,5 +1,5 @@
 # RATS: Constants (uppercase identifiers are immutable)
-import "test"
+use "test"
 
 rats "constants basic assignment and use"
   result = test.run("rugo run rats/fixtures/constants_basic.rg")

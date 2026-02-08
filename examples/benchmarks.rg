@@ -1,5 +1,5 @@
 # Benchmarks in Rugo
-import "bench"
+use "bench"
 
 # Define functions to benchmark
 def fib(n)

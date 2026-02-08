@@ -1,4 +1,4 @@
-import "bench"
+use "bench"
 
 def fib(n)
   if n <= 1

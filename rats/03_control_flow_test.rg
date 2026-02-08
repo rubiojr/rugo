@@ -1,5 +1,5 @@
 # RATS: Test control flow (if/elsif/else/while)
-import "test"
+use "test"
 
 rats "if statement true branch"
   script = <<~SCRIPT

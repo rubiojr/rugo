@@ -1,5 +1,5 @@
 # RATS: Test cli module (commands, flags, dispatch, help)
-import "test"
+use "test"
 
 rats "cli dispatch calls correct handler"
   result = test.run("rugo run rats/fixtures/cli_greet.rg hello")

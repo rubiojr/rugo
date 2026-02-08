@@ -1,5 +1,5 @@
 # Parenthesis-free function calls
-import "conv"
+use "conv"
 
 # These are equivalent:
 puts("With parens")

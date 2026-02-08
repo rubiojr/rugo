@@ -1,5 +1,5 @@
-import "test"
-import "str"
+use "test"
+use "str"
 
 rats "backtick captures command output"
   result = test.run("rugo run rats/fixtures/backtick_simple.rg")

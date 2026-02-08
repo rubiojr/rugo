@@ -1,5 +1,5 @@
 # Helper functions for the module example
-import "conv"
+use "conv"
 
 def double(n)
   return n * 2

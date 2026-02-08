@@ -8,7 +8,7 @@ framework inspired by BATS. Tests live in `_test.rg` files and use the `test` mo
 Create a file called `test/greet_test.rg`:
 
 ```ruby
-import "test"
+use "test"
 
 rats "prints hello"
   result = test.run("rugo run greet.rg")
@@ -42,7 +42,7 @@ Output looks like:
 - `"lines"` — output split by newlines (array)
 
 ```ruby
-import "test"
+use "test"
 
 rats "captures output lines"
   result = test.run("printf 'a\nb\nc'")
@@ -84,7 +84,7 @@ Skipped tests show in output:
 You can build a Rugo script and test the resulting binary:
 
 ```ruby
-import "test"
+use "test"
 
 rats "binary works"
   test.run("rugo build greet.rg -o /tmp/greet")

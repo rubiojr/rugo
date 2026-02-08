@@ -1,5 +1,5 @@
 # RATS: Test escape sequences in string literals
-import "test"
+use "test"
 
 rats "hex escape \\x1b produces ANSI escape"
   result = test.run("rugo run rats/fixtures/escape_hex.rg")

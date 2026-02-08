@@ -3,13 +3,13 @@
 Build CLI applications with commands, flags, and convention-based dispatch.
 
 ```ruby
-import "cli"
+use "cli"
 ```
 
 ## Quick Example
 
 ```ruby
-import "cli"
+use "cli"
 
 cli.name "greet"
 cli.version "1.0.0"
@@ -201,7 +201,7 @@ Auto-handled flags:
 ## Full Example
 
 ```ruby
-import "cli"
+use "cli"
 
 cli.name "todo"
 cli.version "0.1.0"

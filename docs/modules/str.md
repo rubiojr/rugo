@@ -3,7 +3,7 @@
 String utilities.
 
 ```ruby
-import "str"
+use "str"
 ```
 
 ## upper / lower

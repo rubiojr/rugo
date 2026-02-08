@@ -1,5 +1,5 @@
 # RATS: Test variables, types, and expressions
-import "test"
+use "test"
 
 rats "variables and arithmetic"
   script = <<~SCRIPT

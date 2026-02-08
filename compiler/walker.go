@@ -127,6 +127,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 	var stmt Statement
 	var err error
 	switch innerSym {
+	case parser.RugoUseStmt:
+		stmt, err = w.walkUseStmt(innerChildren)
 	case parser.RugoImportStmt:
 		stmt, err = w.walkImportStmt(innerChildren)
 	case parser.RugoRequireStmt:
@@ -160,6 +162,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 	// Set the source line on the statement
 	if line > 0 {
 		switch s := stmt.(type) {
+		case *UseStmt:
+			s.SourceLine = line
 		case *ImportStmt:
 			s.SourceLine = line
 		case *RequireStmt:
@@ -193,12 +197,29 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 	return stmt, rest, nil
 }
 
-func (w *walker) walkImportStmt(ast []int32) (Statement, error) {
-	// ImportStmt = "import" str_lit .
-	_, ast = w.readToken(ast) // skip "import"
+func (w *walker) walkUseStmt(ast []int32) (Statement, error) {
+	// UseStmt = "use" str_lit .
+	_, ast = w.readToken(ast) // skip "use"
 	tok, _ := w.readToken(ast)
 	module := unquoteString(tok.src)
-	return &ImportStmt{Module: module}, nil
+	return &UseStmt{Module: module}, nil
+}
+
+func (w *walker) walkImportStmt(ast []int32) (Statement, error) {
+	// ImportStmt = "import" str_lit [ "as" ident ] .
+	_, ast = w.readToken(ast) // skip "import"
+	tok, ast := w.readToken(ast)
+	pkg := unquoteString(tok.src)
+	alias := ""
+	if len(ast) > 0 && ast[0] >= 0 {
+		nextTok := w.p.Token(ast[0])
+		if parser.Symbol(nextTok.Ch) == parser.RugoTOK_as {
+			_, ast = w.readToken(ast) // consume "as"
+			aliasTok, _ := w.readToken(ast)
+			alias = aliasTok.src
+		}
+	}
+	return &ImportStmt{Package: pkg, Alias: alias}, nil
 }
 
 func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {

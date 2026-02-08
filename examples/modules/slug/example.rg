@@ -1,7 +1,7 @@
 # Slug module example
 # Build with: cd custom-rugo && go build -o myrugo . && ./myrugo ../example.rg
 
-import "slug"
+use "slug"
 
 title = "Hello, World! This is Rugo"
 puts slug.make(title)

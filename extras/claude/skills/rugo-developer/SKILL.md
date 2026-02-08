@@ -33,6 +33,7 @@ Repository: `github.com/rubiojr/rugo`
 | `compiler/walker.go` | AST walker — transforms parse tree into compiler nodes |
 | `compiler/codegen.go` | Go code generation from compiler nodes |
 | `compiler/nodes.go` | AST node types |
+| `compiler/gobridge/` | Go stdlib bridge: type registry and per-package mapping files |
 | `compiler/compiler.go` | Orchestrates: file loading, require resolution, compilation |
 | `modules/` | Stdlib module registry and built-in modules |
 | `modules/module.go` | Module type, registry API, `CleanRuntime` helper |
@@ -51,7 +52,8 @@ Repository: `github.com/rubiojr/rugo`
 * Shell fallback — unknown identifiers at top level run as shell commands
 * Paren-free calls — `puts "hello"` (preprocessor rewrites to `puts("hello")`)
 * String interpolation — `"Hello, #{name}!"`
-* Modules with namespaces — `import "http"` → `http.get(url)`
+* Rugo stdlib modules — `use "http"` → `http.get(url)`
+* Go stdlib bridge — `import "strings"` → `strings.to_upper("hello")` (direct Go calls)
 * User modules — `require "lib"` → `lib.func()`
 * Arrays, hashes, closureless functions
 * Global builtins: `puts`, `print`, `len`, `append`
@@ -74,10 +76,10 @@ Transforms raw `.rg` source before parsing:
 - Converts unknown top-level identifiers to shell fallback: `ls -la` → `__shell__("ls -la")`
 - Expands single-line `try` sugar into block form (skips block keywords like `spawn`, `parallel`)
 - Expands single-line `spawn EXPR` into `spawn\n  EXPR\nend`
-- Handles `import`/`require` statements
+- Handles `use`/`import`/`require` statements
 - Tracks block nesting via `blockStack` for `spawn`/`parallel` end-matching
 
-**Keywords** (not treated as shell commands): `if`, `elsif`, `else`, `end`, `while`, `for`, `in`, `def`, `return`, `require`, `break`, `next`, `true`, `false`, `nil`, `import`, `test`, `try`, `or`, `spawn`, `parallel`, `bench`
+**Keywords** (not treated as shell commands): `if`, `elsif`, `else`, `end`, `while`, `for`, `in`, `def`, `return`, `require`, `break`, `next`, `true`, `false`, `nil`, `use`, `import`, `test`, `try`, `or`, `spawn`, `parallel`, `bench`
 
 **Important:** Shell fallback resolution is positional at top level (function names are only recognized after their `def` line) but forward-referencing inside function bodies. See `preference.md` for details.
 
@@ -108,6 +110,16 @@ Converts AST nodes to Go source code. Emits:
 
 ## Module System
 
+Rugo has three import mechanisms:
+
+| Keyword | Purpose | Example |
+|---------|---------|---------|
+| `use` | Rugo stdlib modules (hand-crafted wrappers) | `use "http"` |
+| `import` | Go stdlib bridge (auto-generated calls) | `import "strings"` |
+| `require` | User `.rg` files | `require "helpers"` |
+
+### Rugo Stdlib Modules (`use`)
+
 Modules self-register via Go `init()` using `modules.Register()`. Each module has:
 - `runtime.go` — Go struct + methods (tagged `//go:build ignore`, embedded as string)
 - Registration file — embeds `runtime.go`, declares function signatures with typed args
@@ -129,6 +141,55 @@ Modules self-register via Go `init()` using `modules.Register()`. Each module ha
 | `Float` | `float64` | `rugo_to_float` |
 | `Bool` | `bool` | `rugo_to_bool` |
 | `Any` | `interface{}` | none |
+
+## Go Stdlib Bridge (`import`)
+
+The `import` keyword gives direct access to whitelisted Go stdlib packages. The compiler generates type-safe Go calls with `interface{}` ↔ typed conversions.
+
+```ruby
+import "strings"
+import "math"
+
+puts strings.to_upper("hello")   # HELLO
+puts math.sqrt(144.0)            # 12
+```
+
+Function names use `snake_case` in Rugo, auto-mapped to Go's `PascalCase` via the registry.
+
+### Bridge architecture
+
+- **Registry**: `compiler/gobridge/gobridge.go` — types (`GoType`, `GoFuncSig`, `Package`), registry API (`Register`, `IsPackage`, `Lookup`, `PackageNames`)
+- **Mapping files**: `compiler/gobridge/{strings,strconv,math,filepath,sort,regexp,os,time}.go` — each self-registers via `init()`
+- **Codegen**: `compiler/codegen.go` `generateGoBridgeCall()` — emits direct Go calls with type conversions and special-case handling
+- **Adding a new bridge**: Create `compiler/gobridge/newpkg.go` with `init()` calling `Register()` — no other files need editing
+
+### Whitelisted packages
+
+`strings`, `strconv`, `math`, `path/filepath`, `sort`, `regexp`, `os`, `time`
+
+### Key special cases in codegen
+
+- `time.Sleep` — ms→Duration conversion, void wrapped in IIFE
+- `time.Now().Unix()` — method-chain calls, int64→int cast
+- `os.ReadFile` — []byte→string conversion
+- `os.MkdirAll` — os.FileMode cast for permissions
+- `strconv.FormatInt`/`ParseInt` — int64 conversions
+- `sort.Strings`/`Ints` — copy-in/copy-out (mutate-in-place bridge)
+- `filepath.Split` — tuple return mapped to Rugo array
+- `filepath.Join` — variadic string args
+
+### Error handling
+
+Go `(T, error)` returns auto-panic, integrating with `try/or`:
+```ruby
+n = try strconv.atoi("abc") or 0
+```
+
+### Aliasing
+
+`import "os" as go_os` when namespace conflicts with `use "os"`.
+
+See `docs/gobridge.md` for the full developer reference.
 
 ## Building & Testing
 
@@ -153,10 +214,10 @@ rugo rats rats/                    # run all _test.rg files in rats/
 rugo rats rats/03_control_flow_test.rg  # run a specific test file
 ```
 
-Test files use `import "test"` and `rats` blocks:
+Test files use `use "test"` and `rats` blocks:
 
 ```ruby
-import "test"
+use "test"
 
 rats "addition works"
   test.assert_eq(1 + 2, 3)
@@ -175,10 +236,10 @@ rugo bench bench/arithmetic_bench.rg     # run a specific benchmark
 rugo bench bench/io_bench.rg 1>/dev/null # redirect program stdout, keep bench output on stderr
 ```
 
-Benchmark files use `import "bench"` and `bench` blocks:
+Benchmark files use `use "bench"` and `bench` blocks:
 
 ```ruby
-import "bench"
+use "bench"
 
 bench "fib(20)"
   fib(20)
@@ -282,6 +343,7 @@ puts results[0]
 - `rats/14_parallel_test.rg` — 11 tests (ordered results, shell commands, single expr, nested, try/or, empty body, import gating, native binary, 2 negative tests)
 - `rats/28_bench_test.rg` — 4 tests (basic bench, multi bench, bench with functions, bench keyword in emit)
 - Fixtures in `rats/fixtures/spawn_*.rg`, `rats/fixtures/err_spawn_*.rg`, `rats/fixtures/parallel_*.rg`, `rats/fixtures/err_parallel_*.rg`, `rats/fixtures/bench_*.rg`
+- `rats/gobridge/` — 57 tests across 6 files covering all 8 Go bridge packages (strings, strconv, math, filepath, sort, regexp, os, time) plus edge cases and aliasing
 
 ## Common Pitfalls
 

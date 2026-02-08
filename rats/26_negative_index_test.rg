@@ -1,5 +1,5 @@
 # RATS: Test negative array indexing
-import "test"
+use "test"
 
 rats "negative index reads from end"
   result = test.run("rugo run rats/fixtures/negative_index.rg")

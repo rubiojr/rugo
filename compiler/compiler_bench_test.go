@@ -63,7 +63,7 @@ func BenchmarkCompileArraysHashes(b *testing.B) {
 // Benchmark preprocessing only.
 func BenchmarkPreprocess(b *testing.B) {
 	src := `
-import "conv"
+use "conv"
 def fib(n)
   if n <= 1
     return n

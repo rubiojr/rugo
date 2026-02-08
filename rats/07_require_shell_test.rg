@@ -1,5 +1,5 @@
 # RATS: Test require (user modules) with namespaces
-import "test"
+use "test"
 
 rats "require loads module functions"
   result = test.run("rugo run examples/modules/main.rg")

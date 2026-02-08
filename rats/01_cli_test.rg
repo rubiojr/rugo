@@ -1,6 +1,6 @@
 # RATS: Test basic language features via rugo CLI
-import "test"
-import "os"
+use "test"
+use "os"
 
 # Test: rugo run with hello world
 rats "rugo run prints output"

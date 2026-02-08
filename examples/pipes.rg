@@ -4,7 +4,7 @@
 # Right side: functions receive piped value as first arg;
 #             shell commands receive it on stdin.
 
-import "str"
+use "str"
 
 # Shell output piped to a function
 echo "hello pipes" | puts

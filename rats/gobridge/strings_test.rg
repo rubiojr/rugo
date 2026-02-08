@@ -1,0 +1,179 @@
+# RATS: Test Go bridge — strings package
+use "test"
+
+rats "strings.contains"
+  script = <<~SCRIPT
+    import "strings"
+    puts(strings.contains("hello world", "world"))
+    puts(strings.contains("hello world", "xyz"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "strings.to_upper and to_lower"
+  script = <<~SCRIPT
+    import "strings"
+    puts(strings.to_upper("hello"))
+    puts(strings.to_lower("WORLD"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "HELLO")
+  test.assert_contains(result["output"], "world")
+end
+
+rats "strings.split and join"
+  script = <<~SCRIPT
+    import "strings"
+    use "conv"
+    parts = strings.split("a,b,c", ",")
+    puts(conv.to_s(len(parts)))
+    puts(strings.join(["x", "y", "z"], "-"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+  test.assert_contains(result["output"], "x-y-z")
+end
+
+rats "strings.has_prefix and has_suffix"
+  script = <<~SCRIPT
+    import "strings"
+    puts(strings.has_prefix("hello", "hel"))
+    puts(strings.has_suffix("hello", "llo"))
+    puts(strings.has_prefix("hello", "xyz"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+end
+
+rats "strings.replace_all"
+  script = <<~SCRIPT
+    import "strings"
+    puts(strings.replace_all("hello world", "o", "0"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hell0 w0rld")
+end
+
+rats "strings.trim_space"
+  script = <<~SCRIPT
+    import "strings"
+    puts(strings.trim_space("  hello  "))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello")
+end
+
+rats "strings.repeat"
+  script = <<~SCRIPT
+    import "strings"
+    puts(strings.repeat("ab", 3))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ababab")
+end
+
+rats "strings.count"
+  script = <<~SCRIPT
+    import "strings"
+    use "conv"
+    puts(conv.to_s(strings.count("hello", "l")))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "2")
+end
+
+rats "strings.index"
+  script = <<~SCRIPT
+    import "strings"
+    use "conv"
+    puts(conv.to_s(strings.index("hello", "ll")))
+    puts(conv.to_s(strings.index("hello", "xyz")))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "2")
+  test.assert_contains(result["output"], "-1")
+end
+
+rats "strings.fields"
+  script = <<~SCRIPT
+    import "strings"
+    use "conv"
+    parts = strings.fields("  hello   world  ")
+    puts(conv.to_s(len(parts)))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "2")
+end
+
+rats "strings.trim_prefix and trim_suffix"
+  script = <<~SCRIPT
+    import "strings"
+    puts(strings.trim_prefix("hello_world", "hello_"))
+    puts(strings.trim_suffix("hello_world", "_world"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "world")
+  test.assert_contains(result["output"], "hello")
+end
+
+rats "strings.equal_fold"
+  script = <<~SCRIPT
+    import "strings"
+    puts(strings.equal_fold("Hello", "hello"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+end
+
+rats "strings.split_n"
+  script = <<~SCRIPT
+    import "strings"
+    use "conv"
+    parts = strings.split_n("a,b,c,d", ",", 2)
+    puts(conv.to_s(len(parts)))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "2")
+end
+
+rats "strings.cut_prefix"
+  script = <<~SCRIPT
+    import "strings"
+    result = strings.cut_prefix("Hello, World", "Hello, ")
+    puts(result)
+    result2 = strings.cut_prefix("Hello", "Xyz")
+    puts(result2)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "World")
+end

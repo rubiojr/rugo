@@ -1,7 +1,7 @@
 # String operations benchmarks
 # Tracks: string concatenation, interpolation, rugo_to_string overhead
-import "bench"
-import "conv"
+use "bench"
+use "conv"
 
 bench "string concat (100 iterations)"
   s = ""

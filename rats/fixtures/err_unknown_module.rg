@@ -1,1 +1,1 @@
-import "nonexistent"
+use "nonexistent"

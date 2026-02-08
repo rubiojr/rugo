@@ -1,5 +1,5 @@
 # RATS: Test arrays and hashes
-import "test"
+use "test"
 
 rats "array creation and access"
   script = <<~SCRIPT

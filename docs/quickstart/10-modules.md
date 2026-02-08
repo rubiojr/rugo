@@ -1,32 +1,52 @@
 # Modules
 
-Rugo has two module systems: **stdlib modules** are built-in Go modules loaded with `import`, while **user modules** are `.rg` files you write and load with `require`. Both are accessed as `module.function()`.
+Rugo has three module systems:
 
-## Stdlib Modules
+| Keyword | Purpose | Example |
+|---------|---------|---------|
+| `use` | Rugo stdlib modules | `use "http"` |
+| `import` | Go stdlib bridge | `import "strings"` |
+| `require` | User `.rg` files | `require "helpers"` |
 
-Import with `import`, call as `module.function`:
+## Rugo Stdlib Modules
+
+Load with `use`, call as `module.function`:
 
 ```ruby
-import "http"
-import "os"
-import "conv"
-import "str"
+use "http"
+use "conv"
+use "str"
 ```
 
 Quick examples:
 
 ```ruby
 body = http.get("https://example.com")
-hostname = `hostname`
 n = conv.to_i("42")
 parts = str.split("a,b,c", ",")
 ```
 
-See the full [Modules Reference](../modules.md) for all functions.
+## Go Stdlib Bridge
+
+Access Go standard library packages directly with `import`:
+
+```ruby
+import "strings"
+import "math"
+
+puts strings.to_upper("hello")   # HELLO
+puts math.sqrt(144.0)            # 12
+```
+
+Function names use `snake_case` in Rugo and are auto-converted to Go's `PascalCase`.
+
+Use `as` to alias: `import "strings" as str_go`.
+
+See the full [Modules Reference](../modules.md) for all available packages and functions.
 
 ## Global Builtins
 
-Available without import: `puts`, `print`, `len`, `append`.
+Available without any import: `puts`, `print`, `len`, `append`.
 
 ## User Modules
 
@@ -45,12 +65,12 @@ require "math_helpers"
 puts math_helpers.double(21)   # 42
 ```
 
-Functions are namespaced by filename. User modules can `import` stdlib modules and use them in their functions — the imports are automatically propagated.
+Functions are namespaced by filename. User modules can `use` Rugo stdlib modules in their functions — the imports are automatically propagated.
 
 **Rules:**
-- `import` and `require` must be at the top level (not inside `def`, `if`, etc.)
-- A `require` alias cannot match an imported stdlib module name
-- Each module can only be imported once
+- `use`, `import`, and `require` must be at the top level (not inside `def`, `if`, etc.)
+- Namespaces must be unique — if `use "os"` is loaded, alias the Go bridge: `import "os" as go_os`
+- Each module can only be imported/used once
 
 ---
 Next: [Error Handling](11-error-handling.md)

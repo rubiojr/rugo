@@ -68,7 +68,7 @@ The `|` pipe operator connects shell commands with Rugo functions. The left side
 echo "hello world" | puts
 
 # Chain through module functions
-import "str"
+use "str"
 echo "hello" | str.upper | puts    # HELLO
 
 # Pipe a value to a shell command's stdin

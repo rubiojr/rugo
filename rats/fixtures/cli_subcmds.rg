@@ -1,4 +1,4 @@
-import "cli"
+use "cli"
 
 cli.name "myapp"
 cli.cmd "db migrate", "Run database migrations"

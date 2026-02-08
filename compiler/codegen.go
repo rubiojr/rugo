@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/rubiojr/rugo/compiler/gobridge"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/parser"
 )
@@ -27,13 +28,14 @@ type codeGen struct {
 	scopes          []map[string]bool
 	constScopes     []map[string]bool // track constant bindings (uppercase names)
 	inFunc          bool
-	imports         map[string]bool // stdlib modules imported
-	sourceFile      string          // original .rg filename for //line directives
-	hasSpawn        bool            // whether spawn is used
-	hasParallel     bool            // whether parallel is used
-	hasBench        bool            // whether bench blocks are present
-	usesTaskMethods bool            // whether .value/.done/.wait appear
-	funcDefs        map[string]int  // user function name → param count
+	imports         map[string]bool   // Rugo stdlib modules imported (via use)
+	goImports       map[string]string // Go bridge packages: path → alias
+	sourceFile      string            // original .rg filename for //line directives
+	hasSpawn        bool              // whether spawn is used
+	hasParallel     bool              // whether parallel is used
+	hasBench        bool              // whether bench blocks are present
+	usesTaskMethods bool              // whether .value/.done/.wait appear
+	funcDefs        map[string]int    // user function name → param count
 }
 
 // generate produces Go source code from a Program AST.
@@ -43,6 +45,7 @@ func generate(prog *Program, sourceFile string) (string, error) {
 		scopes:      []map[string]bool{make(map[string]bool)},
 		constScopes: []map[string]bool{make(map[string]bool)},
 		imports:     make(map[string]bool),
+		goImports:   make(map[string]string),
 		sourceFile:  sourceFile,
 		funcDefs:    make(map[string]int),
 	}
@@ -72,8 +75,11 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 			benches = append(benches, st)
 		case *RequireStmt:
 			continue
-		case *ImportStmt:
+		case *UseStmt:
 			g.imports[st.Module] = true
+			continue
+		case *ImportStmt:
+			g.goImports[st.Package] = st.Alias
 			continue
 		default:
 			topStmts = append(topStmts, s)
@@ -118,19 +124,52 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		"fmt": true, "os": true, "os/exec": true,
 		"runtime/debug": true, "strings": true,
 	}
+	emittedImports := make(map[string]bool)
+	for k := range baseImports {
+		emittedImports[k] = true
+	}
+	if needsSyncImport {
+		emittedImports["sync"] = true
+	}
+	if needsTimeImport {
+		emittedImports["time"] = true
+	}
+	// Emit Go imports for Rugo stdlib modules (use)
 	for _, name := range importedModuleNames(g.imports) {
 		if m, ok := modules.Get(name); ok {
 			for _, imp := range m.GoImports {
-				if baseImports[imp] {
+				// Extract bare path from potentially aliased import
+				barePath := imp
+				if strings.Contains(imp, `"`) {
+					// aliased import: alias "path"
+					parts := strings.Fields(imp)
+					if len(parts) == 2 {
+						barePath = strings.Trim(parts[1], `"`)
+					}
+				}
+				if emittedImports[barePath] {
 					continue
 				}
+				emittedImports[barePath] = true
 				if strings.Contains(imp, `"`) {
-					// Already formatted (e.g. aliased import: alias "path")
 					g.writef("%s\n", imp)
 				} else {
 					g.writef("\"%s\"\n", imp)
 				}
 			}
+		}
+	}
+	// Emit Go imports for Go bridge packages (import)
+	for _, pkg := range sortedGoBridgeImports(g.goImports) {
+		alias := g.goImports[pkg]
+		if alias == "" && emittedImports[pkg] {
+			continue // already imported without alias
+		}
+		if alias != "" {
+			g.writef("%s \"%s\"\n", alias, pkg)
+		} else {
+			emittedImports[pkg] = true
+			g.writef("\"%s\"\n", pkg)
 		}
 	}
 	g.indent--
@@ -364,7 +403,7 @@ func (g *codeGen) generateBenchHarness(benches []*BenchDef, topStmts []Statement
 func (g *codeGen) writeRuntime() {
 	g.sb.WriteString(runtimeCorePre)
 
-	// Module runtimes (only for imported modules)
+	// Module runtimes (only for use'd modules)
 	for _, name := range importedModuleNames(g.imports) {
 		if m, ok := modules.Get(name); ok {
 			g.sb.WriteString(m.FullRuntime())
@@ -375,6 +414,11 @@ func (g *codeGen) writeRuntime() {
 
 	if g.hasSpawn || g.usesTaskMethods {
 		g.writeSpawnRuntime()
+	}
+
+	// Go bridge helpers (only if any Go packages are imported)
+	if len(g.goImports) > 0 {
+		g.writeGoBridgeRuntime()
 	}
 }
 
@@ -833,12 +877,19 @@ func (g *codeGen) unaryExpr(e *UnaryExpr) (string, error) {
 }
 
 func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
-	// Stdlib or namespace access without call
+	// Rugo stdlib or namespace access without call
 	if ns, ok := e.Object.(*IdentExpr); ok {
 		nsName := ns.Name
 		if g.imports[nsName] {
 			if goFunc, ok := modules.LookupFunc(nsName, e.Field); ok {
 				return fmt.Sprintf("interface{}(%s)", goFunc), nil
+			}
+		}
+		// Go bridge function reference (without call)
+		if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
+			if sig, ok := gobridge.Lookup(pkg, e.Field); ok {
+				_ = sig
+				return "", fmt.Errorf("Go bridge function %s.%s must be called with arguments", nsName, e.Field)
 			}
 		}
 		// Task method access (no-arg): task.value, task.done
@@ -883,10 +934,21 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	if dot, ok := e.Func.(*DotExpr); ok {
 		if ns, ok := dot.Object.(*IdentExpr); ok {
 			nsName := ns.Name
+			// Rugo stdlib module call
 			if g.imports[nsName] {
 				if goFunc, ok := modules.LookupFunc(nsName, dot.Field); ok {
 					return fmt.Sprintf("%s(%s)", goFunc, argStr), nil
 				}
+			}
+			// Go bridge call
+			if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
+				if sig, ok := gobridge.Lookup(pkg, dot.Field); ok {
+					if !sig.Variadic && len(e.Args) != len(sig.Params) {
+						return "", fmt.Errorf("wrong number of arguments for %s.%s (%d for %d)", nsName, dot.Field, len(e.Args), len(sig.Params))
+					}
+					return g.generateGoBridgeCall(pkg, sig, args), nil
+				}
+				return "", fmt.Errorf("unknown function %s.%s in Go bridge package %q", nsName, dot.Field, pkg)
 			}
 			// Task method calls: task.wait(n), task.value(), task.done()
 			switch dot.Field {
@@ -1305,4 +1367,199 @@ func astUsesParallel(prog *Program) bool {
 		_, ok := e.(*ParallelExpr)
 		return ok
 	})
+}
+
+// sortedGoBridgeImports returns sorted package paths from goImports map.
+func sortedGoBridgeImports(goImports map[string]string) []string {
+	var pkgs []string
+	for pkg := range goImports {
+		pkgs = append(pkgs, pkg)
+	}
+	sort.Strings(pkgs)
+	return pkgs
+}
+
+// generateGoBridgeCall generates a Go expression for a direct Go bridge call.
+func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argExprs []string) string {
+	// Determine the Go package prefix to use in generated code
+	pkgBase := gobridge.DefaultNS(pkg)
+	if alias, ok := g.goImports[pkg]; ok && alias != "" {
+		pkgBase = alias
+	}
+
+	// Build converted args
+	var convertedArgs []string
+	for i, arg := range argExprs {
+		if i < len(sig.Params) {
+			convertedArgs = append(convertedArgs, gobridge.TypeConvToGo(arg, sig.Params[i]))
+		}
+	}
+
+	// For variadic functions, handle special conversion
+	if sig.Variadic && len(sig.Params) == 1 && sig.Params[0] == gobridge.GoStringSlice {
+		var strArgs []string
+		for _, arg := range argExprs {
+			strArgs = append(strArgs, gobridge.TypeConvToGo(arg, gobridge.GoString))
+		}
+		call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(strArgs, ", "))
+		if len(sig.Returns) == 0 {
+			return call
+		}
+		return gobridge.TypeWrapReturn(call, sig.Returns[0])
+	}
+
+	// Handle special method-chain calls (e.g. time.Now().Unix())
+	if strings.Contains(sig.GoName, ".") {
+		call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(convertedArgs, ", "))
+		if len(sig.Returns) == 0 {
+			return call
+		}
+		// time methods return int64; convert to int for Rugo
+		if sig.Returns[0] == gobridge.GoInt {
+			return fmt.Sprintf("interface{}(int(%s))", call)
+		}
+		return gobridge.TypeWrapReturn(call, sig.Returns[0])
+	}
+
+	// Handle time.Sleep special case: convert ms → Duration
+	if pkg == "time" && sig.GoName == "Sleep" {
+		return fmt.Sprintf("func() interface{} { %s.Sleep(time.Duration(%s) * time.Millisecond); return nil }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoInt))
+	}
+
+	// Handle os.ReadFile special: returns []byte, convert to string
+	if pkg == "os" && sig.GoName == "ReadFile" {
+		return fmt.Sprintf("func() interface{} { _v, _err := %s.ReadFile(%s); if _err != nil { panic(_err.Error()) }; return interface{}(string(_v)) }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString))
+	}
+
+	// Handle os.MkdirAll special: perm as os.FileMode
+	if pkg == "os" && sig.GoName == "MkdirAll" {
+		return fmt.Sprintf("func() interface{} { _err := %s.MkdirAll(%s, os.FileMode(%s)); if _err != nil { panic(_err.Error()) }; return nil }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt))
+	}
+
+	// Handle strconv.FormatInt (needs int64 first arg)
+	if pkg == "strconv" && sig.GoName == "FormatInt" {
+		return fmt.Sprintf("interface{}(%s.FormatInt(int64(%s), %s))",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoInt), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt))
+	}
+
+	// Handle strconv.ParseInt (returns int64, convert to int)
+	if pkg == "strconv" && sig.GoName == "ParseInt" {
+		return fmt.Sprintf("func() interface{} { _v, _err := %s.ParseInt(%s, %s, %s); if _err != nil { panic(_err.Error()) }; return interface{}(int(_v)) }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt), gobridge.TypeConvToGo(argExprs[2], gobridge.GoInt))
+	}
+
+	// Handle sort.Strings/Ints — mutates in place, special bridge
+	if pkg == "sort" && sig.GoName == "Strings" {
+		return fmt.Sprintf("func() interface{} { _s := rugo_go_to_string_slice(%s); %s.Strings(_s); return rugo_go_from_string_slice(_s) }()", argExprs[0], pkgBase)
+	}
+	if pkg == "sort" && sig.GoName == "Ints" {
+		return fmt.Sprintf("func() interface{} { _s := rugo_go_to_int_slice(%s); %s.Ints(_s); return rugo_go_from_int_slice(_s) }()", argExprs[0], pkgBase)
+	}
+	if pkg == "sort" && sig.GoName == "StringsAreSorted" {
+		return fmt.Sprintf("interface{}(%s.StringsAreSorted(rugo_go_to_string_slice(%s)))", pkgBase, argExprs[0])
+	}
+
+	// Handle filepath.Split (returns dir, file — both strings)
+	if pkg == "path/filepath" && sig.GoName == "Split" {
+		return fmt.Sprintf("func() interface{} { _d, _f := %s.Split(%s); return interface{}([]interface{}{interface{}(_d), interface{}(_f)}) }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString))
+	}
+
+	call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(convertedArgs, ", "))
+
+	// Handle return types
+	if len(sig.Returns) == 0 {
+		// Void Go functions need wrapping since Rugo assigns all expressions
+		return fmt.Sprintf("func() interface{} { %s; return nil }()", call)
+	}
+
+	if len(sig.Returns) == 1 {
+		// Single error return: panic on error, return nil
+		if sig.Returns[0] == gobridge.GoError {
+			return fmt.Sprintf("func() interface{} { if _err := %s; _err != nil { panic(_err.Error()) }; return nil }()", call)
+		}
+		return gobridge.TypeWrapReturn(call, sig.Returns[0])
+	}
+
+	// (T, error): panic on error
+	if len(sig.Returns) == 2 && sig.Returns[1] == gobridge.GoError {
+		return fmt.Sprintf("func() interface{} { _v, _err := %s; if _err != nil { panic(_err.Error()) }; return %s }()",
+			call, gobridge.TypeWrapReturn("_v", sig.Returns[0]))
+	}
+
+	// (T, bool): return nil if false
+	if len(sig.Returns) == 2 && sig.Returns[1] == gobridge.GoBool {
+		return fmt.Sprintf("func() interface{} { _v, _ok := %s; if !_ok { return nil }; return %s }()",
+			call, gobridge.TypeWrapReturn("_v", sig.Returns[0]))
+	}
+
+	// Default: just wrap first return
+	return gobridge.TypeWrapReturn(call, sig.Returns[0])
+}
+
+// writeGoBridgeRuntime emits helper functions needed by Go bridge calls.
+func (g *codeGen) writeGoBridgeRuntime() {
+	needsStringSlice := false
+	needsIntSlice := false
+
+	for pkg := range g.goImports {
+		funcs := gobridge.PackageFuncs(pkg)
+		if funcs == nil {
+			continue
+		}
+		for _, sig := range funcs {
+			for _, p := range sig.Params {
+				if p == gobridge.GoStringSlice {
+					needsStringSlice = true
+				}
+			}
+			for _, r := range sig.Returns {
+				if r == gobridge.GoStringSlice {
+					needsStringSlice = true
+				}
+			}
+		}
+		if pkg == "sort" {
+			needsIntSlice = true
+		}
+	}
+
+	g.sb.WriteString("\n// --- Go Bridge Helpers ---\n\n")
+	if needsStringSlice {
+		g.sb.WriteString(`func rugo_go_to_string_slice(v interface{}) []string {
+	arr, ok := v.([]interface{})
+	if !ok { panic(fmt.Sprintf("expected array, got %T", v)) }
+	r := make([]string, len(arr))
+	for i, s := range arr { r[i] = rugo_to_string(s) }
+	return r
+}
+
+func rugo_go_from_string_slice(v []string) interface{} {
+	r := make([]interface{}, len(v))
+	for i, s := range v { r[i] = interface{}(s) }
+	return interface{}(r)
+}
+
+`)
+	}
+	if needsIntSlice {
+		g.sb.WriteString(`func rugo_go_to_int_slice(v interface{}) []int {
+	arr, ok := v.([]interface{})
+	if !ok { panic(fmt.Sprintf("expected array, got %T", v)) }
+	r := make([]int, len(arr))
+	for i, s := range arr { r[i] = rugo_to_int(s) }
+	return r
+}
+
+func rugo_go_from_int_slice(v []int) interface{} {
+	r := make([]interface{}, len(v))
+	for i, s := range v { r[i] = interface{}(s) }
+	return interface{}(r)
+}
+
+`)
+	}
 }

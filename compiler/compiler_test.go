@@ -277,13 +277,13 @@ func TestGenStdlibCalls(t *testing.T) {
 		call   string
 		expect string
 	}{
-		{`import "os"` + "\n" + `os.exec("ls")`, "rugo_os_exec("},
-		{`import "os"` + "\n" + `os.exit(0)`, "rugo_os_exit("},
-		{`import "http"` + "\n" + `http.get("url")`, "rugo_http_get("},
-		{`import "http"` + "\n" + `http.post("url", "body")`, "rugo_http_post("},
-		{`import "conv"` + "\n" + `conv.to_i("42")`, "rugo_conv_to_i("},
-		{`import "conv"` + "\n" + `conv.to_f("3.14")`, "rugo_conv_to_f("},
-		{`import "conv"` + "\n" + `conv.to_s(42)`, "rugo_conv_to_s("},
+		{`use "os"` + "\n" + `os.exec("ls")`, "rugo_os_exec("},
+		{`use "os"` + "\n" + `os.exit(0)`, "rugo_os_exit("},
+		{`use "http"` + "\n" + `http.get("url")`, "rugo_http_get("},
+		{`use "http"` + "\n" + `http.post("url", "body")`, "rugo_http_post("},
+		{`use "conv"` + "\n" + `conv.to_i("42")`, "rugo_conv_to_i("},
+		{`use "conv"` + "\n" + `conv.to_f("3.14")`, "rugo_conv_to_f("},
+		{`use "conv"` + "\n" + `conv.to_s(42)`, "rugo_conv_to_s("},
 	}
 	for _, tt := range tests {
 		t.Run(tt.call, func(t *testing.T) {
@@ -420,7 +420,7 @@ func TestRuntimeFunctions(t *testing.T) {
 	}
 
 	// os module runtime (only when imported)
-	osSrc := compileToGo(t, `import "os"`+"\n"+`os.exec("ls")`)
+	osSrc := compileToGo(t, `use "os"`+"\n"+`os.exec("ls")`)
 	for _, fn := range []string{"func rugo_os_exec(", "func rugo_os_exit("} {
 		if !strings.Contains(osSrc, fn) {
 			t.Errorf("missing os module function: %s", fn)
@@ -428,7 +428,7 @@ func TestRuntimeFunctions(t *testing.T) {
 	}
 
 	// http module runtime (only when imported)
-	httpSrc := compileToGo(t, `import "http"`+"\n"+`http.get("url")`)
+	httpSrc := compileToGo(t, `use "http"`+"\n"+`http.get("url")`)
 	for _, fn := range []string{"func rugo_http_get(", "func rugo_http_post("} {
 		if !strings.Contains(httpSrc, fn) {
 			t.Errorf("missing http module function: %s", fn)
@@ -436,7 +436,7 @@ func TestRuntimeFunctions(t *testing.T) {
 	}
 
 	// conv module runtime (only when imported)
-	convSrc := compileToGo(t, `import "conv"`+"\n"+`conv.to_s(1)`)
+	convSrc := compileToGo(t, `use "conv"`+"\n"+`conv.to_s(1)`)
 	for _, fn := range []string{"func rugo_conv_to_i(", "func rugo_conv_to_f(", "func rugo_conv_to_s("} {
 		if !strings.Contains(convSrc, fn) {
 			t.Errorf("missing conv module function: %s", fn)
@@ -460,7 +460,7 @@ func TestRuntimeFunctions(t *testing.T) {
 func TestComplexProgram(t *testing.T) {
 	src := `
 # Fibonacci calculator
-import "conv"
+use "conv"
 
 def fib(n)
   if n <= 1
@@ -838,9 +838,9 @@ func TestPreprocessFullPipeline(t *testing.T) {
 
 func TestPreprocessLeavesImport(t *testing.T) {
 	tests := []string{
-		`import "http"`,
-		`import "os"`,
-		`import "conv"`,
+		`use "http"`,
+		`use "os"`,
+		`use "conv"`,
 	}
 	for _, input := range tests {
 		result, _, _ := preprocess(input, nil)
@@ -878,7 +878,7 @@ func TestGenConditionalImports(t *testing.T) {
 	}
 
 	// With http import, should contain io and net/http
-	httpSrc := compileToGo(t, `import "http"`+"\n"+`http.get("url")`)
+	httpSrc := compileToGo(t, `use "http"`+"\n"+`http.get("url")`)
 	if !strings.Contains(httpSrc, `"io"`) {
 		t.Error("io should be imported with http")
 	}
@@ -892,7 +892,7 @@ func TestGenConditionalImports(t *testing.T) {
 func TestTrySugarLevel1(t *testing.T) {
 	// try EXPR → expands to try EXPR or _err nil end
 	src := `result = try os.exec("fail")` + "\n" + `puts(result)`
-	expanded, _ := expandTrySugar(`import "os"` + "\n" + src)
+	expanded, _ := expandTrySugar(`use "os"` + "\n" + src)
 	if !strings.Contains(expanded, "or _err") {
 		t.Errorf("level 1 sugar should expand to 'or _err':\n%s", expanded)
 	}
@@ -917,7 +917,7 @@ func TestTrySugarLevel3Passthrough(t *testing.T) {
 }
 
 func TestGenTryExpr(t *testing.T) {
-	src := compileToGo(t, `import "os"`+"\n"+`result = try os.exec("ls") or err`+"\n"+`  "fallback"`+"\n"+`end`)
+	src := compileToGo(t, `use "os"`+"\n"+`result = try os.exec("ls") or err`+"\n"+`  "fallback"`+"\n"+`end`)
 	if !strings.Contains(src, "defer func()") {
 		t.Errorf("try should generate defer/recover:\n%s", src)
 	}
@@ -931,7 +931,7 @@ func TestGenTryExpr(t *testing.T) {
 
 func TestGenTryExprSilent(t *testing.T) {
 	// Level 1: try EXPR (preprocessor expands to block form)
-	src := compileToGo(t, `import "os"`+"\n"+`x = try os.exec("ls") or _err`+"\n"+`nil`+"\n"+`end`)
+	src := compileToGo(t, `use "os"`+"\n"+`x = try os.exec("ls") or _err`+"\n"+`nil`+"\n"+`end`)
 	if !strings.Contains(src, "defer func()") {
 		t.Error("level 1 try should generate defer/recover")
 	}
@@ -939,7 +939,7 @@ func TestGenTryExprSilent(t *testing.T) {
 
 func TestGenTryExprDefault(t *testing.T) {
 	// Level 2: try EXPR or DEFAULT (preprocessor expands to block form)
-	src := compileToGo(t, `import "os"`+"\n"+`x = try os.exec("ls") or _err`+"\n"+`"default"`+"\n"+`end`)
+	src := compileToGo(t, `use "os"`+"\n"+`x = try os.exec("ls") or _err`+"\n"+`"default"`+"\n"+`end`)
 	if !strings.Contains(src, "defer func()") {
 		t.Error("level 2 try should generate defer/recover")
 	}
@@ -949,7 +949,7 @@ func TestGenTryExprDefault(t *testing.T) {
 }
 
 func TestTryInCondition(t *testing.T) {
-	src := compileToGo(t, `import "os"`+"\n"+`if try os.exec("test -f /etc/hosts") or _err`+"\n"+`"false"`+"\n"+`end`+"\n"+`puts("exists")`+"\n"+`end`)
+	src := compileToGo(t, `use "os"`+"\n"+`if try os.exec("test -f /etc/hosts") or _err`+"\n"+`"false"`+"\n"+`end`+"\n"+`puts("exists")`+"\n"+`end`)
 	if !strings.Contains(src, "defer func()") {
 		t.Error("try in condition should generate defer/recover")
 	}
@@ -1145,7 +1145,7 @@ func TestRequireAliasConflictsWithImport(t *testing.T) {
 	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("def upper(s)\nreturn \"CUSTOM\"\nend\n"), 0644)
 
 	mainFile := filepath.Join(tmpDir, "main.rg")
-	os.WriteFile(mainFile, []byte("import \"str\"\nrequire \"helpers\" as \"str\"\nputs(str.upper(\"hello\"))\n"), 0644)
+	os.WriteFile(mainFile, []byte("use \"str\"\nrequire \"helpers\" as \"str\"\nputs(str.upper(\"hello\"))\n"), 0644)
 
 	c := &Compiler{}
 	_, err := c.Compile(mainFile)
@@ -1157,7 +1157,7 @@ func TestRequireAliasConflictsWithImport(t *testing.T) {
 func TestRequiredFileImports(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("import \"conv\"\ndef double_str(n)\nreturn conv.to_s(n * 2)\nend\n"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("use \"conv\"\ndef double_str(n)\nreturn conv.to_s(n * 2)\nend\n"), 0644)
 
 	mainFile := filepath.Join(tmpDir, "main.rg")
 	os.WriteFile(mainFile, []byte("require \"helpers\"\nputs(helpers.double_str(21))\n"), 0644)
@@ -1176,11 +1176,11 @@ func TestImportInsideFuncBodyErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	mainFile := filepath.Join(tmpDir, "main.rg")
-	os.WriteFile(mainFile, []byte("def foo()\nimport \"conv\"\nend\n"), 0644)
+	os.WriteFile(mainFile, []byte("def foo()\nuse \"conv\"\nend\n"), 0644)
 
 	c := &Compiler{}
 	_, err := c.Compile(mainFile)
-	require.Error(t, err, "import inside function body should produce an error")
+	require.Error(t, err, "use inside function body should produce an error")
 	assert.Contains(t, err.Error(), "top level", "error should mention top-level requirement")
 }
 
@@ -1202,11 +1202,11 @@ func TestImportInsideIfBodyErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	mainFile := filepath.Join(tmpDir, "main.rg")
-	os.WriteFile(mainFile, []byte("if true\nimport \"conv\"\nend\n"), 0644)
+	os.WriteFile(mainFile, []byte("if true\nuse \"conv\"\nend\n"), 0644)
 
 	c := &Compiler{}
 	_, err := c.Compile(mainFile)
-	require.Error(t, err, "import inside if body should produce an error")
+	require.Error(t, err, "use inside if body should produce an error")
 }
 
 // Bug 59e1dc8: Two requires aliased to same namespace with conflicting function names.
@@ -1225,16 +1225,16 @@ func TestDuplicateNamespaceFunctionErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "foo", "error should mention the duplicate function name")
 }
 
-// Bug 6ee382f: Duplicate imports are silently deduplicated.
+// Bug 6ee382f: Duplicate use statements are silently deduplicated.
 func TestDuplicateImportDeduplicates(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	mainFile := filepath.Join(tmpDir, "main.rg")
-	os.WriteFile(mainFile, []byte("import \"conv\"\nimport \"conv\"\nputs(conv.to_s(42))\n"), 0644)
+	os.WriteFile(mainFile, []byte("use \"conv\"\nuse \"conv\"\nputs(conv.to_s(42))\n"), 0644)
 
 	c := &Compiler{}
 	result, err := c.Compile(mainFile)
-	require.NoError(t, err, "duplicate import should be silently deduplicated")
+	require.NoError(t, err, "duplicate use should be silently deduplicated")
 	// Module runtime should appear exactly once
 	count := strings.Count(result.GoSource, "type Conv struct")
 	assert.Equal(t, 1, count, "conv runtime should be emitted exactly once")

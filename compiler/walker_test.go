@@ -397,19 +397,19 @@ func TestWalkDotCall(t *testing.T) {
 	}
 }
 
-func TestWalkImportStmt(t *testing.T) {
-	prog := parseAndWalk(t, `import "http"`)
-	imp, ok := prog.Statements[0].(*ImportStmt)
+func TestWalkUseStmt(t *testing.T) {
+	prog := parseAndWalk(t, `use "http"`)
+	use, ok := prog.Statements[0].(*UseStmt)
 	if !ok {
-		t.Fatalf("expected ImportStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected UseStmt, got %T", prog.Statements[0])
 	}
-	if imp.Module != "http" {
-		t.Errorf("module = %q, want %q", imp.Module, "http")
+	if use.Module != "http" {
+		t.Errorf("module = %q, want %q", use.Module, "http")
 	}
 }
 
 func TestWalkTryExpr(t *testing.T) {
-	prog := parseAndWalk(t, `import "os"`+"\n"+`x = try os.exec("ls") or err`+"\n"+`"fallback"`+"\n"+`end`)
+	prog := parseAndWalk(t, `use "os"`+"\n"+`x = try os.exec("ls") or err`+"\n"+`"fallback"`+"\n"+`end`)
 	found := false
 	for _, s := range prog.Statements {
 		if assign, ok := s.(*AssignStmt); ok {

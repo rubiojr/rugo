@@ -1,5 +1,5 @@
 # Namespace aliasing with require
-import "conv"
+use "conv"
 
 require "helpers" as "h"
 

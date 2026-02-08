@@ -1,6 +1,6 @@
 # HTTP requests in Rugo
 #
-import "http"
+use "http"
 
 # GET request
 response = http.get("https://httpbin.org/get")

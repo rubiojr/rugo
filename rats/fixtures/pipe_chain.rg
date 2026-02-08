@@ -1,3 +1,3 @@
 # Pipe: chain shell → module function → builtin
-import "str"
+use "str"
 echo "hello world" | str.upper | puts

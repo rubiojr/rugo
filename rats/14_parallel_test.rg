@@ -1,7 +1,7 @@
 # RATS: Test parallel block concurrency
 # Covers parallel expressions, error handling, edge cases, and syntax errors.
-import "test"
-import "str"
+use "test"
+use "str"
 
 # --- Positive: basic parallel ---
 

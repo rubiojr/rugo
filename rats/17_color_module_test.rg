@@ -1,5 +1,5 @@
 # RATS: Test color module (ANSI colors, styles, NO_COLOR)
-import "test"
+use "test"
 
 rats "color.red wraps text in ANSI red"
   result = test.run("NO_COLOR= rugo run rats/fixtures/color_basic.rg | grep -cP '\\x1b\\[31mhello\\x1b\\[0m'")

@@ -1,5 +1,5 @@
-import "cli"
-import "conv"
+use "cli"
+use "conv"
 
 cli.name "todo"
 cli.version "0.1.0"

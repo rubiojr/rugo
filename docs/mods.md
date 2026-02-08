@@ -17,8 +17,8 @@ directory under `modules/` and self-registers at startup via Go's `init()`.
 ### Usage in Rugo
 
 ```ruby
-import "http"
-import "conv"
+use "http"
+use "conv"
 
 result = `whoami`
 puts result
@@ -137,7 +137,7 @@ import (
 ### 6. Use it in Rugo
 
 ```ruby
-import "mymod"
+use "mymod"
 
 puts mymod.hello("developer")
 ```
@@ -229,7 +229,7 @@ Then `go build -o myrugo .` and use it like normal Rugo.
 ### 3. Use it in Rugo scripts
 
 ```ruby
-import "mymod"
+use "mymod"
 
 puts mymod.hello("world")
 ```
@@ -268,7 +268,7 @@ type Module struct {
 
 ### Field details
 
-**Name** — The string used in `import "name"` in Rugo source files.
+**Name** — The string used in `use "name"` in Rugo source files.
 
 **Funcs** — Describes each function exposed by the module. The `Args` field
 declares typed parameters — the framework generates a wrapper that converts

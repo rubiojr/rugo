@@ -8,7 +8,7 @@ Benchmark blocks auto-calibrate iteration count and report timing results.
 Create a `.rg` file with `bench` blocks:
 
 ```ruby
-import "bench"
+use "bench"
 
 def fib(n)
   if n <= 1
@@ -72,7 +72,7 @@ Code outside `bench` blocks runs once before benchmarks start. Use it
 for setup:
 
 ```ruby
-import "bench"
+use "bench"
 
 # Runs once: setup shared data
 data = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
@@ -90,7 +90,7 @@ end
 Define helper functions alongside benchmarks:
 
 ```ruby
-import "bench"
+use "bench"
 
 def fib(n)
   if n <= 1

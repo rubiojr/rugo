@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/rubiojr/rugo/compiler/gobridge"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/parser"
 )
@@ -17,8 +18,10 @@ type Compiler struct {
 	BaseDir string
 	// loaded tracks already-loaded files to prevent duplicate requires.
 	loaded map[string]bool
-	// imports tracks which stdlib modules have been imported.
+	// imports tracks which Rugo stdlib modules have been imported via use.
 	imports map[string]bool
+	// goImports tracks Go stdlib bridge packages imported via import.
+	goImports map[string]string // package path → alias (empty = default)
 	// nsFuncs tracks namespace+function pairs to detect duplicates.
 	nsFuncs map[string]string // "ns.func" → source file
 }
@@ -37,6 +40,9 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 	if c.imports == nil {
 		c.imports = make(map[string]bool)
+	}
+	if c.goImports == nil {
+		c.goImports = make(map[string]string)
 	}
 	if c.nsFuncs == nil {
 		c.nsFuncs = make(map[string]string)
@@ -72,7 +78,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 func goModContent(prog *Program) string {
 	var modNames []string
 	for _, stmt := range prog.Statements {
-		if imp, ok := stmt.(*ImportStmt); ok {
+		if imp, ok := stmt.(*UseStmt); ok {
 			modNames = append(modNames, imp.Module)
 		}
 	}
@@ -247,13 +253,30 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 	var resolved []Statement
 
 	for _, s := range prog.Statements {
-		// Validate and deduplicate import statements
-		if imp, ok := s.(*ImportStmt); ok {
-			if !modules.IsModule(imp.Module) {
-				return nil, fmt.Errorf("unknown stdlib module: %q (available: %s)", imp.Module, strings.Join(modules.Names(), ", "))
+		// Validate and deduplicate use statements (Rugo stdlib modules)
+		if use, ok := s.(*UseStmt); ok {
+			if !modules.IsModule(use.Module) {
+				return nil, fmt.Errorf("unknown stdlib module: %q (available: %s)", use.Module, strings.Join(modules.Names(), ", "))
 			}
-			if !c.imports[imp.Module] {
-				c.imports[imp.Module] = true
+			if !c.imports[use.Module] {
+				c.imports[use.Module] = true
+				resolved = append(resolved, s)
+			}
+			continue
+		}
+
+		// Validate and deduplicate import statements (Go stdlib bridge)
+		if imp, ok := s.(*ImportStmt); ok {
+			ns := goBridgeNamespace(imp)
+			if !gobridge.IsPackage(imp.Package) {
+				return nil, fmt.Errorf("unsupported Go bridge package: %q (available: %s)", imp.Package, strings.Join(gobridge.PackageNames(), ", "))
+			}
+			// Check for namespace conflicts with Rugo modules
+			if c.imports[ns] {
+				return nil, fmt.Errorf("import namespace %q conflicts with a use'd Rugo module; add an alias: import %q as <alias>", ns, imp.Package)
+			}
+			if _, exists := c.goImports[imp.Package]; !exists {
+				c.goImports[imp.Package] = imp.Alias
 				resolved = append(resolved, s)
 			}
 			continue
@@ -308,18 +331,31 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			}
 		}
 
-		// Reject require namespace that conflicts with an imported stdlib module
+		// Reject require namespace that conflicts with a use'd Rugo module
 		if c.imports[ns] {
-			return nil, fmt.Errorf("require namespace %q conflicts with imported stdlib module", ns)
+			return nil, fmt.Errorf("require namespace %q conflicts with use'd stdlib module", ns)
+		}
+		// Reject require namespace that conflicts with an import'd Go bridge
+		for pkg, alias := range c.goImports {
+			bridgeNS := alias
+			if bridgeNS == "" {
+				bridgeNS = gobridge.DefaultNS(pkg)
+			}
+			if ns == bridgeNS {
+				return nil, fmt.Errorf("require namespace %q conflicts with imported Go bridge package %q", ns, pkg)
+			}
 		}
 
-		// Include imports and function definitions from required files
+		// Include use/import statements and function definitions from required files
 		for _, rs := range reqProg.Statements {
 			switch st := rs.(type) {
-			case *ImportStmt:
-				// Always add to resolved so codegen sees it; c.imports
-				// may already be set from recursive resolution.
+			case *UseStmt:
 				c.imports[st.Module] = true
+				resolved = append(resolved, st)
+			case *ImportStmt:
+				if _, exists := c.goImports[st.Package]; !exists {
+					c.goImports[st.Package] = st.Alias
+				}
 				resolved = append(resolved, st)
 			case *FuncDef:
 				// Detect duplicate function in same namespace
@@ -375,11 +411,13 @@ func validateTopLevelOnly(stmts []Statement) error {
 	return nil
 }
 
-// rejectNestedImports checks a block body for import/require statements
+// rejectNestedImports checks a block body for use/import/require statements
 // and returns an error if any are found.
 func rejectNestedImports(stmts []Statement) error {
 	for _, s := range stmts {
 		switch s.(type) {
+		case *UseStmt:
+			return fmt.Errorf("line %d: use statements must be at the top level", s.StmtLine())
 		case *ImportStmt:
 			return fmt.Errorf("line %d: import statements must be at the top level", s.StmtLine())
 		case *RequireStmt:
@@ -426,4 +464,12 @@ func appendGoNoSumCheck(env []string) []string {
 		}
 	}
 	return append(env, "GONOSUMCHECK=*")
+}
+
+// goBridgeNamespace returns the Rugo namespace for a Go bridge import.
+func goBridgeNamespace(imp *ImportStmt) string {
+	if imp.Alias != "" {
+		return imp.Alias
+	}
+	return gobridge.DefaultNS(imp.Package)
 }

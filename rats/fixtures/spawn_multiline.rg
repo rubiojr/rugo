@@ -1,4 +1,4 @@
-import "conv"
+use "conv"
 task = spawn
   x = 10
   y = 20

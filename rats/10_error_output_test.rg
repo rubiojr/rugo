@@ -1,5 +1,5 @@
-import "test"
-import "str"
+use "test"
+use "str"
 
 rats "error shows script filename and line for index out of range"
   result = test.run("rugo run rats/fixtures/error_index.rg")

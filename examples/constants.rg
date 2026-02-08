@@ -3,7 +3,7 @@
 # Identifiers starting with an uppercase letter are constants.
 # They can be assigned once but never reassigned.
 
-import "conv"
+use "conv"
 
 # Constants — assigned once, immutable
 PI = 3.14159

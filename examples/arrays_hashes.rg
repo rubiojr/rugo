@@ -1,5 +1,5 @@
 # Arrays and Hashes in Rugo
-import "conv"
+use "conv"
 
 # Arrays
 fruits = ["apple", "banana", "cherry"]

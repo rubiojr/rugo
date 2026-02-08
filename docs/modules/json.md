@@ -3,7 +3,7 @@
 JSON parsing and encoding.
 
 ```ruby
-import "json"
+use "json"
 ```
 
 ## parse
@@ -38,8 +38,8 @@ puts json.encode(arr)     # [1,"two",true]
 ## Example: Fetching and parsing an API
 
 ```ruby
-import "http"
-import "json"
+use "http"
+use "json"
 
 body = http.get("https://api.example.com/data.json")
 data = json.parse(body)

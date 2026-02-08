@@ -1,7 +1,7 @@
 # I/O and print benchmarks
 # Run with: rugo bench bench/io_bench.rg 1>/dev/null
 # Redirect stdout to /dev/null to avoid measuring terminal I/O
-import "bench"
+use "bench"
 
 bench "puts single arg (100 calls)"
   i = 0

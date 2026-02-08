@@ -1,5 +1,5 @@
 # Fixture: all tests pass, for color output testing
-import "test"
+use "test"
 
 rats "passes one"
   test.assert_eq(1, 1)

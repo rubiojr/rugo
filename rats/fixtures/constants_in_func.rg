@@ -1,4 +1,4 @@
-import "conv"
+use "conv"
 
 def circle_area(r)
   PI = 3.14159

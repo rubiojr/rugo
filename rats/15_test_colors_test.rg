@@ -1,5 +1,5 @@
 # RATS: Test ANSI color output in test results
-import "test"
+use "test"
 
 # Test: passing tests have green ANSI color by default
 rats "test output includes ANSI colors for passing tests"

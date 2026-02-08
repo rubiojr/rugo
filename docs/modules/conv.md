@@ -3,7 +3,7 @@
 Type conversion utilities.
 
 ```ruby
-import "conv"
+use "conv"
 ```
 
 ## to_s

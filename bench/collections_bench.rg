@@ -1,6 +1,6 @@
 # Collections benchmarks
 # Tracks: array/hash creation, iteration, index access, rugo_iterable overhead
-import "bench"
+use "bench"
 
 bench "array creation (10 elements)"
   arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]

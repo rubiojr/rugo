@@ -1,13 +1,23 @@
 # Modules
 
-Import stdlib modules with `import`, call as `module.function`:
+Rugo has three module systems:
+
+| Keyword | Purpose | Example |
+|---------|---------|---------|
+| `use` | Load Rugo stdlib modules | `use "http"` |
+| `import` | Bridge to Go stdlib packages | `import "strings"` |
+| `require` | Load user `.rg` files | `require "helpers"` |
+
+All three are accessed as `namespace.function()`.
+
+## Rugo Stdlib (`use`)
+
+Load built-in Rugo modules with `use`:
 
 ```ruby
-import "http"
+use "http"
 body = http.get("https://example.com")
 ```
-
-## Stdlib
 
 | Module | Description |
 |--------|-------------|
@@ -20,9 +30,55 @@ body = http.get("https://example.com")
 | [str](modules/str.md) | String utilities |
 | [test](modules/test.md) | Testing and assertions |
 
+## Go Stdlib Bridge (`import`)
+
+Access Go standard library packages directly with `import`:
+
+```ruby
+import "strings"
+import "math"
+import "strconv"
+
+puts strings.contains("hello world", "world")  # true
+puts math.sqrt(144.0)                           # 12
+n = strconv.atoi("42")                          # 42
+```
+
+Function names are automatically converted from Rugo's `snake_case` to Go's
+`PascalCase` (e.g., `strings.has_prefix` → `strings.HasPrefix`).
+
+Use `as` to alias an import:
+
+```ruby
+import "strings" as str_go
+puts str_go.to_upper("hello")   # HELLO
+```
+
+### Available Go Packages
+
+| Package | Functions |
+|---------|-----------|
+| `strings` | contains, has_prefix, has_suffix, to_upper, to_lower, trim_space, repeat, replace, replace_all, split, join, index, count, trim, trim_left, trim_right, trim_prefix, trim_suffix, has_prefix, has_suffix, equal_fold, fields |
+| `strconv` | atoi, itoa, format_float, parse_float, format_bool, parse_bool, format_int, parse_int |
+| `math` | abs, ceil, floor, round, sqrt, pow, log, log2, log10, max, min, mod, sin, cos, tan |
+| `path/filepath` | join, base, dir, ext, clean, is_abs, rel, split |
+| `regexp` | match_string, must_compile, compile |
+| `sort` | strings (sorts a string array), ints (sorts an int array) |
+| `os` | getenv, setenv, read_file, write_file, mkdir_all, remove, remove_all, getwd |
+| `time` | now_unix, now_nano, sleep |
+
+### Error Handling
+
+Go functions that return `(T, error)` auto-panic on error, integrating with `try/or`:
+
+```ruby
+import "strconv"
+n = try strconv.atoi("abc") or 0   # returns 0 on error
+```
+
 ## Builtins
 
-Available without import:
+Available without any import:
 
 | Function | Description |
 |----------|-------------|
@@ -31,7 +87,7 @@ Available without import:
 | `len(collection)` | Length of array, hash, or string |
 | `append(array, item)` | Append item, returns new array |
 
-## User Modules
+## User Modules (`require`)
 
 Create reusable `.rg` files and load them with `require`:
 
@@ -49,3 +105,9 @@ puts math_helpers.double(21)   # 42
 ```
 
 Functions are namespaced by filename.
+
+## Namespace Rules
+
+- `use` and `require` must be at the top level (not inside `def`, `if`, etc.)
+- A namespace can only be claimed once — if `use "os"` is loaded, `import "os"` must be aliased: `import "os" as go_os`
+- Each module can only be imported/used once

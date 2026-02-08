@@ -1,5 +1,5 @@
 # RATS: Multi-file summary aggregation
-import "test"
+use "test"
 
 # Regression: the grand total summary must parse per-file summaries
 # even when they contain ANSI color codes.

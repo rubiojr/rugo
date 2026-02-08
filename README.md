@@ -26,13 +26,14 @@ In a future where code will be written by agents, do we even care about language
 - Compiles to native binaries — no runtime needed
 - Shell fallback — unknown commands run as shell commands, like Bash
 - Modules with namespaces
+- Go stdlib bridge — call Go standard library functions directly
 - User modules
 - Error handling
 - Built-in [BATS like](https://bats-core.readthedocs.io) test support with [rats](docs/rats.md)
 - Concurrency
 
 ```ruby
-import "http"
+use "http"
 
 # Fetch something from the web
 body = http.get("https://httpbin.org/get")
