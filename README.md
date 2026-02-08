@@ -34,6 +34,10 @@ In a future where code will be written by agents, do we even care about language
 - Lightweight, Go-like [OOP](docs/quickstart/17-structs.md)
 - Built-in [testing](docs/quickstart/13-testing.md) and [benchmarking](docs/quickstart/15-benchmarks.md)
 
+## Influences
+
+Rugo stands on the shoulders of giants: **Ruby** (syntax, blocks), **Go** (compilation, structs), **Crystal** (spawn concurrency), **V** (try/or error handling), **Zig** (inline catch), **Bash** (shell fallback, pipes), **BATS** (test runner), and **Rust** (inline tests alongside code).
+
 ```ruby
 use "http"
 
