@@ -135,6 +135,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		stmt, err = w.walkFuncDef(innerChildren)
 	case parser.RugoTestDef:
 		stmt, err = w.walkTestDef(innerChildren)
+	case parser.RugoBenchDef:
+		stmt, err = w.walkBenchDef(innerChildren)
 	case parser.RugoIfStmt:
 		stmt, err = w.walkIfStmt(innerChildren)
 	case parser.RugoWhileStmt:
@@ -165,6 +167,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		case *FuncDef:
 			s.SourceLine = line
 		case *TestDef:
+			s.SourceLine = line
+		case *BenchDef:
 			s.SourceLine = line
 		case *IfStmt:
 			s.SourceLine = line
@@ -235,6 +239,28 @@ func (w *walker) walkTestDef(ast []int32) (Statement, error) {
 	}
 	_ = ast // "end" token
 	return &TestDef{Name: name, Body: body}, nil
+}
+
+func (w *walker) walkBenchDef(ast []int32) (Statement, error) {
+	// BenchDef = "bench" str_lit Body "end" .
+	_, ast = w.readToken(ast) // skip "bench"
+	nameTok, ast := w.readToken(ast)
+	name := unquoteString(nameTok.src)
+
+	var body []Statement
+	if len(ast) > 0 && ast[0] < 0 {
+		sym, children, rest := w.readNonTerminal(ast)
+		if sym == parser.RugoBody {
+			var err error
+			body, err = w.walkBody(children)
+			if err != nil {
+				return nil, err
+			}
+			ast = rest
+		}
+	}
+	_ = ast // "end" token
+	return &BenchDef{Name: name, Body: body}, nil
 }
 
 func (w *walker) walkFuncDef(ast []int32) (Statement, error) {

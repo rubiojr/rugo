@@ -73,6 +73,12 @@ func walkStmtExprs(s Statement, fn func(Expr) bool) bool {
 				return true
 			}
 		}
+	case *BenchDef:
+		for _, s := range st.Body {
+			if walkStmtExprs(s, fn) {
+				return true
+			}
+		}
 	case *ReturnStmt:
 		if st.Value != nil {
 			return walkExpr(st.Value, fn)

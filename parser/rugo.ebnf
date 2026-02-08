@@ -9,6 +9,7 @@ Statement   = ImportStmt
             | RequireStmt
             | FuncDef
             | TestDef
+            | BenchDef
             | IfStmt
             | WhileStmt
             | ForStmt
@@ -21,6 +22,7 @@ ImportStmt  = "import" str_lit .
 RequireStmt = "require" str_lit [ "as" str_lit ] .
 FuncDef     = "def" ident '(' [ ParamList ] ')' Body "end" .
 TestDef     = "rats" str_lit Body "end" .
+BenchDef    = "bench" str_lit Body "end" .
 ParamList   = ident { ',' ident } .
 Body        = { Statement } .
 IfStmt      = "if" Expr Body { "elsif" Expr Body } [ "else" Body ] "end" .

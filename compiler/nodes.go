@@ -73,6 +73,16 @@ type TestDef struct {
 func (t *TestDef) node() {}
 func (t *TestDef) stmt() {}
 
+// BenchDef represents bench "name" body end.
+type BenchDef struct {
+	BaseStmt
+	Name string
+	Body []Statement
+}
+
+func (b *BenchDef) node() {}
+func (b *BenchDef) stmt() {}
+
 // IfStmt represents if/elsif/else/end.
 type IfStmt struct {
 	BaseStmt

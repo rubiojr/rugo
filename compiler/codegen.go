@@ -31,6 +31,7 @@ type codeGen struct {
 	sourceFile      string          // original .rg filename for //line directives
 	hasSpawn        bool            // whether spawn is used
 	hasParallel     bool            // whether parallel is used
+	hasBench        bool            // whether bench blocks are present
 	usesTaskMethods bool            // whether .value/.done/.wait appear
 	funcDefs        map[string]int  // user function name → param count
 }
@@ -49,9 +50,10 @@ func generate(prog *Program, sourceFile string) (string, error) {
 }
 
 func (g *codeGen) generate(prog *Program) (string, error) {
-	// Collect imports and separate functions, tests, and top-level statements
+	// Collect imports and separate functions, tests, benchmarks, and top-level statements
 	var funcs []*FuncDef
 	var tests []*TestDef
+	var benches []*BenchDef
 	var topStmts []Statement
 	var setupFunc *FuncDef
 	var teardownFunc *FuncDef
@@ -66,6 +68,8 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 			funcs = append(funcs, st)
 		case *TestDef:
 			tests = append(tests, st)
+		case *BenchDef:
+			benches = append(benches, st)
 		case *RequireStmt:
 			continue
 		case *ImportStmt:
@@ -86,12 +90,14 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		g.funcDefs[key] = len(f.Params)
 	}
 
-	// Detect spawn/parallel usage to gate runtime emission and imports
+	// Detect spawn/parallel/bench usage to gate runtime emission and imports
 	g.hasSpawn = astUsesSpawn(prog)
 	g.hasParallel = astUsesParallel(prog)
+	g.hasBench = len(benches) > 0
 	g.usesTaskMethods = astUsesTaskMethods(prog)
 	needsSpawnRuntime := g.hasSpawn || g.usesTaskMethods
 	needsSyncImport := needsSpawnRuntime || g.hasParallel
+	needsTimeImport := needsSpawnRuntime || g.hasBench
 
 	g.writeln("package main")
 	g.writeln("")
@@ -105,7 +111,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	if needsSyncImport {
 		g.writeln(`"sync"`)
 	}
-	if needsSpawnRuntime {
+	if needsTimeImport {
 		g.writeln(`"time"`)
 	}
 	baseImports := map[string]bool{
@@ -140,7 +146,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	if needsSyncImport {
 		g.writeln("var _ sync.Once")
 	}
-	if needsSpawnRuntime {
+	if needsTimeImport {
 		g.writeln("var _ = time.Now")
 	}
 	g.writeln("")
@@ -161,6 +167,10 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 
 	if len(tests) > 0 {
 		return g.generateTestHarness(tests, topStmts, setupFunc, teardownFunc)
+	}
+
+	if len(benches) > 0 {
+		return g.generateBenchHarness(benches, topStmts)
 	}
 
 	// Main function
@@ -282,6 +292,67 @@ func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, se
 		teardownArg = "rugofn_teardown"
 	}
 	g.writef("}, %s, %s, _test)\n", setupArg, teardownArg)
+
+	g.popScope()
+	g.indent--
+	g.writeln("}")
+
+	return g.sb.String(), nil
+}
+
+func (g *codeGen) generateBenchHarness(benches []*BenchDef, topStmts []Statement) (string, error) {
+	// Emit each benchmark as a function
+	for i, b := range benches {
+		funcName := fmt.Sprintf("rugo_bench_%d", i)
+		g.writef("func %s() {\n", funcName)
+		g.indent++
+		g.pushScope()
+		for _, s := range b.Body {
+			if err := g.writeStmt(s); err != nil {
+				return "", err
+			}
+		}
+		g.popScope()
+		g.indent--
+		g.writeln("}")
+		g.writeln("")
+	}
+
+	// Main function: run benchmarks via runtime runner
+	g.writeln("func main() {")
+	g.indent++
+	g.writeln(`defer func() {`)
+	g.indent++
+	g.writeln(`if e := recover(); e != nil {`)
+	g.indent++
+	g.writeln(`if shellErr, ok := e.(rugoShellError); ok {`)
+	g.indent++
+	g.writeln(`os.Exit(shellErr.code)`)
+	g.indent--
+	g.writeln(`}`)
+	g.writeln(`rugo_panic_handler(e)`)
+	g.indent--
+	g.writeln(`}`)
+	g.indent--
+	g.writeln(`}()`)
+	g.pushScope()
+
+	// Run top-level setup code (imports, variable defs, helper functions)
+	for _, s := range topStmts {
+		if err := g.writeStmt(s); err != nil {
+			return "", err
+		}
+	}
+
+	// Build bench cases and call the runtime runner
+	g.writeln("rugo_bench_runner([]rugoBenchCase{")
+	g.indent++
+	for i, b := range benches {
+		escapedName := strings.ReplaceAll(b.Name, `"`, `\"`)
+		g.writef("{Name: \"%s\", Func: rugo_bench_%d},\n", escapedName, i)
+	}
+	g.indent--
+	g.writeln("})")
 
 	g.popScope()
 	g.indent--

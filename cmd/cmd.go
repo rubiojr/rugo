@@ -89,6 +89,19 @@ func Execute(version string) {
 				},
 				Action: testAction,
 			},
+			{
+				Name:      "bench",
+				Usage:     "Run _bench.rg benchmark files",
+				ArgsUsage: "[file_bench.rg | directory]",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "no-color",
+						Aliases: []string{"C"},
+						Usage:   "Disable ANSI color output",
+					},
+				},
+				Action: benchAction,
+			},
 		},
 	}
 
@@ -151,6 +164,53 @@ func isRugoScript(path string) bool {
 	n, _ := f.Read(buf)
 	line := string(buf[:n])
 	return strings.HasPrefix(line, "#!")
+}
+
+func benchAction(ctx context.Context, cmd *cli.Command) error {
+	targets := cmd.Args().Slice()
+	if len(targets) == 0 {
+		targets = []string{"."}
+	}
+
+	if cmd.Bool("no-color") || os.Getenv("NO_COLOR") != "" {
+		os.Setenv("NO_COLOR", "1")
+	}
+
+	// Collect _bench.rg benchmark files
+	var files []string
+	for _, target := range targets {
+		info, err := os.Stat(target)
+		if err != nil {
+			return fmt.Errorf("cannot access %s: %w", target, err)
+		}
+		if info.IsDir() {
+			entries, err := os.ReadDir(target)
+			if err != nil {
+				return fmt.Errorf("reading directory %s: %w", target, err)
+			}
+			for _, e := range entries {
+				if !e.IsDir() && strings.HasSuffix(e.Name(), "_bench.rg") {
+					files = append(files, filepath.Join(target, e.Name()))
+				}
+			}
+		} else {
+			files = append(files, target)
+		}
+	}
+
+	if len(files) == 0 {
+		return fmt.Errorf("no _bench.rg benchmark files found")
+	}
+
+	for _, f := range files {
+		fmt.Fprintf(os.Stderr, "=== %s ===\n", f)
+		comp := &compiler.Compiler{}
+		if err := comp.Run(f); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func testAction(ctx context.Context, cmd *cli.Command) error {

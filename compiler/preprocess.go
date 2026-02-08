@@ -12,7 +12,7 @@ var rugoKeywords = map[string]bool{
 	"return": true, "require": true, "break": true, "next": true,
 	"true": true, "false": true, "nil": true, "import": true,
 	"rats": true, "try": true, "or": true,
-	"spawn": true, "parallel": true,
+	"spawn": true, "parallel": true, "bench": true,
 }
 
 var rugoBuiltins = map[string]bool{
@@ -170,6 +170,8 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			}
 		case "rats":
 			blockStack = append(blockStack, "rats")
+		case "bench":
+			blockStack = append(blockStack, "bench")
 		case "if":
 			blockStack = append(blockStack, "if")
 		case "while":

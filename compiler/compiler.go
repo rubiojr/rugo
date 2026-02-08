@@ -67,7 +67,7 @@ func goModContent(prog *Program) string {
 		}
 	}
 
-	goMod := "module rugo_program\n\ngo 1.21\n"
+	goMod := "module rugo_program\n\ngo 1.22\n"
 	if deps := modules.CollectGoDeps(modNames); len(deps) > 0 {
 		goMod += "\nrequire (\n"
 		for _, dep := range deps {
