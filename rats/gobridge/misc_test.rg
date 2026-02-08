@@ -1,30 +1,5 @@
-# RATS: Test Go bridge — regexp, sort, time, os packages
+# RATS: Test Go bridge — sort, time, os packages
 use "test"
-
-# regexp
-rats "regexp.match_string"
-  script = <<~SCRIPT
-    import "regexp"
-    puts(regexp.match_string("^hello", "hello world"))
-    puts(regexp.match_string("^world", "hello world"))
-  SCRIPT
-  test.write_file(test.tmpdir() + "/test.rg", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "false")
-end
-
-rats "regexp.match_string basic"
-  script = <<~SCRIPT
-    import "regexp"
-    puts(regexp.match_string("[a-z]+", "hello"))
-  SCRIPT
-  test.write_file(test.tmpdir() + "/test.rg", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-end
 
 # sort
 rats "sort.strings"

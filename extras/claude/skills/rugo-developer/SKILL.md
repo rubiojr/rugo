@@ -25,7 +25,7 @@ Repository: `github.com/rubiojr/rugo`
 
 | Path | Purpose |
 |------|---------|
-| `main.go` | CLI entry point (urfave/cli): `run`, `build`, `emit`, `rats`, `bench` subcommands |
+| `main.go` | CLI entry point (urfave/cli): `run`, `build`, `emit`, `rats`, `bench`, `dev` subcommands |
 | `parser/` | Generated LL(1) parser from `rugo.ebnf` (do NOT hand-edit `parser.go`) |
 | `parser/rugo.ebnf` | Authoritative grammar — edit this to change syntax |
 | `compiler/` | Compiler pipeline: preprocess → parse → walk → codegen |
@@ -35,9 +35,10 @@ Repository: `github.com/rubiojr/rugo`
 | `compiler/nodes.go` | AST node types |
 | `compiler/gobridge/` | Go stdlib bridge: type registry and per-package mapping files |
 | `compiler/compiler.go` | Orchestrates: file loading, require resolution, compilation |
+| `cmd/dev/` | Developer tools: `modgen` module scaffolding |
 | `modules/` | Stdlib module registry and built-in modules |
 | `modules/module.go` | Module type, registry API, `CleanRuntime` helper |
-| `modules/{os,http,conv,str,test,bench}/` | Built-in modules (each has registration + `runtime.go`) |
+| `modules/{os,http,conv,str,test,bench,fmt,re}/` | Built-in modules (each has registration + `runtime.go`) |
 | `rats/` | RATS regression tests (`_test.rg` files) |
 | `bench/` | Performance benchmarks (`_bench.rg` files) |
 | `examples/` | Example `.rg` scripts |
@@ -126,6 +127,15 @@ Modules self-register via Go `init()` using `modules.Register()`. Each module ha
 
 ### Creating a new module
 
+Use the module generator to scaffold:
+
+```bash
+rugo dev modgen mymod --funcs do_thing,other_func
+```
+
+This creates `modules/mymod/` with registration, runtime, and stubs files, and adds the blank import to `main.go`. Fill in the method implementations in `runtime.go`.
+
+Manual steps:
 1. Create `modules/mymod/` with `mymod.go` (registration) and `runtime.go` (implementation)
 2. Runtime methods use typed parameters on a struct receiver (not `interface{}`)
 3. Register with `modules.Register()` specifying `Name`, `Type`, `Funcs`, `GoImports`, `Runtime`
@@ -159,13 +169,13 @@ Function names use `snake_case` in Rugo, auto-mapped to Go's `PascalCase` via th
 ### Bridge architecture
 
 - **Registry**: `compiler/gobridge/gobridge.go` — types (`GoType`, `GoFuncSig`, `Package`), registry API (`Register`, `IsPackage`, `Lookup`, `PackageNames`)
-- **Mapping files**: `compiler/gobridge/{strings,strconv,math,filepath,sort,regexp,os,time}.go` — each self-registers via `init()`
+- **Mapping files**: `compiler/gobridge/{strings,strconv,math,rand,filepath,sort,os,time}.go` — each self-registers via `init()`
 - **Codegen**: `compiler/codegen.go` `generateGoBridgeCall()` — emits direct Go calls with type conversions and special-case handling
 - **Adding a new bridge**: Create `compiler/gobridge/newpkg.go` with `init()` calling `Register()` — no other files need editing
 
 ### Whitelisted packages
 
-`strings`, `strconv`, `math`, `path/filepath`, `sort`, `regexp`, `os`, `time`
+`strings`, `strconv`, `math`, `math/rand/v2`, `path/filepath`, `sort`, `os`, `time`
 
 ### Key special cases in codegen
 
@@ -343,7 +353,7 @@ puts results[0]
 - `rats/14_parallel_test.rg` — 11 tests (ordered results, shell commands, single expr, nested, try/or, empty body, import gating, native binary, 2 negative tests)
 - `rats/28_bench_test.rg` — 4 tests (basic bench, multi bench, bench with functions, bench keyword in emit)
 - Fixtures in `rats/fixtures/spawn_*.rg`, `rats/fixtures/err_spawn_*.rg`, `rats/fixtures/parallel_*.rg`, `rats/fixtures/err_parallel_*.rg`, `rats/fixtures/bench_*.rg`
-- `rats/gobridge/` — 57 tests across 6 files covering all 8 Go bridge packages (strings, strconv, math, filepath, sort, regexp, os, time) plus edge cases and aliasing
+- `rats/gobridge/` — 60 tests across 7 files covering all 8 Go bridge packages (strings, strconv, math, math/rand/v2, filepath, sort, os, time) plus edge cases and aliasing
 
 ## Common Pitfalls
 

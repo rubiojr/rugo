@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/rubiojr/rugo/cmd/dev"
 	"github.com/rubiojr/rugo/compiler"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
@@ -102,6 +103,7 @@ func Execute(version string) {
 				},
 				Action: benchAction,
 			},
+			dev.Command(),
 		},
 	}
 

@@ -1,0 +1,52 @@
+use "test"
+
+rats "fmt.sprintf basic"
+  s = fmt.sprintf("hello %s", "world")
+  test.assert_eq(s, "hello world")
+end
+
+rats "fmt.sprintf integer formatting"
+  test.assert_eq(fmt.sprintf("%d", 42), "42")
+  test.assert_eq(fmt.sprintf("%05d", 42), "00042")
+  test.assert_eq(fmt.sprintf("%x", 255), "ff")
+  test.assert_eq(fmt.sprintf("%o", 8), "10")
+  test.assert_eq(fmt.sprintf("%b", 10), "1010")
+end
+
+rats "fmt.sprintf float formatting"
+  test.assert_eq(fmt.sprintf("%.2f", 3.14159), "3.14")
+  test.assert_eq(fmt.sprintf("%e", 100000.0), "1.000000e+05")
+  test.assert_eq(fmt.sprintf("%.1f", 2.0), "2.0")
+end
+
+rats "fmt.sprintf string formatting"
+  test.assert_eq(fmt.sprintf("%q", "hello"), "\"hello\"")
+  test.assert_eq(fmt.sprintf("%-10s|", "hi"), "hi        |")
+  test.assert_eq(fmt.sprintf("%10s|", "hi"), "        hi|")
+end
+
+rats "fmt.sprintf multiple args"
+  s = fmt.sprintf("%s is %d years old and %.1f meters", "Alice", 30, 1.65)
+  test.assert_eq(s, "Alice is 30 years old and 1.6 meters")
+end
+
+rats "fmt.sprintf with no format args"
+  test.assert_eq(fmt.sprintf("no args here"), "no args here")
+end
+
+rats "fmt.sprintf with percent literal"
+  test.assert_eq(fmt.sprintf("100%%"), "100%")
+end
+
+rats "fmt.printf outputs to stdout"
+  result = test.run("rugo run rats/fixtures/fmt_printf.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "x=42")
+end
+
+use "fmt"
+
+rats "fmt module imported with use keyword"
+  s = fmt.sprintf("test %d", 1)
+  test.assert_eq(s, "test 1")
+end

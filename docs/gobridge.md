@@ -30,9 +30,9 @@ Generated Go:   Direct Go stdlib call — no wrapper struct, no runtime
 | `compiler/gobridge/strings.go` | strings package mappings (self-registers via `init()`) |
 | `compiler/gobridge/strconv.go` | strconv package mappings |
 | `compiler/gobridge/math.go` | math package mappings |
+| `compiler/gobridge/rand.go` | math/rand/v2 package mappings |
 | `compiler/gobridge/filepath.go` | path/filepath package mappings |
 | `compiler/gobridge/sort.go` | sort package mappings |
-| `compiler/gobridge/regexp.go` | regexp package mappings |
 | `compiler/gobridge/os.go` | os package mappings |
 | `compiler/gobridge/time.go` | time package mappings |
 | `compiler/compiler.go` | `resolveRequires()` — validates + deduplicates `import` statements |
@@ -133,6 +133,10 @@ func init() {
 ```
 
 That's it — rebuild and the new package is available. No other files need editing.
+
+**Versioned packages** (e.g. `math/rand/v2`): The `DefaultNS()` function
+automatically strips Go version suffixes, so `math/rand/v2` uses namespace `rand`.
+Users write `import "math/rand/v2"` and call `rand.int_n(10)`.
 
 ### 2. Handle special cases (if needed)
 
@@ -314,7 +318,8 @@ All 8 whitelisted packages have comprehensive regression tests in `rats/gobridge
 | `strconv_test.rg` | 6 | atoi, itoa, format_float, parse_float, format_bool, parse_int |
 | `math_test.rg` | 9 | Arithmetic, trig, rounding, special values (NaN, Inf) |
 | `filepath_test.rg` | 8 | join, base, dir, ext, split, is_abs, rel, clean |
-| `misc_test.rg` | 12 | regexp, sort, time, os (env, files, dirs) |
+| `rand_test.rg` | 5 | int_n, float64, n alias, range validation |
+| `misc_test.rg` | 10 | sort, time, os (env, files, dirs) |
 | `edge_cases_test.rg` | 8 | Error handling, aliasing, namespace conflicts, try/or |
 
 Run all: `rugo rats rats/gobridge/`

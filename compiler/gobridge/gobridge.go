@@ -92,8 +92,7 @@ func PackageForNS(ns string, goImports map[string]string) (string, bool) {
 		}
 	}
 	for pkg := range goImports {
-		parts := strings.Split(pkg, "/")
-		if parts[len(parts)-1] == ns {
+		if DefaultNS(pkg) == ns {
 			return pkg, true
 		}
 	}
@@ -102,9 +101,15 @@ func PackageForNS(ns string, goImports map[string]string) (string, bool) {
 
 // DefaultNS returns the default namespace for a Go package path
 // (last segment, e.g. "path/filepath" → "filepath").
+// Handles versioned paths: "math/rand/v2" → "rand".
 func DefaultNS(pkg string) string {
 	parts := strings.Split(pkg, "/")
-	return parts[len(parts)-1]
+	last := parts[len(parts)-1]
+	// Go versioned packages: the "v2", "v3" etc. suffix is not the package name
+	if len(parts) >= 2 && len(last) >= 2 && last[0] == 'v' && last[1] >= '0' && last[1] <= '9' {
+		return parts[len(parts)-2]
+	}
+	return last
 }
 
 // PackageFuncs returns the function registry for a package, or nil if not found.

@@ -23,10 +23,12 @@ body = http.get("https://example.com")
 |--------|-------------|
 | [cli](modules/cli.md) | CLI app builder with commands, flags, and dispatch |
 | [color](modules/color.md) | ANSI terminal colors and styles |
-| [http](modules/http.md) | HTTP client |
-| [os](modules/os.md) | Shell execution and process control |
 | [conv](modules/conv.md) | Type conversions |
+| [fmt](modules/fmt.md) | String formatting (sprintf, printf) |
+| [http](modules/http.md) | HTTP client |
 | [json](modules/json.md) | JSON parsing and encoding |
+| [os](modules/os.md) | Shell execution and process control |
+| [re](modules/re.md) | Regular expressions |
 | [str](modules/str.md) | String utilities |
 | [test](modules/test.md) | Testing and assertions |
 
@@ -61,8 +63,8 @@ puts str_go.to_upper("hello")   # HELLO
 | `strings` | contains, has_prefix, has_suffix, to_upper, to_lower, trim_space, repeat, replace, replace_all, split, join, index, count, trim, trim_left, trim_right, trim_prefix, trim_suffix, has_prefix, has_suffix, equal_fold, fields |
 | `strconv` | atoi, itoa, format_float, parse_float, format_bool, parse_bool, format_int, parse_int |
 | `math` | abs, ceil, floor, round, sqrt, pow, log, log2, log10, max, min, mod, sin, cos, tan |
+| `math/rand/v2` | int_n, float64, n |
 | `path/filepath` | join, base, dir, ext, clean, is_abs, rel, split |
-| `regexp` | match_string, must_compile, compile |
 | `sort` | strings (sorts a string array), ints (sorts an int array) |
 | `os` | getenv, setenv, read_file, write_file, mkdir_all, remove, remove_all, getwd |
 | `time` | now_unix, now_nano, sleep |
