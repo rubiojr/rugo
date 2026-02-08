@@ -25,7 +25,7 @@ Repository: `github.com/rubiojr/rugo`
 
 | Path | Purpose |
 |------|---------|
-| `main.go` | CLI entry point (urfave/cli): `run`, `build`, `emit` subcommands |
+| `main.go` | CLI entry point (urfave/cli): `run`, `build`, `emit`, `rats`, `bench` subcommands |
 | `parser/` | Generated LL(1) parser from `rugo.ebnf` (do NOT hand-edit `parser.go`) |
 | `parser/rugo.ebnf` | Authoritative grammar — edit this to change syntax |
 | `compiler/` | Compiler pipeline: preprocess → parse → walk → codegen |
@@ -36,7 +36,9 @@ Repository: `github.com/rubiojr/rugo`
 | `compiler/compiler.go` | Orchestrates: file loading, require resolution, compilation |
 | `modules/` | Stdlib module registry and built-in modules |
 | `modules/module.go` | Module type, registry API, `CleanRuntime` helper |
-| `modules/{os,http,conv,str,test}/` | Built-in modules (each has registration + `runtime.go`) |
+| `modules/{os,http,conv,str,test,bench}/` | Built-in modules (each has registration + `runtime.go`) |
+| `rats/` | RATS regression tests (`_test.rg` files) |
+| `bench/` | Performance benchmarks (`_bench.rg` files) |
 | `examples/` | Example `.rg` scripts |
 | `docs/mods.md` | Module system documentation |
 | `changes.md` | Syntax improvement proposals and status |
@@ -75,7 +77,7 @@ Transforms raw `.rg` source before parsing:
 - Handles `import`/`require` statements
 - Tracks block nesting via `blockStack` for `spawn`/`parallel` end-matching
 
-**Keywords** (not treated as shell commands): `if`, `elsif`, `else`, `end`, `while`, `for`, `in`, `def`, `return`, `require`, `break`, `next`, `true`, `false`, `nil`, `import`, `test`, `try`, `or`, `spawn`, `parallel`
+**Keywords** (not treated as shell commands): `if`, `elsif`, `else`, `end`, `while`, `for`, `in`, `def`, `return`, `require`, `break`, `next`, `true`, `false`, `nil`, `import`, `test`, `try`, `or`, `spawn`, `parallel`, `bench`
 
 **Important:** Shell fallback resolution is positional at top level (function names are only recognized after their `def` line) but forward-referencing inside function bodies. See `preference.md` for details.
 
@@ -133,14 +135,67 @@ Modules self-register via Go `init()` using `modules.Register()`. Each module ha
 ### Build
 
 ```bash
-go build -o rugo .
+go build -o bin/rugo .
 ```
 
-### Run tests
+### Run Go tests
 
 ```bash
 go test ./... -count=1
 ```
+
+### RATS Regression Tests
+
+RATS (Rugo Automated Test Suite) uses the `test` keyword and `_test.rg` file convention (like Go's `_test.go`):
+
+```bash
+rugo rats rats/                    # run all _test.rg files in rats/
+rugo rats rats/03_control_flow_test.rg  # run a specific test file
+```
+
+Test files use `import "test"` and `rats` blocks:
+
+```ruby
+import "test"
+
+rats "addition works"
+  test.assert_eq(1 + 2, 3)
+end
+```
+
+Fixtures live in `rats/fixtures/` (`.rg` files for scripts, `_test.rg` files for test fixtures).
+
+### Benchmarks
+
+Benchmarks use the `bench` keyword and `_bench.rg` file convention (like Go's `_test.go`):
+
+```bash
+rugo bench bench/                        # run all _bench.rg files in bench/
+rugo bench bench/arithmetic_bench.rg     # run a specific benchmark
+rugo bench bench/io_bench.rg 1>/dev/null # redirect program stdout, keep bench output on stderr
+```
+
+Benchmark files use `import "bench"` and `bench` blocks:
+
+```ruby
+import "bench"
+
+bench "fib(20)"
+  fib(20)
+end
+```
+
+The framework auto-calibrates iterations (scales until ≥1s elapsed), reports ns/op and run count. Output goes to stderr with ANSI colors (respects `NO_COLOR`).
+
+Benchmark files in `bench/`: `arithmetic_bench.rg`, `strings_bench.rg`, `collections_bench.rg`, `control_flow_bench.rg`, `io_bench.rg`.
+
+### Go-side Compiler Benchmarks
+
+```bash
+go test -bench=. ./compiler/ -benchmem
+```
+
+Covers: `CompileHelloWorld`, `CompileFunctions`, `CompileControlFlow`, `CompileStringInterpolation`, `CompileArraysHashes`, `Preprocess`, `Codegen`.
 
 ### Run the full test suite (Go tests + all examples)
 
@@ -223,9 +278,10 @@ puts results[0]
 
 ### RATS tests
 
-- `rats/13_spawn.rt` — 21 tests (block, one-liner, fan-out, try/or, .done, .wait, functions, empty body, codegen gating, native binary, 5 negative tests)
-- `rats/14_parallel.rt` — 11 tests (ordered results, shell commands, single expr, nested, try/or, empty body, import gating, native binary, 2 negative tests)
-- Fixtures in `rats/fixtures/spawn_*.rg`, `rats/fixtures/err_spawn_*.rg`, `rats/fixtures/parallel_*.rg`, `rats/fixtures/err_parallel_*.rg`
+- `rats/13_spawn_test.rg` — 21 tests (block, one-liner, fan-out, try/or, .done, .wait, functions, empty body, codegen gating, native binary, 5 negative tests)
+- `rats/14_parallel_test.rg` — 11 tests (ordered results, shell commands, single expr, nested, try/or, empty body, import gating, native binary, 2 negative tests)
+- `rats/28_bench_test.rg` — 4 tests (basic bench, multi bench, bench with functions, bench keyword in emit)
+- Fixtures in `rats/fixtures/spawn_*.rg`, `rats/fixtures/err_spawn_*.rg`, `rats/fixtures/parallel_*.rg`, `rats/fixtures/err_parallel_*.rg`, `rats/fixtures/bench_*.rg`
 
 ## Common Pitfalls
 
