@@ -4,6 +4,20 @@
 use "str"
 use "conv"
 
+# Examples that block (e.g. start a server) and can't run in CI.
+skip = [
+  "examples/web_example.rg"
+]
+
+def should_skip(path, skip_list)
+  for s in skip_list
+    if s == path
+      return true
+    end
+  end
+  return false
+end
+
 # Build rugo first
 puts "==============================="
 puts "  Building rugo"
@@ -35,8 +49,15 @@ puts ""
 output = `find examples -name '*.rg' -type f -not -path '*/slug/*' | sort`
 files = str.split(str.trim(output), "\n")
 ran = 0
+skipped = 0
 
 for file in files
+  if should_skip(file, skip)
+    puts "--- example: " + file + " (skipped)"
+    puts ""
+    skipped += 1
+    next
+  end
   run_example(file)
   ran += 1
 end
@@ -45,5 +66,5 @@ end
 rm /tmp/rugo_runner
 
 puts "============================================="
-puts "  All done: " + conv.to_s(ran) + " examples ran, " + conv.to_s(len(files)) + " discovered"
+puts "  All done: " + conv.to_s(ran) + " examples ran, " + conv.to_s(skipped) + " skipped, " + conv.to_s(len(files)) + " discovered"
 puts "============================================="
