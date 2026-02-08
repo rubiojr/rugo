@@ -17,7 +17,7 @@ Can we escape this? In a world currently dominated by software, unlikely.
 In a future where code will be written by agents, do we even care about languages? maybe not.
 
 > [!WARNING]
-> In case it's not clear enough, Rugo is an agent product.
+> In case it's not clear enough, Rugo is an agent product, driven by Opus 4.6.
 > Treat it like a ☢️  experiment, totally subject to break.
 
 ## Features
