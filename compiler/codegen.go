@@ -836,8 +836,10 @@ func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
 	// Stdlib or namespace access without call
 	if ns, ok := e.Object.(*IdentExpr); ok {
 		nsName := ns.Name
-		if goFunc, ok := modules.LookupFunc(nsName, e.Field); ok {
-			return fmt.Sprintf("interface{}(%s)", goFunc), nil
+		if g.imports[nsName] {
+			if goFunc, ok := modules.LookupFunc(nsName, e.Field); ok {
+				return fmt.Sprintf("interface{}(%s)", goFunc), nil
+			}
 		}
 		// Task method access (no-arg): task.value, task.done
 		switch e.Field {
@@ -881,8 +883,10 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	if dot, ok := e.Func.(*DotExpr); ok {
 		if ns, ok := dot.Object.(*IdentExpr); ok {
 			nsName := ns.Name
-			if goFunc, ok := modules.LookupFunc(nsName, dot.Field); ok {
-				return fmt.Sprintf("%s(%s)", goFunc, argStr), nil
+			if g.imports[nsName] {
+				if goFunc, ok := modules.LookupFunc(nsName, dot.Field); ok {
+					return fmt.Sprintf("%s(%s)", goFunc, argStr), nil
+				}
 			}
 			// Task method calls: task.wait(n), task.value(), task.done()
 			switch dot.Field {

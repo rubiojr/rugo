@@ -6,9 +6,13 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	_ "github.com/rubiojr/rugo/modules/conv"
 	_ "github.com/rubiojr/rugo/modules/http"
 	_ "github.com/rubiojr/rugo/modules/os"
+	_ "github.com/rubiojr/rugo/modules/str"
 	"github.com/rubiojr/rugo/parser"
 )
 
@@ -1025,4 +1029,128 @@ func TestGenIndexAssignHash(t *testing.T) {
 	if !strings.Contains(src, "rugo_index_set") {
 		t.Error("hash assignment should generate rugo_index_set call")
 	}
+}
+
+// --- Module edge-case regression tests ---
+
+// Bug 186d619: LookupFunc should only match imported modules, not all registered.
+// When a user module is aliased to a stdlib name but that module is NOT imported,
+// calls should resolve to the user module function, not the stdlib wrapper.
+func TestRequireAliasStdlibNameWithoutImport(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("def upper(s)\nreturn \"CUSTOM: \" + s\nend\n"), 0644)
+
+	mainFile := filepath.Join(tmpDir, "main.rg")
+	os.WriteFile(mainFile, []byte("require \"helpers\" as \"str\"\nputs(str.upper(\"hello\"))\n"), 0644)
+
+	c := &Compiler{}
+	result, err := c.Compile(mainFile)
+	require.NoError(t, err)
+	// Should use the user module function, NOT the stdlib wrapper
+	assert.Contains(t, result.GoSource, "rugons_str_upper(", "should call user module function")
+	assert.NotContains(t, result.GoSource, "rugo_str_upper(", "should NOT call stdlib wrapper when str is not imported")
+}
+
+// Bug 65f41d8: When both import and require use the same namespace, and a function
+// exists in both, the compiler should error rather than silently shadow.
+func TestRequireAliasConflictsWithImport(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("def upper(s)\nreturn \"CUSTOM\"\nend\n"), 0644)
+
+	mainFile := filepath.Join(tmpDir, "main.rg")
+	os.WriteFile(mainFile, []byte("import \"str\"\nrequire \"helpers\" as \"str\"\nputs(str.upper(\"hello\"))\n"), 0644)
+
+	c := &Compiler{}
+	_, err := c.Compile(mainFile)
+	require.Error(t, err, "should error when require alias conflicts with imported module")
+	assert.Contains(t, err.Error(), "str", "error should mention the conflicting name")
+}
+
+// Bug 6013a24: Imports inside required files should be propagated.
+func TestRequiredFileImports(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("import \"conv\"\ndef double_str(n)\nreturn conv.to_s(n * 2)\nend\n"), 0644)
+
+	mainFile := filepath.Join(tmpDir, "main.rg")
+	os.WriteFile(mainFile, []byte("require \"helpers\"\nputs(helpers.double_str(21))\n"), 0644)
+
+	c := &Compiler{}
+	result, err := c.Compile(mainFile)
+	require.NoError(t, err)
+	// The conv module runtime should be emitted because helpers.rg imports it
+	assert.Contains(t, result.GoSource, "rugo_conv_to_s(", "conv wrapper call should exist")
+	// The conv module struct/runtime must also be emitted
+	assert.Contains(t, result.GoSource, "type Conv struct", "conv runtime should be emitted from required file's import")
+}
+
+// Bug 51ab700: import/require inside function bodies should produce an error.
+func TestImportInsideFuncBodyErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	mainFile := filepath.Join(tmpDir, "main.rg")
+	os.WriteFile(mainFile, []byte("def foo()\nimport \"conv\"\nend\n"), 0644)
+
+	c := &Compiler{}
+	_, err := c.Compile(mainFile)
+	require.Error(t, err, "import inside function body should produce an error")
+	assert.Contains(t, err.Error(), "top level", "error should mention top-level requirement")
+}
+
+func TestRequireInsideFuncBodyErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("def foo()\nreturn 1\nend\n"), 0644)
+
+	mainFile := filepath.Join(tmpDir, "main.rg")
+	os.WriteFile(mainFile, []byte("def bar()\nrequire \"helpers\"\nend\n"), 0644)
+
+	c := &Compiler{}
+	_, err := c.Compile(mainFile)
+	require.Error(t, err, "require inside function body should produce an error")
+	assert.Contains(t, err.Error(), "top level", "error should mention top-level requirement")
+}
+
+func TestImportInsideIfBodyErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	mainFile := filepath.Join(tmpDir, "main.rg")
+	os.WriteFile(mainFile, []byte("if true\nimport \"conv\"\nend\n"), 0644)
+
+	c := &Compiler{}
+	_, err := c.Compile(mainFile)
+	require.Error(t, err, "import inside if body should produce an error")
+}
+
+// Bug 59e1dc8: Two requires aliased to same namespace with conflicting function names.
+func TestDuplicateNamespaceFunctionErrors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.WriteFile(filepath.Join(tmpDir, "a.rg"), []byte("def foo()\nreturn \"a\"\nend\n"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "b.rg"), []byte("def foo()\nreturn \"b\"\nend\n"), 0644)
+
+	mainFile := filepath.Join(tmpDir, "main.rg")
+	os.WriteFile(mainFile, []byte("require \"a\" as \"ns\"\nrequire \"b\" as \"ns\"\nputs(ns.foo())\n"), 0644)
+
+	c := &Compiler{}
+	_, err := c.Compile(mainFile)
+	require.Error(t, err, "duplicate function in same namespace should error")
+	assert.Contains(t, err.Error(), "foo", "error should mention the duplicate function name")
+}
+
+// Bug 6ee382f: Duplicate imports are silently deduplicated.
+func TestDuplicateImportDeduplicates(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	mainFile := filepath.Join(tmpDir, "main.rg")
+	os.WriteFile(mainFile, []byte("import \"conv\"\nimport \"conv\"\nputs(conv.to_s(42))\n"), 0644)
+
+	c := &Compiler{}
+	result, err := c.Compile(mainFile)
+	require.NoError(t, err, "duplicate import should be silently deduplicated")
+	// Module runtime should appear exactly once
+	count := strings.Count(result.GoSource, "type Conv struct")
+	assert.Equal(t, 1, count, "conv runtime should be emitted exactly once")
 }

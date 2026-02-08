@@ -17,6 +17,10 @@ type Compiler struct {
 	BaseDir string
 	// loaded tracks already-loaded files to prevent duplicate requires.
 	loaded map[string]bool
+	// imports tracks which stdlib modules have been imported.
+	imports map[string]bool
+	// nsFuncs tracks namespace+function pairs to detect duplicates.
+	nsFuncs map[string]string // "ns.func" → source file
 }
 
 // CompileResult holds the output of a compilation.
@@ -30,6 +34,12 @@ type CompileResult struct {
 func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	if c.loaded == nil {
 		c.loaded = make(map[string]bool)
+	}
+	if c.imports == nil {
+		c.imports = make(map[string]bool)
+	}
+	if c.nsFuncs == nil {
+		c.nsFuncs = make(map[string]string)
 	}
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
@@ -223,15 +233,23 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 }
 
 func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
+	// Validate that import/require only appear at top level
+	if err := validateTopLevelOnly(prog.Statements); err != nil {
+		return nil, err
+	}
+
 	var resolved []Statement
 
 	for _, s := range prog.Statements {
-		// Validate import statements
+		// Validate and deduplicate import statements
 		if imp, ok := s.(*ImportStmt); ok {
 			if !modules.IsModule(imp.Module) {
 				return nil, fmt.Errorf("unknown stdlib module: %q (available: %s)", imp.Module, strings.Join(modules.Names(), ", "))
 			}
-			resolved = append(resolved, s)
+			if !c.imports[imp.Module] {
+				c.imports[imp.Module] = true
+				resolved = append(resolved, s)
+			}
 			continue
 		}
 
@@ -284,16 +302,112 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			}
 		}
 
-		// Include function definitions from required files, namespaced
+		// Reject require namespace that conflicts with an imported stdlib module
+		if c.imports[ns] {
+			return nil, fmt.Errorf("require namespace %q conflicts with imported stdlib module", ns)
+		}
+
+		// Include imports and function definitions from required files
 		for _, rs := range reqProg.Statements {
-			if fd, ok := rs.(*FuncDef); ok {
-				fd.Namespace = ns
-				resolved = append(resolved, fd)
+			switch st := rs.(type) {
+			case *ImportStmt:
+				// Always add to resolved so codegen sees it; c.imports
+				// may already be set from recursive resolution.
+				c.imports[st.Module] = true
+				resolved = append(resolved, st)
+			case *FuncDef:
+				// Detect duplicate function in same namespace
+				nsKey := ns + "." + st.Name
+				if src, exists := c.nsFuncs[nsKey]; exists {
+					return nil, fmt.Errorf("function %q in namespace %q already defined (from %s)", st.Name, ns, src)
+				}
+				c.nsFuncs[nsKey] = req.Path
+				st.Namespace = ns
+				resolved = append(resolved, st)
 			}
 		}
 	}
 
 	return &Program{Statements: resolved}, nil
+}
+
+// validateTopLevelOnly walks statement trees and returns an error if
+// import or require statements appear inside function bodies or blocks.
+func validateTopLevelOnly(stmts []Statement) error {
+	for _, s := range stmts {
+		switch st := s.(type) {
+		case *FuncDef:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+		case *IfStmt:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+			for _, clause := range st.ElsifClauses {
+				if err := rejectNestedImports(clause.Body); err != nil {
+					return err
+				}
+			}
+			if err := rejectNestedImports(st.ElseBody); err != nil {
+				return err
+			}
+		case *WhileStmt:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+		case *ForStmt:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+		case *TestDef:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// rejectNestedImports checks a block body for import/require statements
+// and returns an error if any are found.
+func rejectNestedImports(stmts []Statement) error {
+	for _, s := range stmts {
+		switch s.(type) {
+		case *ImportStmt:
+			return fmt.Errorf("line %d: import statements must be at the top level", s.StmtLine())
+		case *RequireStmt:
+			return fmt.Errorf("line %d: require statements must be at the top level", s.StmtLine())
+		}
+		// Recurse into nested blocks
+		switch st := s.(type) {
+		case *FuncDef:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+		case *IfStmt:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+			for _, clause := range st.ElsifClauses {
+				if err := rejectNestedImports(clause.Body); err != nil {
+					return err
+				}
+			}
+			if err := rejectNestedImports(st.ElseBody); err != nil {
+				return err
+			}
+		case *WhileStmt:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+		case *ForStmt:
+			if err := rejectNestedImports(st.Body); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // appendGoNoSumCheck adds GONOSUMCHECK=* to the environment if not already set,

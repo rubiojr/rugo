@@ -6,9 +6,9 @@ import (
 
 // Benchmark the full compilation pipeline (parse + walk + codegen).
 func BenchmarkCompileHelloWorld(b *testing.B) {
-	c := &Compiler{}
 	b.ResetTimer()
 	for b.Loop() {
+		c := &Compiler{}
 		_, err := c.Compile("../examples/hello.rg")
 		if err != nil {
 			b.Fatal(err)
@@ -17,9 +17,9 @@ func BenchmarkCompileHelloWorld(b *testing.B) {
 }
 
 func BenchmarkCompileFunctions(b *testing.B) {
-	c := &Compiler{}
 	b.ResetTimer()
 	for b.Loop() {
+		c := &Compiler{}
 		_, err := c.Compile("../examples/functions.rg")
 		if err != nil {
 			b.Fatal(err)
@@ -28,9 +28,9 @@ func BenchmarkCompileFunctions(b *testing.B) {
 }
 
 func BenchmarkCompileControlFlow(b *testing.B) {
-	c := &Compiler{}
 	b.ResetTimer()
 	for b.Loop() {
+		c := &Compiler{}
 		_, err := c.Compile("../examples/control_flow.rg")
 		if err != nil {
 			b.Fatal(err)
@@ -39,9 +39,9 @@ func BenchmarkCompileControlFlow(b *testing.B) {
 }
 
 func BenchmarkCompileStringInterpolation(b *testing.B) {
-	c := &Compiler{}
 	b.ResetTimer()
 	for b.Loop() {
+		c := &Compiler{}
 		_, err := c.Compile("../examples/string_interpolation.rg")
 		if err != nil {
 			b.Fatal(err)
@@ -50,9 +50,9 @@ func BenchmarkCompileStringInterpolation(b *testing.B) {
 }
 
 func BenchmarkCompileArraysHashes(b *testing.B) {
-	c := &Compiler{}
 	b.ResetTimer()
 	for b.Loop() {
+		c := &Compiler{}
 		_, err := c.Compile("../examples/arrays_hashes.rg")
 		if err != nil {
 			b.Fatal(err)

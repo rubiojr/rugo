@@ -1,7 +1,12 @@
 # Helper functions for the module example
+import "conv"
 
 def double(n)
   return n * 2
+end
+
+def double_str(n)
+  return "double(" + conv.to_s(n) + ") = " + conv.to_s(n * 2)
 end
 
 def greet_user(name)

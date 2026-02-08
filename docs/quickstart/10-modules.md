@@ -45,7 +45,12 @@ require "math_helpers"
 puts math_helpers.double(21)   # 42
 ```
 
-Functions are namespaced by filename.
+Functions are namespaced by filename. User modules can `import` stdlib modules and use them in their functions — the imports are automatically propagated.
+
+**Rules:**
+- `import` and `require` must be at the top level (not inside `def`, `if`, etc.)
+- A `require` alias cannot match an imported stdlib module name
+- Each module can only be imported once
 
 ---
 Next: [Error Handling](11-error-handling.md)
