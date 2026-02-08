@@ -171,7 +171,7 @@ func TestProcessInterpolation(t *testing.T) {
 
 func TestGenHelloWorld(t *testing.T) {
 	src := compileToGo(t, `puts("Hello, World!")`)
-	if !strings.Contains(src, `rugo_puts(interface{}("Hello, World!"))`) {
+	if !strings.Contains(src, `rugo_puts(`) {
 		t.Errorf("expected puts call in output:\n%s", src)
 	}
 	if !strings.Contains(src, "func main()") {
@@ -181,14 +181,14 @@ func TestGenHelloWorld(t *testing.T) {
 
 func TestGenAssignment(t *testing.T) {
 	src := compileToGo(t, "x = 42")
-	if !strings.Contains(src, "x := interface{}(42)") {
+	if !strings.Contains(src, "x :=") {
 		t.Errorf("expected := declaration:\n%s", src)
 	}
 }
 
 func TestGenFunction(t *testing.T) {
 	src := compileToGo(t, "def greet(name)\nputs(name)\nend\ngreet(\"hi\")")
-	if !strings.Contains(src, "func rugofn_greet(name interface{}) interface{}") {
+	if !strings.Contains(src, "func rugofn_greet(") {
 		t.Errorf("expected function definition:\n%s", src)
 	}
 	if !strings.Contains(src, "rugofn_greet(") {
@@ -198,36 +198,40 @@ func TestGenFunction(t *testing.T) {
 
 func TestGenIf(t *testing.T) {
 	src := compileToGo(t, "if true\nputs(\"yes\")\nend")
-	if !strings.Contains(src, "if rugo_to_bool(") {
-		t.Errorf("expected if with rugo_to_bool:\n%s", src)
+	// With type inference, bool literals don't need rugo_to_bool
+	if !strings.Contains(src, "if true") && !strings.Contains(src, "if rugo_to_bool(") {
+		t.Errorf("expected if condition:\n%s", src)
 	}
 }
 
 func TestGenWhile(t *testing.T) {
 	src := compileToGo(t, "while true\nputs(\"loop\")\nend")
-	if !strings.Contains(src, "for rugo_to_bool(") {
+	// With type inference, bool literals don't need rugo_to_bool
+	if !strings.Contains(src, "for true") && !strings.Contains(src, "for rugo_to_bool(") {
 		t.Errorf("expected for loop:\n%s", src)
 	}
 }
 
 func TestGenReturn(t *testing.T) {
 	src := compileToGo(t, "def foo()\nreturn 42\nend")
-	if !strings.Contains(src, "return interface{}(42)") {
+	if !strings.Contains(src, "return") {
 		t.Errorf("expected return statement:\n%s", src)
 	}
 }
 
 func TestGenArithmetic(t *testing.T) {
 	src := compileToGo(t, "x = 1 + 2")
-	if !strings.Contains(src, "rugo_add(") {
-		t.Errorf("expected rugo_add call:\n%s", src)
+	// With type inference, typed int arithmetic uses native ops
+	if !strings.Contains(src, "(1 + 2)") && !strings.Contains(src, "rugo_add(") {
+		t.Errorf("expected arithmetic expression:\n%s", src)
 	}
 }
 
 func TestGenComparison(t *testing.T) {
 	src := compileToGo(t, "x = 1 == 2")
-	if !strings.Contains(src, `rugo_eq(`) {
-		t.Errorf("expected rugo_eq call:\n%s", src)
+	// With type inference, typed int comparison uses native ops
+	if !strings.Contains(src, "(1 == 2)") && !strings.Contains(src, `rugo_eq(`) {
+		t.Errorf("expected comparison expression:\n%s", src)
 	}
 }
 
@@ -297,15 +301,17 @@ func TestGenStdlibCalls(t *testing.T) {
 
 func TestGenUnary(t *testing.T) {
 	src := compileToGo(t, "x = -1")
-	if !strings.Contains(src, "rugo_negate(") {
-		t.Errorf("expected rugo_negate:\n%s", src)
+	// With type inference, typed int negation uses native ops
+	if !strings.Contains(src, "(-1)") && !strings.Contains(src, "rugo_negate(") {
+		t.Errorf("expected negation:\n%s", src)
 	}
 }
 
 func TestGenNot(t *testing.T) {
 	src := compileToGo(t, "x = !true")
-	if !strings.Contains(src, "rugo_not(") {
-		t.Errorf("expected rugo_not:\n%s", src)
+	// With type inference, typed bool negation uses native ops
+	if !strings.Contains(src, "(!true)") && !strings.Contains(src, "rugo_not(") {
+		t.Errorf("expected not:\n%s", src)
 	}
 }
 
@@ -479,29 +485,32 @@ end
 	if !strings.Contains(goSrc, "func rugofn_fib(") {
 		t.Error("expected fib function")
 	}
-	if !strings.Contains(goSrc, "for rugo_to_bool(") {
+	// With type inference, the while condition may use native ops
+	if !strings.Contains(goSrc, "for (i < 10)") && !strings.Contains(goSrc, "for rugo_to_bool(") {
 		t.Error("expected while loop")
 	}
 }
 
 func TestAllOperators(t *testing.T) {
+	// With type inference, typed ops use native Go operators.
+	// Test with mixed types to ensure runtime helpers still work.
 	operators := []struct {
 		src    string
 		expect string
 	}{
-		{"x = 1 + 2", "rugo_add"},
-		{"x = 1 - 2", "rugo_sub"},
-		{"x = 1 * 2", "rugo_mul"},
-		{"x = 1 / 2", "rugo_div"},
-		{"x = 1 % 2", "rugo_mod"},
-		{"x = -1", "rugo_negate"},
-		{"x = !true", "rugo_not"},
+		{"x = [1]\ny = x[0] + 2", "rugo_add"},
+		{"x = [1]\ny = x[0] - 2", "rugo_sub"},
+		{"x = [1]\ny = x[0] * 2", "rugo_mul"},
+		{"x = [1]\ny = x[0] / 2", "rugo_div"},
+		{"x = [1]\ny = x[0] % 2", "rugo_mod"},
+		{"x = [1]\ny = -x[0]", "rugo_negate"},
+		{"x = [1]\ny = !x[0]", "rugo_not"},
 	}
 	for _, tt := range operators {
 		t.Run(tt.src, func(t *testing.T) {
 			goSrc := compileToGo(t, tt.src)
 			if !strings.Contains(goSrc, tt.expect) {
-				t.Errorf("expected %q in output for %q", tt.expect, tt.src)
+				t.Errorf("expected %q in output for %q:\n%s", tt.expect, tt.src, goSrc)
 			}
 		})
 	}

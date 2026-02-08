@@ -26,7 +26,7 @@ type codeGen struct {
 	indent          int
 	declared        map[string]bool // track declared variables per scope
 	scopes          []map[string]bool
-	constScopes     []map[string]int  // track constant bindings: name → line of first assignment
+	constScopes     []map[string]int // track constant bindings: name → line of first assignment
 	inFunc          bool
 	imports         map[string]bool   // Rugo stdlib modules imported (via use)
 	goImports       map[string]string // Go bridge packages: path → alias
@@ -38,10 +38,16 @@ type codeGen struct {
 	usesTaskMethods bool              // whether .value/.done/.wait appear
 	funcDefs        map[string]int    // user function name → param count
 	testMode        bool              // include rats blocks in output
+	typeInfo        *TypeInfo         // inferred type information (nil disables typed codegen)
+	currentFunc     *FuncDef          // current function being generated (for type lookups)
+	varTypeScope    string            // override scope key for varType lookups (test/bench blocks)
 }
 
 // generate produces Go source code from a Program AST.
 func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
+	// Run type inference before code generation.
+	ti := infer(prog)
+
 	g := &codeGen{
 		declared:    make(map[string]bool),
 		scopes:      []map[string]bool{make(map[string]bool)},
@@ -52,6 +58,7 @@ func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
 		sourceFile:  sourceFile,
 		funcDefs:    make(map[string]int),
 		testMode:    testMode,
+		typeInfo:    ti,
 	}
 	return g.generate(prog)
 }
@@ -279,11 +286,13 @@ func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, se
 		g.indent--
 		g.writeln("}()")
 		g.pushScope()
+		g.varTypeScope = fmt.Sprintf("__test_%p", t)
 		for _, s := range t.Body {
 			if err := g.writeStmt(s); err != nil {
 				return "", err
 			}
 		}
+		g.varTypeScope = ""
 		g.popScope()
 		g.writeln("passed = true")
 		g.writeln("return")
@@ -338,11 +347,13 @@ func (g *codeGen) generateBenchHarness(benches []*BenchDef, topStmts []Statement
 		g.writef("func %s() {\n", funcName)
 		g.indent++
 		g.pushScope()
+		g.varTypeScope = fmt.Sprintf("__bench_%p", b)
 		for _, s := range b.Body {
 			if err := g.writeStmt(s); err != nil {
 				return "", err
 			}
 		}
+		g.varTypeScope = ""
 		g.popScope()
 		g.indent--
 		g.writeln("}")
@@ -429,9 +440,16 @@ func (g *codeGen) writeDispatchMaps(funcs []*FuncDef) {
 }
 
 func (g *codeGen) writeFunc(f *FuncDef) error {
+	// Check if this function has typed inference info.
+	fti := g.funcTypeInfo(f)
+
 	params := make([]string, len(f.Params))
 	for i, p := range f.Params {
-		params[i] = p + " interface{}"
+		if fti != nil && fti.ParamTypes[i].IsTyped() {
+			params[i] = p + " " + fti.ParamTypes[i].GoType()
+		} else {
+			params[i] = p + " interface{}"
+		}
 	}
 
 	// Determine function name: namespaced or local
@@ -442,25 +460,61 @@ func (g *codeGen) writeFunc(f *FuncDef) error {
 		goName = fmt.Sprintf("rugofn_%s", f.Name)
 	}
 
-	g.writef("func %s(%s) interface{} {\n", goName, strings.Join(params, ", "))
+	retType := "interface{}"
+	if fti != nil && fti.ReturnType.IsTyped() {
+		retType = fti.ReturnType.GoType()
+	}
+
+	g.writef("func %s(%s) %s {\n", goName, strings.Join(params, ", "), retType)
 	g.indent++
 	g.pushScope()
 	// Mark params as declared
 	for _, p := range f.Params {
 		g.declareVar(p)
 	}
+	g.currentFunc = f
 	g.inFunc = true
 	for _, s := range f.Body {
 		if err := g.writeStmt(s); err != nil {
 			return err
 		}
 	}
-	g.writeln("return nil")
+	// Default return: typed zero value or nil.
+	if fti != nil && fti.ReturnType.IsTyped() {
+		g.writef("return %s\n", typedZero(fti.ReturnType))
+	} else {
+		g.writeln("return nil")
+	}
 	g.inFunc = false
+	g.currentFunc = nil
 	g.popScope()
 	g.indent--
 	g.writeln("}")
 	return nil
+}
+
+// funcTypeInfo returns the inferred type info for a function, or nil.
+func (g *codeGen) funcTypeInfo(f *FuncDef) *FuncTypeInfo {
+	if g.typeInfo == nil {
+		return nil
+	}
+	return g.typeInfo.FuncTypes[funcKey(f)]
+}
+
+// typedZero returns the zero value for a typed return.
+func typedZero(t RugoType) string {
+	switch t {
+	case TypeInt:
+		return "0"
+	case TypeFloat:
+		return "0.0"
+	case TypeString:
+		return `""`
+	case TypeBool:
+		return "false"
+	default:
+		return "nil"
+	}
 }
 
 // emitLineDirective writes a //line directive for the original source file.
@@ -533,10 +587,18 @@ func (g *codeGen) writeAssign(a *AssignStmt) error {
 		return fmt.Errorf("cannot reassign constant %s (first assigned at line %d)", a.Target, origLine)
 	}
 
+	exprType := g.exprType(a.Value)
+	varType := g.varType(a.Target)
+
+	// If the variable is dynamic but the expression is typed, box the value.
 	expr, err := g.exprString(a.Value)
 	if err != nil {
 		return err
 	}
+	if !varType.IsTyped() && exprType.IsTyped() {
+		expr = fmt.Sprintf("interface{}(%s)", expr)
+	}
+
 	if g.isDeclared(a.Target) {
 		g.writef("%s = %s\n", a.Target, expr)
 	} else {
@@ -595,7 +657,7 @@ func (g *codeGen) writeIf(i *IfStmt) error {
 	if err != nil {
 		return err
 	}
-	g.writef("if rugo_to_bool(%s) {\n", cond)
+	g.writef("if %s {\n", g.condExpr(cond, i.Condition))
 	g.indent++
 	g.pushScope()
 	for _, s := range i.Body {
@@ -610,7 +672,7 @@ func (g *codeGen) writeIf(i *IfStmt) error {
 		if err != nil {
 			return err
 		}
-		g.writef("} else if rugo_to_bool(%s) {\n", cond)
+		g.writef("} else if %s {\n", g.condExpr(cond, ec.Condition))
 		g.indent++
 		g.pushScope()
 		for _, s := range ec.Body {
@@ -642,7 +704,7 @@ func (g *codeGen) writeWhile(w *WhileStmt) error {
 	if err != nil {
 		return err
 	}
-	g.writef("for rugo_to_bool(%s) {\n", cond)
+	g.writef("for %s {\n", g.condExpr(cond, w.Condition))
 	g.indent++
 	g.pushScope()
 	for _, s := range w.Body {
@@ -697,8 +759,13 @@ func (g *codeGen) writeFor(f *ForStmt) error {
 }
 
 func (g *codeGen) writeReturn(r *ReturnStmt) error {
+	fti := g.currentFuncTypeInfo()
 	if r.Value == nil {
-		g.writeln("return nil")
+		if fti != nil && fti.ReturnType.IsTyped() {
+			g.writef("return %s\n", typedZero(fti.ReturnType))
+		} else {
+			g.writeln("return nil")
+		}
 	} else {
 		expr, err := g.exprString(r.Value)
 		if err != nil {
@@ -712,10 +779,22 @@ func (g *codeGen) writeReturn(r *ReturnStmt) error {
 func (g *codeGen) exprString(e Expr) (string, error) {
 	switch ex := e.(type) {
 	case *IntLiteral:
+		if g.exprIsTyped(e) {
+			return ex.Value, nil
+		}
 		return fmt.Sprintf("interface{}(%s)", ex.Value), nil
 	case *FloatLiteral:
+		if g.exprIsTyped(e) {
+			return ex.Value, nil
+		}
 		return fmt.Sprintf("interface{}(%s)", ex.Value), nil
 	case *BoolLiteral:
+		if g.exprIsTyped(e) {
+			if ex.Value {
+				return "true", nil
+			}
+			return "false", nil
+		}
 		if ex.Value {
 			return "interface{}(true)", nil
 		}
@@ -725,9 +804,12 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 	case *StringLiteral:
 		if ex.Raw {
 			escaped := goEscapeString(ex.Value)
+			if g.exprIsTyped(e) {
+				return fmt.Sprintf(`"%s"`, escaped), nil
+			}
 			return fmt.Sprintf(`interface{}("%s")`, escaped), nil
 		}
-		return g.stringLiteral(ex.Value)
+		return g.stringLiteral(ex.Value, g.exprIsTyped(e))
 	case *IdentExpr:
 		return ex.Name, nil
 	case *DotExpr:
@@ -757,7 +839,7 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 	}
 }
 
-func (g *codeGen) stringLiteral(value string) (string, error) {
+func (g *codeGen) stringLiteral(value string, typed bool) (string, error) {
 	if hasInterpolation(value) {
 		format, exprStrs := processInterpolation(value)
 		args := make([]string, len(exprStrs))
@@ -773,9 +855,15 @@ func (g *codeGen) stringLiteral(value string) (string, error) {
 		if len(args) > 0 {
 			return fmt.Sprintf(`fmt.Sprintf("%s", %s)`, escapedFmt, strings.Join(args, ", ")), nil
 		}
+		if typed {
+			return fmt.Sprintf(`"%s"`, escapedFmt), nil
+		}
 		return fmt.Sprintf(`interface{}("%s")`, escapedFmt), nil
 	}
 	escaped := goEscapeString(value)
+	if typed {
+		return fmt.Sprintf(`"%s"`, escaped), nil
+	}
 	return fmt.Sprintf(`interface{}("%s")`, escaped), nil
 }
 
@@ -833,6 +921,9 @@ func goEscapeString(s string) string {
 }
 
 func (g *codeGen) binaryExpr(e *BinaryExpr) (string, error) {
+	leftType := g.exprType(e.Left)
+	rightType := g.exprType(e.Right)
+
 	left, err := g.exprString(e.Left)
 	if err != nil {
 		return "", err
@@ -841,48 +932,124 @@ func (g *codeGen) binaryExpr(e *BinaryExpr) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// Typed native ops: emit direct Go operators when both sides are typed.
 	switch e.Op {
 	case "+":
-		return fmt.Sprintf("rugo_add(%s, %s)", left, right), nil
+		if leftType == TypeInt && rightType == TypeInt {
+			return fmt.Sprintf("(%s + %s)", left, right), nil
+		}
+		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() {
+			return fmt.Sprintf("(%s + %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
+		}
+		if leftType == TypeString && rightType == TypeString {
+			return fmt.Sprintf("(%s + %s)", left, right), nil
+		}
+		return fmt.Sprintf("rugo_add(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "-":
-		return fmt.Sprintf("rugo_sub(%s, %s)", left, right), nil
+		if leftType == TypeInt && rightType == TypeInt {
+			return fmt.Sprintf("(%s - %s)", left, right), nil
+		}
+		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() {
+			return fmt.Sprintf("(%s - %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
+		}
+		return fmt.Sprintf("rugo_sub(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "*":
-		return fmt.Sprintf("rugo_mul(%s, %s)", left, right), nil
+		if leftType == TypeInt && rightType == TypeInt {
+			return fmt.Sprintf("(%s * %s)", left, right), nil
+		}
+		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() {
+			return fmt.Sprintf("(%s * %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
+		}
+		return fmt.Sprintf("rugo_mul(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "/":
-		return fmt.Sprintf("rugo_div(%s, %s)", left, right), nil
+		if leftType == TypeInt && rightType == TypeInt {
+			return fmt.Sprintf("(%s / %s)", left, right), nil
+		}
+		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() {
+			return fmt.Sprintf("(%s / %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
+		}
+		return fmt.Sprintf("rugo_div(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "%":
-		return fmt.Sprintf("rugo_mod(%s, %s)", left, right), nil
+		if leftType == TypeInt && rightType == TypeInt {
+			return fmt.Sprintf("(%s %% %s)", left, right), nil
+		}
+		return fmt.Sprintf("rugo_mod(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "==":
-		return fmt.Sprintf("rugo_eq(%s, %s)", left, right), nil
+		if leftType == rightType && leftType.IsTyped() {
+			return fmt.Sprintf("(%s == %s)", left, right), nil
+		}
+		return fmt.Sprintf("rugo_eq(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "!=":
-		return fmt.Sprintf("rugo_neq(%s, %s)", left, right), nil
+		if leftType == rightType && leftType.IsTyped() {
+			return fmt.Sprintf("(%s != %s)", left, right), nil
+		}
+		return fmt.Sprintf("rugo_neq(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "<":
-		return fmt.Sprintf("rugo_lt(%s, %s)", left, right), nil
+		if leftType == rightType && leftType.IsTyped() && (leftType.IsNumeric() || leftType == TypeString) {
+			return fmt.Sprintf("(%s < %s)", left, right), nil
+		}
+		return fmt.Sprintf("rugo_lt(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case ">":
-		return fmt.Sprintf("rugo_gt(%s, %s)", left, right), nil
+		if leftType == rightType && leftType.IsTyped() && (leftType.IsNumeric() || leftType == TypeString) {
+			return fmt.Sprintf("(%s > %s)", left, right), nil
+		}
+		return fmt.Sprintf("rugo_gt(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "<=":
-		return fmt.Sprintf("rugo_le(%s, %s)", left, right), nil
+		if leftType == rightType && leftType.IsTyped() && (leftType.IsNumeric() || leftType == TypeString) {
+			return fmt.Sprintf("(%s <= %s)", left, right), nil
+		}
+		return fmt.Sprintf("rugo_le(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case ">=":
-		return fmt.Sprintf("rugo_ge(%s, %s)", left, right), nil
+		if leftType == rightType && leftType.IsTyped() && (leftType.IsNumeric() || leftType == TypeString) {
+			return fmt.Sprintf("(%s >= %s)", left, right), nil
+		}
+		return fmt.Sprintf("rugo_ge(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "&&":
-		return fmt.Sprintf("interface{}(rugo_to_bool(%s) && rugo_to_bool(%s))", left, right), nil
+		if leftType == TypeBool && rightType == TypeBool {
+			return fmt.Sprintf("(%s && %s)", left, right), nil
+		}
+		return fmt.Sprintf("interface{}(rugo_to_bool(%s) && rugo_to_bool(%s))", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	case "||":
-		return fmt.Sprintf("interface{}(rugo_to_bool(%s) || rugo_to_bool(%s))", left, right), nil
+		if leftType == TypeBool && rightType == TypeBool {
+			return fmt.Sprintf("(%s || %s)", left, right), nil
+		}
+		return fmt.Sprintf("interface{}(rugo_to_bool(%s) || rugo_to_bool(%s))", g.boxed(left, leftType), g.boxed(right, rightType)), nil
+
 	default:
 		return "", fmt.Errorf("unknown operator: %s", e.Op)
 	}
 }
 
 func (g *codeGen) unaryExpr(e *UnaryExpr) (string, error) {
+	operandType := g.exprType(e.Operand)
 	operand, err := g.exprString(e.Operand)
 	if err != nil {
 		return "", err
 	}
 	switch e.Op {
 	case "-":
-		return fmt.Sprintf("rugo_negate(%s)", operand), nil
+		if operandType == TypeInt || operandType == TypeFloat {
+			return fmt.Sprintf("(-%s)", operand), nil
+		}
+		return fmt.Sprintf("rugo_negate(%s)", g.boxed(operand, operandType)), nil
 	case "!":
-		return fmt.Sprintf("rugo_not(%s)", operand), nil
+		if operandType == TypeBool {
+			return fmt.Sprintf("(!%s)", operand), nil
+		}
+		return fmt.Sprintf("rugo_not(%s)", g.boxed(operand, operandType)), nil
 	default:
 		return "", fmt.Errorf("unknown unary operator: %s", e.Op)
 	}
@@ -1000,9 +1167,9 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	if ident, ok := e.Func.(*IdentExpr); ok {
 		switch ident.Name {
 		case "puts":
-			return fmt.Sprintf("rugo_puts(%s)", argStr), nil
+			return fmt.Sprintf("rugo_puts(%s)", g.boxedArgs(args, e.Args)), nil
 		case "print":
-			return fmt.Sprintf("rugo_print(%s)", argStr), nil
+			return fmt.Sprintf("rugo_print(%s)", g.boxedArgs(args, e.Args)), nil
 		case "__shell__":
 			return fmt.Sprintf("rugo_shell(%s)", argStr), nil
 		case "__capture__":
@@ -1010,9 +1177,9 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 		case "__pipe_shell__":
 			return fmt.Sprintf("rugo_pipe_shell(%s)", argStr), nil
 		case "len":
-			return fmt.Sprintf("rugo_len(%s)", argStr), nil
+			return fmt.Sprintf("rugo_len(%s)", g.boxedArgs(args, e.Args)), nil
 		case "append":
-			return fmt.Sprintf("rugo_append(%s)", argStr), nil
+			return fmt.Sprintf("rugo_append(%s)", g.boxedArgs(args, e.Args)), nil
 		default:
 			// User-defined function — validate argument count
 			if expected, ok := g.funcDefs[ident.Name]; ok {
@@ -1020,7 +1187,9 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 					return "", argCountError(ident.Name, len(e.Args), expected)
 				}
 			}
-			return fmt.Sprintf("rugofn_%s(%s)", ident.Name, argStr), nil
+			// Generate typed call if function has typed params.
+			typedArgs := g.typedCallArgs(ident.Name, args, e.Args)
+			return fmt.Sprintf("rugofn_%s(%s)", ident.Name, typedArgs), nil
 		}
 	}
 
@@ -1617,4 +1786,117 @@ func argCountError(name string, got, expected int) error {
 		gotDesc = "1 was"
 	}
 	return fmt.Errorf("%s() takes %d %s but %s given", name, expected, argWord, gotDesc)
+}
+
+// --- Type inference helpers for codegen ---
+
+// exprType returns the inferred type of an expression.
+func (g *codeGen) exprType(e Expr) RugoType {
+	if g.typeInfo == nil {
+		return TypeDynamic
+	}
+	return g.typeInfo.ExprType(e)
+}
+
+// exprIsTyped returns true if the expression has a resolved primitive type.
+func (g *codeGen) exprIsTyped(e Expr) bool {
+	return g.exprType(e).IsTyped()
+}
+
+// currentFuncTypeInfo returns the type info for the function being generated.
+func (g *codeGen) currentFuncTypeInfo() *FuncTypeInfo {
+	if g.typeInfo == nil || g.currentFunc == nil {
+		return nil
+	}
+	return g.typeInfo.FuncTypes[funcKey(g.currentFunc)]
+}
+
+// varType returns the inferred type of a variable in the current scope.
+func (g *codeGen) varType(name string) RugoType {
+	if g.typeInfo == nil {
+		return TypeDynamic
+	}
+	scope := g.varTypeScope
+	if scope == "" && g.currentFunc != nil {
+		scope = funcKey(g.currentFunc)
+	}
+	return g.typeInfo.VarType(scope, name)
+}
+
+// condExpr wraps a condition string for use in if/while.
+// If the condition is typed bool, use it directly; otherwise wrap with rugo_to_bool.
+func (g *codeGen) condExpr(condStr string, condExpr Expr) string {
+	if g.exprType(condExpr) == TypeBool {
+		return condStr
+	}
+	return fmt.Sprintf("rugo_to_bool(%s)", g.boxed(condStr, g.exprType(condExpr)))
+}
+
+// boxed wraps a typed value in interface{} if it's a resolved primitive type.
+// This is needed when passing typed values to runtime helpers that expect interface{}.
+func (g *codeGen) boxed(s string, t RugoType) string {
+	if t.IsTyped() {
+		return fmt.Sprintf("interface{}(%s)", s)
+	}
+	return s
+}
+
+// ensureFloat wraps int expressions with float64() for mixed numeric ops.
+func (g *codeGen) ensureFloat(s string, t RugoType) string {
+	if t == TypeInt {
+		return fmt.Sprintf("float64(%s)", s)
+	}
+	return s
+}
+
+// boxedArgs returns comma-joined args, boxing typed values for runtime helpers.
+func (g *codeGen) boxedArgs(args []string, exprs []Expr) string {
+	result := make([]string, len(args))
+	for i, a := range args {
+		result[i] = g.boxed(a, g.exprType(exprs[i]))
+	}
+	return strings.Join(result, ", ")
+}
+
+// typedCallArgs generates the argument list for a user-defined function call,
+// converting typed args to match the function's typed param signature.
+func (g *codeGen) typedCallArgs(funcName string, args []string, argExprs []Expr) string {
+	if g.typeInfo == nil {
+		return strings.Join(args, ", ")
+	}
+	fti, ok := g.typeInfo.FuncTypes[funcName]
+	if !ok {
+		return strings.Join(args, ", ")
+	}
+
+	result := make([]string, len(args))
+	for i, a := range args {
+		argType := g.exprType(argExprs[i])
+		if i < len(fti.ParamTypes) && fti.ParamTypes[i].IsTyped() {
+			// Target param is typed — ensure arg matches.
+			if argType == fti.ParamTypes[i] {
+				result[i] = a // Already the right type.
+			} else if argType.IsTyped() && argType.IsNumeric() && fti.ParamTypes[i].IsNumeric() {
+				// Numeric promotion.
+				if fti.ParamTypes[i] == TypeFloat && argType == TypeInt {
+					result[i] = fmt.Sprintf("float64(%s)", a)
+				} else if fti.ParamTypes[i] == TypeInt && argType == TypeFloat {
+					result[i] = fmt.Sprintf("int(%s)", a)
+				} else {
+					result[i] = a
+				}
+			} else if argType.IsTyped() {
+				// Type mismatch — shouldn't happen with correct inference,
+				// but be safe.
+				result[i] = a
+			} else {
+				// Arg is interface{} but param is typed — need type assertion.
+				result[i] = fmt.Sprintf("%s.(%s)", a, fti.ParamTypes[i].GoType())
+			}
+		} else {
+			// Target param is interface{} — box typed args.
+			result[i] = g.boxed(a, argType)
+		}
+	}
+	return strings.Join(result, ", ")
 }

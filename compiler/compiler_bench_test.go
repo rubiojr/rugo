@@ -98,3 +98,29 @@ func BenchmarkCodegen(b *testing.B) {
 		}
 	}
 }
+
+// Benchmark inference pass only.
+func BenchmarkInfer(b *testing.B) {
+	c := &Compiler{}
+	result, err := c.Compile("../examples/functions.rg")
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		infer(result.Program)
+	}
+}
+
+// Benchmark inference on control-flow heavy program.
+func BenchmarkInferControlFlow(b *testing.B) {
+	c := &Compiler{}
+	result, err := c.Compile("../examples/control_flow.rg")
+	if err != nil {
+		b.Fatal(err)
+	}
+	b.ResetTimer()
+	for b.Loop() {
+		infer(result.Program)
+	}
+}

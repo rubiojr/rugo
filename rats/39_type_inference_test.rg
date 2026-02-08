@@ -1,0 +1,217 @@
+# Regression tests for type inference
+# Ensures typed codegen produces correct results for all type combinations
+
+use "test"
+use "conv"
+
+# Integer arithmetic
+rats "typed integer addition"
+  x = 10
+  y = 20
+  test.assert_eq(x + y, 30)
+end
+
+rats "typed integer subtraction"
+  test.assert_eq(100 - 42, 58)
+end
+
+rats "typed integer multiplication"
+  x = 7
+  test.assert_eq(x * 6, 42)
+end
+
+rats "typed integer division"
+  test.assert_eq(10 / 3, 3)
+end
+
+rats "typed integer modulo"
+  test.assert_eq(10 % 3, 1)
+end
+
+# Float arithmetic
+rats "typed float addition"
+  x = 1.5
+  y = 2.5
+  test.assert_eq(x + y, 4.0)
+end
+
+rats "typed float multiplication"
+  test.assert_eq(2.0 * 3.5, 7.0)
+end
+
+# String operations
+rats "typed string concatenation"
+  a = "hello"
+  b = " world"
+  test.assert_eq(a + b, "hello world")
+end
+
+# Boolean operations
+rats "typed boolean conditions"
+  x = 10
+  result = ""
+  if x > 5
+    result = "big"
+  else
+    result = "small"
+  end
+  test.assert_eq(result, "big")
+end
+
+rats "typed boolean operators"
+  a = true
+  b = false
+  test.assert_eq(a && b, false)
+  test.assert_eq(a || b, true)
+  test.assert_eq(!a, false)
+end
+
+# Comparison operators
+rats "typed integer comparisons"
+  test.assert_true(1 < 2)
+  test.assert_true(2 > 1)
+  test.assert_true(1 <= 1)
+  test.assert_true(1 >= 1)
+  test.assert_true(1 == 1)
+  test.assert_true(1 != 2)
+end
+
+rats "typed string comparisons"
+  test.assert_true("abc" < "def")
+  test.assert_true("def" > "abc")
+  test.assert_eq("hello" == "hello", true)
+end
+
+# Recursive functions (fib)
+def fib(n)
+  if n <= 1
+    return n
+  end
+  return fib(n - 1) + fib(n - 2)
+end
+
+rats "typed recursive fib"
+  test.assert_eq(fib(0), 0)
+  test.assert_eq(fib(1), 1)
+  test.assert_eq(fib(10), 55)
+  test.assert_eq(fib(20), 6765)
+end
+
+# Functions with typed params and returns
+def add(a, b)
+  return a + b
+end
+
+def double(n)
+  return n * 2
+end
+
+rats "typed function params and returns"
+  test.assert_eq(add(3, 4), 7)
+  test.assert_eq(double(21), 42)
+  test.assert_eq(add(double(5), 3), 13)
+end
+
+# Typed while loop
+rats "typed while loop with counter"
+  i = 0
+  sum = 0
+  while i < 100
+    sum = sum + i
+    i = i + 1
+  end
+  test.assert_eq(sum, 4950)
+end
+
+# Typed negation
+rats "typed unary negation"
+  x = 42
+  test.assert_eq(-x, -42)
+  y = 3.14
+  test.assert_eq(-y, -3.14)
+end
+
+# Typed not
+rats "typed unary not"
+  test.assert_eq(!true, false)
+  test.assert_eq(!false, true)
+end
+
+# Mixed-type fallback (must still work)
+rats "mixed types fall back to dynamic"
+  arr = [1, "two", 3.0, true]
+  test.assert_eq(arr[0], 1)
+  test.assert_eq(arr[1], "two")
+end
+
+def identity(x)
+  return x
+end
+
+rats "dynamic function params work"
+  test.assert_eq(identity(42), 42)
+  test.assert_eq(identity("hello"), "hello")
+end
+
+# Variables reassigned to different types
+rats "variable reassignment to different type"
+  x = 42
+  test.assert_eq(x, 42)
+  x = "hello"
+  test.assert_eq(x, "hello")
+end
+
+# Nested expressions
+rats "nested typed expressions"
+  a = 2
+  b = 3
+  c = 4
+  result = (a + b) * c - a
+  test.assert_eq(result, 18)
+end
+
+# Integer arithmetic chain in loop
+rats "typed arithmetic chain in loop"
+  x = 0
+  i = 0
+  while i < 100
+    x = x + i * 2 - 1
+    i = i + 1
+  end
+  test.assert_eq(x, 9800)
+end
+
+# Comparison with typed conditions
+rats "typed if/elsif chain"
+  x = 50
+  result = ""
+  if x < 25
+    result = "low"
+  elsif x < 75
+    result = "mid"
+  else
+    result = "high"
+  end
+  test.assert_eq(result, "mid")
+end
+
+# Function calling function
+def square(n)
+  return n * n
+end
+
+def sum_of_squares(a, b)
+  return square(a) + square(b)
+end
+
+rats "typed function chain"
+  test.assert_eq(square(5), 25)
+  test.assert_eq(sum_of_squares(3, 4), 25)
+end
+
+# String interpolation with typed values
+rats "typed values in string interpolation"
+  x = 42
+  msg = "value is #{conv.to_s(x)}"
+  test.assert_eq(msg, "value is 42")
+end
