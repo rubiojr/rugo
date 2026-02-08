@@ -167,8 +167,9 @@ func (e *ExprStmt) stmt() {}
 // AssignStmt represents target = value.
 type AssignStmt struct {
 	BaseStmt
-	Target string
-	Value  Expr
+	Target    string
+	Value     Expr
+	Namespace string // non-empty for top-level assignments from require'd files
 }
 
 func (a *AssignStmt) node() {}

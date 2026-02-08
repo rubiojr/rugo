@@ -396,6 +396,10 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				c.nsFuncs[nsKey] = req.Path
 				st.Namespace = ns
 				resolved = append(resolved, st)
+			case *AssignStmt:
+				// Top-level assignments (constants) from required files
+				st.Namespace = ns
+				resolved = append(resolved, st)
 			}
 		}
 	}

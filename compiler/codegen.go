@@ -69,6 +69,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	var tests []*TestDef
 	var benches []*BenchDef
 	var topStmts []Statement
+	var nsVars []*AssignStmt // top-level assignments from require'd files (emitted as package-level vars)
 	var setupFunc *FuncDef
 	var teardownFunc *FuncDef
 	funcLines := make(map[string]int) // track first definition line per function
@@ -106,7 +107,11 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 			g.goImports[st.Package] = st.Alias
 			continue
 		default:
-			topStmts = append(topStmts, s)
+			if assign, ok := s.(*AssignStmt); ok && assign.Namespace != "" {
+				nsVars = append(nsVars, assign)
+			} else {
+				topStmts = append(topStmts, s)
+			}
 		}
 		_ = s
 	}
@@ -217,6 +222,18 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 
 	// Runtime helpers
 	g.writeRuntime()
+
+	// Package-level variables from require'd files
+	for _, nv := range nsVars {
+		expr, err := g.exprString(nv.Value)
+		if err != nil {
+			return "", err
+		}
+		g.writef("var %s interface{} = %s\n", nv.Target, expr)
+	}
+	if len(nsVars) > 0 {
+		g.writeln("")
+	}
 
 	// User-defined functions
 	for _, f := range funcs {
@@ -1188,6 +1205,18 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 		case "append":
 			return fmt.Sprintf("rugo_append(%s)", g.boxedArgs(args, e.Args)), nil
 		default:
+			// Sibling function call within a namespace: resolve unqualified
+			// calls against the current function's namespace first.
+			if g.currentFunc != nil && g.currentFunc.Namespace != "" {
+				nsKey := g.currentFunc.Namespace + "." + ident.Name
+				if expected, ok := g.funcDefs[nsKey]; ok {
+					if len(e.Args) != expected {
+						return "", argCountError(ident.Name, len(e.Args), expected)
+					}
+					typedArgs := g.typedCallArgs(nsKey, args, e.Args)
+					return fmt.Sprintf("rugons_%s_%s(%s)", g.currentFunc.Namespace, ident.Name, typedArgs), nil
+				}
+			}
 			// User-defined function — validate argument count
 			if expected, ok := g.funcDefs[ident.Name]; ok {
 				if len(e.Args) != expected {
