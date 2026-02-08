@@ -13,6 +13,10 @@ func init() {
 	modules.Register(&modules.Module{
 		Name: "test",
 		Type: "Test",
+		GoImports: []string{
+			"strconv",
+			"time",
+		},
 		Funcs: []modules.FuncDef{
 			{Name: "run", Args: []modules.ArgType{modules.String}},
 			{Name: "tmpdir", Args: []modules.ArgType{}},

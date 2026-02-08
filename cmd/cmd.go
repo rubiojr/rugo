@@ -87,6 +87,12 @@ func Execute(version string) {
 						Aliases: []string{"C"},
 						Usage:   "Disable ANSI color output",
 					},
+					&cli.IntFlag{
+						Name:    "timeout",
+						Aliases: []string{"t"},
+						Usage:   "Per-test timeout in seconds (0 to disable)",
+						Value:   30,
+					},
 				},
 				Action: testAction,
 			},
@@ -234,6 +240,18 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		os.Setenv("NO_COLOR", "1")
 	} else {
 		os.Setenv("RUGO_FORCE_COLOR", "1")
+	}
+
+	// Per-test timeout: explicit flag > existing env var > default (30s)
+	if cmd.IsSet("timeout") {
+		timeout := cmd.Int("timeout")
+		if timeout > 0 {
+			os.Setenv("RUGO_TEST_TIMEOUT", strconv.Itoa(int(timeout)))
+		} else {
+			os.Unsetenv("RUGO_TEST_TIMEOUT")
+		}
+	} else if os.Getenv("RUGO_TEST_TIMEOUT") == "" {
+		os.Setenv("RUGO_TEST_TIMEOUT", "30")
 	}
 
 	// Collect test files: _test.rg files and .rg files containing inline rats blocks

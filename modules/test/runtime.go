@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"time"
 )
 
 // --- test module ---
@@ -135,6 +137,14 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}, 
 		colorReset = ""
 	}
 
+	// Per-test timeout (0 = disabled)
+	var testTimeout time.Duration
+	if envTimeout := os.Getenv("RUGO_TEST_TIMEOUT"); envTimeout != "" {
+		if v, err := strconv.Atoi(envTimeout); err == nil && v > 0 {
+			testTimeout = time.Duration(v) * time.Second
+		}
+	}
+
 	totalTests := 0
 	totalPassed := 0
 	totalFailed := 0
@@ -157,7 +167,9 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}, 
 		if setup != nil {
 			setup()
 		}
-		passed, skipped, skipReason := t.Func()
+
+		passed, skipped, skipReason := rugo_run_test_with_timeout(t.Func, testTimeout)
+
 		if teardown != nil {
 			teardown()
 		}
@@ -185,5 +197,39 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}, 
 	}
 	if totalFailed > 0 {
 		os.Exit(1)
+	}
+}
+
+// rugo_run_test_with_timeout runs a test function with an optional timeout.
+// If timeout is 0, the test runs without a deadline.
+func rugo_run_test_with_timeout(fn func() (bool, bool, string), timeout time.Duration) (passed bool, skipped bool, skipReason string) {
+	if timeout == 0 {
+		return fn()
+	}
+
+	type testResult struct {
+		passed     bool
+		skipped    bool
+		skipReason string
+	}
+
+	done := make(chan testResult, 1)
+	go func() {
+		p, s, sr := fn()
+		done <- testResult{p, s, sr}
+	}()
+
+	select {
+	case res := <-done:
+		return res.passed, res.skipped, res.skipReason
+	case <-time.After(timeout):
+		failColor := "\033[31m"
+		failReset := "\033[0m"
+		if os.Getenv("NO_COLOR") != "" {
+			failColor = ""
+			failReset = ""
+		}
+		fmt.Fprintf(os.Stderr, "  %sFAIL%s: test timed out after %v\n", failColor, failReset, timeout)
+		return false, false, ""
 	}
 }
