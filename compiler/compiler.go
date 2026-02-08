@@ -421,8 +421,29 @@ func displayPath(absPath string) string {
 // and reformats it for human readability.
 func firstParseError(err error) error {
 	if el, ok := err.(scanner.ErrList); ok && len(el) > 0 {
-		msg := formatParseError(el[0])
-		if snippet := sourceSnippet(el[0].Pos.Filename, el[0].Pos.Line, el[0].Pos.Column); snippet != "" {
+		e := el[0]
+		msg := formatParseError(e)
+
+		// For "def missing parens" case, show the def line instead of the error line
+		snippetLine := e.Pos.Line
+		snippetCol := e.Pos.Column
+		rawMsg := e.Err.Error()
+		if strings.Contains(rawMsg, "expected ['(']") {
+			if defName := findDefMissingParens(e.Pos.Filename, e.Pos.Line); defName != "" {
+				snippetLine = e.Pos.Line - 1
+				// Calculate column accounting for leading whitespace
+				if data, err := os.ReadFile(e.Pos.Filename); err == nil {
+					srcLines := strings.Split(string(data), "\n")
+					if snippetLine-1 < len(srcLines) {
+						raw := srcLines[snippetLine-1]
+						indent := len(raw) - len(strings.TrimLeft(raw, " \t"))
+						snippetCol = indent + len("def ") + len(defName) + 1
+					}
+				}
+			}
+		}
+
+		if snippet := sourceSnippet(e.Pos.Filename, snippetLine, snippetCol); snippet != "" {
 			msg += "\n" + snippet
 		}
 		return fmt.Errorf("%s", msg)
@@ -501,6 +522,13 @@ func formatParseError(e scanner.ErrWithPosition) string {
 				return prefix + "unexpected end of file — unclosed " + blockType
 			}
 			return prefix + "unexpected end of file — expected \"end\" (unclosed block)"
+		}
+
+		// Special case: expected "(" after "def name" — missing parameter list
+		if strings.TrimSpace(expectedPart) == `'('` {
+			if defName := findDefMissingParens(e.Pos.Filename, e.Pos.Line); defName != "" {
+				return prefix + "\"def " + defName + "\" is missing its parameter list — add \"()\" after the function name"
+			}
 		}
 
 		// Parse and simplify the expected set
@@ -750,7 +778,28 @@ func detectUnclosedBlock(filename string) string {
 	return ""
 }
 
-// translateBuildError post-processes `go build` stderr to translate
+// findDefMissingParens checks if the error at errorLine is caused by a
+// "def name" on a preceding line that is missing its "()" parameter list.
+// Returns the function name if found, empty string otherwise.
+func findDefMissingParens(filename string, errorLine int) string {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	// Search backward from the error line for a "def" without "("
+	for i := errorLine - 2; i >= 0 && i >= errorLine-3; i-- {
+		trimmed := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(trimmed, "def ") {
+			rest := strings.TrimPrefix(trimmed, "def ")
+			// If the line has no "(", it's missing the parameter list
+			if !strings.Contains(rest, "(") {
+				return strings.TrimSpace(rest)
+			}
+		}
+	}
+	return ""
+}
 // Go compiler errors into Rugo-friendly messages.
 func translateBuildError(stderr, sourceFile string) error {
 	lines := strings.Split(strings.TrimSpace(stderr), "\n")
