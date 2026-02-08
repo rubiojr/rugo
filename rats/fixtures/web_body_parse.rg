@@ -14,5 +14,5 @@ end
 spawn web.listen(19116)
 time.sleep_ms(300)
 
-response = http.post("http://localhost:19116/echo", "{\"message\":\"hello\"}")
+response = http.post("http://localhost:19116/echo", "{\"message\":\"hello\"}").body
 puts(response)

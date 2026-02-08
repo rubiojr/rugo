@@ -21,5 +21,5 @@ end
 spawn web.listen(19111)
 time.sleep_ms(300)
 
-puts(http.get("http://localhost:19111/public"))
-puts(http.get("http://localhost:19111/private"))
+puts(http.get("http://localhost:19111/public").body)
+puts(http.get("http://localhost:19111/private").body)

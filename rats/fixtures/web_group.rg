@@ -25,6 +25,6 @@ end
 spawn web.listen(19112)
 time.sleep_ms(300)
 
-puts(http.get("http://localhost:19112/"))
-puts(http.get("http://localhost:19112/api/users"))
-puts(http.get("http://localhost:19112/api/posts"))
+puts(http.get("http://localhost:19112/").body)
+puts(http.get("http://localhost:19112/api/users").body)
+puts(http.get("http://localhost:19112/api/posts").body)

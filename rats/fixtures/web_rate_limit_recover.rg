@@ -15,11 +15,11 @@ spawn web.listen(19204)
 time.sleep_ms(300)
 
 # Exhaust burst
-puts(http.get("http://localhost:19204/ping"))
-puts(http.get("http://localhost:19204/ping"))
+puts(http.get("http://localhost:19204/ping").body)
+puts(http.get("http://localhost:19204/ping").body)
 # Rate limited
-puts(http.get("http://localhost:19204/ping"))
+puts(http.get("http://localhost:19204/ping").body)
 # Wait for token replenishment
 time.sleep_ms(600)
 # Should pass again
-puts(http.get("http://localhost:19204/ping"))
+puts(http.get("http://localhost:19204/ping").body)

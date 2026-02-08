@@ -47,7 +47,7 @@ cli.run
 
 def fetch_item(id)
   url = "https://hacker-news.firebaseio.com/v0/item/#{id}.json"
-  body = http.get(url)
+  body = http.get(url).body
   return json.parse(body)
 end
 
@@ -117,7 +117,7 @@ def show_stories(endpoint, label, emoji)
   puts color.bold("#{emoji} #{label}")
   puts ""
 
-  body = http.get(endpoint)
+  body = http.get(endpoint).body
   ids = json.parse(body)
   ids = ids[0, count]
 

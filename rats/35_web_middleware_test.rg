@@ -22,7 +22,7 @@ rats "real_ip resolves X-Forwarded-For header"
     end
     spawn web.listen(19210)
     time.sleep_ms(300)
-    puts(http.get("http://localhost:19210/ip"))
+    puts(http.get("http://localhost:19210/ip").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -49,7 +49,7 @@ rats "real_ip without headers strips port"
     end
     spawn web.listen(19211)
     time.sleep_ms(300)
-    r = http.get("http://localhost:19211/check")
+    r = http.get("http://localhost:19211/check").body
     puts(r)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
@@ -71,7 +71,7 @@ rats "real_ip does not interfere with handler"
     end
     spawn web.listen(19212)
     time.sleep_ms(300)
-    puts(http.get("http://localhost:19212/data"))
+    puts(http.get("http://localhost:19212/data").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -124,8 +124,8 @@ rats "rate_limiter returns 429 JSON error"
     end
     spawn web.listen(19213)
     time.sleep_ms(300)
-    puts(http.get("http://localhost:19213/api"))
-    puts(http.get("http://localhost:19213/api"))
+    puts(http.get("http://localhost:19213/api").body)
+    puts(http.get("http://localhost:19213/api").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -152,9 +152,9 @@ rats "rate_limiter with route-level middleware"
     end
     spawn web.listen(19214)
     time.sleep_ms(300)
-    puts(http.get("http://localhost:19214/limited"))
-    puts(http.get("http://localhost:19214/limited"))
-    puts(http.get("http://localhost:19214/free"))
+    puts(http.get("http://localhost:19214/limited").body)
+    puts(http.get("http://localhost:19214/limited").body)
+    puts(http.get("http://localhost:19214/free").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -179,8 +179,8 @@ rats "rate_limiter with float rps"
     end
     spawn web.listen(19215)
     time.sleep_ms(300)
-    puts(http.get("http://localhost:19215/slow"))
-    puts(http.get("http://localhost:19215/slow"))
+    puts(http.get("http://localhost:19215/slow").body)
+    puts(http.get("http://localhost:19215/slow").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -206,9 +206,9 @@ rats "real_ip + rate_limiter work together"
     end
     spawn web.listen(19216)
     time.sleep_ms(300)
-    puts(http.get("http://localhost:19216/combo"))
-    puts(http.get("http://localhost:19216/combo"))
-    puts(http.get("http://localhost:19216/combo"))
+    puts(http.get("http://localhost:19216/combo").body)
+    puts(http.get("http://localhost:19216/combo").body)
+    puts(http.get("http://localhost:19216/combo").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -234,7 +234,7 @@ rats "real_ip + logger + rate_limiter full stack"
     end
     spawn web.listen(19217)
     time.sleep_ms(300)
-    puts(http.get("http://localhost:19217/stack"))
+    puts(http.get("http://localhost:19217/stack").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")

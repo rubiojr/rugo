@@ -12,4 +12,4 @@ end
 spawn web.listen(19105)
 time.sleep_ms(300)
 
-puts(http.post("http://localhost:19105/items", "{\"name\":\"test\"}"))
+puts(http.post("http://localhost:19105/items", "{\"name\":\"test\"}").body)

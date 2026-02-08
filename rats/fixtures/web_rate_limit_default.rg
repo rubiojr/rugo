@@ -14,6 +14,6 @@ spawn web.listen(19205)
 time.sleep_ms(300)
 
 # Default is 10 rps, all should pass
-puts(http.get("http://localhost:19205/ping"))
-puts(http.get("http://localhost:19205/ping"))
-puts(http.get("http://localhost:19205/ping"))
+puts(http.get("http://localhost:19205/ping").body)
+puts(http.get("http://localhost:19205/ping").body)
+puts(http.get("http://localhost:19205/ping").body)

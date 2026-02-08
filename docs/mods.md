@@ -8,7 +8,7 @@ directory under `modules/` and self-registers at startup via Go's `init()`.
 | Module | Functions | Description |
 |--------|-----------|-------------|
 | `os`   | `exec`, `exit` | Shell execution and process control |
-| `http` | `get`, `post` | HTTP client |
+| `http` | `get`, `post`, `put`, `patch`, `delete` | HTTP client |
 | `conv` | `to_i`, `to_f`, `to_s` | Type conversions |
 | `cli`  | `name`, `version`, `about`, `cmd`, `flag`, `bool_flag`, `run`, `parse`, `command`, `get`, `args`, `help` | CLI app builder with commands, flags, and dispatch |
 | `color` | `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`, `bg_*`, `bold`, `dim`, `underline` | ANSI terminal colors and styles |
@@ -23,7 +23,8 @@ use "conv"
 result = `whoami`
 puts result
 
-body = http.get("https://example.com")
+resp = http.get("https://example.com")
+puts resp.body
 puts conv.to_s(42)
 ```
 

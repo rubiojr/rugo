@@ -32,5 +32,8 @@ end
 spawn web.listen(19114)
 time.sleep_ms(300)
 
-puts(http.get("http://localhost:19114/resource"))
-puts(http.post("http://localhost:19114/resource", ""))
+puts(http.get("http://localhost:19114/resource").body)
+puts(http.post("http://localhost:19114/resource", "").body)
+puts(http.put("http://localhost:19114/resource", "").body)
+puts(http.delete("http://localhost:19114/resource").body)
+puts(http.patch("http://localhost:19114/resource", "").body)

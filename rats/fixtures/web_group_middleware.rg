@@ -24,5 +24,5 @@ end
 spawn web.listen(19113)
 time.sleep_ms(300)
 
-puts(http.get("http://localhost:19113/public"))
-puts(http.get("http://localhost:19113/admin/dashboard"))
+puts(http.get("http://localhost:19113/public").body)
+puts(http.get("http://localhost:19113/admin/dashboard").body)

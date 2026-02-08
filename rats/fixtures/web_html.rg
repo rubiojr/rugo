@@ -12,4 +12,4 @@ end
 spawn web.listen(19106)
 time.sleep_ms(300)
 
-puts(http.get("http://localhost:19106/page"))
+puts(http.get("http://localhost:19106/page").body)

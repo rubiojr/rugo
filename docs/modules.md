@@ -16,7 +16,8 @@ Load built-in Rugo modules with `use`:
 
 ```ruby
 use "http"
-body = http.get("https://example.com")
+resp = http.get("https://example.com")
+puts resp.body
 ```
 
 | Module | Description |

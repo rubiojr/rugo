@@ -12,6 +12,6 @@ end
 spawn web.listen(19115)
 time.sleep_ms(300)
 
-# http.get returns the body, 204 has empty body
-response = http.get("http://localhost:19115/empty")
+# http.get returns a response hash, 204 has empty body
+response = http.get("http://localhost:19115/empty").body
 puts("body:" + response)

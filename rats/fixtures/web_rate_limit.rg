@@ -15,7 +15,7 @@ spawn web.listen(19203)
 time.sleep_ms(300)
 
 # First 2 pass (burst = 2)
-puts(http.get("http://localhost:19203/ping"))
-puts(http.get("http://localhost:19203/ping"))
+puts(http.get("http://localhost:19203/ping").body)
+puts(http.get("http://localhost:19203/ping").body)
 # Third is rate limited
-puts(http.get("http://localhost:19203/ping"))
+puts(http.get("http://localhost:19203/ping").body)

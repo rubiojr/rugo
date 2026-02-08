@@ -15,11 +15,9 @@ import (
 type HTTP struct{}
 
 var _ = io.Discard
-var _ = http.Get
 
 // httpErr simplifies a Go net/http error for human-friendly output.
 func httpErr(funcName string, err error) string {
-	// Unwrap URL errors to get the inner error
 	var urlErr *url.Error
 	if ok := errors.As(err, &urlErr); ok {
 		err = urlErr.Err
@@ -31,32 +29,81 @@ func httpErr(funcName string, err error) string {
 	return fmt.Sprintf("%s failed: %v", funcName, err)
 }
 
-func (*HTTP) Get(url string) interface{} {
-	resp, err := http.Get(url)
+// doRequest builds and executes an HTTP request, returning a Rugo response hash.
+func doRequest(method, rawURL string, body string, headers map[interface{}]interface{}) map[interface{}]interface{} {
+	var bodyReader io.Reader
+	if body != "" {
+		bodyReader = strings.NewReader(body)
+	}
+
+	req, err := http.NewRequest(method, rawURL, bodyReader)
 	if err != nil {
-		panic(httpErr("http.get", err))
+		panic(httpErr("http."+strings.ToLower(method), err))
+	}
+
+	// Set default Content-Type for methods that carry a body
+	if body != "" && (method == "POST" || method == "PUT" || method == "PATCH") {
+		req.Header.Set("Content-Type", "application/json")
+	}
+
+	for k, v := range headers {
+		req.Header.Set(rugo_to_string(k), rugo_to_string(v))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		panic(httpErr("http."+strings.ToLower(method), err))
 	}
 	defer resp.Body.Close()
-	body, err := io.ReadAll(resp.Body)
+
+	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		panic(fmt.Sprintf("http.get: failed to read response body: %v", err))
+		panic(fmt.Sprintf("http.%s: failed to read response body: %v", strings.ToLower(method), err))
 	}
-	return string(body)
+
+	respHeaders := make(map[interface{}]interface{})
+	for k, vals := range resp.Header {
+		respHeaders[k] = strings.Join(vals, ", ")
+	}
+
+	return map[interface{}]interface{}{
+		"status_code": resp.StatusCode,
+		"body":        string(respBody),
+		"headers":     respHeaders,
+	}
+}
+
+// extractHeaders extracts an optional headers hash from variadic extra args.
+func extractHeaders(extra []interface{}) map[interface{}]interface{} {
+	for _, arg := range extra {
+		if h, ok := arg.(map[interface{}]interface{}); ok {
+			return h
+		}
+	}
+	return nil
+}
+
+func (*HTTP) Get(url string, extra ...interface{}) interface{} {
+	headers := extractHeaders(extra)
+	return doRequest("GET", url, "", headers)
 }
 
 func (*HTTP) Post(url string, body string, extra ...interface{}) interface{} {
-	contentType := "application/json"
-	if len(extra) > 0 {
-		contentType = rugo_to_string(extra[0])
-	}
-	resp, err := http.Post(url, contentType, strings.NewReader(body))
-	if err != nil {
-		panic(httpErr("http.post", err))
-	}
-	defer resp.Body.Close()
-	respBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		panic(fmt.Sprintf("http.post: failed to read response body: %v", err))
-	}
-	return string(respBody)
+	headers := extractHeaders(extra)
+	return doRequest("POST", url, body, headers)
+}
+
+func (*HTTP) Put(url string, body string, extra ...interface{}) interface{} {
+	headers := extractHeaders(extra)
+	return doRequest("PUT", url, body, headers)
+}
+
+func (*HTTP) Patch(url string, body string, extra ...interface{}) interface{} {
+	headers := extractHeaders(extra)
+	return doRequest("PATCH", url, body, headers)
+}
+
+func (*HTTP) Delete(url string, extra ...interface{}) interface{} {
+	headers := extractHeaders(extra)
+	return doRequest("DELETE", url, "", headers)
 }
