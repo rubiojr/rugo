@@ -38,3 +38,4 @@ rugo emit script.rg       # print generated Go code
 15. [Benchmarks](quickstart/15-benchmarks.md)
 16. [Go Bridge](quickstart/16-go-bridge.md)
 17. [Structs](quickstart/17-structs.md)
+18. [Web Server](quickstart/18-web.md)

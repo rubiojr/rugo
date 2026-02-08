@@ -13,6 +13,7 @@ import (
 	_ "github.com/rubiojr/rugo/modules/re"
 	_ "github.com/rubiojr/rugo/modules/str"
 	_ "github.com/rubiojr/rugo/modules/test"
+	_ "github.com/rubiojr/rugo/modules/web"
 )
 
 var version = "v0.5.1"
