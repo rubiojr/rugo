@@ -240,14 +240,17 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 			return fmt.Errorf("cannot access %s: %w", target, err)
 		}
 		if info.IsDir() {
-			entries, err := os.ReadDir(target)
-			if err != nil {
-				return fmt.Errorf("reading directory %s: %w", target, err)
-			}
-			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(e.Name(), "_test.rg") {
-					files = append(files, filepath.Join(target, e.Name()))
+			err := filepath.WalkDir(target, func(path string, d os.DirEntry, err error) error {
+				if err != nil {
+					return err
 				}
+				if !d.IsDir() && strings.HasSuffix(d.Name(), "_test.rg") {
+					files = append(files, path)
+				}
+				return nil
+			})
+			if err != nil {
+				return fmt.Errorf("walking directory %s: %w", target, err)
 			}
 		} else {
 			files = append(files, target)
