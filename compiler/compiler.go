@@ -354,14 +354,11 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			return nil, err
 		}
 
-		// Determine namespace: alias or filename
+		// Determine namespace: alias or basename of the path
 		ns := req.Alias
 		if ns == "" {
 			base := filepath.Base(req.Path)
 			ns = strings.TrimSuffix(base, filepath.Ext(base))
-			if !strings.HasSuffix(req.Path, ".rg") {
-				ns = req.Path
-			}
 		}
 
 		// Reject require namespace that conflicts with a use'd Rugo module
