@@ -233,20 +233,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	// Main function
 	g.writeln("func main() {")
 	g.indent++
-	g.writeln(`defer func() {`)
-	g.indent++
-	g.writeln(`if e := recover(); e != nil {`)
-	g.indent++
-	g.writeln(`if shellErr, ok := e.(rugoShellError); ok {`)
-	g.indent++
-	g.writeln(`os.Exit(shellErr.code)`)
-	g.indent--
-	g.writeln(`}`)
-	g.writeln(`rugo_panic_handler(e)`)
-	g.indent--
-	g.writeln(`}`)
-	g.indent--
-	g.writeln(`}()`)
+	g.writePanicHandler()
 	g.pushScope()
 	for _, s := range topStmts {
 		if err := g.writeStmt(s); err != nil {
@@ -308,20 +295,7 @@ func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, se
 	// Main function: delegate to runtime test runner
 	g.writeln("func main() {")
 	g.indent++
-	g.writeln(`defer func() {`)
-	g.indent++
-	g.writeln(`if e := recover(); e != nil {`)
-	g.indent++
-	g.writeln(`if shellErr, ok := e.(rugoShellError); ok {`)
-	g.indent++
-	g.writeln(`os.Exit(shellErr.code)`)
-	g.indent--
-	g.writeln(`}`)
-	g.writeln(`rugo_panic_handler(e)`)
-	g.indent--
-	g.writeln(`}`)
-	g.indent--
-	g.writeln(`}()`)
+	g.writePanicHandler()
 	g.pushScope()
 
 	// Run top-level setup code
@@ -378,20 +352,7 @@ func (g *codeGen) generateBenchHarness(benches []*BenchDef, topStmts []Statement
 	// Main function: run benchmarks via runtime runner
 	g.writeln("func main() {")
 	g.indent++
-	g.writeln(`defer func() {`)
-	g.indent++
-	g.writeln(`if e := recover(); e != nil {`)
-	g.indent++
-	g.writeln(`if shellErr, ok := e.(rugoShellError); ok {`)
-	g.indent++
-	g.writeln(`os.Exit(shellErr.code)`)
-	g.indent--
-	g.writeln(`}`)
-	g.writeln(`rugo_panic_handler(e)`)
-	g.indent--
-	g.writeln(`}`)
-	g.indent--
-	g.writeln(`}()`)
+	g.writePanicHandler()
 	g.pushScope()
 
 	// Run top-level setup code (imports, variable defs, helper functions)
@@ -1135,37 +1096,36 @@ func (g *codeGen) tryExpr(e *TryExpr) (string, error) {
 
 	// Build the handler body as Go source in a temporary buffer.
 	var handlerBuf strings.Builder
-	savedSB := g.sb
-	g.sb = strings.Builder{}
+	handlerCode, cerr := g.captureOutput(func() error {
+		g.pushScope()
+		g.declareVar(e.ErrVar)
 
-	g.pushScope()
-	g.declareVar(e.ErrVar)
-
-	for i, s := range e.Handler {
-		isLast := i == len(e.Handler)-1
-		if isLast {
-			// Last statement: if it's a bare expression, assign to r (return value)
-			if es, ok := s.(*ExprStmt); ok {
-				val, verr := g.exprString(es.Expression)
-				if verr != nil {
-					g.popScope()
-					g.sb = savedSB
-					return "", verr
+		for i, s := range e.Handler {
+			isLast := i == len(e.Handler)-1
+			if isLast {
+				// Last statement: if it's a bare expression, assign to r (return value)
+				if es, ok := s.(*ExprStmt); ok {
+					val, verr := g.exprString(es.Expression)
+					if verr != nil {
+						g.popScope()
+						return verr
+					}
+					g.writef("r = %s\n", val)
+					continue
 				}
-				g.writef("r = %s\n", val)
-				continue
+			}
+			if werr := g.writeStmt(s); werr != nil {
+				g.popScope()
+				return werr
 			}
 		}
-		if werr := g.writeStmt(s); werr != nil {
-			g.popScope()
-			g.sb = savedSB
-			return "", werr
-		}
-	}
 
-	g.popScope()
-	handlerCode := g.sb.String()
-	g.sb = savedSB
+		g.popScope()
+		return nil
+	})
+	if cerr != nil {
+		return "", cerr
+	}
 
 	// Build the IIFE
 	handlerBuf.WriteString("func() (r interface{}) {\n")
@@ -1189,34 +1149,33 @@ func (g *codeGen) tryExpr(e *TryExpr) (string, error) {
 
 func (g *codeGen) spawnExpr(e *SpawnExpr) (string, error) {
 	// Generate the body code in a temporary buffer.
-	savedSB := g.sb
-	g.sb = strings.Builder{}
-
-	g.pushScope()
-	for i, s := range e.Body {
-		isLast := i == len(e.Body)-1
-		if isLast {
-			// Last statement: if it's a bare expression, assign to t.result
-			if es, ok := s.(*ExprStmt); ok {
-				val, verr := g.exprString(es.Expression)
-				if verr != nil {
-					g.popScope()
-					g.sb = savedSB
-					return "", verr
+	bodyCode, cerr := g.captureOutput(func() error {
+		g.pushScope()
+		for i, s := range e.Body {
+			isLast := i == len(e.Body)-1
+			if isLast {
+				// Last statement: if it's a bare expression, assign to t.result
+				if es, ok := s.(*ExprStmt); ok {
+					val, verr := g.exprString(es.Expression)
+					if verr != nil {
+						g.popScope()
+						return verr
+					}
+					g.writef("t.result = %s\n", val)
+					continue
 				}
-				g.writef("t.result = %s\n", val)
-				continue
+			}
+			if werr := g.writeStmt(s); werr != nil {
+				g.popScope()
+				return werr
 			}
 		}
-		if werr := g.writeStmt(s); werr != nil {
-			g.popScope()
-			g.sb = savedSB
-			return "", werr
-		}
+		g.popScope()
+		return nil
+	})
+	if cerr != nil {
+		return "", cerr
 	}
-	g.popScope()
-	bodyCode := g.sb.String()
-	g.sb = savedSB
 
 	// Build the IIFE that creates a rugoTask and launches a goroutine
 	var buf strings.Builder
@@ -1264,17 +1223,18 @@ func (g *codeGen) parallelExpr(e *ParallelExpr) (string, error) {
 			stmts[i] = stmtCode{code: code, isExpr: true}
 		} else {
 			// Non-expression statement: generate into a temp buffer
-			savedSB := g.sb
-			g.sb = strings.Builder{}
-			g.pushScope()
-			if err := g.writeStmt(s); err != nil {
+			code, err := g.captureOutput(func() error {
+				g.pushScope()
+				if err := g.writeStmt(s); err != nil {
+					g.popScope()
+					return err
+				}
 				g.popScope()
-				g.sb = savedSB
+				return nil
+			})
+			if err != nil {
 				return "", err
 			}
-			g.popScope()
-			code := g.sb.String()
-			g.sb = savedSB
 			stmts[i] = stmtCode{code: code, isExpr: false}
 		}
 	}
@@ -1317,6 +1277,35 @@ func (g *codeGen) parallelExpr(e *ParallelExpr) (string, error) {
 	buf.WriteString("\t}()")
 
 	return buf.String(), nil
+}
+
+// writePanicHandler emits the defer/recover block used in all main() functions.
+func (g *codeGen) writePanicHandler() {
+	g.writeln(`defer func() {`)
+	g.indent++
+	g.writeln(`if e := recover(); e != nil {`)
+	g.indent++
+	g.writeln(`if shellErr, ok := e.(rugoShellError); ok {`)
+	g.indent++
+	g.writeln(`os.Exit(shellErr.code)`)
+	g.indent--
+	g.writeln(`}`)
+	g.writeln(`rugo_panic_handler(e)`)
+	g.indent--
+	g.writeln(`}`)
+	g.indent--
+	g.writeln(`}()`)
+}
+
+// captureOutput runs fn while writing to a temporary buffer,
+// then restores the original buffer and returns the captured output.
+func (g *codeGen) captureOutput(fn func() error) (string, error) {
+	saved := g.sb
+	g.sb = strings.Builder{}
+	err := fn()
+	result := g.sb.String()
+	g.sb = saved
+	return result, err
 }
 
 // Scope management
