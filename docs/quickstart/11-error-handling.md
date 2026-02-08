@@ -53,5 +53,45 @@ result = try nonexistent_command or "default"
 puts result   # default
 ```
 
+## Raising Errors
+
+Use `raise` to signal errors from your own code. It works like Go's `panic()` under the hood and can be caught with `try/or`:
+
+```ruby
+raise("something went wrong")
+```
+
+Paren-free syntax works too:
+
+```ruby
+raise "something went wrong"
+```
+
+Use `raise` in functions to validate inputs:
+
+```ruby
+def greet(name)
+  if name == nil
+    raise "name is required"
+  end
+  return "Hello, " + name
+end
+
+msg = try greet(nil) or err
+  puts "Error: " + err
+  "Hello, stranger"
+end
+puts msg   # Hello, stranger
+```
+
+Called without arguments, `raise` uses a default message:
+
+```ruby
+result = try raise() or err
+  err
+end
+puts result   # runtime error
+```
+
 ---
 That's it! You now know enough Rugo to build real scripts. See the [examples/](../../examples/) directory for more.

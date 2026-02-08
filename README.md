@@ -98,6 +98,16 @@ end
 hostname = try `hostname` or "localhost"
 puts "Running on #{hostname}"
 
+# Raise errors from your own code
+def connect(token)
+  if token == nil
+    raise "token is required"
+  end
+end
+result = try connect(nil) or err
+  puts "Error: " + err
+end
+
 # Concurrency with spawn
 task = spawn http.get("https://httpbin.org/get")
 puts task.value
