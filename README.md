@@ -31,6 +31,8 @@ In a future where code will be written by agents, do we even care about language
 - Error handling
 - Built-in [BATS like](https://bats-core.readthedocs.io) test support with [rats](docs/rats.md)
 - Concurrency
+- Lightweight, Go-like OOP
+- Built-in test and benchmarking
 
 ```ruby
 use "http"
