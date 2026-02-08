@@ -1131,7 +1131,8 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 						return "", argCountError(nsName+"."+dot.Field, len(e.Args), expected)
 					}
 				}
-				return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, argStr), nil
+				typedArgs := g.typedCallArgs(nsKey, args, e.Args)
+				return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, typedArgs), nil
 			}
 			// Not a known namespace — task method call or error
 			switch dot.Field {
