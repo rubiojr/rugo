@@ -424,7 +424,30 @@ func firstParseError(err error) error {
 		e := el[0]
 		msg := formatParseError(e)
 
-		if snippet := sourceSnippet(e.Pos.Filename, e.Pos.Line, e.Pos.Column); snippet != "" {
+		snippetLine := e.Pos.Line
+		snippetCol := e.Pos.Column
+
+		// For "rats/bench missing name", show the keyword line
+		rawMsg := e.Err.Error()
+		if strings.Contains(rawMsg, "expected [str_lit]") {
+			if keyword := findBlockMissingName(e.Pos.Filename, e.Pos.Line); keyword != "" {
+				if data, err := os.ReadFile(e.Pos.Filename); err == nil {
+					srcLines := strings.Split(string(data), "\n")
+					for i := e.Pos.Line - 1; i >= 0 && i >= e.Pos.Line-3; i-- {
+						trimmed := strings.TrimSpace(srcLines[i])
+						if trimmed == keyword || strings.HasPrefix(trimmed, keyword+" ") || strings.HasPrefix(trimmed, keyword+"\t") {
+							snippetLine = i + 1
+							raw := srcLines[i]
+							indent := len(raw) - len(strings.TrimLeft(raw, " \t"))
+							snippetCol = indent + len(keyword) + 1
+							break
+						}
+					}
+				}
+			}
+		}
+
+		if snippet := sourceSnippet(e.Pos.Filename, snippetLine, snippetCol); snippet != "" {
 			msg += "\n" + snippet
 		}
 		return fmt.Errorf("%s", msg)
@@ -503,6 +526,13 @@ func formatParseError(e scanner.ErrWithPosition) string {
 				return prefix + "unexpected end of file — unclosed " + blockType
 			}
 			return prefix + "unexpected end of file — expected \"end\" (unclosed block)"
+		}
+
+		// Special case: expected str_lit after "rats" or "bench" — missing test name
+		if strings.TrimSpace(expectedPart) == "str_lit" {
+			if keyword := findBlockMissingName(e.Pos.Filename, e.Pos.Line); keyword != "" {
+				return prefix + "\"" + keyword + "\" requires a name — e.g. " + keyword + " \"description\""
+			}
 		}
 
 		// Parse and simplify the expected set
@@ -713,6 +743,28 @@ func isStatementExpectedSet(raw string) bool {
 // isEndExpectedSet returns true when the expected set indicates a missing "end" keyword.
 func isEndExpectedSet(raw string) bool {
 	return strings.Contains(raw, `"end"`)
+}
+
+// findBlockMissingName checks if the error is caused by a "rats" or "bench"
+// keyword that is missing its name string (either bare on its own line,
+// or followed by a non-string token on the same line).
+func findBlockMissingName(filename string, errorLine int) string {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	// Check current line and preceding lines
+	for i := errorLine - 1; i >= 0 && i >= errorLine-3; i-- {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "rats" || strings.HasPrefix(trimmed, "rats ") || strings.HasPrefix(trimmed, "rats\t") {
+			return "rats"
+		}
+		if trimmed == "bench" || strings.HasPrefix(trimmed, "bench ") || strings.HasPrefix(trimmed, "bench\t") {
+			return "bench"
+		}
+	}
+	return ""
 }
 
 // detectUnclosedBlock reads the source file and returns a description of

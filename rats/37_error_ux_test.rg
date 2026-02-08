@@ -307,3 +307,11 @@ rats "def without parens is valid syntax"
   result = test.run("rugo run rats/fixtures/err_def_no_parens.rg")
   test.assert_eq(result["status"], 0)
 end
+
+# --- rats without name gives helpful error ---
+
+rats "rats without name explains the fix"
+  result = test.run("rugo run rats/fixtures/err_rats_parse.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "requires a name")
+end
