@@ -99,6 +99,10 @@ func stripComments(src string) (string, error) {
 // Returns the preprocessed source and a line map (preprocessed line 0-indexed
 // → original line 1-indexed). If lineMap is nil, the mapping is 1:1.
 func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
+	// Rewrite hash colon syntax before other transformations:
+	//   {foo: "bar"}  →  {"foo" => "bar"}
+	src = expandHashColonSyntax(src)
+
 	// Desugar compound assignment operators before other transformations.
 	src = expandCompoundAssign(src)
 
@@ -341,6 +345,80 @@ func scanFirstToken(s string) (string, string) {
 		return "", s
 	}
 	return s[:i], s[i:]
+}
+
+// expandHashColonSyntax rewrites the colon shorthand for hash keys:
+//
+//	{foo: "bar"}  →  {"foo" => "bar"}
+//
+// Only bare identifiers followed by ": " are rewritten. String contents
+// are left untouched. The arrow syntax {expr => val} is unaffected.
+func expandHashColonSyntax(src string) string {
+	var sb strings.Builder
+	sb.Grow(len(src))
+
+	inDouble := false
+	inSingle := false
+	escaped := false
+
+	i := 0
+	for i < len(src) {
+		ch := src[i]
+
+		if escaped {
+			sb.WriteByte(ch)
+			escaped = false
+			i++
+			continue
+		}
+
+		if ch == '\\' && (inDouble || inSingle) {
+			sb.WriteByte(ch)
+			escaped = true
+			i++
+			continue
+		}
+
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			sb.WriteByte(ch)
+			i++
+			continue
+		}
+
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			sb.WriteByte(ch)
+			i++
+			continue
+		}
+
+		// Outside strings, look for ident: pattern
+		if !inDouble && !inSingle && (unicode.IsLetter(rune(ch)) || ch == '_') {
+			start := i
+			for i < len(src) && (unicode.IsLetter(rune(src[i])) || unicode.IsDigit(rune(src[i])) || src[i] == '_') {
+				i++
+			}
+			ident := src[start:i]
+
+			// Check for ident followed by ":" then whitespace
+			if i < len(src) && src[i] == ':' && i+1 < len(src) && (src[i+1] == ' ' || src[i+1] == '\t') {
+				sb.WriteByte('"')
+				sb.WriteString(ident)
+				sb.WriteString(`" =>`)
+				i++ // skip the ':'
+				continue
+			}
+
+			sb.WriteString(ident)
+			continue
+		}
+
+		sb.WriteByte(ch)
+		i++
+	}
+
+	return sb.String()
 }
 
 func isIdent(s string) bool {

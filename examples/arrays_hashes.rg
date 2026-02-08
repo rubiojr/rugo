@@ -13,11 +13,15 @@ puts("Last: " + fruits[2])
 fruits = append(fruits, "date")
 puts("After append: " + conv.to_s(len(fruits)))
 
-# Hashes
-person = {"name" => "Alice", "age" => 30, "city" => "NYC"}
+# Hashes (colon syntax — keys become strings)
+person = {name: "Alice", age: 30, city: "NYC"}
 puts("Person:")
 puts(person)
 puts("Name: " + person["name"])
+
+# Arrow syntax for expression keys (any value as key)
+codes = {404 => "Not Found", 500 => "Server Error"}
+puts("404: " + codes[404])
 
 # Numbers in arrays
 numbers = [10, 20, 30, 40, 50]

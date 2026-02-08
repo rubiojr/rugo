@@ -1241,3 +1241,33 @@ func TestDuplicateImportDeduplicates(t *testing.T) {
 	count := strings.Count(result.GoSource, "type Conv struct")
 	assert.Equal(t, 1, count, "conv runtime should be emitted exactly once")
 }
+
+func TestExpandHashColonSyntax(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{"simple colon key", `{foo: "bar"}`, `{"foo" => "bar"}`},
+		{"multiple colon keys", `{a: 1, b: 2}`, `{"a" => 1, "b" => 2}`},
+		{"mixed colon and arrow", `{a: 1, "b" => 2}`, `{"a" => 1, "b" => 2}`},
+		{"underscore key", `{my_key: "val"}`, `{"my_key" => "val"}`},
+		{"arrow unchanged", `{"a" => 1}`, `{"a" => 1}`},
+		{"no rewrite inside double string", `"foo: bar"`, `"foo: bar"`},
+		{"no rewrite inside single string", `'foo: bar'`, `'foo: bar'`},
+		{"ident colon no space", `foo:bar`, `foo:bar`},
+		{"multiline hash", "{name: \"Alice\",\nage: 30}", "{\"name\" => \"Alice\",\n\"age\" => 30}"},
+		{"keyword as key", `{if: true}`, `{"if" => true}`},
+		{"tab after colon", "{foo:\t1}", "{\"foo\" =>\t1}"},
+		{"nested hash", `{a: {b: 1}}`, `{"a" => {"b" => 1}}`},
+		{"empty hash unchanged", `{}`, `{}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := expandHashColonSyntax(tt.input)
+			if got != tt.expect {
+				t.Errorf("expandHashColonSyntax(%q) =\n  %q\nwant:\n  %q", tt.input, got, tt.expect)
+			}
+		})
+	}
+}

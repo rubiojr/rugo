@@ -417,7 +417,7 @@ Node (interface)
     ├── BoolLiteral       — true/false
     ├── NilLiteral        — nil
     ├── ArrayLiteral      — [elem, ...]
-    ├── HashLiteral       — {key => value, ...}
+    ├── HashLiteral       — {key: value, ...} or {expr => value, ...}
     └── TryExpr           — try expr or err handler end
 ```
 

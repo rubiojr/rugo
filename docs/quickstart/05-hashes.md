@@ -1,10 +1,29 @@
 # Hashes
 
-Key-value pairs with `=>`:
+## Colon Syntax
+
+Use `key: value` for string keys — clean and concise:
 
 ```ruby
-person = {"name" => "Alice", "age" => 30, "city" => "NYC"}
+person = {name: "Alice", age: 30, city: "NYC"}
 puts person["name"]   # Alice
+puts person.name      # Alice
+```
+
+## Arrow Syntax
+
+Use `=>` when keys are expressions (variables, integers, booleans):
+
+```ruby
+codes = {404 => "Not Found", 500 => "Server Error"}
+key = "greeting"
+h = {key => "hello"}   # key is the variable value, not the string "key"
+```
+
+Both syntaxes can be mixed:
+
+```ruby
+h = {name: "Alice", 42 => "answer"}
 ```
 
 ## Mutation
