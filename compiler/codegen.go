@@ -1177,7 +1177,11 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 		case "__pipe_shell__":
 			return fmt.Sprintf("rugo_pipe_shell(%s)", argStr), nil
 		case "len":
-			return fmt.Sprintf("rugo_len(%s)", g.boxedArgs(args, e.Args)), nil
+			call := fmt.Sprintf("rugo_len(%s)", g.boxedArgs(args, e.Args))
+			if g.exprType(e) == TypeInt {
+				return call + ".(int)", nil
+			}
+			return call, nil
 		case "append":
 			return fmt.Sprintf("rugo_append(%s)", g.boxedArgs(args, e.Args)), nil
 		default:

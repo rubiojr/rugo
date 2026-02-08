@@ -370,10 +370,21 @@ func inferBinaryOp(op string, left, right RugoType) RugoType {
 		}
 		return TypeDynamic
 
-	case "==", "!=", "<", ">", "<=", ">=":
-		// Comparison returns bool only when both operands are typed.
-		// When using runtime helpers (rugo_eq, etc.), they return interface{}.
-		if left.IsTyped() && right.IsTyped() {
+	case "==", "!=":
+		// TypeBool only when codegen emits native Go == / !=
+		// (same typed type). Cross-type falls back to rugo_eq which returns interface{}.
+		if left == right && left.IsTyped() {
+			return TypeBool
+		}
+		if left == TypeUnknown || right == TypeUnknown {
+			return TypeUnknown
+		}
+		return TypeDynamic
+
+	case "<", ">", "<=", ">=":
+		// TypeBool only when codegen emits native Go comparison
+		// (same typed type that is numeric or string).
+		if left == right && left.IsTyped() && (left.IsNumeric() || left == TypeString) {
 			return TypeBool
 		}
 		if left == TypeUnknown || right == TypeUnknown {
@@ -410,7 +421,13 @@ func inferUnaryOp(op string, operand RugoType) RugoType {
 		}
 		return TypeDynamic
 	case "!":
-		return TypeBool
+		if operand == TypeBool {
+			return TypeBool
+		}
+		if operand == TypeUnknown {
+			return TypeUnknown
+		}
+		return TypeDynamic
 	default:
 		return TypeDynamic
 	}

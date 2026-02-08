@@ -46,13 +46,13 @@ end
 rats "integer divide by zero"
   result = test.run("rugo run rats/fixtures/err_divide_by_zero.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "integer divide by zero")
+  test.assert_contains(result["output"], "division by zero")
 end
 
 rats "integer modulo by zero"
   result = test.run("rugo run rats/fixtures/err_modulo_zero.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "integer divide by zero")
+  test.assert_contains(result["output"], "division by zero")
 end
 
 # --- Builtin function errors ---

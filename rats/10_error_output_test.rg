@@ -19,7 +19,7 @@ rats "error inside function shows function body line"
   result = test.run("rugo run rats/fixtures/error_in_func.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error_in_func.rg:2")
-  test.assert_contains(result["output"], "divide by zero")
+  test.assert_contains(result["output"], "division by zero")
 end
 
 rats "error lines account for comments"
