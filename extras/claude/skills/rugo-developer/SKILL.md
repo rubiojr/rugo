@@ -10,6 +10,7 @@ description: Expert in developing Rugo, a Ruby-inspired language that compiles t
 * Rugo is written in Go.
 * Avoid introducing insecure code; ask first. Security is paramount.
 * Read `preference.md` and `rats.md` in the repo root for current design decisions and pending work before making changes.
+* **Load the `rugo-quickstart` skill** when writing `.rg` scripts or helping users with Rugo language syntax and features.
 
 ## Project Overview
 
