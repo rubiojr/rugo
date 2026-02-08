@@ -16,6 +16,7 @@ func init() {
 		Funcs: []modules.FuncDef{
 			{Name: "run", Args: []modules.ArgType{modules.String}},
 			{Name: "tmpdir", Args: []modules.ArgType{}},
+			{Name: "write_file", Args: []modules.ArgType{modules.String, modules.String}},
 			{Name: "assert_eq", Args: []modules.ArgType{modules.Any, modules.Any}},
 			{Name: "assert_neq", Args: []modules.ArgType{modules.Any, modules.Any}},
 			{Name: "assert_true", Args: []modules.ArgType{modules.Any}},

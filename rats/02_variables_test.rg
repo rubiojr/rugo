@@ -2,21 +2,34 @@
 import "test"
 
 rats "variables and arithmetic"
-  test.run("printf 'x = 10\ny = 20\nputs(x + y)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    x = 10
+    y = 20
+    puts(x + y)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "30")
 end
 
 rats "string concatenation"
-  test.run("printf 'name = \"world\"\nputs(\"hello \" + name)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    name = "world"
+    puts("hello " + name)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello world")
 end
 
 rats "boolean values"
-  test.run("printf 'puts(true)\nputs(false)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    puts(true)
+    puts(false)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -25,21 +38,35 @@ rats "boolean values"
 end
 
 rats "nil value"
-  test.run("printf 'x = nil\nputs(x)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    x = nil
+    puts(x)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "<nil>")
 end
 
 rats "string interpolation"
-  test.run("printf 'name = \"rugo\"\nputs(\"hello \" + name)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    name = "rugo"
+    puts("hello " + name)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello rugo")
 end
 
 rats "arithmetic operations"
-  test.run("printf 'puts(2 + 3)\nputs(10 - 4)\nputs(3 * 7)\nputs(15 / 3)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    puts(2 + 3)
+    puts(10 - 4)
+    puts(3 * 7)
+    puts(15 / 3)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -50,7 +77,13 @@ rats "arithmetic operations"
 end
 
 rats "comparison operators"
-  test.run("printf 'puts(1 == 1)\nputs(1 != 2)\nputs(3 > 2)\nputs(2 < 3)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    puts(1 == 1)
+    puts(1 != 2)
+    puts(3 > 2)
+    puts(2 < 3)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -61,7 +94,13 @@ rats "comparison operators"
 end
 
 rats "logical operators"
-  test.run("printf 'puts(true && true)\nputs(true && false)\nputs(false || true)\nputs(false || false)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    puts(true && true)
+    puts(true && false)
+    puts(false || true)
+    puts(false || false)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]

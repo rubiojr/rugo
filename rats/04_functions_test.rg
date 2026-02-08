@@ -2,21 +2,42 @@
 import "test"
 
 rats "user defined function"
-  test.run("printf 'def greet(name)\n  puts(\"hi \" + name)\nend\ngreet(\"rugo\")\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    def greet(name)
+      puts("hi " + name)
+    end
+    greet("rugo")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hi rugo")
 end
 
 rats "function with return value"
-  test.run("printf 'def double(x)\n  return x * 2\nend\nputs(double(21))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    def double(x)
+      return x * 2
+    end
+    puts(double(21))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
 rats "function calling another function"
-  test.run("printf 'def add(a, b)\n  return a + b\nend\ndef add3(a, b, c)\n  return add(add(a, b), c)\nend\nputs(add3(1, 2, 3))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    def add(a, b)
+      return a + b
+    end
+    def add3(a, b, c)
+      return add(add(a, b), c)
+    end
+    puts(add3(1, 2, 3))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "6")

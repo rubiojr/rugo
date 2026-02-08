@@ -17,14 +17,23 @@ rats "negative index assignment"
 end
 
 rats "negative index -1 returns last element"
-  test.run("printf 'arr = [\"a\", \"b\", \"c\"]\nputs(arr[-1])\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    arr = ["a", "b", "c"]
+    puts(arr[-1])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "c")
 end
 
 rats "positive indices still work"
-  test.run("printf 'arr = [10, 20, 30]\nputs(arr[0])\nputs(arr[2])\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    arr = [10, 20, 30]
+    puts(arr[0])
+    puts(arr[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -33,7 +42,11 @@ rats "positive indices still work"
 end
 
 rats "hash with negative integer key still works"
-  test.run("printf 'h = {-1 => \"neg\"}\nputs(h[-1])\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    h = {-1 => "neg"}
+    puts(h[-1])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "neg")

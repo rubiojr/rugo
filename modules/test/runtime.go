@@ -20,6 +20,14 @@ func (t *Test) Tmpdir() interface{} {
 	return t.TmpDir
 }
 
+// WriteFile writes content to a file, creating it with 0644 permissions.
+func (*Test) WriteFile(path, content string) interface{} {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		panic(rugoTestFail(fmt.Sprintf("write_file failed: %v", err)))
+	}
+	return nil
+}
+
 // Run executes a command and returns a hash with status, output, and lines.
 func (*Test) Run(command string) interface{} {
 	cmd := exec.Command("sh", "-c", command)

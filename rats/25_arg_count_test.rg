@@ -27,14 +27,26 @@ rats "error message does not expose rugofn_ prefix"
 end
 
 rats "correct argument count works"
-  test.run("printf 'def add(a, b)\n  return a + b\nend\nputs(add(1, 2))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    def add(a, b)
+      return a + b
+    end
+    puts(add(1, 2))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "3")
 end
 
 rats "zero-param function works with no args"
-  test.run("printf 'def hello()\n  puts(\"hi\")\nend\nhello()\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    def hello()
+      puts("hi")
+    end
+    hello()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hi")

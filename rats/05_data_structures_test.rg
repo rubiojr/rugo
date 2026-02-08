@@ -2,7 +2,13 @@
 import "test"
 
 rats "array creation and access"
-  test.run("printf 'arr = [1, 2, 3]\nputs(arr[0])\nputs(arr[2])\nputs(len(arr))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    arr = [1, 2, 3]
+    puts(arr[0])
+    puts(arr[2])
+    puts(len(arr))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -12,7 +18,13 @@ rats "array creation and access"
 end
 
 rats "array append"
-  test.run("printf 'arr = [1, 2]\narr = append(arr, 3)\nputs(len(arr))\nputs(arr[2])\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    arr = [1, 2]
+    arr = append(arr, 3)
+    puts(len(arr))
+    puts(arr[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -21,7 +33,12 @@ rats "array append"
 end
 
 rats "hash creation and access"
-  test.run("printf 'h = {\"a\" => 1, \"b\" => 2}\nputs(h[\"a\"])\nputs(h[\"b\"])\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    h = {"a" => 1, "b" => 2}
+    puts(h["a"])
+    puts(h["b"])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]

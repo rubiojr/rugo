@@ -2,34 +2,58 @@
 import "test"
 
 rats "os.exec runs commands"
-  test.run("printf 'import \"os\"\nresult = os.exec(\"echo hello\")\nputs(result)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "os"
+    result = os.exec("echo hello")
+    puts(result)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello")
 end
 
 rats "os.exit sets exit code"
-  test.run("printf 'import \"os\"\nos.exit(0)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "os"
+    os.exit(0)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
 end
 
 rats "conv.to_i converts string to int"
-  test.run("printf 'import \"conv\"\nx = conv.to_i(\"42\")\nputs(x + 1)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "conv"
+    x = conv.to_i("42")
+    puts(x + 1)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "43")
 end
 
 rats "conv.to_s converts int to string"
-  test.run("printf 'import \"conv\"\nx = conv.to_s(42)\nputs(x)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "conv"
+    x = conv.to_s(42)
+    puts(x)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
 rats "str.contains works"
-  test.run("printf 'import \"str\"\nputs(str.contains(\"hello world\", \"world\"))\nputs(str.contains(\"hello\", \"xyz\"))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "str"
+    puts(str.contains("hello world", "world"))
+    puts(str.contains("hello", "xyz"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -38,7 +62,15 @@ rats "str.contains works"
 end
 
 rats "str.split works"
-  test.run("printf 'import \"str\"\narr = str.split(\"a,b,c\", \",\")\nputs(arr[0])\nputs(arr[1])\nputs(arr[2])\nputs(len(arr))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "str"
+    arr = str.split("a,b,c", ",")
+    puts(arr[0])
+    puts(arr[1])
+    puts(arr[2])
+    puts(len(arr))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -49,14 +81,23 @@ rats "str.split works"
 end
 
 rats "str.trim works"
-  test.run("printf 'import \"str\"\nputs(str.trim(\"  hello  \"))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "str"
+    puts(str.trim("  hello  "))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end
 
 rats "str.upper and str.lower"
-  test.run("printf 'import \"str\"\nputs(str.upper(\"hello\"))\nputs(str.lower(\"WORLD\"))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "str"
+    puts(str.upper("hello"))
+    puts(str.lower("WORLD"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -65,7 +106,10 @@ rats "str.upper and str.lower"
 end
 
 rats "unknown module import fails"
-  test.run("printf 'import \"nonexistent\"\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "nonexistent"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_neq(result["status"], 0)
 end

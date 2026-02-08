@@ -3,7 +3,14 @@ import "test"
 import "conv"
 
 rats "json.parse parses object"
-  test.run("printf 'import \"json\"\nimport \"conv\"\ndata = json.parse(\"{\\\\\"name\\\\\": \\\\\"rugo\\\\\", \\\\\"version\\\\\": 1}\")\nputs(data[\"name\"])\nputs(conv.to_s(data[\"version\"]))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    import "conv"
+    data = json.parse("{\"name\": \"rugo\", \"version\": 1}")
+    puts(data["name"])
+    puts(conv.to_s(data["version"]))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -12,7 +19,15 @@ rats "json.parse parses object"
 end
 
 rats "json.parse parses array"
-  test.run("printf 'import \"json\"\nimport \"conv\"\narr = json.parse(\"[1, 2, 3]\")\nputs(conv.to_s(len(arr)))\nputs(conv.to_s(arr[0]))\nputs(conv.to_s(arr[2]))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    import "conv"
+    arr = json.parse("[1, 2, 3]")
+    puts(conv.to_s(len(arr)))
+    puts(conv.to_s(arr[0]))
+    puts(conv.to_s(arr[2]))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -22,28 +37,52 @@ rats "json.parse parses array"
 end
 
 rats "json.parse converts whole numbers to int"
-  test.run("printf 'import \"json\"\nimport \"conv\"\ndata = json.parse(\"{\\\\\"id\\\\\": 12345}\")\nputs(conv.to_s(data[\"id\"]))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    import "conv"
+    data = json.parse("{\"id\": 12345}")
+    puts(conv.to_s(data["id"]))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "12345")
 end
 
 rats "json.parse preserves floats"
-  test.run("printf 'import \"json\"\nimport \"conv\"\ndata = json.parse(\"{\\\\\"pi\\\\\": 3.14}\")\nputs(conv.to_s(data[\"pi\"]))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    import "conv"
+    data = json.parse("{\"pi\": 3.14}")
+    puts(conv.to_s(data["pi"]))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "3.14")
 end
 
 rats "json.parse handles nested objects"
-  test.run("printf 'import \"json\"\ndata = json.parse(\"{\\\\\"user\\\\\": {\\\\\"name\\\\\": \\\\\"rugo\\\\\"}}\")\nputs(data[\"user\"][\"name\"])\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    data = json.parse("{\"user\": {\"name\": \"rugo\"}}")
+    puts(data["user"]["name"])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "rugo")
 end
 
 rats "json.parse handles booleans and null"
-  test.run("printf 'import \"json\"\nimport \"conv\"\ndata = json.parse(\"{\\\\\"ok\\\\\": true, \\\\\"err\\\\\": null}\")\nputs(conv.to_s(data[\"ok\"]))\nputs(data[\"err\"] == nil)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    import "conv"
+    data = json.parse("{\"ok\": true, \"err\": null}")
+    puts(conv.to_s(data["ok"]))
+    puts(data["err"] == nil)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
@@ -52,7 +91,12 @@ rats "json.parse handles booleans and null"
 end
 
 rats "json.encode converts hash to JSON"
-  test.run("printf 'import \"json\"\nh = {\"a\" => 1}\nputs(json.encode(h))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    h = {"a" => 1}
+    puts(json.encode(h))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "\"a\"")
@@ -60,21 +104,37 @@ rats "json.encode converts hash to JSON"
 end
 
 rats "json.encode converts array to JSON"
-  test.run("printf 'import \"json\"\narr = [1, \"two\", true]\nputs(json.encode(arr))\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    arr = [1, "two", true]
+    puts(json.encode(arr))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "[1,\"two\",true]")
 end
 
 rats "json.parse roundtrip"
-  test.run("printf 'import \"json\"\noriginal = \"[1,2,3]\"\nparsed = json.parse(original)\nresult = json.encode(parsed)\nputs(result)\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    original = "[1,2,3]"
+    parsed = json.parse(original)
+    result = json.encode(parsed)
+    puts(result)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "[1,2,3]")
 end
 
 rats "json.parse panics on invalid JSON"
-  test.run("printf 'import \"json\"\njson.parse(\"not json\")\n' > " + test.tmpdir() + "/test.rg")
+  script = <<~SCRIPT
+    import "json"
+    json.parse("not json")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "json.parse")
