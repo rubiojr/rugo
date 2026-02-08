@@ -26,7 +26,7 @@ In a future where code will be written by agents, do we even care about language
 - Compiles to native binaries — no runtime needed
 - Shell fallback — unknown commands run as shell commands, like Bash
 - Modules with namespaces
-- Go stdlib bridge — call Go standard library functions directly
+- Go stdlib bridge - call Go standard library functions directly
 - User modules
 - Error handling
 - Built-in [BATS like](https://bats-core.readthedocs.io) test support with [rats](docs/rats.md)
@@ -88,6 +88,16 @@ results = parallel
 end
 puts results[0]
 puts results[1]
+
+# Go stdlib bridge — call Go packages directly
+import "math"
+import "strconv"
+
+puts math.sqrt(144.0)                        # 12
+
+# Error handling with Go bridge
+n = try strconv.atoi("not a number") or 0
+puts n  # 0
 ```
 
 ## Install
