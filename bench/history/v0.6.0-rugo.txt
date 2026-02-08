@@ -1,0 +1,33 @@
+=== bench/arithmetic_bench.rg ===
+  [1mfib(10)                                 [0m [36m  183.8 ns/op[0m [33m(5458818 runs)[0m
+  [1mfib(20)                                 [0m [36m   23.1 µs/op[0m [33m(44166 runs)[0m
+  [1mfib(25)                                 [0m [36m  253.3 µs/op[0m [33m(4006 runs)[0m
+  [1minteger arithmetic chain                [0m [36m  217.1 ns/op[0m [33m(4611517 runs)[0m
+  [1mfloat arithmetic chain                  [0m [36m  218.5 ns/op[0m [33m(4625172 runs)[0m
+  [1mcomparison heavy loop                   [0m [36m  218.7 ns/op[0m [33m(4631420 runs)[0m
+=== bench/collections_bench.rg ===
+  [1marray creation (10 elements)            [0m [36m    1.0 ns/op[0m [33m(1140406704 runs)[0m
+  [1marray iteration (for-in)                [0m [36m  138.7 ns/op[0m [33m(7382194 runs)[0m
+  [1marray index access (100 reads)          [0m [36m  460.7 ns/op[0m [33m(2279736 runs)[0m
+  [1mhash creation (5 pairs)                 [0m [36m   56.5 ns/op[0m [33m(17847265 runs)[0m
+  [1mhash lookup (100 reads)                 [0m [36m    1.4 µs/op[0m [33m(746387 runs)[0m
+  [1marray append (100 elements)             [0m [36m    2.7 µs/op[0m [33m(457875 runs)[0m
+=== bench/control_flow_bench.rg ===
+  [1mwhile loop (10000 iterations)           [0m [36m    2.0 µs/op[0m [33m(492703 runs)[0m
+  [1mfor-in with range array                 [0m [36m   16.5 µs/op[0m [33m(61453 runs)[0m
+  [1mif/elsif/else chain                     [0m [36m  225.9 ns/op[0m [33m(4564612 runs)[0m
+  [1mfunction call overhead                  [0m [36m  220.1 ns/op[0m [33m(4569603 runs)[0m
+=== bench/io_bench.rg ===
+  [1mputs single arg (100 calls)             [0m [36m   17.7 µs/op[0m [33m(57283 runs)[0m
+  [1mputs multi arg (100 calls)              [0m [36m   31.7 µs/op[0m [33m(33140 runs)[0m
+=== bench/strings_bench.rg ===
+  [1mstring concat (100 iterations)          [0m [36m    2.5 µs/op[0m [33m(415560 runs)[0m
+  [1mstring interpolation                    [0m [36m   71.6 ns/op[0m [33m(15212314 runs)[0m
+  [1mconv.to_s on integers                   [0m [36m    5.1 µs/op[0m [33m(199004 runs)[0m
+=== bench/type_inference_bench.rg ===
+  [1mtyped fib(25)                           [0m [36m  259.0 µs/op[0m [33m(4123 runs)[0m
+  [1mtyped integer accumulator               [0m [36m    2.0 µs/op[0m [33m(490547 runs)[0m
+  [1mtyped float accumulator                 [0m [36m    2.1 µs/op[0m [33m(484729 runs)[0m
+  [1mtyped boolean conditions                [0m [36m    2.2 µs/op[0m [33m(492944 runs)[0m
+  [1mtyped nested arithmetic                 [0m [36m  227.5 ns/op[0m [33m(4516875 runs)[0m
+  [1mmixed for-in with typed accumulator     [0m [36m   17.2 µs/op[0m [33m(58917 runs)[0m
