@@ -1,4 +1,3 @@
-def greet
+def greet(123)
   puts "hello"
 end
-greet()

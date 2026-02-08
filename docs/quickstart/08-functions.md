@@ -10,6 +10,20 @@ end
 greet("World")
 ```
 
+## No-Argument Functions
+
+Functions with no parameters can omit the parentheses in the definition:
+
+```ruby
+def say_hello
+  puts "Hello!"
+end
+
+say_hello
+```
+
+Both `def say_hello` and `def say_hello()` are valid — the `()` is optional when there are no parameters.
+
 ## Return Values
 
 ```ruby

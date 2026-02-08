@@ -159,6 +159,14 @@ def add(a, b)
 end
 ```
 
+For functions with no parameters, the parentheses are optional:
+
+```ruby
+def say_hello
+  puts "Hello!"
+end
+```
+
 Functions are hoisted to the Go package level during codegen. Inside function bodies, all function names are visible (forward references work). At the top level, function names are only recognized after their `def` line (positional resolution).
 
 ### Error Handling

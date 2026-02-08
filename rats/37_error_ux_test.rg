@@ -301,11 +301,9 @@ rats "error messages have ANSI color when forced"
   test.assert_contains(result["output"], "\033[")
 end
 
-# --- def without parens shows helpful hint ---
+# --- def without parens is valid syntax ---
 
-rats "def without parens explains the fix"
+rats "def without parens is valid syntax"
   result = test.run("rugo run rats/fixtures/err_def_no_parens.rg")
-  test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "missing its parameter list")
-  test.assert_contains(result["output"], "def greet")
+  test.assert_eq(result["status"], 0)
 end

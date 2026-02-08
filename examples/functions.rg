@@ -1,6 +1,13 @@
 # Functions in Rugo
 use "conv"
 
+# No-argument functions: parentheses are optional
+def say_hello
+  puts "Hello from a no-parens function!"
+end
+
+say_hello
+
 def greet(name)
   puts("Hello, " + name + "!")
 end

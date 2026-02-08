@@ -106,6 +106,10 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// Desugar compound assignment operators before other transformations.
 	src = expandCompoundAssign(src)
 
+	// Normalize "def name" (no parens) to "def name()" so the parser sees
+	// a consistent form. "def name(params)" is left unchanged.
+	src = expandDefParens(src)
+
 	// Expand backtick expressions before try sugar (backticks may appear inside try).
 	src, err := expandBackticks(src)
 	if err != nil {
@@ -349,6 +353,34 @@ func scanFirstToken(s string) (string, string) {
 
 // expandHashColonSyntax rewrites the colon shorthand for hash keys:
 //
+// expandDefParens normalizes "def name" (without parentheses) to "def name()"
+// so the parser always sees a consistent parameter list. Lines that already
+// have parentheses (e.g., "def name(x, y)") are left unchanged.
+// Also handles struct method syntax: "def Struct.method" → "def Struct.method()".
+func expandDefParens(src string) string {
+	lines := strings.Split(src, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "def ") {
+			continue
+		}
+		rest := trimmed[4:]
+		// Already has parens — leave it alone
+		if strings.Contains(rest, "(") {
+			continue
+		}
+		// Find the function name (may include "Struct.method" dot syntax)
+		name := strings.TrimSpace(rest)
+		if name == "" || !isIdent(strings.Split(name, ".")[0]) {
+			continue
+		}
+		// Replace "def name" with "def name()" preserving indentation
+		indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+		lines[i] = indent + "def " + name + "()"
+	}
+	return strings.Join(lines, "\n")
+}
+
 //	{foo: "bar"}  →  {"foo" => "bar"}
 //
 // Only bare identifiers followed by ": " are rewritten. String contents
