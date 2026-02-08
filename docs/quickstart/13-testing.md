@@ -99,3 +99,35 @@ end
 That's it! RATS gives you a simple, built-in way to test your Rugo scripts.
 See the [RATS design doc](../rats.md) for the full specification and the
 `test` module's complete API.
+
+## Inline Tests
+
+You can embed `rats` blocks directly in regular `.rg` files. When you run the
+file normally with `rugo run`, the test blocks are silently ignored. When you
+run the file with `rugo rats`, only the test blocks execute.
+
+```ruby
+# greet.rg
+use "test"
+
+def greet(name)
+  return "Hello, " + name + "!"
+end
+
+puts greet("World")
+
+# These tests are ignored by `rugo run`, executed by `rugo rats`
+rats "greet formats a greeting"
+  test.assert_eq(greet("Rugo"), "Hello, Rugo!")
+  test.assert_contains(greet("World"), "World")
+end
+```
+
+```bash
+rugo run greet.rg       # prints "Hello, World!" — tests ignored
+rugo rats greet.rg      # runs the inline tests
+```
+
+When scanning a directory, `rugo rats` automatically discovers both `_test.rg`
+files and regular `.rg` files that contain `rats` blocks (directories named
+`fixtures` are skipped).

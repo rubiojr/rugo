@@ -100,6 +100,12 @@ puts math.sqrt(144.0)                        # 12
 # Error handling with Go bridge
 n = try strconv.atoi("not a number") or 0
 puts n  # 0
+
+# Inline tests — ignored by rugo run, executed by rugo rats
+use "test"
+rats "math.sqrt returns correct value"
+  test.assert_eq(math.sqrt(144.0), 12.0)
+end
 ```
 
 ## Install
@@ -113,6 +119,7 @@ go install github.com/rubiojr/rugo@latest
 ```bash
 rugo script.rg            # compile and run
 rugo build script.rg      # compile to native binary
+rugo rats script.rg       # run inline tests
 rugo emit script.rg       # print generated Go code
 ```
 

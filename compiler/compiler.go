@@ -16,6 +16,9 @@ import (
 type Compiler struct {
 	// BaseDir is the directory of the main source file (for resolving requires).
 	BaseDir string
+	// TestMode enables test harness generation (rats blocks are included).
+	// When false (default), rats blocks are silently skipped during codegen.
+	TestMode bool
 	// loaded tracks already-loaded files to prevent duplicate requires.
 	loaded map[string]bool
 	// imports tracks which Rugo stdlib modules have been imported via use.
@@ -65,7 +68,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	// Generate Go source
-	goSrc, err := generate(resolved, filename)
+	goSrc, err := generate(resolved, filename, c.TestMode)
 	if err != nil {
 		return nil, fmt.Errorf("code generation: %w", err)
 	}

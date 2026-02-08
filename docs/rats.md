@@ -43,6 +43,8 @@ Key features:
 
 ### Test file syntax (`_test.rg` files)
 
+Tests can live in dedicated `_test.rg` files or inline in regular `.rg` files.
+
 ```ruby
 # test/myapp_test.rg
 use "test"
@@ -82,12 +84,13 @@ end
 ### CLI
 
 ```bash
-rugo rats                       # run all _test.rg files in test/
+rugo rats                            # run all test files (including inline tests)
 rugo rats test/myapp_test.rg         # run specific file
-rugo rats --filter "greet"      # filter by test name
-rugo rats -j 4                  # run with 4 parallel workers
-rugo rats -j 1                  # run sequentially
-rugo rats --tap                 # raw TAP output
+rugo rats myapp.rg                   # run inline tests in a regular .rg file
+rugo rats --filter "greet"           # filter by test name
+rugo rats -j 4                       # run with 4 parallel workers
+rugo rats -j 1                       # run sequentially
+rugo rats --tap                      # raw TAP output
 ```
 
 ### Output
@@ -326,3 +329,38 @@ $ rugo rats test/greet_test.rg
 
 2 tests, 2 passed, 0 failed
 ```
+
+## Inline Tests
+
+Tests can be embedded directly in regular `.rg` files alongside normal code.
+When run with `rugo run`, the `rats` blocks are silently ignored. When run
+with `rugo rats`, they execute as tests.
+
+```ruby
+# math.rg
+use "test"
+
+def add(a, b)
+  return a + b
+end
+
+puts add(2, 3)
+
+# Inline tests — ignored by `rugo run`, executed by `rugo rats`
+rats "add returns the sum"
+  test.assert_eq(add(1, 2), 3)
+  test.assert_eq(add(-1, 1), 0)
+end
+```
+
+```
+$ rugo run math.rg
+5
+
+$ rugo rats math.rg
+ ✓ add returns the sum
+```
+
+When scanning a directory, `rugo rats` discovers both `_test.rg` files and
+regular `.rg` files containing `rats` blocks. Directories named `fixtures`
+are skipped during discovery.

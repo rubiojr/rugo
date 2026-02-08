@@ -92,7 +92,7 @@ func BenchmarkCodegen(b *testing.B) {
 	}
 	b.ResetTimer()
 	for b.Loop() {
-		_, err := generate(result.Program, "functions.rg")
+		_, err := generate(result.Program, "functions.rg", false)
 		if err != nil {
 			b.Fatal(err)
 		}

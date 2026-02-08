@@ -68,8 +68,8 @@ func Execute(version string) {
 			},
 			{
 				Name:      "rats",
-				Usage:     "Run _test.rg test files",
-				ArgsUsage: "[file_test.rg | directory]",
+				Usage:     "Run tests from _test.rg files and .rg files with inline rats blocks",
+				ArgsUsage: "[file.rg | directory]",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "filter",
@@ -232,7 +232,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		os.Setenv("RUGO_FORCE_COLOR", "1")
 	}
 
-	// Collect _test.rg files
+	// Collect test files: _test.rg files and .rg files containing inline rats blocks
 	var files []string
 	for _, target := range targets {
 		info, err := os.Stat(target)
@@ -244,7 +244,15 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 				if err != nil {
 					return err
 				}
-				if !d.IsDir() && strings.HasSuffix(d.Name(), "_test.rg") {
+				if d.IsDir() {
+					if d.Name() == "fixtures" {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+				if strings.HasSuffix(d.Name(), "_test.rg") {
+					files = append(files, path)
+				} else if strings.HasSuffix(d.Name(), ".rg") && fileHasRatsBlocks(path) {
 					files = append(files, path)
 				}
 				return nil
@@ -258,14 +266,15 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if len(files) == 0 {
-		return fmt.Errorf("no _test.rg test files found")
+		return fmt.Errorf("no test files found")
 	}
 
 	// Single file: run directly (no subprocess overhead)
 	if len(files) == 1 {
 		fmt.Fprintf(os.Stderr, "=== %s ===\n", files[0])
-		comp := &compiler.Compiler{}
+		comp := &compiler.Compiler{TestMode: true}
 		if err := comp.Run(files[0]); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 		return nil
@@ -379,4 +388,20 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		os.Exit(1)
 	}
 	return nil
+}
+
+// fileHasRatsBlocks reports whether a .rg file contains rats test blocks.
+// It uses a lightweight line scan to avoid parsing the full file.
+func fileHasRatsBlocks(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "rats ") || strings.HasPrefix(trimmed, "rats\t") {
+			return true
+		}
+	}
+	return false
 }

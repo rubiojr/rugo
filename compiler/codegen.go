@@ -37,10 +37,11 @@ type codeGen struct {
 	hasBench        bool              // whether bench blocks are present
 	usesTaskMethods bool              // whether .value/.done/.wait appear
 	funcDefs        map[string]int    // user function name → param count
+	testMode        bool              // include rats blocks in output
 }
 
 // generate produces Go source code from a Program AST.
-func generate(prog *Program, sourceFile string) (string, error) {
+func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
 	g := &codeGen{
 		declared:    make(map[string]bool),
 		scopes:      []map[string]bool{make(map[string]bool)},
@@ -50,6 +51,7 @@ func generate(prog *Program, sourceFile string) (string, error) {
 		namespaces:  make(map[string]bool),
 		sourceFile:  sourceFile,
 		funcDefs:    make(map[string]int),
+		testMode:    testMode,
 	}
 	return g.generate(prog)
 }
@@ -72,7 +74,9 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 			}
 			funcs = append(funcs, st)
 		case *TestDef:
-			tests = append(tests, st)
+			if g.testMode {
+				tests = append(tests, st)
+			}
 		case *BenchDef:
 			benches = append(benches, st)
 		case *RequireStmt:
@@ -947,6 +951,7 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 				if goFunc, ok := modules.LookupFunc(nsName, dot.Field); ok {
 					return fmt.Sprintf("%s(%s)", goFunc, argStr), nil
 				}
+				return "", fmt.Errorf("unknown function %s.%s in module %q", nsName, dot.Field, nsName)
 			}
 			// Go bridge call
 			if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {

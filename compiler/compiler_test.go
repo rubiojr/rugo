@@ -20,7 +20,7 @@ import (
 func compileToGo(t *testing.T, src string) string {
 	t.Helper()
 	prog := parseAndWalk(t, src)
-	goSrc, err := generate(prog, "test.rg")
+	goSrc, err := generate(prog, "test.rg", false)
 	if err != nil {
 		t.Fatalf("Generate error: %v", err)
 	}
@@ -750,7 +750,7 @@ func TestPreprocessShellBeforeDefFuncAfter(t *testing.T) {
 func TestGenDotCall(t *testing.T) {
 	// Unknown ns.func() should error since ns is not a known namespace
 	prog := parseAndWalk(t, `ns.func(1, 2)`)
-	_, err := generate(prog, "test.rg")
+	_, err := generate(prog, "test.rg", false)
 	if err == nil {
 		t.Errorf("expected error for unknown namespace call ns.func()")
 	}
