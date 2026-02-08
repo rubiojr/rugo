@@ -53,8 +53,8 @@ type tokenBucketLimiter struct {
 }
 
 type tokenBucket struct {
-	tokens    float64
-	lastTime  time.Time
+	tokens   float64
+	lastTime time.Time
 }
 
 func newTokenBucketLimiter(rps float64) *tokenBucketLimiter {
@@ -172,9 +172,9 @@ func (w *Web) Static(urlPath string, dir string) interface{} {
 		urlPath += "/"
 	}
 	w.routes = append(w.routes, routeEntry{
-		method:   "GET",
-		pattern:  urlPath + "*",
-		isStatic: true,
+		method:    "GET",
+		pattern:   urlPath + "*",
+		isStatic:  true,
 		staticDir: dir,
 	})
 	return nil

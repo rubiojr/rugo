@@ -66,10 +66,11 @@ end
 
 # Test: rugo rats with no args defaults to rats/ directory
 rats "rugo rats with no args finds rats/ directory"
-  result = test.run("cd " + os.exec("pwd") + " && rugo rats rats/08_rats_self_test.rg")
+  tmpdir = test.tmpdir()
+  # Create a rats/ subdir with a minimal test file
+  os.exec("mkdir -p " + tmpdir + "/rats")
+  test.write_file(tmpdir + "/rats/mini_test.rg", "use \"test\"\nrats \"mini\"\n  test.assert_eq(1, 1)\nend\n")
+  result = test.run("cd " + tmpdir + " && rugo rats")
   test.assert_eq(result["status"], 0)
-  # Now test no-args mode from a directory that has a rats/ subdir
-  result = test.run("cd " + os.exec("pwd") + " && rugo rats")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "passed")
+  test.assert_contains(result["output"], "1 passed")
 end
