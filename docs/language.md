@@ -539,7 +539,7 @@ rats "string interpolation"
 end
 ```
 
-Test files use the `.rt` extension and produce TAP (Test Anything Protocol) output. The test harness supports:
+Test files use the `_test.rg` extension and produce TAP (Test Anything Protocol) output. The test harness supports:
 
 - `setup` / `teardown` functions called before/after each test
 - `test.assert_eq`, `test.assert`, `test.skip` from the test module

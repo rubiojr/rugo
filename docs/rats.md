@@ -41,10 +41,10 @@ Key features:
 
 ## Proposed Rugo Design
 
-### Test file syntax (`.rt` files)
+### Test file syntax (`_test.rg` files)
 
 ```ruby
-# test/myapp.rt
+# test/myapp_test.rg
 import "test"
 import "os"
 
@@ -82,8 +82,8 @@ end
 ### CLI
 
 ```bash
-rugo rats                       # run all .rt files in test/
-rugo rats test/myapp.rt         # run specific file
+rugo rats                       # run all _test.rg files in test/
+rugo rats test/myapp_test.rg         # run specific file
 rugo rats --filter "greet"      # filter by test name
 rugo rats -j 4                  # run with 4 parallel workers
 rugo rats -j 1                  # run sequentially
@@ -149,7 +149,7 @@ result = test.run("echo hello")
 
 The `rugo rats` command would:
 
-1. Discover `.rt` files (in `test/` by default, or specified paths)
+1. Discover `_test.rg` files (in `test/` by default, or specified paths)
 2. For each file:
    a. Parse and find all `rats "name" ... end` blocks
    b. Find `setup`/`teardown` if defined
@@ -238,7 +238,7 @@ Functions needed:
 ### 3. Test runner (`rugo rats` command) (Required)
 
 A new subcommand in `main.go` that:
-- Scans for `.rt` files
+- Scans for `_test.rg` files
 - Parses them to find test blocks
 - Generates a special Go program with test harness
 - Compiles and runs it
@@ -302,7 +302,7 @@ greet("World")
 ```
 
 ```ruby
-# test/greet.rt
+# test/greet_test.rg
 import "test"
 
 rats "outputs greeting"
@@ -320,7 +320,7 @@ end
 ```
 
 ```
-$ rugo rats test/greet.rt
+$ rugo rats test/greet_test.rg
  ✓ outputs greeting
  ✓ greet binary works
 

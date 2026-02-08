@@ -59,7 +59,7 @@ Each `bench` block is run repeatedly. The framework:
 The `rugo bench` command discovers `_bench.rg` files in the target
 directory. This convention mirrors Go's `_test.go` naming — benchmark
 files use the `_bench.rg` suffix to distinguish them from regular
-scripts (`.rg`) and tests (`.rt`).
+scripts (`.rg`) and tests (`_test.rg`).
 
 ```bash
 # Create bench/arithmetic_bench.rg

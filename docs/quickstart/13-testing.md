@@ -1,11 +1,11 @@
 # Testing with RATS
 
 Rugo includes **RATS** (Rugo Automated Testing System), a built-in test
-framework inspired by BATS. Tests live in `.rt` files and use the `test` module.
+framework inspired by BATS. Tests live in `_test.rg` files and use the `test` module.
 
 ## Writing Your First Test
 
-Create a file called `test/greet.rt`:
+Create a file called `test/greet_test.rg`:
 
 ```ruby
 import "test"
@@ -20,8 +20,8 @@ end
 ## Running Tests
 
 ```bash
-rugo rats                       # run all .rt files in test/
-rugo rats test/greet.rt         # run a specific file
+rugo rats                       # run all _test.rg files in test/
+rugo rats test/greet_test.rg         # run a specific file
 rugo rats --filter "hello"      # filter by test name
 ```
 

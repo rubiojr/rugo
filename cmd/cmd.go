@@ -67,8 +67,8 @@ func Execute(version string) {
 			},
 			{
 				Name:      "rats",
-				Usage:     "Run .rt test files",
-				ArgsUsage: "[file.rt | directory]",
+				Usage:     "Run _test.rg test files",
+				ArgsUsage: "[file_test.rg | directory]",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "filter",
@@ -230,7 +230,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		os.Setenv("RUGO_FORCE_COLOR", "1")
 	}
 
-	// Collect .rt files
+	// Collect _test.rg files
 	var files []string
 	for _, target := range targets {
 		info, err := os.Stat(target)
@@ -243,7 +243,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 				return fmt.Errorf("reading directory %s: %w", target, err)
 			}
 			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(e.Name(), ".rt") {
+				if !e.IsDir() && strings.HasSuffix(e.Name(), "_test.rg") {
 					files = append(files, filepath.Join(target, e.Name()))
 				}
 			}
@@ -253,7 +253,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if len(files) == 0 {
-		return fmt.Errorf("no .rt test files found")
+		return fmt.Errorf("no _test.rg test files found")
 	}
 
 	// Single file: run directly (no subprocess overhead)
