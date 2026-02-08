@@ -137,8 +137,8 @@ func TestGenArithmetic(t *testing.T) {
 
 func TestGenComparison(t *testing.T) {
 	src := compileToGo(t, "x = 1 == 2")
-	if !strings.Contains(src, `rugo_compare("=="`) {
-		t.Errorf("expected rugo_compare call:\n%s", src)
+	if !strings.Contains(src, `rugo_eq(`) {
+		t.Errorf("expected rugo_eq call:\n%s", src)
 	}
 }
 
@@ -312,7 +312,12 @@ func TestRuntimeFunctions(t *testing.T) {
 		"func rugo_mod(",
 		"func rugo_negate(",
 		"func rugo_not(",
-		"func rugo_compare(",
+		"func rugo_eq(",
+		"func rugo_neq(",
+		"func rugo_lt(",
+		"func rugo_gt(",
+		"func rugo_le(",
+		"func rugo_ge(",
 		"func rugo_puts(",
 		"func rugo_print(",
 		"func rugo_shell(",

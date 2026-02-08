@@ -122,48 +122,54 @@ func rugo_not(a interface{}) interface{} {
 	return !rugo_to_bool(a)
 }
 
-func rugo_compare(op string, a, b interface{}) interface{} {
-	switch op {
-	case "==":
-		// Numeric coercion: 1 == 1.0 should be true
-		if rugo_is_numeric(a) && rugo_is_numeric(b) {
-			return rugo_to_float(a) == rugo_to_float(b)
-		}
-		return a == b
-	case "!=":
-		if rugo_is_numeric(a) && rugo_is_numeric(b) {
-			return rugo_to_float(a) != rugo_to_float(b)
-		}
-		return a != b
+func rugo_eq(a, b interface{}) interface{} {
+	if rugo_is_numeric(a) && rugo_is_numeric(b) {
+		return rugo_to_float(a) == rugo_to_float(b)
 	}
-	// String comparisons (lexicographic)
+	return a == b
+}
+
+func rugo_neq(a, b interface{}) interface{} {
+	if rugo_is_numeric(a) && rugo_is_numeric(b) {
+		return rugo_to_float(a) != rugo_to_float(b)
+	}
+	return a != b
+}
+
+func rugo_lt(a, b interface{}) interface{} {
 	if as, ok := a.(string); ok {
 		if bs, ok := b.(string); ok {
-			switch op {
-			case "<":
-				return as < bs
-			case ">":
-				return as > bs
-			case "<=":
-				return as <= bs
-			case ">=":
-				return as >= bs
-			}
+			return as < bs
 		}
 	}
-	// Numeric comparisons
-	af, bf := rugo_to_float(a), rugo_to_float(b)
-	switch op {
-	case "<":
-		return af < bf
-	case ">":
-		return af > bf
-	case "<=":
-		return af <= bf
-	case ">=":
-		return af >= bf
+	return rugo_to_float(a) < rugo_to_float(b)
+}
+
+func rugo_gt(a, b interface{}) interface{} {
+	if as, ok := a.(string); ok {
+		if bs, ok := b.(string); ok {
+			return as > bs
+		}
 	}
-	panic("unknown comparison operator: " + op)
+	return rugo_to_float(a) > rugo_to_float(b)
+}
+
+func rugo_le(a, b interface{}) interface{} {
+	if as, ok := a.(string); ok {
+		if bs, ok := b.(string); ok {
+			return as <= bs
+		}
+	}
+	return rugo_to_float(a) <= rugo_to_float(b)
+}
+
+func rugo_ge(a, b interface{}) interface{} {
+	if as, ok := a.(string); ok {
+		if bs, ok := b.(string); ok {
+			return as >= bs
+		}
+	}
+	return rugo_to_float(a) >= rugo_to_float(b)
 }
 
 func rugo_is_numeric(v interface{}) bool {
@@ -175,6 +181,10 @@ func rugo_is_numeric(v interface{}) bool {
 }
 
 func rugo_puts(args ...interface{}) interface{} {
+	if len(args) == 1 {
+		fmt.Println(rugo_to_string(args[0]))
+		return nil
+	}
 	parts := make([]string, len(args))
 	for i, a := range args {
 		parts[i] = rugo_to_string(a)
@@ -184,6 +194,10 @@ func rugo_puts(args ...interface{}) interface{} {
 }
 
 func rugo_print(args ...interface{}) interface{} {
+	if len(args) == 1 {
+		fmt.Print(rugo_to_string(args[0]))
+		return nil
+	}
 	parts := make([]string, len(args))
 	for i, a := range args {
 		parts[i] = rugo_to_string(a)
@@ -297,6 +311,17 @@ func rugo_array_index(arr []interface{}, idx int) interface{} {
 		idx += len(arr)
 	}
 	return arr[idx]
+}
+
+func rugo_index(obj, idx interface{}) interface{} {
+	switch o := obj.(type) {
+	case []interface{}:
+		return rugo_array_index(o, rugo_to_int(idx))
+	case map[interface{}]interface{}:
+		return o[idx]
+	default:
+		panic(fmt.Sprintf("cannot index %T", o))
+	}
 }
 
 func rugo_slice(obj, start, length interface{}) interface{} {

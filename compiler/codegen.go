@@ -673,7 +673,7 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 		}
 		return g.stringLiteral(ex.Value)
 	case *IdentExpr:
-		return fmt.Sprintf("interface{}(%s)", ex.Name), nil
+		return ex.Name, nil
 	case *DotExpr:
 		return g.dotExpr(ex)
 	case *BinaryExpr:
@@ -796,8 +796,18 @@ func (g *codeGen) binaryExpr(e *BinaryExpr) (string, error) {
 		return fmt.Sprintf("rugo_div(%s, %s)", left, right), nil
 	case "%":
 		return fmt.Sprintf("rugo_mod(%s, %s)", left, right), nil
-	case "==", "!=", "<", ">", "<=", ">=":
-		return fmt.Sprintf("rugo_compare(%q, %s, %s)", e.Op, left, right), nil
+	case "==":
+		return fmt.Sprintf("rugo_eq(%s, %s)", left, right), nil
+	case "!=":
+		return fmt.Sprintf("rugo_neq(%s, %s)", left, right), nil
+	case "<":
+		return fmt.Sprintf("rugo_lt(%s, %s)", left, right), nil
+	case ">":
+		return fmt.Sprintf("rugo_gt(%s, %s)", left, right), nil
+	case "<=":
+		return fmt.Sprintf("rugo_le(%s, %s)", left, right), nil
+	case ">=":
+		return fmt.Sprintf("rugo_ge(%s, %s)", left, right), nil
 	case "&&":
 		return fmt.Sprintf("interface{}(rugo_to_bool(%s) && rugo_to_bool(%s))", left, right), nil
 	case "||":
@@ -958,7 +968,7 @@ func (g *codeGen) indexExpr(e *IndexExpr) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("func() interface{} { switch o := (%s).(type) { case []interface{}: return rugo_array_index(o, rugo_to_int(%s)); case map[interface{}]interface{}: return o[%s]; default: panic(fmt.Sprintf(\"cannot index %%T\", o)) } }()", obj, idx, idx), nil
+	return fmt.Sprintf("rugo_index(%s, %s)", obj, idx), nil
 }
 
 func (g *codeGen) sliceExpr(e *SliceExpr) (string, error) {

@@ -104,7 +104,7 @@ func (c *Compiler) Run(filename string, extraArgs ...string) error {
 
 	// Build to a binary first, then run it
 	binFile := filepath.Join(tmpDir, "rugo_program")
-	buildCmd := exec.Command("go", "build", "-mod=mod", "-o", binFile, ".")
+	buildCmd := exec.Command("go", "build", "-mod=mod", "-ldflags=-s -w", "-o", binFile, ".")
 	buildCmd.Dir = tmpDir
 	buildCmd.Env = appendGoNoSumCheck(os.Environ())
 	buildCmd.Stderr = os.Stderr
@@ -161,7 +161,7 @@ func (c *Compiler) Build(filename, output string) error {
 		return fmt.Errorf("resolving output path: %w", err)
 	}
 
-	cmd := exec.Command("go", "build", "-mod=mod", "-o", absOutput, ".")
+	cmd := exec.Command("go", "build", "-mod=mod", "-ldflags=-s -w", "-o", absOutput, ".")
 	cmd.Dir = tmpDir
 	cmd.Env = appendGoNoSumCheck(os.Environ())
 	cmd.Stdout = os.Stdout

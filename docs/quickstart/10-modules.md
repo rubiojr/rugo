@@ -1,5 +1,7 @@
 # Modules
 
+Rugo has two module systems: **stdlib modules** are built-in Go modules loaded with `import`, while **user modules** are `.rg` files you write and load with `require`. Both are accessed as `module.function()`.
+
 ## Stdlib Modules
 
 Import with `import`, call as `module.function`:
