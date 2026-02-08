@@ -5,17 +5,30 @@ package remod
 import (
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 // --- re module ---
 
 type Re struct{}
 
+// rePatternErr formats a regex pattern error for human-friendly output.
+func rePatternErr(funcName, pattern string, err error) string {
+	msg := err.Error()
+	// Strip Go's "error parsing regexp: " prefix
+	msg = strings.TrimPrefix(msg, "error parsing regexp: ")
+	// Strip the backtick-quoted pattern duplicate
+	if idx := strings.Index(msg, ": `"); idx >= 0 {
+		msg = msg[:idx]
+	}
+	return fmt.Sprintf("%s: invalid pattern %q — %s", funcName, pattern, msg)
+}
+
 // Test returns true if the pattern matches the string.
 func (*Re) Test(pattern, s string) interface{} {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		panic(fmt.Sprintf("re.test: invalid pattern %q: %v", pattern, err))
+		panic(rePatternErr("re.test", pattern, err))
 	}
 	return re.MatchString(s)
 }
@@ -24,7 +37,7 @@ func (*Re) Test(pattern, s string) interface{} {
 func (*Re) Find(pattern, s string) interface{} {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		panic(fmt.Sprintf("re.find: invalid pattern %q: %v", pattern, err))
+		panic(rePatternErr("re.find", pattern, err))
 	}
 	match := re.FindString(s)
 	if match == "" {
@@ -37,7 +50,7 @@ func (*Re) Find(pattern, s string) interface{} {
 func (*Re) FindAll(pattern, s string) interface{} {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		panic(fmt.Sprintf("re.find_all: invalid pattern %q: %v", pattern, err))
+		panic(rePatternErr("re.find_all", pattern, err))
 	}
 	matches := re.FindAllString(s, -1)
 	result := make([]interface{}, len(matches))
@@ -51,7 +64,7 @@ func (*Re) FindAll(pattern, s string) interface{} {
 func (*Re) Replace(pattern, s, repl string) interface{} {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		panic(fmt.Sprintf("re.replace: invalid pattern %q: %v", pattern, err))
+		panic(rePatternErr("re.replace", pattern, err))
 	}
 	loc := re.FindStringIndex(s)
 	if loc == nil {
@@ -64,7 +77,7 @@ func (*Re) Replace(pattern, s, repl string) interface{} {
 func (*Re) ReplaceAll(pattern, s, repl string) interface{} {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		panic(fmt.Sprintf("re.replace_all: invalid pattern %q: %v", pattern, err))
+		panic(rePatternErr("re.replace_all", pattern, err))
 	}
 	return re.ReplaceAllString(s, repl)
 }
@@ -73,7 +86,7 @@ func (*Re) ReplaceAll(pattern, s, repl string) interface{} {
 func (*Re) Split(pattern, s string) interface{} {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		panic(fmt.Sprintf("re.split: invalid pattern %q: %v", pattern, err))
+		panic(rePatternErr("re.split", pattern, err))
 	}
 	parts := re.Split(s, -1)
 	result := make([]interface{}, len(parts))
@@ -88,7 +101,7 @@ func (*Re) Split(pattern, s string) interface{} {
 func (*Re) Match(pattern, s string) interface{} {
 	re, err := regexp.Compile(pattern)
 	if err != nil {
-		panic(fmt.Sprintf("re.match: invalid pattern %q: %v", pattern, err))
+		panic(rePatternErr("re.match", pattern, err))
 	}
 	submatch := re.FindStringSubmatch(s)
 	if submatch == nil {

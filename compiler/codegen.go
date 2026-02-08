@@ -26,7 +26,7 @@ type codeGen struct {
 	indent          int
 	declared        map[string]bool // track declared variables per scope
 	scopes          []map[string]bool
-	constScopes     []map[string]bool // track constant bindings (uppercase names)
+	constScopes     []map[string]int  // track constant bindings: name → line of first assignment
 	inFunc          bool
 	imports         map[string]bool   // Rugo stdlib modules imported (via use)
 	goImports       map[string]string // Go bridge packages: path → alias
@@ -45,7 +45,7 @@ func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
 	g := &codeGen{
 		declared:    make(map[string]bool),
 		scopes:      []map[string]bool{make(map[string]bool)},
-		constScopes: []map[string]bool{make(map[string]bool)},
+		constScopes: []map[string]int{make(map[string]int)},
 		imports:     make(map[string]bool),
 		goImports:   make(map[string]string),
 		namespaces:  make(map[string]bool),
@@ -64,9 +64,20 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	var topStmts []Statement
 	var setupFunc *FuncDef
 	var teardownFunc *FuncDef
+	funcLines := make(map[string]int) // track first definition line per function
 	for _, s := range prog.Statements {
 		switch st := s.(type) {
 		case *FuncDef:
+			// Detect duplicate function definitions
+			key := st.Name
+			if st.Namespace != "" {
+				key = st.Namespace + "." + st.Name
+			}
+			if prevLine, exists := funcLines[key]; exists {
+				return "", fmt.Errorf("%s:%d: function %q already defined at line %d", g.sourceFile, st.SourceLine, st.Name, prevLine)
+			}
+			funcLines[key] = st.SourceLine
+
 			if st.Name == "setup" && st.Namespace == "" {
 				setupFunc = st
 			} else if st.Name == "teardown" && st.Namespace == "" {
@@ -500,21 +511,22 @@ func (g *codeGen) emitLineDirective(line int) {
 
 func (g *codeGen) writeStmt(s Statement) error {
 	g.emitLineDirective(s.StmtLine())
+	var err error
 	switch st := s.(type) {
 	case *AssignStmt:
-		return g.writeAssign(st)
+		err = g.writeAssign(st)
 	case *IndexAssignStmt:
-		return g.writeIndexAssign(st)
+		err = g.writeIndexAssign(st)
 	case *DotAssignStmt:
-		return g.writeDotAssign(st)
+		err = g.writeDotAssign(st)
 	case *ExprStmt:
-		return g.writeExprStmt(st)
+		err = g.writeExprStmt(st)
 	case *IfStmt:
-		return g.writeIf(st)
+		err = g.writeIf(st)
 	case *WhileStmt:
-		return g.writeWhile(st)
+		err = g.writeWhile(st)
 	case *ForStmt:
-		return g.writeFor(st)
+		err = g.writeFor(st)
 	case *BreakStmt:
 		g.writeln("break")
 		return nil
@@ -522,25 +534,42 @@ func (g *codeGen) writeStmt(s Statement) error {
 		g.writeln("continue")
 		return nil
 	case *ReturnStmt:
-		return g.writeReturn(st)
+		err = g.writeReturn(st)
 	case *FuncDef:
-		// Nested functions not supported at codegen level (hoisted earlier)
-		return fmt.Errorf("nested function definitions not supported")
+		err = fmt.Errorf("nested function definitions not supported")
 	case *RequireStmt:
-		// Handled at compiler level
 		return nil
 	case *ImportStmt:
-		// Handled during generate phase
 		return nil
 	default:
-		return fmt.Errorf("unknown statement type: %T", s)
+		err = fmt.Errorf("unknown statement type: %T", s)
 	}
+	if err != nil {
+		return g.stmtError(s, err)
+	}
+	return nil
+}
+
+// stmtError wraps a codegen error with file:line context from the statement.
+func (g *codeGen) stmtError(s Statement, err error) error {
+	line := s.StmtLine()
+	msg := err.Error()
+	// Strip existing "line N: " prefix if present
+	if strings.HasPrefix(msg, "line ") {
+		if idx := strings.Index(msg, ": "); idx != -1 {
+			msg = msg[idx+2:]
+		}
+	}
+	if line > 0 && g.sourceFile != "" {
+		return fmt.Errorf("%s:%d: %s", g.sourceFile, line, msg)
+	}
+	return err
 }
 
 func (g *codeGen) writeAssign(a *AssignStmt) error {
 	// Uppercase names are constants — reject reassignment
-	if g.isConstant(a.Target) {
-		return fmt.Errorf("line %d: cannot reassign constant %s", a.SourceLine, a.Target)
+	if origLine, ok := g.constantLine(a.Target); ok {
+		return fmt.Errorf("cannot reassign constant %s (first assigned at line %d)", a.Target, origLine)
 	}
 
 	expr, err := g.exprString(a.Value)
@@ -553,7 +582,7 @@ func (g *codeGen) writeAssign(a *AssignStmt) error {
 		g.writef("%s := %s\n", a.Target, expr)
 		g.declareVar(a.Target)
 		if len(a.Target) > 0 && a.Target[0] >= 'A' && a.Target[0] <= 'Z' {
-			g.declareConst(a.Target)
+			g.declareConst(a.Target, a.SourceLine)
 		}
 	}
 	// Suppress "declared but not used" by referencing with _
@@ -957,9 +986,9 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 			if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
 				if sig, ok := gobridge.Lookup(pkg, dot.Field); ok {
 					if !sig.Variadic && len(e.Args) != len(sig.Params) {
-						return "", fmt.Errorf("wrong number of arguments for %s.%s (%d for %d)", nsName, dot.Field, len(e.Args), len(sig.Params))
+						return "", argCountError(nsName+"."+dot.Field, len(e.Args), len(sig.Params))
 					}
-					return g.generateGoBridgeCall(pkg, sig, args), nil
+					return g.generateGoBridgeCall(pkg, sig, args, nsName+"."+dot.Field), nil
 				}
 				return "", fmt.Errorf("unknown function %s.%s in Go bridge package %q", nsName, dot.Field, pkg)
 			}
@@ -969,7 +998,7 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 				nsKey := nsName + "." + dot.Field
 				if expected, ok := g.funcDefs[nsKey]; ok {
 					if len(e.Args) != expected {
-						return "", fmt.Errorf("wrong number of arguments for %s.%s (%d for %d)", nsName, dot.Field, len(e.Args), expected)
+						return "", argCountError(nsName+"."+dot.Field, len(e.Args), expected)
 					}
 				}
 				return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, argStr), nil
@@ -1027,7 +1056,7 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 			// User-defined function — validate argument count
 			if expected, ok := g.funcDefs[ident.Name]; ok {
 				if len(e.Args) != expected {
-					return "", fmt.Errorf("wrong number of arguments for %s (%d for %d)", ident.Name, len(e.Args), expected)
+					return "", argCountError(ident.Name, len(e.Args), expected)
 				}
 			}
 			return fmt.Sprintf("rugofn_%s(%s)", ident.Name, argStr), nil
@@ -1293,7 +1322,7 @@ func (g *codeGen) parallelExpr(e *ParallelExpr) (string, error) {
 // Scope management
 func (g *codeGen) pushScope() {
 	g.scopes = append(g.scopes, make(map[string]bool))
-	g.constScopes = append(g.constScopes, make(map[string]bool))
+	g.constScopes = append(g.constScopes, make(map[string]int))
 }
 
 func (g *codeGen) popScope() {
@@ -1314,17 +1343,17 @@ func (g *codeGen) isDeclared(name string) bool {
 	return false
 }
 
-func (g *codeGen) declareConst(name string) {
-	g.constScopes[len(g.constScopes)-1][name] = true
+func (g *codeGen) declareConst(name string, line int) {
+	g.constScopes[len(g.constScopes)-1][name] = line
 }
 
-func (g *codeGen) isConstant(name string) bool {
+func (g *codeGen) constantLine(name string) (int, bool) {
 	for i := len(g.constScopes) - 1; i >= 0; i-- {
-		if g.constScopes[i][name] {
-			return true
+		if line, ok := g.constScopes[i][name]; ok {
+			return line, true
 		}
 	}
-	return false
+	return 0, false
 }
 
 // Output helpers
@@ -1397,7 +1426,8 @@ func sortedGoBridgeImports(goImports map[string]string) []string {
 }
 
 // generateGoBridgeCall generates a Go expression for a direct Go bridge call.
-func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argExprs []string) string {
+// rugoName is the user-visible name (e.g. "strconv.atoi") for error messages.
+func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argExprs []string, rugoName string) string {
 	// Determine the Go package prefix to use in generated code
 	pkgBase := gobridge.DefaultNS(pkg)
 	if alias, ok := g.goImports[pkg]; ok && alias != "" {
@@ -1444,16 +1474,20 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoInt))
 	}
 
+	// Error panic format with Rugo function name
+	// Use rugo_bridge_err to strip Go function prefix from error messages
+	panicFmt := fmt.Sprintf(`panic(rugo_bridge_err("%s", _err))`, rugoName)
+
 	// Handle os.ReadFile special: returns []byte, convert to string
 	if pkg == "os" && sig.GoName == "ReadFile" {
-		return fmt.Sprintf("func() interface{} { _v, _err := %s.ReadFile(%s); if _err != nil { panic(_err.Error()) }; return interface{}(string(_v)) }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString))
+		return fmt.Sprintf("func() interface{} { _v, _err := %s.ReadFile(%s); if _err != nil { %s }; return interface{}(string(_v)) }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), panicFmt)
 	}
 
 	// Handle os.MkdirAll special: perm as os.FileMode
 	if pkg == "os" && sig.GoName == "MkdirAll" {
-		return fmt.Sprintf("func() interface{} { _err := %s.MkdirAll(%s, os.FileMode(%s)); if _err != nil { panic(_err.Error()) }; return nil }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt))
+		return fmt.Sprintf("func() interface{} { _err := %s.MkdirAll(%s, os.FileMode(%s)); if _err != nil { %s }; return nil }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt), panicFmt)
 	}
 
 	// Handle strconv.FormatInt (needs int64 first arg)
@@ -1464,8 +1498,8 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 
 	// Handle strconv.ParseInt (returns int64, convert to int)
 	if pkg == "strconv" && sig.GoName == "ParseInt" {
-		return fmt.Sprintf("func() interface{} { _v, _err := %s.ParseInt(%s, %s, %s); if _err != nil { panic(_err.Error()) }; return interface{}(int(_v)) }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt), gobridge.TypeConvToGo(argExprs[2], gobridge.GoInt))
+		return fmt.Sprintf("func() interface{} { _v, _err := %s.ParseInt(%s, %s, %s); if _err != nil { %s }; return interface{}(int(_v)) }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt), gobridge.TypeConvToGo(argExprs[2], gobridge.GoInt), panicFmt)
 	}
 
 	// Handle sort.Strings/Ints — mutates in place, special bridge
@@ -1496,15 +1530,15 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 	if len(sig.Returns) == 1 {
 		// Single error return: panic on error, return nil
 		if sig.Returns[0] == gobridge.GoError {
-			return fmt.Sprintf("func() interface{} { if _err := %s; _err != nil { panic(_err.Error()) }; return nil }()", call)
+			return fmt.Sprintf("func() interface{} { if _err := %s; _err != nil { %s }; return nil }()", call, panicFmt)
 		}
 		return gobridge.TypeWrapReturn(call, sig.Returns[0])
 	}
 
 	// (T, error): panic on error
 	if len(sig.Returns) == 2 && sig.Returns[1] == gobridge.GoError {
-		return fmt.Sprintf("func() interface{} { _v, _err := %s; if _err != nil { panic(_err.Error()) }; return %s }()",
-			call, gobridge.TypeWrapReturn("_v", sig.Returns[0]))
+		return fmt.Sprintf("func() interface{} { _v, _err := %s; if _err != nil { %s }; return %s }()",
+			call, panicFmt, gobridge.TypeWrapReturn("_v", sig.Returns[0]))
 	}
 
 	// (T, bool): return nil if false
@@ -1579,4 +1613,19 @@ func rugo_go_from_int_slice(v []int) interface{} {
 
 `)
 	}
+}
+
+// argCountError produces a human-friendly argument count mismatch error.
+func argCountError(name string, got, expected int) error {
+	argWord := "arguments"
+	if expected == 1 {
+		argWord = "argument"
+	}
+	gotDesc := fmt.Sprintf("%d were", got)
+	if got == 0 {
+		gotDesc = "none were"
+	} else if got == 1 {
+		gotDesc = "1 was"
+	}
+	return fmt.Errorf("%s() takes %d %s but %s given", name, expected, argWord, gotDesc)
 }

@@ -108,7 +108,7 @@ func Execute(version string) {
 	}
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		fmt.Fprintln(os.Stderr, formatError(err.Error()))
 		os.Exit(1)
 	}
 }
@@ -274,7 +274,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		fmt.Fprintf(os.Stderr, "=== %s ===\n", files[0])
 		comp := &compiler.Compiler{TestMode: true}
 		if err := comp.Run(files[0]); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			fmt.Fprintln(os.Stderr, formatError(err.Error()))
 			os.Exit(1)
 		}
 		return nil
@@ -404,4 +404,60 @@ func fileHasRatsBlocks(path string) bool {
 		}
 	}
 	return false
+}
+
+// formatError colorizes an error message for terminal output.
+// Respects the NO_COLOR environment variable.
+func formatError(msg string) string {
+	if os.Getenv("NO_COLOR") != "" || (os.Getenv("RUGO_FORCE_COLOR") == "" && !term.IsTerminal(int(os.Stderr.Fd()))) {
+		return "error: " + msg
+	}
+
+	const (
+		red   = "\033[31m"
+		bold  = "\033[1m"
+		dim   = "\033[2m"
+		reset = "\033[0m"
+	)
+
+	// Colorize the "error:" prefix
+	result := red + bold + "error" + reset + ": "
+
+	// Split into main error line and optional snippet
+	parts := strings.SplitN(msg, "\n", 2)
+	mainLine := parts[0]
+
+	// Bold the file:line:col prefix if present (e.g., "test.rg:2:3: ...")
+	if idx := strings.Index(mainLine, ": "); idx > 0 {
+		prefix := mainLine[:idx]
+		// Check if it looks like a file:line reference
+		if strings.Contains(prefix, ":") && !strings.Contains(prefix, " ") {
+			result += bold + prefix + reset + ": " + mainLine[idx+2:]
+		} else {
+			result += mainLine
+		}
+	} else {
+		result += mainLine
+	}
+
+	// Colorize source snippet if present
+	if len(parts) > 1 {
+		snippet := parts[1]
+		var coloredLines []string
+		for _, line := range strings.Split(snippet, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if strings.HasSuffix(trimmed, "^") {
+				// Caret line — show in red
+				coloredLines = append(coloredLines, red+line+reset)
+			} else if strings.HasPrefix(trimmed, "|") || (len(trimmed) > 0 && trimmed[len(trimmed)-1] == '|') {
+				// Gutter line
+				coloredLines = append(coloredLines, dim+line+reset)
+			} else {
+				coloredLines = append(coloredLines, line)
+			}
+		}
+		result += "\n" + strings.Join(coloredLines, "\n")
+	}
+
+	return result
 }

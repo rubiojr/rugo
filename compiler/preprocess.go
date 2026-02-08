@@ -37,10 +37,10 @@ func stripComments(src string) (string, error) {
 			// Detect unterminated string: if we're inside a string at a newline,
 			// it's unclosed (Rugo doesn't support multiline strings).
 			if inDouble {
-				return "", fmt.Errorf("line %d: unterminated string literal (opened on line %d)", lineNum, stringStartLine)
+				return "", fmt.Errorf("%d: unterminated string literal (opened at line %d)", lineNum, stringStartLine)
 			}
 			if inSingle {
-				return "", fmt.Errorf("line %d: unterminated string literal (opened on line %d)", lineNum, stringStartLine)
+				return "", fmt.Errorf("%d: unterminated string literal (opened at line %d)", lineNum, stringStartLine)
 			}
 			lineNum++
 		}
@@ -83,7 +83,7 @@ func stripComments(src string) (string, error) {
 		sb.WriteByte(ch)
 	}
 	if inDouble || inSingle {
-		return "", fmt.Errorf("line %d: unterminated string literal (opened on line %d)", lineNum, stringStartLine)
+		return "", fmt.Errorf("%d: unterminated string literal (opened at line %d)", lineNum, stringStartLine)
 	}
 	return sb.String(), nil
 }
@@ -929,7 +929,7 @@ func expandHeredocs(src string) (string, error) {
 			i++
 		}
 		if !found {
-			return "", fmt.Errorf("line %d: unterminated heredoc (missing closing %s)", openerLineNum, h.delimiter)
+			return "", fmt.Errorf("%d: unterminated heredoc — missing closing %s (opened at line %d)", openerLineNum, h.delimiter, openerLineNum)
 		}
 
 		replacement := buildHeredocReplacement(h, bodyLines)
@@ -1250,7 +1250,7 @@ func expandBackticks(src string) (string, error) {
 				j++
 			}
 			if j >= len(src) {
-				return "", fmt.Errorf("line %d: unterminated backtick expression", btLine)
+				return "", fmt.Errorf("%d: unterminated backtick expression (opened at line %d)", btLine, btLine)
 			}
 			cmd := src[i+1 : j]
 			sb.WriteString(`__capture__("` + shellEscape(cmd) + `")`)

@@ -4,26 +4,25 @@ use "test"
 rats "too many arguments"
   result = test.run("rugo run rats/fixtures/err_too_many_args.rg")
   test.assert_eq(result["status"], 1)
-  test.assert_contains(result["output"], "wrong number of arguments for greet (2 for 1)")
+  test.assert_contains(result["output"], "greet() takes 1 argument but 2 were given")
 end
 
 rats "too few arguments"
   result = test.run("rugo run rats/fixtures/err_too_few_args.rg")
   test.assert_eq(result["status"], 1)
-  test.assert_contains(result["output"], "wrong number of arguments for add (1 for 2)")
+  test.assert_contains(result["output"], "add() takes 2 arguments but 1 was given")
 end
 
 rats "zero arguments when one expected"
   result = test.run("rugo run rats/fixtures/err_zero_args.rg")
   test.assert_eq(result["status"], 1)
-  test.assert_contains(result["output"], "wrong number of arguments for greet (0 for 1)")
+  test.assert_contains(result["output"], "greet() takes 1 argument but none were given")
 end
 
 rats "error message does not expose rugofn_ prefix"
   result = test.run("rugo run rats/fixtures/err_too_many_args.rg")
   test.assert_eq(result["status"], 1)
-  # The error should mention the clean name, not the internal prefix
-  test.assert_contains(result["output"], "wrong number of arguments for greet")
+  test.assert_contains(result["output"], "greet()")
 end
 
 rats "correct argument count works"

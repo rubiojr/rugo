@@ -9,6 +9,28 @@ import (
 
 type Conv struct{}
 
+// rugoTypeName returns a human-friendly Rugo type name for a value.
+func rugoTypeName(val interface{}) string {
+	switch val.(type) {
+	case int:
+		return "integer"
+	case float64:
+		return "float"
+	case string:
+		return "string"
+	case bool:
+		return "boolean"
+	case nil:
+		return "nil"
+	case []interface{}:
+		return "array"
+	case map[string]interface{}:
+		return "hash"
+	default:
+		return fmt.Sprintf("%T", val)
+	}
+}
+
 func (*Conv) ToI(val interface{}) interface{} {
 	switch v := val.(type) {
 	case int:
@@ -18,7 +40,7 @@ func (*Conv) ToI(val interface{}) interface{} {
 	case string:
 		n, err := strconv.Atoi(v)
 		if err != nil {
-			panic(fmt.Sprintf("conv.to_i: cannot convert %q to int", v))
+			panic(fmt.Sprintf("conv.to_i: cannot convert %q to integer", v))
 		}
 		return n
 	case bool:
@@ -27,7 +49,7 @@ func (*Conv) ToI(val interface{}) interface{} {
 		}
 		return 0
 	default:
-		panic(fmt.Sprintf("conv.to_i: cannot convert %T to int", val))
+		panic(fmt.Sprintf("conv.to_i: cannot convert %s to integer", rugoTypeName(val)))
 	}
 }
 
@@ -44,7 +66,7 @@ func (*Conv) ToF(val interface{}) interface{} {
 		}
 		return f
 	default:
-		panic(fmt.Sprintf("conv.to_f: cannot convert %T to float", val))
+		panic(fmt.Sprintf("conv.to_f: cannot convert %s to float", rugoTypeName(val)))
 	}
 }
 

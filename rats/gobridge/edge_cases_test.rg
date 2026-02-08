@@ -34,7 +34,7 @@ rats "unknown Go bridge package errors"
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "unsupported Go bridge package")
+  test.assert_contains(result["output"], "unknown package")
 end
 
 rats "unknown function in Go bridge errors"
@@ -56,7 +56,8 @@ rats "wrong arg count for Go bridge errors"
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "wrong number of arguments")
+  test.assert_contains(result["output"], "takes")
+  test.assert_contains(result["output"], "given")
 end
 
 rats "multiple Go bridge packages in one script"

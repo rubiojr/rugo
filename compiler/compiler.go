@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -10,6 +12,7 @@ import (
 	"github.com/rubiojr/rugo/compiler/gobridge"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/parser"
+	"modernc.org/scanner"
 )
 
 // Compiler orchestrates the full compilation pipeline.
@@ -56,7 +59,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 	c.BaseDir = filepath.Dir(absPath)
 
-	prog, err := c.parseFile(absPath)
+	prog, err := c.parseFile(absPath, displayPath(absPath))
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +73,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	// Generate Go source
 	goSrc, err := generate(resolved, filename, c.TestMode)
 	if err != nil {
-		return nil, fmt.Errorf("code generation: %w", err)
+		return nil, err
 	}
 
 	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename}, nil
@@ -126,9 +129,10 @@ func (c *Compiler) Run(filename string, extraArgs ...string) error {
 	buildCmd := exec.Command("go", "build", "-mod=mod", "-ldflags=-s -w", "-o", binFile, ".")
 	buildCmd.Dir = tmpDir
 	buildCmd.Env = appendGoNoSumCheck(os.Environ())
-	buildCmd.Stderr = os.Stderr
+	var buildStderr bytes.Buffer
+	buildCmd.Stderr = &buildStderr
 	if err := buildCmd.Run(); err != nil {
-		return fmt.Errorf("compilation failed: %w", err)
+		return translateBuildError(buildStderr.String(), result.SourceFile)
 	}
 
 	cmd := exec.Command(binFile, extraArgs...)
@@ -184,9 +188,10 @@ func (c *Compiler) Build(filename, output string) error {
 	cmd.Dir = tmpDir
 	cmd.Env = appendGoNoSumCheck(os.Environ())
 	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var cmdStderr bytes.Buffer
+	cmd.Stderr = &cmdStderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("go build failed: %w", err)
+		return translateBuildError(cmdStderr.String(), result.SourceFile)
 	}
 	return nil
 }
@@ -200,22 +205,22 @@ func (c *Compiler) Emit(filename string) (string, error) {
 	return result.GoSource, nil
 }
 
-func (c *Compiler) parseFile(filename string) (*Program, error) {
+func (c *Compiler) parseFile(filename, displayName string) (*Program, error) {
 	src, err := os.ReadFile(filename)
 	if err != nil {
-		return nil, fmt.Errorf("reading %s: %w", filename, err)
+		return nil, fmt.Errorf("reading %s: %w", displayName, err)
 	}
 
 	// Expand heredocs before comment stripping (bodies may contain #).
 	cleaned, err := expandHeredocs(string(src))
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", filename, err)
+		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
 
 	// Strip comments
 	cleaned, err = stripComments(cleaned)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", filename, err)
+		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
 
 	// Expand struct definitions and method definitions before other preprocessing
@@ -229,7 +234,7 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 	var lineMap []int
 	cleaned, lineMap, err = preprocess(cleaned, userFuncs)
 	if err != nil {
-		return nil, fmt.Errorf("preprocessing %s: %w", filename, err)
+		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
 
 	// Compose struct line map with preprocess line map for accurate source locations
@@ -249,22 +254,23 @@ func (c *Compiler) parseFile(filename string) (*Program, error) {
 	}
 
 	p := &parser.Parser{}
-	ast, err := p.Parse(filename, []byte(cleaned))
+	ast, err := p.Parse(displayName, []byte(cleaned))
 	if err != nil {
-		return nil, fmt.Errorf("parsing %s: %w", filename, err)
+		return nil, firstParseError(err)
 	}
 
 	prog, err := walkWithLineMap(p, ast, lineMap)
 	if err != nil {
-		return nil, fmt.Errorf("walking AST for %s: %w", filename, err)
+		return nil, fmt.Errorf("%s: internal compiler error: %w (please report this bug)", displayName, err)
 	}
 
+	prog.SourceFile = displayName
 	return prog, nil
 }
 
 func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 	// Validate that import/require only appear at top level
-	if err := validateTopLevelOnly(prog.Statements); err != nil {
+	if err := validateTopLevelOnly(prog.Statements, prog.SourceFile); err != nil {
 		return nil, err
 	}
 
@@ -274,7 +280,10 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		// Validate and deduplicate use statements (Rugo stdlib modules)
 		if use, ok := s.(*UseStmt); ok {
 			if !modules.IsModule(use.Module) {
-				return nil, fmt.Errorf("unknown stdlib module: %q (available: %s)", use.Module, strings.Join(modules.Names(), ", "))
+				if suggestion := closestMatch(use.Module, modules.Names()); suggestion != "" {
+					return nil, fmt.Errorf("%s:%d: unknown module %q — did you mean %q?", prog.SourceFile, s.StmtLine(), use.Module, suggestion)
+				}
+				return nil, fmt.Errorf("%s:%d: unknown module %q (available: %s)", prog.SourceFile, s.StmtLine(), use.Module, strings.Join(modules.Names(), ", "))
 			}
 			if !c.imports[use.Module] {
 				c.imports[use.Module] = true
@@ -287,11 +296,14 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		if imp, ok := s.(*ImportStmt); ok {
 			ns := goBridgeNamespace(imp)
 			if !gobridge.IsPackage(imp.Package) {
-				return nil, fmt.Errorf("unsupported Go bridge package: %q (available: %s)", imp.Package, strings.Join(gobridge.PackageNames(), ", "))
+				if suggestion := closestMatch(imp.Package, gobridge.PackageNames()); suggestion != "" {
+					return nil, fmt.Errorf("%s:%d: unknown package %q — did you mean %q?", prog.SourceFile, s.StmtLine(), imp.Package, suggestion)
+				}
+				return nil, fmt.Errorf("%s:%d: unknown package %q (available: %s)", prog.SourceFile, s.StmtLine(), imp.Package, strings.Join(gobridge.PackageNames(), ", "))
 			}
 			// Check for namespace conflicts with Rugo modules
 			if c.imports[ns] {
-				return nil, fmt.Errorf("import namespace %q conflicts with a use'd Rugo module; add an alias: import %q as <alias>", ns, imp.Package)
+				return nil, fmt.Errorf("%s:%d: import namespace %q conflicts with a use'd Rugo module; add an alias: import %q as <alias>", prog.SourceFile, s.StmtLine(), ns, imp.Package)
 			}
 			if _, exists := c.goImports[imp.Package]; !exists {
 				c.goImports[imp.Package] = imp.Alias
@@ -325,8 +337,11 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		}
 		c.loaded[absPath] = true
 
-		reqProg, err := c.parseFile(absPath)
+		reqProg, err := c.parseFile(absPath, displayPath(absPath))
 		if err != nil {
+			if errors.Is(err, os.ErrNotExist) {
+				return nil, fmt.Errorf("cannot find required file %q (looked for %s)", req.Path, displayPath(absPath))
+			}
 			return nil, fmt.Errorf("in require %q: %w", req.Path, err)
 		}
 
@@ -351,7 +366,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 
 		// Reject require namespace that conflicts with a use'd Rugo module
 		if c.imports[ns] {
-			return nil, fmt.Errorf("require namespace %q conflicts with use'd stdlib module", ns)
+			return nil, fmt.Errorf("%s:%d: require namespace %q conflicts with use'd stdlib module", prog.SourceFile, req.StmtLine(), ns)
 		}
 		// Reject require namespace that conflicts with an import'd Go bridge
 		for pkg, alias := range c.goImports {
@@ -360,7 +375,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				bridgeNS = gobridge.DefaultNS(pkg)
 			}
 			if ns == bridgeNS {
-				return nil, fmt.Errorf("require namespace %q conflicts with imported Go bridge package %q", ns, pkg)
+				return nil, fmt.Errorf("%s:%d: require namespace %q conflicts with imported Go bridge package %q", prog.SourceFile, req.StmtLine(), ns, pkg)
 			}
 		}
 
@@ -391,37 +406,423 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 	return &Program{Statements: resolved}, nil
 }
 
+// displayPath returns a relative path for use in error messages.
+// Falls back to the original path if relativization fails.
+func displayPath(absPath string) string {
+	if wd, err := os.Getwd(); err == nil {
+		if rel, err := filepath.Rel(wd, absPath); err == nil {
+			return rel
+		}
+	}
+	return absPath
+}
+
+// firstParseError extracts only the first error from a parser error list
+// and reformats it for human readability.
+func firstParseError(err error) error {
+	if el, ok := err.(scanner.ErrList); ok && len(el) > 0 {
+		msg := formatParseError(el[0])
+		if snippet := sourceSnippet(el[0].Pos.Filename, el[0].Pos.Line, el[0].Pos.Column); snippet != "" {
+			msg += "\n" + snippet
+		}
+		return fmt.Errorf("%s", msg)
+	}
+	return err
+}
+
+// sourceSnippet returns a Rust-style source code snippet for the given
+// file, line, and column, with a caret pointing to the error position.
+func sourceSnippet(filename string, line, col int) string {
+	if filename == "" || line <= 0 {
+		return ""
+	}
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	if line > len(lines) {
+		return ""
+	}
+
+	var sb strings.Builder
+	lineNumWidth := len(fmt.Sprintf("%d", line+1))
+	pad := strings.Repeat(" ", lineNumWidth)
+
+	sb.WriteString(fmt.Sprintf("\n%s |\n", pad))
+
+	// Show the error line
+	srcLine := lines[line-1]
+	sb.WriteString(fmt.Sprintf("%*d | %s\n", lineNumWidth, line, srcLine))
+
+	// Show caret pointer
+	if col > 0 {
+		caretPad := strings.Repeat(" ", col-1)
+		sb.WriteString(fmt.Sprintf("%s | %s^\n", pad, caretPad))
+	}
+
+	return sb.String()
+}
+
+// formatParseError rewrites a parser error message into a human-friendly format.
+// Input format: `file:line:col: "token" [type]: expected [Sym1 Sym2 ...]`
+// Output format: `file:line:col: unexpected <desc> — expected <friendly list>`
+func formatParseError(e scanner.ErrWithPosition) string {
+	msg := e.Err.Error()
+
+	// Extract the expected set from the message
+	// Format: `"token" [type]: expected [...]`
+	prefix := fmt.Sprintf("%s: ", e.Pos)
+
+	// Try to parse the structured error message
+	if idx := strings.Index(msg, "expected ["); idx >= 0 {
+		// Get the part before "expected" to extract token info
+		beforeExpected := msg[:idx]
+		expectedPart := msg[idx+len("expected ["):]
+		expectedPart = strings.TrimSuffix(expectedPart, "]")
+
+		// Parse token description from: "token" [type]:
+		tokenDesc := parseTokenDescription(beforeExpected)
+
+		// Special case: stray "end" with no matching block
+		if strings.Contains(beforeExpected, `"end"`) && isStatementExpectedSet(expectedPart) {
+			return prefix + "unexpected \"end\" — no matching block to close (def, if, while, for, etc.)"
+		}
+
+		// Special case: "or" without "try"
+		if strings.Contains(beforeExpected, `"or"`) {
+			return prefix + "unexpected \"or\" — did you mean \"try <expr> or <default>\"?"
+		}
+
+		// Special case: EOF with expected "end" — unclosed block
+		if strings.Contains(beforeExpected, "[EOF]") && isEndExpectedSet(expectedPart) {
+			blockType := detectUnclosedBlock(e.Pos.Filename)
+			if blockType != "" {
+				return prefix + "unexpected end of file — unclosed " + blockType
+			}
+			return prefix + "unexpected end of file — expected \"end\" (unclosed block)"
+		}
+
+		// Parse and simplify the expected set
+		friendly := simplifyExpectedSet(expectedPart)
+
+		return prefix + "unexpected " + tokenDesc + " — expected " + friendly
+	}
+
+	return prefix + msg
+}
+
+// parseTokenDescription extracts a human-friendly token description
+// from the parser error prefix like: `"puts" [ident]: `
+func parseTokenDescription(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimSuffix(s, ":")
+	s = strings.TrimSpace(s)
+
+	// Parse: "token" [type]
+	// Find the token value between quotes
+	tokenVal := ""
+	tokenType := ""
+	if len(s) > 0 && s[0] == '"' {
+		end := strings.Index(s[1:], "\"")
+		if end >= 0 {
+			tokenVal = s[1 : end+1]
+			rest := strings.TrimSpace(s[end+2:])
+			if len(rest) > 1 && rest[0] == '[' {
+				tokenType = strings.Trim(rest, "[]")
+			}
+		}
+	}
+
+	// Map token types to friendly names
+	switch tokenType {
+	case "EOF":
+		return "end of file"
+	case "ident":
+		if tokenVal != "" {
+			return "\"" + tokenVal + "\""
+		}
+		return "identifier"
+	case "str_lit":
+		if tokenVal != "" {
+			return "string " + tokenVal
+		}
+		return "string"
+	case "integer":
+		if tokenVal != "" {
+			return "number " + tokenVal
+		}
+		return "number"
+	case "float_lit":
+		if tokenVal != "" {
+			return "number " + tokenVal
+		}
+		return "decimal number"
+	case "raw_str_lit":
+		return "raw string"
+	default:
+		// For keyword tokens like ["end"], ["if"], etc. — show quoted
+		if tokenVal != "" {
+			return "\"" + tokenVal + "\""
+		}
+		if tokenType != "" {
+			return "\"" + tokenType + "\""
+		}
+		return "token"
+	}
+}
+
+// simplifyExpectedSet takes a space-separated list of parser symbols
+// and returns a human-friendly description.
+func simplifyExpectedSet(raw string) string {
+	parts := strings.Fields(raw)
+
+	var terminals []string
+	seen := make(map[string]bool)
+	for _, p := range parts {
+		// Skip non-terminal grammar symbols (PascalCase names)
+		if isGrammarSymbol(p) {
+			continue
+		}
+		// Clean up the terminal name
+		friendly := friendlyTerminal(p)
+		if friendly != "" && !seen[friendly] {
+			seen[friendly] = true
+			terminals = append(terminals, friendly)
+		}
+	}
+
+	if len(terminals) == 0 {
+		return "an expression or statement"
+	}
+	if len(terminals) == 1 {
+		return terminals[0]
+	}
+	if len(terminals) == 2 {
+		return terminals[0] + " or " + terminals[1]
+	}
+	if len(terminals) <= 5 {
+		return strings.Join(terminals[:len(terminals)-1], ", ") + ", or " + terminals[len(terminals)-1]
+	}
+	// Too many — summarize
+	return strings.Join(terminals[:4], ", ") + ", ..."
+}
+
+// isGrammarSymbol returns true for internal parser non-terminal names
+// like HashLit, ArrayLit, ParallelExpr, etc. These are PascalCase
+// identifiers that should not be shown to users.
+func isGrammarSymbol(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	// Quoted strings like "end", "if" are terminals — not grammar symbols
+	if s[0] == '"' || s[0] == '\'' {
+		return false
+	}
+	// Token type names that should be translated, not hidden
+	switch s {
+	case "str_lit", "raw_str_lit", "integer", "ident", "float_lit", "comp_op":
+		return false
+	}
+	// PascalCase identifiers (starts with uppercase) are grammar non-terminals
+	if s[0] >= 'A' && s[0] <= 'Z' {
+		return true
+	}
+	return false
+}
+
+// friendlyTerminal converts a parser terminal symbol to a human-friendly string.
+func friendlyTerminal(s string) string {
+	// Token type names
+	switch s {
+	case "str_lit":
+		return "a string"
+	case "raw_str_lit":
+		return "a string"
+	case "integer":
+		return "a number"
+	case "float_lit":
+		return "a number"
+	case "ident":
+		return "an identifier"
+	case "comp_op":
+		return "a comparison operator"
+	}
+	// Quoted keywords: "end", "if", etc.
+	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
+		return s // Already quoted and readable
+	}
+	// Single-char tokens in quotes: '(', ')', etc.
+	if len(s) >= 3 && s[0] == '\'' && s[len(s)-1] == '\'' {
+		return "\"" + s[1:len(s)-1] + "\""
+	}
+	return ""
+}
+
+// isStatementExpectedSet returns true if the expected set looks like
+// a full statement/expression set (contains "def", "if", "while", etc.).
+// closestMatch finds the closest match to name from candidates
+// using Levenshtein distance. Returns "" if no close match (distance > 2).
+func closestMatch(name string, candidates []string) string {
+	best := ""
+	bestDist := 3 // threshold: max distance 2
+	for _, c := range candidates {
+		d := levenshtein(name, c)
+		if d < bestDist {
+			bestDist = d
+			best = c
+		}
+	}
+	return best
+}
+
+// levenshtein computes the edit distance between two strings.
+func levenshtein(a, b string) int {
+	la, lb := len(a), len(b)
+	if la == 0 {
+		return lb
+	}
+	if lb == 0 {
+		return la
+	}
+	prev := make([]int, lb+1)
+	for j := range prev {
+		prev[j] = j
+	}
+	for i := 1; i <= la; i++ {
+		curr := make([]int, lb+1)
+		curr[0] = i
+		for j := 1; j <= lb; j++ {
+			cost := 1
+			if a[i-1] == b[j-1] {
+				cost = 0
+			}
+			curr[j] = min(curr[j-1]+1, min(prev[j]+1, prev[j-1]+cost))
+		}
+		prev = curr
+	}
+	return prev[lb]
+}
+
+func isStatementExpectedSet(raw string) bool {
+	return strings.Contains(raw, `"def"`) && strings.Contains(raw, `"if"`) && strings.Contains(raw, `"while"`)
+}
+
+// isEndExpectedSet returns true when the expected set indicates a missing "end" keyword.
+func isEndExpectedSet(raw string) bool {
+	return strings.Contains(raw, `"end"`)
+}
+
+// detectUnclosedBlock reads the source file and returns a description of
+// the last unmatched block-opening keyword (e.g., `"def" block`).
+func detectUnclosedBlock(filename string) string {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	type blockInfo struct {
+		keyword string
+		line    int
+	}
+	var stack []blockInfo
+	blockOpeners := map[string]bool{
+		"def": true, "if": true, "while": true, "for": true,
+		"rats": true, "bench": true,
+	}
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		// Get first word
+		word := trimmed
+		if idx := strings.IndexAny(trimmed, " \t("); idx >= 0 {
+			word = trimmed[:idx]
+		}
+		if blockOpeners[word] {
+			stack = append(stack, blockInfo{keyword: word, line: i + 1})
+		} else if word == "end" && len(stack) > 0 {
+			stack = stack[:len(stack)-1]
+		}
+	}
+	if len(stack) > 0 {
+		b := stack[len(stack)-1]
+		return fmt.Sprintf("\"%s\" block (opened at line %d)", b.keyword, b.line)
+	}
+	return ""
+}
+
+// translateBuildError post-processes `go build` stderr to translate
+// Go compiler errors into Rugo-friendly messages.
+func translateBuildError(stderr, sourceFile string) error {
+	lines := strings.Split(strings.TrimSpace(stderr), "\n")
+
+	var translated []string
+	for _, line := range lines {
+		// Skip "# rugo_program" package header
+		if strings.HasPrefix(line, "# ") {
+			continue
+		}
+		// Skip lines referencing generated Go files
+		if strings.Contains(line, "main.go:") && strings.HasPrefix(strings.TrimSpace(line), "./") {
+			continue
+		}
+		// Translate Go terms to Rugo terms
+		line = strings.ReplaceAll(line, "continue is not in a loop", "next is not in a loop")
+		line = strings.ReplaceAll(line, "break is not in a loop, switch, or select", "break is not in a loop")
+		// Strip rugofn_ prefix from function names
+		line = strings.ReplaceAll(line, "rugofn_", "")
+		// Clean up temp dir path prefix in file references
+		if idx := strings.Index(line, sourceFile); idx > 0 {
+			line = line[idx:]
+		} else if colonIdx := strings.Index(line, ":"); colonIdx > 0 {
+			// Try to strip ../tmpdir/ prefix
+			prefix := line[:colonIdx]
+			if strings.HasPrefix(prefix, "../") || strings.HasPrefix(prefix, "./") {
+				base := filepath.Base(prefix)
+				if strings.HasSuffix(base, ".rg") {
+					line = base + line[colonIdx:]
+				}
+			}
+		}
+		translated = append(translated, line)
+	}
+
+	if len(translated) == 0 {
+		return fmt.Errorf("compilation failed")
+	}
+	return fmt.Errorf("%s", strings.Join(translated, "\n"))
+}
+
 // validateTopLevelOnly walks statement trees and returns an error if
 // import or require statements appear inside function bodies or blocks.
-func validateTopLevelOnly(stmts []Statement) error {
+func validateTopLevelOnly(stmts []Statement, sourceFile string) error {
 	for _, s := range stmts {
 		switch st := s.(type) {
 		case *FuncDef:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 		case *IfStmt:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 			for _, clause := range st.ElsifClauses {
-				if err := rejectNestedImports(clause.Body); err != nil {
+				if err := rejectNestedImports(clause.Body, sourceFile); err != nil {
 					return err
 				}
 			}
-			if err := rejectNestedImports(st.ElseBody); err != nil {
+			if err := rejectNestedImports(st.ElseBody, sourceFile); err != nil {
 				return err
 			}
 		case *WhileStmt:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 		case *ForStmt:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 		case *TestDef:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 		}
@@ -431,40 +832,40 @@ func validateTopLevelOnly(stmts []Statement) error {
 
 // rejectNestedImports checks a block body for use/import/require statements
 // and returns an error if any are found.
-func rejectNestedImports(stmts []Statement) error {
+func rejectNestedImports(stmts []Statement, sourceFile string) error {
 	for _, s := range stmts {
 		switch s.(type) {
 		case *UseStmt:
-			return fmt.Errorf("line %d: use statements must be at the top level", s.StmtLine())
+			return fmt.Errorf("%s:%d: use statements must be at the top level", sourceFile, s.StmtLine())
 		case *ImportStmt:
-			return fmt.Errorf("line %d: import statements must be at the top level", s.StmtLine())
+			return fmt.Errorf("%s:%d: import statements must be at the top level", sourceFile, s.StmtLine())
 		case *RequireStmt:
-			return fmt.Errorf("line %d: require statements must be at the top level", s.StmtLine())
+			return fmt.Errorf("%s:%d: require statements must be at the top level", sourceFile, s.StmtLine())
 		}
 		// Recurse into nested blocks
 		switch st := s.(type) {
 		case *FuncDef:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 		case *IfStmt:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 			for _, clause := range st.ElsifClauses {
-				if err := rejectNestedImports(clause.Body); err != nil {
+				if err := rejectNestedImports(clause.Body, sourceFile); err != nil {
 					return err
 				}
 			}
-			if err := rejectNestedImports(st.ElseBody); err != nil {
+			if err := rejectNestedImports(st.ElseBody, sourceFile); err != nil {
 				return err
 			}
 		case *WhileStmt:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 		case *ForStmt:
-			if err := rejectNestedImports(st.Body); err != nil {
+			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 		}

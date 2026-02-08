@@ -28,6 +28,7 @@ type Expr interface {
 // Program is the root node.
 type Program struct {
 	Statements []Statement
+	SourceFile string // display path of the source file
 }
 
 func (p *Program) node() {}

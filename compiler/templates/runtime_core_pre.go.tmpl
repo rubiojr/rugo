@@ -343,3 +343,18 @@ func rugo_slice(obj, start, length interface{}) interface{} {
 	return interface{}(result)
 }
 
+// rugo_bridge_err formats a Go bridge error with the Rugo function name,
+// stripping the Go function name prefix if present.
+func rugo_bridge_err(rugoName string, err error) string {
+	msg := err.Error()
+	// Go errors often start with "package.Function: ..." — strip it
+	if idx := strings.Index(msg, ": "); idx > 0 {
+		prefix := msg[:idx]
+		// If the prefix looks like a Go function reference, strip it
+		if strings.Contains(prefix, ".") && prefix[0] >= 'a' && prefix[0] <= 'z' {
+			msg = msg[idx+2:]
+		}
+	}
+	return fmt.Sprintf("%s: %s", rugoName, msg)
+}
+

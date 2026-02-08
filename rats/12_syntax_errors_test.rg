@@ -80,7 +80,7 @@ end
 rats "unknown stdlib module"
   result = test.run("rugo run rats/fixtures/err_unknown_module.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "unknown stdlib module")
+  test.assert_contains(result["output"], "unknown module")
 end
 
 rats "missing end keyword"

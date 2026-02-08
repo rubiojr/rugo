@@ -13,7 +13,10 @@ type JSON struct{}
 func (*JSON) Parse(s string) interface{} {
 	var raw interface{}
 	if err := json.Unmarshal([]byte(s), &raw); err != nil {
-		panic(fmt.Sprintf("json.parse: %v", err))
+		if se, ok := err.(*json.SyntaxError); ok {
+			panic(fmt.Sprintf("json.parse: invalid JSON at position %d", se.Offset))
+		}
+		panic(fmt.Sprintf("json.parse: invalid JSON: %v", err))
 	}
 	return convertJSON(raw)
 }

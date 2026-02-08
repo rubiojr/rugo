@@ -17,7 +17,7 @@ func init() {
 			{Name: "get", Args: []modules.ArgType{modules.String}},
 			{Name: "post", Args: []modules.ArgType{modules.String, modules.String}, Variadic: true},
 		},
-		GoImports: []string{"io", "net/http"},
+		GoImports: []string{"errors", "io", "net", "net/http", "net/url"},
 		Runtime:   modules.CleanRuntime(runtime),
 	})
 }

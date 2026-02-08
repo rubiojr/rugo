@@ -19,12 +19,34 @@ func rugo_panic_handler(e interface{}) {
 			break
 		}
 	}
+	msg := rugo_friendly_error(fmt.Sprintf("%v", e))
 	if file != "" && line != "" {
-		fmt.Fprintf(os.Stderr, "error: %v (%s:%s)\n", e, file, line)
+		fmt.Fprintf(os.Stderr, "error: %s (%s:%s)\n", msg, file, line)
 	} else {
-		fmt.Fprintf(os.Stderr, "error: %v\n", e)
+		fmt.Fprintf(os.Stderr, "error: %s\n", msg)
 	}
 	os.Exit(1)
+}
+
+// rugo_friendly_error translates raw Go runtime messages to human-friendly ones.
+func rugo_friendly_error(msg string) string {
+	// "runtime error: index out of range [N] with length M"
+	if strings.HasPrefix(msg, "runtime error: index out of range [") {
+		rest := msg[len("runtime error: index out of range ["):]
+		if bracket := strings.Index(rest, "]"); bracket >= 0 {
+			idx := rest[:bracket]
+			rest = rest[bracket+1:]
+			if strings.HasPrefix(rest, " with length ") {
+				length := strings.TrimPrefix(rest, " with length ")
+				return fmt.Sprintf("index %s out of bounds (length %s)", idx, length)
+			}
+		}
+	}
+	// "runtime error: ..."
+	if strings.HasPrefix(msg, "runtime error: ") {
+		return strings.TrimPrefix(msg, "runtime error: ")
+	}
+	return msg
 }
 
 func rugo_dot_get(obj interface{}, field string) interface{} {

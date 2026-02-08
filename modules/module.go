@@ -176,9 +176,24 @@ func (m *Module) FullRuntime() string {
 		sb.WriteString(fmt.Sprintf("func %s(args ...interface{}) interface{} {\n", wrapperName))
 
 		if minArgs > 0 {
+			argWord := "arguments"
+			if minArgs == 1 {
+				argWord = "argument"
+			}
 			sb.WriteString(fmt.Sprintf(
-				"\tif len(args) < %d { panic(\"%s.%s: requires at least %d argument(s)\") }\n",
-				minArgs, m.Name, f.Name, minArgs))
+				"\tif len(args) < %d { panic(fmt.Sprintf(\"%s.%s() takes %d %s but %%d were given\", len(args))) }\n",
+				minArgs, m.Name, f.Name, minArgs, argWord))
+		}
+
+		// For non-variadic functions, also check maximum arg count
+		if !f.Variadic {
+			argWord := "arguments"
+			if minArgs == 1 {
+				argWord = "argument"
+			}
+			sb.WriteString(fmt.Sprintf(
+				"\tif len(args) > %d { panic(fmt.Sprintf(\"%s.%s() takes %d %s but %%d were given\", len(args))) }\n",
+				minArgs, m.Name, f.Name, minArgs, argWord))
 		}
 
 		var callArgs []string
