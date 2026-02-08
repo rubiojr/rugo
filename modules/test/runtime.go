@@ -31,6 +31,8 @@ func (*Test) WriteFile(path, content string) interface{} {
 // Run executes a command and returns a hash with status, output, and lines.
 func (*Test) Run(command string) interface{} {
 	cmd := exec.Command("sh", "-c", command)
+	// Ensure child output has no ANSI codes so string matching works reliably.
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
 	out, err := cmd.CombinedOutput()
 	output := strings.TrimRight(string(out), "\n")
 

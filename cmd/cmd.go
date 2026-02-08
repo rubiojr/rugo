@@ -218,7 +218,11 @@ func benchAction(ctx context.Context, cmd *cli.Command) error {
 func testAction(ctx context.Context, cmd *cli.Command) error {
 	targets := cmd.Args().Slice()
 	if len(targets) == 0 {
-		targets = []string{"."}
+		if info, err := os.Stat("rats"); err == nil && info.IsDir() {
+			targets = []string{"rats"}
+		} else {
+			targets = []string{"."}
+		}
 	}
 
 	// Set NO_COLOR if --no-color flag, non-interactive, or NO_COLOR already set.

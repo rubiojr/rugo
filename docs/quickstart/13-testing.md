@@ -20,7 +20,7 @@ end
 ## Running Tests
 
 ```bash
-rugo rats                       # run all _test.rg files in test/
+rugo rats                       # run all _test.rg files in rats/ (or current dir)
 rugo rats test/greet_test.rg         # run a specific file
 rugo rats --filter "hello"      # filter by test name
 ```

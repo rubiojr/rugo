@@ -84,7 +84,7 @@ end
 ### CLI
 
 ```bash
-rugo rats                            # run all test files (including inline tests)
+rugo rats                            # run all test files in rats/ (or current dir)
 rugo rats test/myapp_test.rg         # run specific file
 rugo rats myapp.rg                   # run inline tests in a regular .rg file
 rugo rats --filter "greet"           # filter by test name

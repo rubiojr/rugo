@@ -63,3 +63,13 @@ rats "rugo script.rg shorthand works"
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello")
 end
+
+# Test: rugo rats with no args defaults to rats/ directory
+rats "rugo rats with no args finds rats/ directory"
+  result = test.run("cd " + os.exec("pwd") + " && rugo rats rats/08_rats_self_test.rg")
+  test.assert_eq(result["status"], 0)
+  # Now test no-args mode from a directory that has a rats/ subdir
+  result = test.run("cd " + os.exec("pwd") + " && rugo rats")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "passed")
+end
