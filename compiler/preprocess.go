@@ -20,6 +20,7 @@ var rugoKeywords = map[string]bool{
 var rugoBuiltins = map[string]bool{
 	"puts": true, "print": true,
 	"len": true, "append": true,
+	"raise": true,
 }
 
 // stripComments removes # comments from source, respecting string boundaries.

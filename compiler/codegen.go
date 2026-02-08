@@ -1204,6 +1204,8 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 			return call, nil
 		case "append":
 			return fmt.Sprintf("rugo_append(%s)", g.boxedArgs(args, e.Args)), nil
+		case "raise":
+			return fmt.Sprintf("rugo_raise(%s)", g.boxedArgs(args, e.Args)), nil
 		default:
 			// Sibling function call within a namespace: resolve unqualified
 			// calls against the current function's namespace first.

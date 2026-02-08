@@ -206,6 +206,13 @@ func rugo_print(args ...interface{}) interface{} {
 	return nil
 }
 
+func rugo_raise(args ...interface{}) interface{} {
+	if len(args) == 0 {
+		panic("runtime error")
+	}
+	panic(rugo_to_string(args[0]))
+}
+
 func rugo_shell(args ...interface{}) interface{} {
 	if len(args) == 0 { panic("shell requires at least one argument") }
 	cmdStr := rugo_to_string(args[0])
