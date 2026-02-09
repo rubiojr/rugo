@@ -13,8 +13,8 @@ rats "sibling function call emits rugons_ prefix"
   test.assert_contains(result["output"], "rugons_require_scope_lib_helper()")
 end
 
-rats "file-level constant emitted as package-level var"
+rats "file-level constant emitted as namespaced package-level var"
   result = test.run("rugo emit rats/fixtures/require_scope_main.rg")
   test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "var BASE_URL interface{}")
+  test.assert_contains(result["output"], "var rugons_require_scope_lib_BASE_URL interface{}")
 end

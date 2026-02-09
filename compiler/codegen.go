@@ -31,6 +31,7 @@ type codeGen struct {
 	imports         map[string]bool   // Rugo stdlib modules imported (via use)
 	goImports       map[string]string // Go bridge packages: path → alias
 	namespaces      map[string]bool   // known require namespaces
+	nsVarNames      map[string]bool   // namespaced var names: "ns.name" → true
 	sourceFile      string            // original .rg filename for //line directives
 	hasSpawn        bool              // whether spawn is used
 	hasParallel     bool              // whether parallel is used
@@ -56,6 +57,7 @@ func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
 		imports:     make(map[string]bool),
 		goImports:   make(map[string]string),
 		namespaces:  make(map[string]bool),
+		nsVarNames:  make(map[string]bool),
 		sourceFile:  sourceFile,
 		funcDefs:    make(map[string]int),
 		testMode:    testMode,
@@ -131,6 +133,12 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 			g.namespaces[f.Namespace] = true
 		}
 		g.funcDefs[key] = len(f.Params)
+	}
+
+	// Register namespaces from require'd constants
+	for _, nv := range nsVars {
+		g.namespaces[nv.Namespace] = true
+		g.nsVarNames[nv.Namespace+"."+nv.Target] = true
 	}
 
 	// Detect spawn/parallel/bench usage to gate runtime emission and imports
@@ -236,7 +244,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		g.writef("var %s interface{} = %s\n", nv.Target, expr)
+		g.writef("var rugons_%s_%s interface{} = %s\n", nv.Namespace, nv.Target, expr)
 	}
 	if len(nsVars) > 0 {
 		g.writeln("")
@@ -930,6 +938,13 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 					}
 				}
 				return fmt.Sprintf("interface{}(%s)", call), nil
+			}
+		}
+		// Sibling constant reference within a namespace
+		if g.currentFunc != nil && g.currentFunc.Namespace != "" && !g.isDeclared(ex.Name) {
+			nsKey := g.currentFunc.Namespace + "." + ex.Name
+			if g.nsVarNames[nsKey] {
+				return fmt.Sprintf("rugons_%s_%s", g.currentFunc.Namespace, ex.Name), nil
 			}
 		}
 		return ex.Name, nil
