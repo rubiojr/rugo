@@ -26,46 +26,38 @@ func (t *rugoTask) DotGet(field string) (interface{}, bool) {
 	return nil, false
 }
 
-func rugo_task_value(t interface{}) interface{} {
-	task, ok := t.(*rugoTask)
-	if !ok {
-		panic(fmt.Sprintf("cannot call .value on %T — expected a spawn task", t))
-	}
-	<-task.done
-	if task.err != "" {
-		panic(task.err)
-	}
-	return task.result
-}
-
-func rugo_task_done(t interface{}) interface{} {
-	task, ok := t.(*rugoTask)
-	if !ok {
-		panic(fmt.Sprintf("cannot call .done on %T — expected a spawn task", t))
-	}
-	select {
-	case <-task.done:
-		return true
-	default:
-		return false
-	}
-}
-
-func rugo_task_wait(t interface{}, seconds interface{}) interface{} {
-	task, ok := t.(*rugoTask)
-	if !ok {
-		panic(fmt.Sprintf("cannot call .wait on %T — expected a spawn task", t))
-	}
-	secs := rugo_to_int(seconds)
-	select {
-	case <-task.done:
-		if task.err != "" {
-			panic(task.err)
+// DotCall implements the method call interface for task methods with arguments.
+func (t *rugoTask) DotCall(method string, args ...interface{}) (interface{}, bool) {
+	switch method {
+	case "value":
+		<-t.done
+		if t.err != "" {
+			panic(t.err)
 		}
-		return task.result
-	case <-time.After(time.Duration(secs) * time.Second):
-		panic(fmt.Sprintf("task timed out after %d seconds", secs))
+		return t.result, true
+	case "done":
+		select {
+		case <-t.done:
+			return true, true
+		default:
+			return false, true
+		}
+	case "wait":
+		if len(args) < 1 {
+			panic("task.wait requires a timeout in seconds")
+		}
+		secs := rugo_to_int(args[0])
+		select {
+		case <-t.done:
+			if t.err != "" {
+				panic(t.err)
+			}
+			return t.result, true
+		case <-time.After(time.Duration(secs) * time.Second):
+			panic(fmt.Sprintf("task timed out after %d seconds", secs))
+		}
 	}
+	return nil, false
 }
 
 // --- End Rugo Spawn Runtime ---

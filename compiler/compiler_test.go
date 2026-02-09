@@ -757,11 +757,11 @@ func TestPreprocessShellBeforeDefFuncAfter(t *testing.T) {
 // === Phase 2: Namespace Tests ===
 
 func TestGenDotCall(t *testing.T) {
-	// Unknown ns.func() should error since ns is not a known namespace
+	// Unknown ns.func() should compile to rugo_dot_call (runtime dispatch)
 	prog := parseAndWalk(t, `ns.func(1, 2)`)
 	_, err := generate(prog, "test.rg", false)
-	if err == nil {
-		t.Errorf("expected error for unknown namespace call ns.func()")
+	if err != nil {
+		t.Errorf("unexpected error for dot call: %v", err)
 	}
 }
 

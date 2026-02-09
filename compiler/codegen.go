@@ -1242,36 +1242,15 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 				typedArgs := g.typedCallArgs(nsKey, args, e.Args)
 				return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, typedArgs), nil
 			}
-			// Not a known namespace — task method call or error
-			switch dot.Field {
-			case "wait":
-				g.usesTaskMethods = true
-				return fmt.Sprintf("rugo_task_wait(%s, %s)", nsName, argStr), nil
-			case "value":
-				g.usesTaskMethods = true
-				return fmt.Sprintf("rugo_task_value(%s)", nsName), nil
-			case "done":
-				g.usesTaskMethods = true
-				return fmt.Sprintf("rugo_task_done(%s)", nsName), nil
-			}
-			return "", fmt.Errorf("cannot call .%s() — %s is not a module or namespace", dot.Field, nsName)
+			// Not a known namespace — dispatch via generic DotCall
+			return fmt.Sprintf("rugo_dot_call(%s, %q, %s)", nsName, dot.Field, argStr), nil
 		}
-		// Non-ident object: e.g. tasks[i].wait(n)
+		// Non-ident object: e.g. tasks[i].wait(n), q.push(val)
 		obj, oerr := g.exprString(dot.Object)
 		if oerr != nil {
 			return "", oerr
 		}
-		switch dot.Field {
-		case "wait":
-			g.usesTaskMethods = true
-			return fmt.Sprintf("rugo_task_wait(%s, %s)", obj, argStr), nil
-		case "value":
-			g.usesTaskMethods = true
-			return fmt.Sprintf("rugo_task_value(%s)", obj), nil
-		case "done":
-			g.usesTaskMethods = true
-			return fmt.Sprintf("rugo_task_done(%s)", obj), nil
-		}
+		return fmt.Sprintf("rugo_dot_call(%s, %q, %s)", obj, dot.Field, argStr), nil
 	}
 
 	// Check for built-in functions (globals)

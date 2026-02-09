@@ -10,6 +10,7 @@ import (
 	_ "github.com/rubiojr/rugo/modules/http"
 	_ "github.com/rubiojr/rugo/modules/json"
 	_ "github.com/rubiojr/rugo/modules/os"
+	_ "github.com/rubiojr/rugo/modules/queue"
 	_ "github.com/rubiojr/rugo/modules/re"
 	_ "github.com/rubiojr/rugo/modules/str"
 	_ "github.com/rubiojr/rugo/modules/test"

@@ -100,16 +100,13 @@ rats "files without spawn omit spawn runtime"
   result = test.run("rugo emit rats/fixtures/spawn_no_spawn.rg")
   test.assert_eq(result["status"], 0)
   test.assert_false(str.contains(result["output"], "rugoTask"))
-  test.assert_false(str.contains(result["output"], "rugo_task_value"))
 end
 
 rats "files with spawn include spawn runtime"
   result = test.run("rugo emit rats/fixtures/spawn_value.rg")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "rugoTask")
-  test.assert_contains(result["output"], "rugo_task_value")
-  test.assert_contains(result["output"], "rugo_task_done")
-  test.assert_contains(result["output"], "rugo_task_wait")
+  test.assert_contains(result["output"], "DotCall")
 end
 
 # --- Positive: build to native binary ---
@@ -136,8 +133,7 @@ end
 rats ".value on non-task is a runtime error"
   result = test.run("rugo run rats/fixtures/err_spawn_value_non_task.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot call .value on int")
-  test.assert_contains(result["output"], "expected a spawn task")
+  test.assert_contains(result["output"], "cannot call .value() on int")
   test.assert_contains(result["output"], "err_spawn_value_non_task.rg:2")
 end
 
@@ -146,8 +142,7 @@ end
 rats ".done on non-task is a runtime error"
   result = test.run("rugo run rats/fixtures/err_spawn_done_non_task.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot call .done on int")
-  test.assert_contains(result["output"], "expected a spawn task")
+  test.assert_contains(result["output"], "cannot call .done() on int")
   test.assert_contains(result["output"], "err_spawn_done_non_task.rg:2")
 end
 
@@ -156,8 +151,7 @@ end
 rats ".wait on non-task is a runtime error"
   result = test.run("rugo run rats/fixtures/err_spawn_wait_non_task.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot call .wait on int")
-  test.assert_contains(result["output"], "expected a spawn task")
+  test.assert_contains(result["output"], "cannot call .wait() on int")
   test.assert_contains(result["output"], "err_spawn_wait_non_task.rg:2")
 end
 

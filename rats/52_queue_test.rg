@@ -1,0 +1,117 @@
+# RATS: Test queue module
+# Covers queue creation, push/pop, close, each, properties,
+# error handling, bounded queues, pipelines, and compilation.
+use "test"
+
+# --- Positive: basic producer-consumer ---
+
+rats "queue basic producer-consumer with each"
+  result = test.run("rugo run rats/fixtures/queue_basic.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "1")
+  test.assert_eq(lines[1], "2")
+  test.assert_eq(lines[2], "3")
+end
+
+# --- Positive: properties ---
+
+rats "queue.size and queue.closed properties"
+  result = test.run("rugo run rats/fixtures/queue_properties.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "2")
+  test.assert_eq(lines[1], "false")
+end
+
+rats "queue.closed flag transitions"
+  result = test.run("rugo run rats/fixtures/queue_closed_flag.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "false")
+  test.assert_eq(lines[1], "true")
+end
+
+# --- Positive: pop ---
+
+rats "queue.pop returns items in order"
+  result = test.run("rugo run rats/fixtures/queue_pop.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "first")
+end
+
+rats "queue.pop works after close with remaining items"
+  result = test.run("rugo run rats/fixtures/queue_pop_after_close.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "closed-pop")
+  test.assert_eq(lines[1], "empty-after-close")
+end
+
+# --- Positive: timeout ---
+
+rats "queue.pop with timeout catches with try/or"
+  result = test.run("rugo run rats/fixtures/queue_pop_timeout.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "timed out")
+end
+
+# --- Positive: bounded queue ---
+
+rats "bounded queue delivers all items"
+  result = test.run("rugo run rats/fixtures/queue_bounded.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(len(lines), 5)
+  test.assert_eq(lines[0], "1")
+  test.assert_eq(lines[4], "5")
+end
+
+# --- Positive: pipeline ---
+
+rats "queue pipeline with transform stage"
+  result = test.run("rugo run rats/fixtures/queue_pipeline.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "10")
+  test.assert_eq(lines[1], "20")
+  test.assert_eq(lines[2], "30")
+end
+
+# --- Positive: fan-out collect ---
+
+rats "queue fan-out collects results into array"
+  result = test.run("rugo run rats/fixtures/queue_fanout.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "10")
+  test.assert_eq(lines[1], "20")
+  test.assert_eq(lines[2], "30")
+end
+
+# --- Error handling ---
+
+rats "push to closed queue caught with try/or"
+  result = test.run("rugo run rats/fixtures/queue_push_closed.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "push-to-closed")
+end
+
+rats "double close caught with try/or"
+  result = test.run("rugo run rats/fixtures/queue_double_close.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "already-closed")
+end
+
+# --- Compilation ---
+
+rats "queue compiles to native binary"
+  result = test.run("rugo build rats/fixtures/queue_build.rg -o /tmp/rugo_queue_build_test")
+  test.assert_eq(result["status"], 0)
+  result = test.run("/tmp/rugo_queue_build_test")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "hello")
+  test.assert_eq(lines[1], "world")
+  test.assert_eq(lines[2], "done")
+end

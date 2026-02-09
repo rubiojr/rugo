@@ -29,6 +29,7 @@ puts resp.body
 | [http](modules/http.md) | HTTP client |
 | [json](modules/json.md) | JSON parsing and encoding |
 | [os](modules/os.md) | Shell execution and process control |
+| [queue](modules/queue.md) | Thread-safe queue for producer-consumer concurrency |
 | [re](modules/re.md) | Regular expressions |
 | [str](modules/str.md) | String utilities |
 | [test](modules/test.md) | Testing and assertions |

@@ -70,5 +70,17 @@ func rugo_dot_set(obj interface{}, field string, val interface{}) {
 	panic(fmt.Sprintf("cannot set .%s on %T — expected a hash/struct", field, obj))
 }
 
+// rugo_dot_call dispatches a method call on any object implementing the DotCall interface.
+func rugo_dot_call(obj interface{}, method string, args ...interface{}) interface{} {
+	if dc, ok := obj.(interface {
+		DotCall(string, ...interface{}) (interface{}, bool)
+	}); ok {
+		if result, handled := dc.DotCall(method, args...); handled {
+			return result
+		}
+	}
+	panic(fmt.Sprintf("cannot call .%s() on %T", method, obj))
+}
+
 // --- End Rugo Runtime ---
 

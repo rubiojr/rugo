@@ -130,5 +130,35 @@ puts result
 
 ---
 That's it! `spawn` gives you goroutine-powered concurrency with a clean,
-Ruby-like syntax. See the [concurrency design doc](../concurrency.md) for
+Ruby-like syntax.
+
+## Queues
+
+For producer-consumer patterns, use the `queue` module:
+
+```ruby
+use "queue"
+use "conv"
+
+q = queue.new()
+
+spawn
+  for i in [1, 2, 3]
+    q.push(i)
+  end
+  q.close()
+end
+
+q.each(fn(item)
+  puts conv.to_s(item)
+end)
+```
+
+Queues support bounded capacity (`queue.new(10)`), pop with timeout
+(`try q.pop(5) or "timeout"`), and properties (`q.size`, `q.closed`).
+See the [queue module docs](../modules/queue.md) for pipelines,
+backpressure, and more patterns.
+
+---
+See the [concurrency design doc](../concurrency.md) for
 the full specification.
