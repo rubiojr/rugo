@@ -1,6 +1,9 @@
 package strmod
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // --- str module ---
 
@@ -45,4 +48,16 @@ func (*Str) Lower(s string) interface{} {
 
 func (*Str) Index(s, substr string) interface{} {
 	return strings.Index(s, substr)
+}
+
+func (*Str) Join(v interface{}, sep string) interface{} {
+	parts, ok := v.([]interface{})
+	if !ok {
+		panic(fmt.Sprintf("str.join() expects an array, got %T", v))
+	}
+	strs := make([]string, len(parts))
+	for i, p := range parts {
+		strs[i] = fmt.Sprintf("%v", p)
+	}
+	return strings.Join(strs, sep)
 }

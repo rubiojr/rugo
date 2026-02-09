@@ -105,6 +105,22 @@ rats "str.upper and str.lower"
   test.assert_eq(lines[1], "world")
 end
 
+rats "str.join works"
+  script = <<~SCRIPT
+    use "str"
+    puts(str.join(["a", "b", "c"], ","))
+    puts(str.join([], "-"))
+    puts(str.join([1, 2, 3], " + "))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "a,b,c")
+  test.assert_eq(lines[1], "")
+  test.assert_eq(lines[2], "1 + 2 + 3")
+end
+
 rats "unknown module import fails"
   script = <<~SCRIPT
     use "nonexistent"

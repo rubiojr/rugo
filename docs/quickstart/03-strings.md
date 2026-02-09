@@ -136,6 +136,8 @@ puts str.index("hello", "ll")        # 2
 
 parts = str.split("a,b,c", ",")
 puts parts
+
+puts str.join(parts, " | ")          # a | b | c
 ```
 
 ---

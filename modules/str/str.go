@@ -23,6 +23,7 @@ func init() {
 			{Name: "upper", Args: []modules.ArgType{modules.String}},
 			{Name: "lower", Args: []modules.ArgType{modules.String}},
 			{Name: "index", Args: []modules.ArgType{modules.String, modules.String}},
+			{Name: "join", Args: []modules.ArgType{modules.Any, modules.String}},
 		},
 		Runtime: modules.CleanRuntime(runtime),
 	})

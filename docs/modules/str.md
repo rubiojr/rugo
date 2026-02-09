@@ -61,3 +61,13 @@ Returns the index of the first occurrence of a substring, or `-1` if not found.
 str.index("hello", "ll")    # 2
 str.index("hello", "xyz")   # -1
 ```
+
+## join
+
+Joins an array into a string with the given separator.
+
+```ruby
+parts = ["a=1", "b=2", "c=3"]
+str.join(parts, "&")   # "a=1&b=2&c=3"
+str.join([1, 2, 3], "-")   # "1-2-3"
+```
