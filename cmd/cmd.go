@@ -15,6 +15,9 @@ import (
 
 	"github.com/rubiojr/rugo/cmd/dev"
 	"github.com/rubiojr/rugo/compiler"
+	"github.com/rubiojr/rugo/compiler/gobridge"
+	rugodoc "github.com/rubiojr/rugo/doc"
+	"github.com/rubiojr/rugo/modules"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
 )
@@ -110,6 +113,19 @@ func Execute(version string) {
 				Action: benchAction,
 			},
 			dev.Command(),
+			{
+				Name:      "doc",
+				Usage:     "Show documentation for files, modules, and bridge packages",
+				ArgsUsage: "<file.rg|module|package> [symbol]",
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:    "all",
+						Aliases: []string{"a"},
+						Usage:   "List all available modules and bridge packages",
+					},
+				},
+				Action: docAction,
+			},
 		},
 	}
 
@@ -172,6 +188,146 @@ func isRugoScript(path string) bool {
 	n, _ := f.Read(buf)
 	line := string(buf[:n])
 	return strings.HasPrefix(line, "#!")
+}
+
+func docAction(ctx context.Context, cmd *cli.Command) error {
+	if cmd.Bool("all") {
+		docOutput(rugodoc.FormatAllModules())
+		return nil
+	}
+
+	if cmd.NArg() < 1 {
+		docOutput(rugodoc.FormatAllModules())
+		return nil
+	}
+
+	target := cmd.Args().First()
+	symbol := ""
+	if cmd.NArg() > 1 {
+		symbol = cmd.Args().Get(1)
+	}
+
+	// Mode 1: .rg file
+	if strings.HasSuffix(target, ".rg") {
+		fd, err := rugodoc.ExtractFile(target)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", target, err)
+		}
+		if symbol != "" {
+			doc, sig, found := rugodoc.LookupSymbol(fd, symbol)
+			if !found {
+				return fmt.Errorf("%s: symbol %q not found", target, symbol)
+			}
+			docOutput(rugodoc.FormatSymbol(doc, sig))
+			return nil
+		}
+		docOutput(rugodoc.FormatFile(fd))
+		return nil
+	}
+
+	// Mode 2: stdlib module (use)
+	if m, ok := modules.Get(target); ok {
+		docOutput(rugodoc.FormatModule(m))
+		return nil
+	}
+
+	// Mode 3: bridge package by namespace (import)
+	if pkg, ok := gobridge.LookupByNS(target); ok {
+		docOutput(rugodoc.FormatBridgePackage(pkg))
+		return nil
+	}
+
+	// Mode 4: bridge package by full path
+	if pkg := gobridge.GetPackage(target); pkg != nil {
+		docOutput(rugodoc.FormatBridgePackage(pkg))
+		return nil
+	}
+
+	// Mode 5: remote module (e.g. github.com/user/repo)
+	if isRemoteDoc(target) {
+		return docRemote(target, symbol)
+	}
+
+	return fmt.Errorf("unknown module or package: %s", target)
+}
+
+// isRemoteDoc returns true if the target looks like a remote module path.
+// Mirrors the compiler's isRemoteRequire logic.
+func isRemoteDoc(target string) bool {
+	if strings.HasPrefix(target, ".") {
+		return false
+	}
+	clean := target
+	if i := strings.Index(clean, "@"); i > 0 {
+		clean = clean[:i]
+	}
+	parts := strings.SplitN(clean, "/", 2)
+	if len(parts) < 2 {
+		return false
+	}
+	host := parts[0]
+	if host == "localhost" || strings.HasPrefix(host, "localhost:") {
+		return true
+	}
+	return strings.Contains(host, ".")
+}
+
+// docRemote fetches a remote module and prints its documentation.
+// Aggregates docs from all .rg files in the module directory.
+func docRemote(target, symbol string) error {
+	comp := &compiler.Compiler{}
+
+	// Fetch repo and resolve entry point
+	entryPath, err := comp.ResolveRemoteModule(target)
+	if err != nil {
+		return fmt.Errorf("fetching %s: %w", target, err)
+	}
+
+	if symbol != "" {
+		// Symbol lookup: scan all files
+		dir := filepath.Dir(entryPath)
+		fd, err := rugodoc.ExtractDir(dir, entryPath)
+		if err != nil {
+			return fmt.Errorf("reading %s: %w", dir, err)
+		}
+		doc, sig, found := rugodoc.LookupSymbol(fd, symbol)
+		if !found {
+			return fmt.Errorf("%s: symbol %q not found", target, symbol)
+		}
+		docOutput(rugodoc.FormatSymbol(doc, sig))
+		return nil
+	}
+
+	// No symbol: aggregate all docs from the module directory
+	dir := filepath.Dir(entryPath)
+	fd, err := rugodoc.ExtractDir(dir, entryPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", dir, err)
+	}
+	docOutput(rugodoc.FormatFile(fd))
+	return nil
+}
+
+// docOutput prints text through bat if available, otherwise plain stdout.
+func docOutput(text string) {
+	if os.Getenv("NO_COLOR") != "" {
+		fmt.Print(text)
+		return
+	}
+
+	batPath, err := exec.LookPath("bat")
+	if err != nil {
+		fmt.Print(text)
+		return
+	}
+
+	cmd := exec.Command(batPath, "--language=ruby", "--style=plain", "--paging=never")
+	cmd.Stdin = strings.NewReader(text)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Print(text)
+	}
 }
 
 func benchAction(ctx context.Context, cmd *cli.Command) error {

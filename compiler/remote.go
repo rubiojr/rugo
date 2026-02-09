@@ -260,9 +260,9 @@ func findEntryPoint(cacheDir string, r *remotePath) (string, error) {
 	return "", fmt.Errorf("cannot determine entry point for module %s/%s/%s: found %d .rg files (add a %s)", r.Host, r.Owner, r.Repo, len(rgFiles), hint)
 }
 
-// resolveRemoteModule fetches a remote git module and returns the local
+// ResolveRemoteModule fetches a remote git module and returns the local
 // path to its entry point .rg file.
-func (c *Compiler) resolveRemoteModule(requirePath string) (string, error) {
+func (c *Compiler) ResolveRemoteModule(requirePath string) (string, error) {
 	r, err := parseRemotePath(requirePath)
 	if err != nil {
 		return "", err
@@ -282,9 +282,9 @@ func (c *Compiler) resolveRemoteModule(requirePath string) (string, error) {
 	return findEntryPoint(cacheDir, r)
 }
 
-// fetchRemoteRepo fetches a remote git repo and returns the cache directory.
-// Unlike resolveRemoteModule, it does not resolve an entry point.
-func (c *Compiler) fetchRemoteRepo(requirePath string) (string, error) {
+// FetchRemoteRepo fetches a remote git repo and returns the cache directory.
+// Unlike ResolveRemoteModule, it does not resolve an entry point.
+func (c *Compiler) FetchRemoteRepo(requirePath string) (string, error) {
 	r, err := parseRemotePath(requirePath)
 	if err != nil {
 		return "", err

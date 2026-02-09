@@ -13,6 +13,7 @@ func init() {
 	modules.Register(&modules.Module{
 		Name:    "bench",
 		Type:    "Bench",
+		Doc:     "Benchmarking framework for measuring code performance.",
 		Funcs:   []modules.FuncDef{},
 		Runtime: modules.CleanRuntime(runtime),
 	})

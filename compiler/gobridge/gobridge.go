@@ -35,6 +35,8 @@ type GoFuncSig struct {
 	Returns []GoType
 	// Variadic indicates the last param is variadic.
 	Variadic bool
+	// Doc is the documentation string shown by `rugo doc`.
+	Doc string
 }
 
 // Package holds the registry of bridgeable functions for a Go package.
@@ -43,6 +45,8 @@ type Package struct {
 	Path string
 	// Funcs maps rugo_snake_case names to Go function signatures.
 	Funcs map[string]GoFuncSig
+	// Doc is the package-level documentation shown by `rugo doc`.
+	Doc string
 }
 
 // registry maps Go package paths to their bridge definitions.
@@ -122,6 +126,22 @@ func PackageFuncs(pkg string) map[string]GoFuncSig {
 	return bp.Funcs
 }
 
+// GetPackage returns the full Package definition for a given path, or nil.
+func GetPackage(pkg string) *Package {
+	return registry[pkg]
+}
+
+// LookupByNS finds a package by its namespace (last path segment).
+// Returns the package and true if found.
+func LookupByNS(ns string) (*Package, bool) {
+	for _, pkg := range registry {
+		if DefaultNS(pkg.Path) == ns {
+			return pkg, true
+		}
+	}
+	return nil, false
+}
+
 // TypeConvToGo returns the Go expression to convert an interface{} arg to the given Go type.
 func TypeConvToGo(argExpr string, t GoType) string {
 	switch t {
@@ -149,5 +169,27 @@ func TypeWrapReturn(expr string, t GoType) string {
 		return "rugo_go_from_string_slice(" + expr + ")"
 	default:
 		return "interface{}(" + expr + ")"
+	}
+}
+
+// GoTypeName returns a human-readable name for a GoType.
+func GoTypeName(t GoType) string {
+	switch t {
+	case GoString:
+		return "string"
+	case GoInt:
+		return "int"
+	case GoFloat64:
+		return "float"
+	case GoBool:
+		return "bool"
+	case GoByte:
+		return "byte"
+	case GoStringSlice:
+		return "[]string"
+	case GoError:
+		return "error"
+	default:
+		return "any"
 	}
 }

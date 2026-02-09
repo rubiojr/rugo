@@ -29,6 +29,8 @@ type FuncDef struct {
 	// Variadic, when true, passes remaining args beyond Args as ...interface{}.
 	// The implementation function should accept extra ...interface{} as its last parameter.
 	Variadic bool
+	// Doc is the documentation string shown by `rugo doc`.
+	Doc string
 }
 
 // Module represents a Rugo stdlib module that can be imported.
@@ -53,6 +55,8 @@ type Module struct {
 	// function names to their Go implementations, which the module's runtime uses
 	// to route commands to handlers.
 	DispatchEntry string
+	// Doc is the module-level documentation shown by `rugo doc`.
+	Doc string
 }
 
 var registry = make(map[string]*Module)

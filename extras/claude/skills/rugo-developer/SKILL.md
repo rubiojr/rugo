@@ -26,7 +26,7 @@ Repository: `github.com/rubiojr/rugo`
 
 | Path | Purpose |
 |------|---------|
-| `main.go` | CLI entry point (urfave/cli): `run`, `build`, `emit`, `rats`, `bench`, `dev` subcommands |
+| `main.go` | CLI entry point (urfave/cli): `run`, `build`, `emit`, `rats`, `bench`, `doc`, `dev` subcommands |
 | `parser/` | Generated LL(1) parser from `rugo.ebnf` (do NOT hand-edit `parser.go`) |
 | `parser/rugo.ebnf` | Authoritative grammar — edit this to change syntax |
 | `compiler/` | Compiler pipeline: preprocess → parse → walk → codegen |
@@ -37,6 +37,7 @@ Repository: `github.com/rubiojr/rugo`
 | `compiler/gobridge/` | Go stdlib bridge: type registry and per-package mapping files |
 | `compiler/compiler.go` | Orchestrates: file loading, require resolution, compilation |
 | `cmd/dev/` | Developer tools: `modgen` module scaffolding |
+| `doc/` | Documentation extractor: parses `.rg` doc comments, formats module/bridge docs |
 | `modules/` | Stdlib module registry and built-in modules |
 | `modules/module.go` | Module type, registry API, `CleanRuntime` helper |
 | `modules/{os,http,conv,str,test,bench,fmt,re}/` | Built-in modules (each has registration + `runtime.go`) |
@@ -341,8 +342,50 @@ puts results[0]
 See the `rugo-rats` skill for the full regression test inventory. Key test files:
 
 - `rats/13_spawn_test.rg`, `rats/14_parallel_test.rg`, `rats/28_bench_test.rg`
+- `rats/57_doc_test.rg`, `rats/58_doc_remote_test.rg` — 32 doc command tests (local + remote integration)
 - `rats/gobridge/` — 60 tests across 7 files covering all 8 Go bridge packages
 - Fixtures in `rats/fixtures/`
+
+## Documentation System (`rugo doc`)
+
+The `rugo doc` command provides introspection for `.rg` files, stdlib modules, Go bridge packages, and remote modules.
+
+### Architecture
+
+| Component | Purpose |
+|-----------|---------|
+| `doc/doc.go` | Text-level extractor: scans raw `.rg` source, attaches `#` comment blocks to `def`/`struct` declarations via blank-line rule |
+| `doc/format.go` | Terminal formatter: renders `FileDoc`, modules, and bridge packages in `go doc`-style output |
+| `cmd/cmd.go` `docAction` | CLI dispatcher: routes to file/module/bridge/remote handlers, pipes through `bat` if available |
+
+### Doc comment convention
+
+- Consecutive `#` lines immediately before `def`/`struct` (no blank line gap) = **doc comment**
+- First `#` block at top of file (before any code) = **file-level doc**
+- `#` inside function bodies, after a blank line gap, or inline = **regular comment** (not shown)
+
+### Doc fields on registries
+
+Both `modules.Module`/`modules.FuncDef` and `gobridge.Package`/`gobridge.GoFuncSig` have `Doc string` fields. All 13 stdlib modules and 8 bridge packages have populated docs. When adding new modules or bridge packages, always include `Doc` strings.
+
+### Modes
+
+```bash
+rugo doc file.rg              # all docs in a .rg file
+rugo doc file.rg symbol       # specific function or struct
+rugo doc http                 # stdlib module (use)
+rugo doc strings              # bridge package (import)
+rugo doc github.com/user/repo # remote module (aggregates all .rg files)
+rugo doc --all                # list all modules and bridge packages
+```
+
+### Bat integration
+
+When `bat` is on PATH and `NO_COLOR` is not set, output is piped through `bat --language=ruby --style=plain --paging=never` for syntax highlighting.
+
+### Remote module docs
+
+Uses `Compiler.ResolveRemoteModule` to fetch, then `doc.ExtractDir` to aggregate docs from all `.rg` files in the module directory. The entry file's doc becomes the top-level doc.
 
 ## Common Pitfalls
 

@@ -14,6 +14,7 @@ go install github.com/rubiojr/rugo@latest
 rugo run script.rg        # compile and run
 rugo build script.rg      # compile to native binary
 rugo emit script.rg       # print generated Go code
+rugo doc http             # show module documentation
 ```
 
 ## Guide
@@ -41,3 +42,4 @@ rugo emit script.rg       # print generated Go code
 18. [Structs](quickstart/17-structs.md)
 19. [Web Server](quickstart/18-web.md)
 20. [Remote Modules](quickstart/19-remote-modules.md)
+21. [Doc Comments](quickstart/20-doc-comments.md)

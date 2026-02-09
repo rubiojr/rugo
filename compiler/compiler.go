@@ -360,7 +360,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 
 		// Handle "with" clause: load specific sub-modules from a remote repo
 		if len(req.With) > 0 {
-			cacheDir, err := c.fetchRemoteRepo(req.Path)
+			cacheDir, err := c.FetchRemoteRepo(req.Path)
 			if err != nil {
 				return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
 			}
@@ -448,7 +448,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 
 		if isRemoteRequire(req.Path) {
 			// Remote require: fetch from git and resolve entry point
-			localPath, err := c.resolveRemoteModule(req.Path)
+			localPath, err := c.ResolveRemoteModule(req.Path)
 			if err != nil {
 				return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
 			}

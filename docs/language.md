@@ -658,3 +658,42 @@ Test files use the `_test.rg` extension and produce TAP (Test Anything Protocol)
 - `setup_file` / `teardown_file` functions called once before/after all tests
 - `test.assert_eq`, `test.assert`, `test.skip` from the test module
 - Exit code 1 on any test failure
+
+## Doc Comments
+
+Rugo uses position-based `#` comment attachment for documentation:
+
+```ruby
+# File-level documentation goes here.
+
+# Calculates the factorial of n.
+# Returns 1 when n <= 1.
+def factorial(n)
+  # This is a regular comment — not shown by rugo doc
+  if n <= 1
+    return 1
+  end
+  return n * factorial(n - 1)
+end
+
+# A Dog with a name and breed.
+struct Dog
+  name
+  breed
+end
+```
+
+**Rules:**
+- Consecutive `#` lines immediately before `def`/`struct` (no blank line gap) = **doc comment**
+- First `#` block at top of file before any code = **file-level doc**
+- `#` inside function bodies, after a blank line gap, or inline = **regular comment**
+
+Use `rugo doc` to view documentation for files, modules, and bridge packages:
+
+```bash
+rugo doc file.rg           # all docs in a file
+rugo doc file.rg factorial # specific symbol
+rugo doc http              # stdlib module
+rugo doc strings           # bridge package
+rugo doc --all             # list everything
+```

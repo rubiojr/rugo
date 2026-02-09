@@ -19,6 +19,7 @@ go install github.com/rubiojr/rugo@latest
 rugo run script.rg        # compile and run
 rugo build script.rg      # compile to native binary
 rugo emit script.rg       # print generated Go code
+rugo doc http             # show module documentation
 ```
 
 ## Hello World
@@ -934,14 +935,16 @@ puts go_os.getenv("APP")
 
 | Package | Key Functions |
 |---------|--------------|
-| `strings` | contains, has_prefix, has_suffix, to_upper, to_lower, trim_space, split, join, replace, repeat, index, count, fields |
-| `strconv` | atoi, itoa, format_float, parse_float, format_bool, parse_bool |
-| `math` | abs, ceil, floor, round, sqrt, pow, log, max, min, sin, cos, tan |
-| `path/filepath` | join, base, dir, ext, clean, is_abs, rel, split |
-| `regexp` | match_string, must_compile, compile |
-| `sort` | strings, ints |
-| `os` | getenv, setenv, read_file, write_file, mkdir_all, remove, getwd |
-| `time` | now_unix, now_nano, sleep |
+| `strings` | contains, has_prefix, has_suffix, to_upper, to_lower, trim_space, split, join, replace_all, repeat, index, count, fields, cut |
+| `strconv` | atoi, itoa, format_float, parse_float, format_bool, parse_bool, format_int, parse_int |
+| `math` | abs, ceil, floor, round, sqrt, pow, log, max, min, sin, cos, tan, nan, inf |
+| `math/rand/v2` | int_n, float64, n |
+| `path/filepath` | join, base, dir, ext, clean, is_abs, rel, split, abs |
+| `sort` | strings, ints, is_sorted |
+| `os` | getenv, setenv, read_file, write_file, mkdir_all, remove, remove_all, getwd, hostname, temp_dir |
+| `time` | now_unix, now_unix_nano, sleep_ms |
+
+Use `rugo doc <package>` to see all functions with typed signatures and documentation.
 
 ## Structs
 
@@ -1127,3 +1130,88 @@ web.group("/api", "require_auth")
   web.post("/users", "create_user")
 web.end_group()
 ```
+
+## Remote Modules
+
+Load `.rg` modules directly from git repositories — no package registry needed.
+
+### Basic Usage
+
+```ruby
+require "github.com/user/my-utils@v1.0.0" as "utils"
+puts utils.slugify("Hello World")
+```
+
+### Version Pinning
+
+| Syntax | Meaning |
+|--------|---------|
+| `@v1.2.0` | Git tag (cached forever) |
+| `@main` | Branch (re-fetched each build) |
+| `@abc1234` | Commit SHA (cached forever) |
+| *(none)* | Default branch (re-fetched) |
+
+### Multi-File Libraries with `with`
+
+```ruby
+require "github.com/rubiojr/rugh@v1.0.0" with client, issue
+
+gh = client.from_env()
+issues = issue.list(gh, "rubiojr", "rugo")
+```
+
+Each name loads `<name>.rg` from the repo root. Without `with`, Rugo looks for `<repo-name>.rg`, then `main.rg`, then the sole `.rg` file.
+
+### Subpath Requires
+
+```ruby
+require "github.com/user/lib/client@v1.0.0"
+```
+
+### Cache
+
+Remote modules are cached in `~/.rugo/modules/`. Override with `RUGO_MODULE_DIR`.
+
+## Doc Comments
+
+Rugo uses `#` comments for documentation. Write doc comments immediately before `def` or `struct` declarations with no blank line gap.
+
+### Convention
+
+```ruby
+# File-level documentation goes here.
+
+# Calculates the factorial of n.
+# Returns 1 when n <= 1.
+def factorial(n)
+  # This is a regular comment — NOT shown by rugo doc
+  if n <= 1
+    return 1
+  end
+  return n * factorial(n - 1)
+end
+
+# A Dog with a name and breed.
+struct Dog
+  name
+  breed
+end
+```
+
+**Rules:**
+- Consecutive `#` lines immediately before `def`/`struct` (no blank line gap) = **doc comment**
+- First `#` block at top of file before any code = **file-level doc**
+- `#` inside function bodies, after a blank line gap, or inline = **regular comment**
+
+### `rugo doc` Command
+
+```bash
+rugo doc file.rg              # all docs in a file
+rugo doc file.rg factorial    # specific function or struct
+rugo doc http                 # stdlib module
+rugo doc strings              # bridge package
+rugo doc github.com/user/repo # remote module
+rugo doc --all                # list all modules and packages
+```
+
+When `bat` is installed, output is syntax-highlighted automatically. Set `NO_COLOR=1` to disable.
