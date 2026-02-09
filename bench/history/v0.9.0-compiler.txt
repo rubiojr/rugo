@@ -1,0 +1,18 @@
+# Hardware: AMD Ryzen AI 7 PRO 350, 16 threads, 32GB RAM
+# OS: Fedora 43 (kernel 6.18.7-200.fc43.x86_64)
+# Go: 1.25.6 linux/amd64
+goos: linux
+goarch: amd64
+pkg: github.com/rubiojr/rugo/compiler
+cpu: AMD Ryzen AI 7 PRO 350 w/ Radeon 860M          
+BenchmarkCompileHelloWorld-16             	   53548	     20241 ns/op	   34828 B/op	     207 allocs/op
+BenchmarkCompileFunctions-16              	   10000	    130471 ns/op	  167926 B/op	    1089 allocs/op
+BenchmarkCompileControlFlow-16            	   11304	    106936 ns/op	  137808 B/op	     925 allocs/op
+BenchmarkCompileStringInterpolation-16    	   22058	     55430 ns/op	   69718 B/op	     680 allocs/op
+BenchmarkCompileArraysHashes-16           	    9159	    131229 ns/op	  164198 B/op	    1105 allocs/op
+BenchmarkPreprocess-16                    	  207822	      6072 ns/op	    4608 B/op	      42 allocs/op
+BenchmarkCodegen-16                       	   24424	     48145 ns/op	   73381 B/op	     559 allocs/op
+BenchmarkInfer-16                         	   83336	     13653 ns/op	   13080 B/op	     124 allocs/op
+BenchmarkInferControlFlow-16              	  220254	      5978 ns/op	    8000 B/op	      21 allocs/op
+PASS
+ok  	github.com/rubiojr/rugo/compiler	10.932s
