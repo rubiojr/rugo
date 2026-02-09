@@ -1,0 +1,245 @@
+package remote
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+)
+
+// Resolver manages remote module fetching, caching, and lock file state.
+type Resolver struct {
+	// ModuleDir overrides the default module cache directory (~/.rugo/modules).
+	ModuleDir string
+	// Frozen errors if the lock file is stale or a new dependency is resolved.
+	Frozen bool
+	// lockFile holds parsed lock entries during compilation.
+	lockFile *LockFile
+	// lockFilePath is the path to the rugo.lock file.
+	lockFilePath string
+	// lockDirty tracks whether the lock file was modified during resolution.
+	lockDirty bool
+}
+
+// InitLock sets the lock file and path for the resolver.
+// Used by the update command to inject a pre-loaded lock file.
+func (r *Resolver) InitLock(path string, lf *LockFile) {
+	r.lockFilePath = path
+	r.lockFile = lf
+}
+
+// InitLockFromDir initializes the lock file from a rugo.lock in the given directory.
+func (r *Resolver) InitLockFromDir(dir string) error {
+	r.lockFilePath = filepath.Join(dir, "rugo.lock")
+	lf, err := ReadLockFile(r.lockFilePath)
+	if err != nil {
+		return err
+	}
+	r.lockFile = lf
+	return nil
+}
+
+// WriteLockIfDirty writes the lock file to disk if it was modified.
+func (r *Resolver) WriteLockIfDirty() error {
+	if r.lockDirty {
+		return WriteLockFile(r.lockFilePath, r.lockFile)
+	}
+	return nil
+}
+
+// LockDirty returns whether the lock file was modified during resolution.
+func (r *Resolver) LockDirty() bool {
+	return r.lockDirty
+}
+
+// ResolveModule fetches a remote git module and returns the local
+// path to its entry point .rg file.
+func (r *Resolver) ResolveModule(requirePath string) (string, error) {
+	rp, err := parseRemotePath(requirePath)
+	if err != nil {
+		return "", err
+	}
+
+	cacheDir, err := r.resolveWithLock(rp)
+	if err != nil {
+		return "", err
+	}
+
+	return FindEntryPoint(cacheDir, rp)
+}
+
+// FetchRepo fetches a remote git repo and returns the cache directory.
+// Unlike ResolveModule, it does not resolve an entry point.
+func (r *Resolver) FetchRepo(requirePath string) (string, error) {
+	rp, err := parseRemotePath(requirePath)
+	if err != nil {
+		return "", err
+	}
+
+	return r.resolveWithLock(rp)
+}
+
+// UpdateEntry re-resolves a mutable dependency, ignoring the existing
+// lock entry, and updates the lock file. If module is empty, all mutable
+// entries are updated.
+func (r *Resolver) UpdateEntry(module string) error {
+	if r.lockFile == nil {
+		return fmt.Errorf("no lock file loaded")
+	}
+
+	for _, entry := range r.lockFile.Entries {
+		if module != "" && entry.Module != module {
+			continue
+		}
+		// Reconstruct the remote path. _default means "no version specified",
+		// so we must not append it as a real @version suffix.
+		remoteSrc := entry.Module
+		if entry.Version != "_default" {
+			remoteSrc += "@" + entry.Version
+		}
+		rp, err := parseRemotePath(remoteSrc)
+		if err != nil {
+			continue
+		}
+		// Only re-resolve mutable versions.
+		if rp.isImmutable() {
+			continue
+		}
+
+		// Clone fresh to the version-label dir (not SHA dir).
+		tmpDir, err := moduleCacheDir(r.ModuleDir, rp, "")
+		if err != nil {
+			return err
+		}
+		if err := gitClone(rp, tmpDir); err != nil {
+			return fmt.Errorf("updating %s@%s: %w", entry.Module, entry.Version, err)
+		}
+		sha, err := gitRevParseSHA(tmpDir)
+		if err != nil {
+			return fmt.Errorf("updating %s@%s: %w", entry.Module, entry.Version, err)
+		}
+
+		// Move to SHA-keyed directory.
+		finalDir, err := moduleCacheDir(r.ModuleDir, rp, sha)
+		if err == nil && finalDir != tmpDir {
+			if _, err := os.Stat(finalDir); err == nil {
+				os.RemoveAll(tmpDir)
+			} else {
+				os.MkdirAll(filepath.Dir(finalDir), 0755)
+				os.Rename(tmpDir, finalDir)
+			}
+		}
+
+		entry.SHA = sha
+		r.lockDirty = true
+	}
+
+	if r.lockDirty {
+		return WriteLockFile(r.lockFilePath, r.lockFile)
+	}
+	return nil
+}
+
+// resolveWithLock fetches a remote module, respecting the lock file.
+// It returns the cache directory where the module is stored and records
+// the resolved SHA in the lock file.
+func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
+	moduleKey := rp.moduleKey()
+	versionLabel := rp.versionLabel()
+
+	// Ensure lock file is initialized.
+	if r.lockFile == nil {
+		r.lockFile = NewLockFile()
+	}
+
+	// Check the lock file for a pinned SHA.
+	var lockedSHA string
+	if entry := r.lockFile.Lookup(moduleKey, versionLabel); entry != nil {
+		lockedSHA = entry.SHA
+	}
+
+	// Determine cache directory (uses _sha_<sha>/ for locked mutable versions).
+	cacheDir, err := moduleCacheDir(r.ModuleDir, rp, lockedSHA)
+	if err != nil {
+		return "", err
+	}
+
+	// If locked SHA cache exists, skip fetch entirely.
+	if lockedSHA != "" {
+		if _, err := os.Stat(cacheDir); err == nil {
+			return cacheDir, nil
+		}
+		// Locked SHA not in cache — need to fetch at that SHA.
+		if r.Frozen {
+			return "", fmt.Errorf("--frozen: locked module %s@%s (sha %s) not in cache", moduleKey, versionLabel, lockedSHA[:7])
+		}
+		if err := gitCloneAtSHA(rp, cacheDir, lockedSHA); err != nil {
+			return "", err
+		}
+		return cacheDir, nil
+	}
+
+	// No lock entry — resolve normally.
+	if r.Frozen {
+		return "", fmt.Errorf("--frozen: no lock entry for %s@%s", moduleKey, versionLabel)
+	}
+
+	// For immutable versions, use the standard needsFetch logic.
+	if rp.isImmutable() {
+		if _, err := os.Stat(cacheDir); err == nil {
+			// Already cached. Record in lock file for completeness.
+			sha, err := gitRevParseSHA(cacheDir)
+			if err == nil {
+				r.lockFile.Set(moduleKey, versionLabel, sha)
+				r.lockDirty = true
+			}
+			return cacheDir, nil
+		}
+		if err := gitClone(rp, cacheDir); err != nil {
+			return "", err
+		}
+		sha, err := gitRevParseSHA(cacheDir)
+		if err != nil {
+			return cacheDir, nil // non-fatal: lock just won't have this entry
+		}
+		r.lockFile.Set(moduleKey, versionLabel, sha)
+		r.lockDirty = true
+		return cacheDir, nil
+	}
+
+	// Mutable version without lock: clone to a temp dir, get SHA, then move to _sha_<sha>/.
+	tmpDir, err := moduleCacheDir(r.ModuleDir, rp, "")
+	if err != nil {
+		return "", err
+	}
+	if err := gitClone(rp, tmpDir); err != nil {
+		return "", err
+	}
+	sha, err := gitRevParseSHA(tmpDir)
+	if err != nil {
+		// Can't get SHA — fall back to the temp dir without lock.
+		return tmpDir, nil
+	}
+
+	// Move to the SHA-keyed directory.
+	finalDir, err := moduleCacheDir(r.ModuleDir, rp, sha)
+	if err != nil {
+		return tmpDir, nil
+	}
+
+	if finalDir != tmpDir {
+		// If SHA dir already exists, remove the temp clone.
+		if _, err := os.Stat(finalDir); err == nil {
+			os.RemoveAll(tmpDir)
+		} else {
+			os.MkdirAll(filepath.Dir(finalDir), 0755)
+			if err := os.Rename(tmpDir, finalDir); err != nil {
+				// Rename failed (cross-device?), keep tmpDir.
+				return tmpDir, nil
+			}
+		}
+	}
+
+	r.lockFile.Set(moduleKey, versionLabel, sha)
+	r.lockDirty = true
+	return finalDir, nil
+}

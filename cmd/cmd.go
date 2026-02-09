@@ -18,6 +18,7 @@ import (
 	"github.com/rubiojr/rugo/compiler/gobridge"
 	rugodoc "github.com/rubiojr/rugo/doc"
 	"github.com/rubiojr/rugo/modules"
+	"github.com/rubiojr/rugo/remote"
 	"github.com/urfave/cli/v3"
 	"golang.org/x/term"
 )
@@ -190,7 +191,7 @@ func updateAction(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
-	lf, err := compiler.ReadLockFile(lockPath)
+	lf, err := remote.ReadLockFile(lockPath)
 	if err != nil {
 		return err
 	}
@@ -199,15 +200,15 @@ func updateAction(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	comp := &compiler.Compiler{}
-	comp.InitLock(lockPath, lf)
+	r := &remote.Resolver{}
+	r.InitLock(lockPath, lf)
 
 	module := ""
 	if cmd.NArg() > 0 {
 		module = cmd.Args().First()
 	}
 
-	return comp.UpdateLockEntry(module)
+	return r.UpdateEntry(module)
 }
 
 // isRugoScript checks if a file exists and looks like a rugo script.
@@ -281,41 +282,20 @@ func docAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	// Mode 5: remote module (e.g. github.com/user/repo)
-	if isRemoteDoc(target) {
+	if remote.IsRemoteRequire(target) {
 		return docRemote(target, symbol)
 	}
 
 	return fmt.Errorf("unknown module or package: %s", target)
 }
 
-// isRemoteDoc returns true if the target looks like a remote module path.
-// Mirrors the compiler's isRemoteRequire logic.
-func isRemoteDoc(target string) bool {
-	if strings.HasPrefix(target, ".") {
-		return false
-	}
-	clean := target
-	if i := strings.Index(clean, "@"); i > 0 {
-		clean = clean[:i]
-	}
-	parts := strings.SplitN(clean, "/", 2)
-	if len(parts) < 2 {
-		return false
-	}
-	host := parts[0]
-	if host == "localhost" || strings.HasPrefix(host, "localhost:") {
-		return true
-	}
-	return strings.Contains(host, ".")
-}
-
 // docRemote fetches a remote module and prints its documentation.
 // Aggregates docs from all .rg files in the module directory.
 func docRemote(target, symbol string) error {
-	comp := &compiler.Compiler{}
+	r := &remote.Resolver{}
 
 	// Fetch repo and resolve entry point
-	entryPath, err := comp.ResolveRemoteModule(target)
+	entryPath, err := r.ResolveModule(target)
 	if err != nil {
 		return fmt.Errorf("fetching %s: %w", target, err)
 	}

@@ -12,6 +12,7 @@ import (
 	"github.com/rubiojr/rugo/compiler/gobridge"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/parser"
+	"github.com/rubiojr/rugo/remote"
 	"modernc.org/scanner"
 )
 
@@ -27,12 +28,8 @@ type Compiler struct {
 	ModuleDir string
 	// Frozen errors if the lock file is stale or a new dependency is resolved.
 	Frozen bool
-	// lockFile holds parsed lock entries during compilation.
-	lockFile *LockFile
-	// lockFilePath is the path to the rugo.lock file.
-	lockFilePath string
-	// lockDirty tracks whether the lock file was modified during compilation.
-	lockDirty bool
+	// resolver handles remote module fetching, caching, and lock file state.
+	resolver *remote.Resolver
 	// loaded tracks already-loaded files to prevent duplicate requires.
 	loaded map[string]bool
 	// imports tracks which Rugo stdlib modules have been imported via use.
@@ -73,14 +70,12 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 	c.BaseDir = filepath.Dir(absPath)
 
-	// Initialize lock file: read existing rugo.lock next to the source file.
-	if c.lockFile == nil {
-		c.lockFilePath = filepath.Join(c.BaseDir, "rugo.lock")
-		lf, err := ReadLockFile(c.lockFilePath)
-		if err != nil {
+	// Initialize remote resolver.
+	if c.resolver == nil {
+		c.resolver = &remote.Resolver{ModuleDir: c.ModuleDir, Frozen: c.Frozen}
+		if err := c.resolver.InitLockFromDir(c.BaseDir); err != nil {
 			return nil, err
 		}
-		c.lockFile = lf
 	}
 
 	// In test mode, auto-require .rg files from helpers/ dir next to the test file.
@@ -101,10 +96,8 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	// Write lock file if modified during compilation.
-	if c.lockDirty {
-		if err := WriteLockFile(c.lockFilePath, c.lockFile); err != nil {
-			return nil, err
-		}
+	if err := c.resolver.WriteLockIfDirty(); err != nil {
+		return nil, err
 	}
 
 	// Generate Go source
@@ -114,13 +107,6 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename}, nil
-}
-
-// InitLock sets the lock file and path for the compiler.
-// Used by the update command to inject a pre-loaded lock file.
-func (c *Compiler) InitLock(path string, lf *LockFile) {
-	c.lockFilePath = path
-	c.lockFile = lf
 }
 
 // discoverHelpers finds .rg files in a helpers/ directory next to the test file
@@ -386,13 +372,13 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		}
 
 		// Validate: "with" only works with remote requires
-		if len(req.With) > 0 && !isRemoteRequire(req.Path) {
+		if len(req.With) > 0 && !remote.IsRemoteRequire(req.Path) {
 			return nil, fmt.Errorf("%s:%d: 'with' can only be used with remote requires (e.g., require \"github.com/user/repo\" with mod1, mod2)", prog.SourceFile, req.StmtLine())
 		}
 
 		// Handle "with" clause: load specific sub-modules from a remote repo
 		if len(req.With) > 0 {
-			cacheDir, err := c.FetchRemoteRepo(req.Path)
+			cacheDir, err := c.resolver.FetchRepo(req.Path)
 			if err != nil {
 				return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
 			}
@@ -478,9 +464,9 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 
 		var absPath string
 
-		if isRemoteRequire(req.Path) {
+		if remote.IsRemoteRequire(req.Path) {
 			// Remote require: fetch from git and resolve entry point
-			localPath, err := c.ResolveRemoteModule(req.Path)
+			localPath, err := c.resolver.ResolveModule(req.Path)
 			if err != nil {
 				return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
 			}
@@ -526,8 +512,8 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		// Determine namespace: alias or basename of the path
 		ns := req.Alias
 		if ns == "" {
-			if isRemoteRequire(req.Path) {
-				ns, _ = remoteDefaultNamespace(req.Path)
+			if remote.IsRemoteRequire(req.Path) {
+				ns, _ = remote.DefaultNamespace(req.Path)
 			} else {
 				base := filepath.Base(req.Path)
 				ns = strings.TrimSuffix(base, filepath.Ext(base))
@@ -1148,4 +1134,9 @@ func goBridgeNamespace(imp *ImportStmt) string {
 		return imp.Alias
 	}
 	return gobridge.DefaultNS(imp.Package)
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
 }

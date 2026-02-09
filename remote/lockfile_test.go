@@ -1,4 +1,4 @@
-package compiler
+package remote
 
 import (
 	"os"
@@ -132,12 +132,5 @@ func TestLockFileEmptyRemovesFile(t *testing.T) {
 
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Error("expected lock file to be removed when empty")
-	}
-}
-
-func TestRemotePathModuleKey(t *testing.T) {
-	r := &remotePath{Host: "github.com", Owner: "user", Repo: "repo", Version: "v1.0.0", Subpath: "sub"}
-	if got := r.moduleKey(); got != "github.com/user/repo" {
-		t.Errorf("moduleKey() = %q, want github.com/user/repo", got)
 	}
 }

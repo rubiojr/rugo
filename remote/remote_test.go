@@ -1,4 +1,4 @@
-package compiler
+package remote
 
 import (
 	"os"
@@ -32,9 +32,9 @@ func TestIsRemoteRequire(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.path, func(t *testing.T) {
-			got := isRemoteRequire(tt.path)
+			got := IsRemoteRequire(tt.path)
 			if got != tt.remote {
-				t.Errorf("isRemoteRequire(%q) = %v, want %v", tt.path, got, tt.remote)
+				t.Errorf("IsRemoteRequire(%q) = %v, want %v", tt.path, got, tt.remote)
 			}
 		})
 	}
@@ -240,7 +240,7 @@ func TestFindEntryPoint(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "README.md"), []byte("# mylib"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
-		got, err := findEntryPoint(dir, r)
+		got, err := FindEntryPoint(dir, r)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -254,7 +254,7 @@ func TestFindEntryPoint(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "main.rg"), []byte("def foo()\nend\n"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
-		got, err := findEntryPoint(dir, r)
+		got, err := FindEntryPoint(dir, r)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -268,7 +268,7 @@ func TestFindEntryPoint(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "helpers.rg"), []byte("def foo()\nend\n"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
-		got, err := findEntryPoint(dir, r)
+		got, err := FindEntryPoint(dir, r)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -283,7 +283,7 @@ func TestFindEntryPoint(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "b.rg"), []byte("def b()\nend\n"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
-		_, err := findEntryPoint(dir, r)
+		_, err := FindEntryPoint(dir, r)
 		if err == nil {
 			t.Error("expected error for ambiguous entry point")
 		}
@@ -294,7 +294,7 @@ func TestFindEntryPoint(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, "README.md"), []byte("# mylib"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
-		_, err := findEntryPoint(dir, r)
+		_, err := FindEntryPoint(dir, r)
 		if err == nil {
 			t.Error("expected error for no .rg files")
 		}
@@ -307,7 +307,7 @@ func TestFindEntryPoint(t *testing.T) {
 		os.WriteFile(filepath.Join(sub, "utils.rg"), []byte("def foo()\nend\n"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "repo", Subpath: "utils"}
-		got, err := findEntryPoint(dir, r)
+		got, err := FindEntryPoint(dir, r)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -343,5 +343,12 @@ func TestNeedsFetch(t *testing.T) {
 	r = &remotePath{}
 	if !needsFetch(existing, r) {
 		t.Error("no version + cached should need fetch")
+	}
+}
+
+func TestRemotePathModuleKey(t *testing.T) {
+	r := &remotePath{Host: "github.com", Owner: "user", Repo: "repo", Version: "v1.0.0", Subpath: "sub"}
+	if got := r.moduleKey(); got != "github.com/user/repo" {
+		t.Errorf("moduleKey() = %q, want github.com/user/repo", got)
 	}
 }

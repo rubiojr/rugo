@@ -1,4 +1,4 @@
-package compiler
+package remote
 
 import (
 	"bufio"
@@ -116,10 +116,4 @@ func WriteLockFile(path string, lf *LockFile) error {
 		return fmt.Errorf("writing lock file: %w", err)
 	}
 	return nil
-}
-
-// moduleKey returns the module path (host/owner/repo) for a remotePath,
-// used as the lock file module identifier.
-func (r *remotePath) moduleKey() string {
-	return r.Host + "/" + r.Owner + "/" + r.Repo
 }
