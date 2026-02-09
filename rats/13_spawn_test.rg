@@ -182,6 +182,24 @@ end
 
 # --- Regression: spawn can reassign outer typed variable ---
 
+rats "spawn return assigns to task result"
+  result = test.run("rugo run rats/fixtures/spawn_return.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "spawn early return with conditional"
+  result = test.run("rugo run rats/fixtures/spawn_return_early.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "big")
+end
+
+rats "spawn bare return yields nil"
+  result = test.run("rugo run rats/fixtures/spawn_return_bare.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "nil")
+end
+
 rats "spawn reassigns outer typed variable"
   result = test.run("rugo run rats/fixtures/spawn_outer_var.rg")
   test.assert_eq(result["status"], 0)

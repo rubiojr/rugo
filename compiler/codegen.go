@@ -41,6 +41,7 @@ type codeGen struct {
 	typeInfo        *TypeInfo         // inferred type information (nil disables typed codegen)
 	currentFunc     *FuncDef          // current function being generated (for type lookups)
 	varTypeScope    string            // override scope key for varType lookups (test/bench blocks)
+	inSpawn         int               // nesting depth of spawn blocks (>0 means inside spawn)
 }
 
 // generate produces Go source code from a Program AST.
@@ -820,6 +821,19 @@ func (g *codeGen) writeFor(f *ForStmt) error {
 }
 
 func (g *codeGen) writeReturn(r *ReturnStmt) error {
+	// Inside a spawn block, return EXPR must assign to t.result and
+	// use a bare return (the goroutine closure has no return value).
+	if g.inSpawn > 0 {
+		if r.Value != nil {
+			expr, err := g.exprString(r.Value)
+			if err != nil {
+				return err
+			}
+			g.writef("t.result = %s\n", expr)
+		}
+		g.writeln("return")
+		return nil
+	}
 	fti := g.currentFuncTypeInfo()
 	if r.Value == nil {
 		if fti != nil && fti.ReturnType.IsTyped() {
@@ -1415,6 +1429,7 @@ func (g *codeGen) tryExpr(e *TryExpr) (string, error) {
 
 func (g *codeGen) spawnExpr(e *SpawnExpr) (string, error) {
 	// Generate the body code in a temporary buffer.
+	g.inSpawn++
 	bodyCode, cerr := g.captureOutput(func() error {
 		g.pushScope()
 		for i, s := range e.Body {
@@ -1439,6 +1454,7 @@ func (g *codeGen) spawnExpr(e *SpawnExpr) (string, error) {
 		g.popScope()
 		return nil
 	})
+	g.inSpawn--
 	if cerr != nil {
 		return "", cerr
 	}
