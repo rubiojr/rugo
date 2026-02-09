@@ -29,6 +29,20 @@ end
 puts "=== Release Benchmarks for #{version} ==="
 puts ""
 
+# --- Check rugo version matches ---
+
+def rugo_version
+  v = str.split(`rugo --version`, " ")
+  return str.trim(v[-1])
+end
+
+installed = rugo_version()
+if installed != version
+  puts "error: rugo in PATH is #{installed}, expected #{version}"
+  puts "  run 'go install .' or 'go build -o bin/rugo .' to update"
+  os.exit(1)
+end
+
 # --- Check for existing files ---
 
 compiler_path = filepath.join("bench", "history", version + "-compiler.txt")
@@ -71,19 +85,13 @@ go_os.write_file(compiler_path, header + bench_output + "\n", 0644)
 puts "  Saved to #{compiler_path}"
 puts ""
 
-# --- Build rugo and run Rugo runtime benchmarks ---
-
-puts "Building rugo..."
-go build -o /tmp/rugo_bench_runner .
-puts ""
+# --- Rugo runtime benchmarks ---
 
 puts "Running Rugo runtime benchmarks..."
-raw_output = `/tmp/rugo_bench_runner bench bench/ 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E '^===|^  '`
+raw_output = `rugo bench bench/ 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E '^===|^  '`
 go_os.write_file(rugo_path, header + raw_output + "\n", 0644)
 puts "  Saved to #{rugo_path}"
 puts ""
-
-rm /tmp/rugo_bench_runner
 
 # --- Compare with previous version ---
 

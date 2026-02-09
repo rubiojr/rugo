@@ -13,6 +13,7 @@ func init() {
 			"remove":        {GoName: "Remove", Params: []GoType{GoString}, Returns: []GoType{GoError}},
 			"remove_all":    {GoName: "RemoveAll", Params: []GoType{GoString}, Returns: []GoType{GoError}},
 			"read_file":     {GoName: "ReadFile", Params: []GoType{GoString}, Returns: []GoType{GoString, GoError}},
+			"write_file":    {GoName: "WriteFile", Params: []GoType{GoString, GoString, GoInt}, Returns: []GoType{GoError}},
 			"temp_dir":      {GoName: "TempDir", Params: nil, Returns: []GoType{GoString}},
 			"user_home_dir": {GoName: "UserHomeDir", Params: nil, Returns: []GoType{GoString, GoError}},
 		},

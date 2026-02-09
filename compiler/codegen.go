@@ -1831,6 +1831,12 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), panicFmt)
 	}
 
+	// Handle os.WriteFile special: data as []byte, perm as os.FileMode
+	if pkg == "os" && sig.GoName == "WriteFile" {
+		return fmt.Sprintf("func() interface{} { _err := %s.WriteFile(%s, []byte(%s), os.FileMode(%s)); if _err != nil { %s }; return nil }()",
+			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoString), gobridge.TypeConvToGo(argExprs[2], gobridge.GoInt), panicFmt)
+	}
+
 	// Handle os.MkdirAll special: perm as os.FileMode
 	if pkg == "os" && sig.GoName == "MkdirAll" {
 		return fmt.Sprintf("func() interface{} { _err := %s.MkdirAll(%s, os.FileMode(%s)); if _err != nil { %s }; return nil }()",

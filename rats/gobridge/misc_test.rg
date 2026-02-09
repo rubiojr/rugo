@@ -1,5 +1,6 @@
 # RATS: Test Go bridge — sort, time, os packages
 use "test"
+use "str"
 
 # sort
 rats "sort.strings"
@@ -134,4 +135,19 @@ rats "os bridge read_file"
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
   test.assert_eq(result["status"], 0)
+end
+
+rats "os bridge write_file"
+  script = <<~SCRIPT
+    import "os" as go_os
+    path = "/tmp/rugo_test_write_file.txt"
+    go_os.write_file(path, "hello from rugo", 0644)
+    content = go_os.read_file(path)
+    puts(content)
+    go_os.remove(path)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(str.trim(result["output"]), "hello from rugo")
 end
