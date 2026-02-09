@@ -107,7 +107,47 @@ require "math_helpers"
 puts math_helpers.double(21)   # 42
 ```
 
-Functions are namespaced by filename.
+Functions are namespaced by filename. Use `as` to pick a custom namespace:
+
+```ruby
+require "math_helpers" as "m"
+puts m.double(21)   # 42
+```
+
+### Remote Modules
+
+Load `.rg` modules directly from git repositories:
+
+```ruby
+require "github.com/user/rugo-utils@v1.0.0" as "utils"
+puts utils.slugify("Hello World")
+```
+
+| Syntax | Meaning |
+|--------|---------|
+| `@v1.2.0` | Git tag (cached forever) |
+| `@main` | Branch (re-fetched each build) |
+| `@abc1234` | Commit SHA (cached forever) |
+| *(none)* | Default branch (re-fetched) |
+
+Remote modules are cached in `~/.rugo/modules/`. Tagged versions and commit
+SHAs are immutable — once downloaded, they're never re-fetched.
+
+### Search Path
+
+Rugo resolves `require` paths with two simple rules:
+
+1. **Relative to calling file** — `require "helpers"` loads `helpers.rg` from
+   the same directory as the file containing the `require`. Subdirectories
+   work too: `require "lib/utils"` loads `lib/utils.rg`. The `.rg` extension
+   is added automatically if missing.
+
+2. **Remote URL** — if the path looks like a URL (`github.com/user/repo`),
+   Rugo fetches the repository via git and resolves the entry point.
+
+There is no `$RUGO_PATH`, no implicit search directories, and no walking up
+the directory tree. The require string tells you exactly where the code comes
+from.
 
 ## Namespace Rules
 

@@ -67,6 +67,19 @@ puts math_helpers.double(21)   # 42
 
 Functions are namespaced by filename. User modules can `use` Rugo stdlib modules in their functions — the imports are automatically propagated.
 
+Paths are resolved relative to the calling file. `require "lib/utils"` loads `lib/utils.rg` from the calling file's directory.
+
+### Remote Modules
+
+Load modules directly from git repositories:
+
+```ruby
+require "github.com/user/rugo-utils@v1.0.0" as "utils"
+puts utils.hello("world")
+```
+
+Pin a version with `@v1.0.0` (git tag) or `@main` (branch). Remote modules are cached in `~/.rugo/modules/`.
+
 **Rules:**
 - `use`, `import`, and `require` must be at the top level (not inside `def`, `if`, etc.)
 - Namespaces must be unique — if `use "os"` is loaded, alias the Go bridge: `import "os" as go_os`

@@ -608,7 +608,18 @@ helpers.greet("World")
 u.compute(42)
 ```
 
-Required files are parsed and their `def` functions are extracted, namespaced (prefixed with the namespace), and included in the main program. Requires are resolved recursively and deduplicated.
+Paths are resolved relative to the calling file. The `.rg` extension is added automatically if missing. Requires are resolved recursively and deduplicated.
+
+Remote git repositories can also be required:
+
+```ruby
+require "github.com/user/rugo-utils@v1.0.0" as "utils"
+utils.slugify("Hello World")
+```
+
+Remote modules are shallow-cloned and cached in `~/.rugo/modules/`. Tagged versions (`@v1.0.0`) and commit SHAs are cached forever; branch refs (`@main`) are re-fetched each build.
+
+There is no implicit search path — the require string tells you exactly where the code comes from: a relative path is local, a URL-shaped path is remote.
 
 ## Built-in Functions
 

@@ -22,6 +22,9 @@ type Compiler struct {
 	// TestMode enables test harness generation (rats blocks are included).
 	// When false (default), rats blocks are silently skipped during codegen.
 	TestMode bool
+	// ModuleDir overrides the default module cache directory (~/.rugo/modules).
+	// Used for testing. When empty, the default is used.
+	ModuleDir string
 	// loaded tracks already-loaded files to prevent duplicate requires.
 	loaded map[string]bool
 	// imports tracks which Rugo stdlib modules have been imported via use.
@@ -318,18 +321,29 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			continue
 		}
 
-		// Resolve the require path
-		reqPath := req.Path
-		if !strings.HasSuffix(reqPath, ".rg") {
-			reqPath += ".rg"
-		}
-		if !filepath.IsAbs(reqPath) {
-			reqPath = filepath.Join(c.BaseDir, reqPath)
-		}
+		var absPath string
 
-		absPath, err := filepath.Abs(reqPath)
-		if err != nil {
-			return nil, fmt.Errorf("resolving require path %s: %w", req.Path, err)
+		if isRemoteRequire(req.Path) {
+			// Remote require: fetch from git and resolve entry point
+			localPath, err := c.resolveRemoteModule(req.Path)
+			if err != nil {
+				return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
+			}
+			absPath = localPath
+		} else {
+			// Local require: resolve relative to calling file
+			reqPath := req.Path
+			if !strings.HasSuffix(reqPath, ".rg") {
+				reqPath += ".rg"
+			}
+			if !filepath.IsAbs(reqPath) {
+				reqPath = filepath.Join(c.BaseDir, reqPath)
+			}
+			var err error
+			absPath, err = filepath.Abs(reqPath)
+			if err != nil {
+				return nil, fmt.Errorf("resolving require path %s: %w", req.Path, err)
+			}
 		}
 
 		if c.loaded[absPath] {
@@ -357,8 +371,12 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		// Determine namespace: alias or basename of the path
 		ns := req.Alias
 		if ns == "" {
-			base := filepath.Base(req.Path)
-			ns = strings.TrimSuffix(base, filepath.Ext(base))
+			if isRemoteRequire(req.Path) {
+				ns, _ = remoteDefaultNamespace(req.Path)
+			} else {
+				base := filepath.Base(req.Path)
+				ns = strings.TrimSuffix(base, filepath.Ext(base))
+			}
 		}
 
 		// Reject require namespace that conflicts with a use'd Rugo module
