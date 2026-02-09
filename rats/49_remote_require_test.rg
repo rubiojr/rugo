@@ -11,9 +11,18 @@ use "str"
 # --- File-level setup: bare git repo + in-process server ---
 
 def setup_file()
-  test.run("mkdir -p /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git /tmp/rats_remote_require/work")
-  test.run("git init --bare /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git")
-  test.run("git clone /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git /tmp/rats_remote_require/work")
+  r = test.run("mkdir -p /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git /tmp/rats_remote_require/work")
+  if r["status"] != 0
+    puts "DEBUG setup mkdir: " + r["output"]
+  end
+  r = test.run("git init --bare /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git")
+  if r["status"] != 0
+    puts "DEBUG setup git init: " + r["output"]
+  end
+  r = test.run("git clone /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git /tmp/rats_remote_require/work")
+  if r["status"] != 0
+    puts "DEBUG setup git clone: " + r["output"]
+  end
 
   mod_src = <<~RG
     def greet(name)
@@ -26,14 +35,24 @@ def setup_file()
   RG
   test.write_file("/tmp/rats_remote_require/work/rugo-test-mod.rg", mod_src)
 
-  test.run("cd /tmp/rats_remote_require/work && git add . && git commit -m initial && git tag v0.1.0")
-  test.run("cd /tmp/rats_remote_require/work && git push origin main v0.1.0")
-  test.run("cd /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git && git update-server-info")
+  r = test.run("cd /tmp/rats_remote_require/work && git add . && git commit -m initial && git tag v0.1.0")
+  if r["status"] != 0
+    puts "DEBUG setup git commit: " + r["output"]
+  end
+  r = test.run("cd /tmp/rats_remote_require/work && git push origin main v0.1.0")
+  if r["status"] != 0
+    puts "DEBUG setup git push: " + r["output"]
+  end
+  r = test.run("cd /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git && git update-server-info")
+  if r["status"] != 0
+    puts "DEBUG setup update-server-info: " + r["output"]
+  end
 
   web.static("/testuser/rugo-test-mod.git", "/tmp/rats_remote_require/repos/testuser/rugo-test-mod.git")
   spawn web.listen(0)
   p = web.port()
   test.write_file("/tmp/rats_remote_require/port", conv.to_s(p))
+  puts "DEBUG setup complete, port=" + conv.to_s(p)
 end
 
 def teardown_file()
@@ -54,6 +73,10 @@ rats "remote require loads functions from git repo"
   consumer = str.replace(consumer, "PORT", port)
   test.write_file(tmpdir + "/consumer.rg", consumer)
   result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/consumer.rg")
+  if result["status"] != 0
+    puts "DEBUG test1 port=" + port + " status=" + conv.to_s(result["status"])
+    puts "DEBUG test1 output: " + result["output"]
+  end
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "Hello from remote, Rugo!")
@@ -70,6 +93,9 @@ rats "remote require uses default namespace from repo name"
   consumer = str.replace(consumer, "PORT", port)
   test.write_file(tmpdir + "/consumer.rg", consumer)
   result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/consumer.rg")
+  if result["status"] != 0
+    puts "DEBUG test2 output: " + result["output"]
+  end
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello from remote, world!")
 end
@@ -87,6 +113,9 @@ rats "remote require caches immutable versions"
 
   # First run: fetches from server
   result = test.run("RUGO_MODULE_DIR=" + moddir + " rugo run " + tmpdir + "/consumer.rg")
+  if result["status"] != 0
+    puts "DEBUG test3 run1 output: " + result["output"]
+  end
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello from remote, cache!")
 
@@ -126,8 +155,14 @@ rats "remote require with build produces working binary"
   RG
   consumer = str.replace(consumer, "PORT", port)
   test.write_file(tmpdir + "/consumer.rg", consumer)
-  test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build " + tmpdir + "/consumer.rg -o " + tmpdir + "/consumer_bin")
+  build_result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build " + tmpdir + "/consumer.rg -o " + tmpdir + "/consumer_bin")
+  if build_result["status"] != 0
+    puts "DEBUG test5 build output: " + build_result["output"]
+  end
   result = test.run(tmpdir + "/consumer_bin")
+  if result["status"] != 0
+    puts "DEBUG test5 run output: " + result["output"]
+  end
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "Hello from remote, binary!")
