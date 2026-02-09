@@ -179,3 +179,11 @@ rats "spawn runtime errors show .rg file and line"
   test.assert_false(str.contains(result["output"], "goroutine"))
   test.assert_false(str.contains(result["output"], "panic:"))
 end
+
+# --- Regression: spawn can reassign outer typed variable ---
+
+rats "spawn reassigns outer typed variable"
+  result = test.run("rugo run rats/fixtures/spawn_outer_var.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "after")
+end

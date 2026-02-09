@@ -307,9 +307,18 @@ func inferExprInner(ti *TypeInfo, scope *typeScope, e Expr) RugoType {
 		return TypeDynamic
 
 	case *SpawnExpr:
+		// Walk the spawn body so expressions inside get typed.
+		// Spawn shares the parent scope via Go closure.
+		for _, s := range ex.Body {
+			inferStmt(ti, scope, s)
+		}
 		return TypeDynamic
 
 	case *ParallelExpr:
+		// Walk the parallel body so expressions inside get typed.
+		for _, s := range ex.Body {
+			inferStmt(ti, scope, s)
+		}
 		return TypeDynamic
 
 	default:
