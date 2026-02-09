@@ -886,6 +886,22 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 		}
 		return g.stringLiteral(ex.Value, g.exprIsTyped(e))
 	case *IdentExpr:
+		// Bare function name without parens: treat as zero-arg call (Ruby semantics).
+		// Local variables shadow function names.
+		if !g.isDeclared(ex.Name) {
+			if expected, ok := g.funcDefs[ex.Name]; ok {
+				if expected != 0 {
+					return "", fmt.Errorf("function '%s' expects %d argument(s), called with 0", ex.Name, expected)
+				}
+				call := fmt.Sprintf("rugofn_%s()", ex.Name)
+				if g.typeInfo != nil {
+					if fti, ok := g.typeInfo.FuncTypes[ex.Name]; ok && fti.ReturnType.IsTyped() {
+						return call, nil
+					}
+				}
+				return fmt.Sprintf("interface{}(%s)", call), nil
+			}
+		}
 		return ex.Name, nil
 	case *DotExpr:
 		return g.dotExpr(ex)

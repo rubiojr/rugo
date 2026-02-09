@@ -47,3 +47,70 @@ rats "paren-free function calls"
   result = test.run("rugo run examples/paren_free.rg")
   test.assert_eq(result["status"], 0)
 end
+
+rats "bare function name as expression calls the function"
+  script = <<~SCRIPT
+    def greet
+      return "hello"
+    end
+    puts greet
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "bare function name in assignment calls the function"
+  script = <<~SCRIPT
+    def greet
+      return "hello"
+    end
+    x = greet
+    puts x
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "bare function name in expression calls the function"
+  script = <<~SCRIPT
+    def greet
+      return "hello"
+    end
+    x = greet + " world"
+    puts x
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello world")
+end
+
+rats "local variable shadows function name"
+  script = <<~SCRIPT
+    def greet
+      return "hello"
+    end
+    greet = "world"
+    puts greet
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "world")
+end
+
+rats "bare function name with wrong arity errors"
+  script = <<~SCRIPT
+    def greet(name)
+      return "hello " + name
+    end
+    puts greet
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_neq(result["status"], 0)
+end
