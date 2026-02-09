@@ -200,6 +200,33 @@ rats "spawn bare return yields nil"
   test.assert_eq(result["output"], "nil")
 end
 
+rats "spawn return inside a function"
+  result = test.run("rugo run rats/fixtures/spawn_return_in_func.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "from spawn")
+end
+
+rats "spawn return inside loop"
+  result = test.run("rugo run rats/fixtures/spawn_return_in_loop.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "30")
+end
+
+rats "spawn return in nested spawn"
+  result = test.run("rugo run rats/fixtures/spawn_return_nested.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "outer:inner")
+end
+
+rats "spawn return compiles to native binary"
+  result = test.run("rugo build rats/fixtures/spawn_return_build.rg -o /tmp/spawn_return_build_test")
+  test.assert_eq(result["status"], 0)
+  result = test.run("/tmp/spawn_return_build_test")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+  test.run("rm -f /tmp/spawn_return_build_test")
+end
+
 rats "spawn reassigns outer typed variable"
   result = test.run("rugo run rats/fixtures/spawn_outer_var.rg")
   test.assert_eq(result["status"], 0)

@@ -128,12 +128,66 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	var result []string
 
 	topLevelFuncs := make(map[string]bool)
+	knownVars := make(map[string]bool)
 	var blockStack []string // tracks "def", "if", "while"
 	defDepth := 0
 
 	for i, line := range lines {
 		trimmed := strings.TrimSpace(line)
-		firstToken, _ := scanFirstToken(trimmed)
+		firstToken, rest := scanFirstToken(trimmed)
+
+		// Track variable assignments: `x = ...`
+		if isIdent(firstToken) {
+			rt := strings.TrimSpace(rest)
+			if len(rt) > 0 && rt[0] == '=' && (len(rt) < 2 || rt[1] != '=') {
+				knownVars[firstToken] = true
+			}
+		}
+
+		// Track def parameters: `def foo(a, b)`
+		if firstToken == "def" {
+			if lp := strings.Index(trimmed, "("); lp != -1 {
+				if rp := strings.Index(trimmed[lp:], ")"); rp != -1 {
+					params := trimmed[lp+1 : lp+rp]
+					for _, p := range strings.Split(params, ",") {
+						p = strings.TrimSpace(p)
+						if isIdent(p) {
+							knownVars[p] = true
+						}
+					}
+				}
+			}
+		}
+
+		// Track for-loop variables: `for x in ...`, `for k, v in ...`
+		if firstToken == "for" {
+			forRest := strings.TrimSpace(trimmed[3:])
+			if inIdx := strings.Index(forRest, " in "); inIdx != -1 {
+				vars := forRest[:inIdx]
+				for _, v := range strings.Split(vars, ",") {
+					v = strings.TrimSpace(v)
+					if isIdent(v) {
+						knownVars[v] = true
+					}
+				}
+			}
+		}
+
+		// Track fn (lambda) parameters: `fn(a, b)`
+		if firstToken == "fn" || (isIdent(firstToken) && strings.Contains(trimmed, "= fn(")) {
+			if lp := strings.Index(trimmed, "fn("); lp != -1 {
+				start := lp + 3
+				if rp := strings.Index(trimmed[start:], ")"); rp != -1 {
+					params := trimmed[start : start+rp]
+					for _, p := range strings.Split(params, ",") {
+						p = strings.TrimSpace(p)
+						if isIdent(p) {
+							knownVars[p] = true
+						}
+					}
+				}
+			}
+		}
 
 		// Choose func set: inside def bodies use allFuncs (forward refs),
 		// at top level use only functions defined above this point.
@@ -155,7 +209,7 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			return "", nil, fmt.Errorf("line %d: %s", origLine, pipeErr.Error())
 		}
 
-		processed := preprocessLine(line, funcs)
+		processed := preprocessLine(line, funcs, knownVars)
 		// Detect orphan "or" on shell fallback lines
 		if strings.Contains(processed, `__shell__("`) {
 			if hasOrphanOr(trimmed) {
@@ -210,7 +264,7 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	return strings.Join(result, "\n"), tryLineMap, nil
 }
 
-func preprocessLine(line string, userFuncs map[string]bool) string {
+func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string]bool) string {
 	trimmed := strings.TrimSpace(line)
 	if trimmed == "" {
 		return line
@@ -277,10 +331,10 @@ func preprocessLine(line string, userFuncs map[string]bool) string {
 	}
 
 	// Operator follows: `x + y`, `x == y` etc — leave alone (it's an expression)
-	// But only if the first token could be a variable (known func/builtin or we
+	// But only if the first token could be a variable (known func/builtin/var or we
 	// can't tell), not an unknown command like `ls -la`
 	if len(restTrimmed) > 0 && isOperatorStart(restTrimmed[0]) {
-		if rugoBuiltins[firstToken] || userFuncs[firstToken] {
+		if rugoBuiltins[firstToken] || userFuncs[firstToken] || knownVars[firstToken] {
 			return line
 		}
 		// Unknown ident followed by operator — it's a shell command
@@ -288,9 +342,12 @@ func preprocessLine(line string, userFuncs map[string]bool) string {
 		return indent + `__shell__("` + shellEscape(trimmed) + `")`
 	}
 
-	// Empty rest — bare ident. If it's a known function/builtin, it's a no-arg call.
-	// Otherwise it's a shell command.
+	// Empty rest — bare ident. If it's a known variable, leave it alone (expression).
+	// If it's a known function/builtin, it's a no-arg call. Otherwise it's a shell command.
 	if restTrimmed == "" {
+		if knownVars[firstToken] {
+			return line
+		}
 		if rugoBuiltins[firstToken] || userFuncs[firstToken] {
 			return indent + firstToken + "()"
 		}
