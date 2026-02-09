@@ -100,6 +100,62 @@ That's it! RATS gives you a simple, built-in way to test your Rugo scripts.
 See the [RATS design doc](../rats.md) for the full specification and the
 `test` module's complete API.
 
+## Setup and Teardown
+
+RATS supports four hook functions for test lifecycle management:
+
+| Hook | Scope | When it runs |
+|------|-------|-------------|
+| `def setup_file()` | Per file | Once before all tests in the file |
+| `def teardown_file()` | Per file | Once after all tests in the file |
+| `def setup()` | Per test | Before each individual test |
+| `def teardown()` | Per test | After each individual test |
+
+```ruby
+use "test"
+use "os"
+
+def setup_file()
+  # Create shared resources once for all tests
+  os.exec("mkdir -p /tmp/myapp_test")
+end
+
+def teardown_file()
+  # Clean up shared resources after all tests
+  os.exec("rm -rf /tmp/myapp_test")
+end
+
+def setup()
+  # Reset state before each test
+  test.write_file(test.tmpdir() + "/input.txt", "default")
+end
+
+def teardown()
+  # Clean up per-test state (tmpdir is auto-cleaned)
+end
+
+rats "uses shared resource"
+  test.write_file("/tmp/myapp_test/data.txt", "hello")
+  result = test.run("cat /tmp/myapp_test/data.txt")
+  test.assert_eq(result["output"], "hello")
+end
+```
+
+The execution order is:
+
+```
+setup_file()
+  for each test:
+    create tmpdir
+    setup()
+    run test
+    teardown()
+    clean tmpdir
+teardown_file()
+```
+
+`teardown_file()` always runs, even if tests fail.
+
 ## Inline Tests
 
 You can embed `rats` blocks directly in regular `.rg` files. When you run the

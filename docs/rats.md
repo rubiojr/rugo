@@ -50,6 +50,14 @@ Tests can live in dedicated `_test.rg` files or inline in regular `.rg` files.
 use "test"
 use "os"
 
+def setup_file()
+  # runs once before all tests in this file
+end
+
+def teardown_file()
+  # runs once after all tests in this file
+end
+
 def setup()
   # runs before each test
 end
@@ -155,11 +163,13 @@ The `rugo rats` command would:
 1. Discover `_test.rg` files (in `test/` by default, or specified paths)
 2. For each file:
    a. Parse and find all `rats "name" ... end` blocks
-   b. Find `setup`/`teardown` if defined
+   b. Find `setup`/`teardown`/`setup_file`/`teardown_file` if defined
    c. Generate a Go program that:
       - Defines each test as a function
       - Wraps each test in `defer recover()` to catch assertion panics
-      - Calls `setup()` → test → `teardown()` for each
+      - Calls `setup_file()` once before all tests
+      - Calls `setup()` → test → `teardown()` for each test
+      - Calls `teardown_file()` once after all tests (via defer)
       - Outputs TAP format results
 3. Compile and run the generated program
 4. Parse output and display results
@@ -272,7 +282,7 @@ These BATS features can be deferred or aren't needed:
 
 | BATS Feature | RATS Status | Reason |
 |---|---|---|
-| `setup_file`/`teardown_file` | Defer | `setup`/`teardown` per-test is sufficient initially |
+| `setup_file`/`teardown_file` | ✅ Done | Per-file hooks, called once before/after all tests |
 | `--jobs` parallel | ✅ Done | `rugo rats -j N`, defaults to NumCPU |
 | `--filter-tags` | Defer | `--filter` regex is enough |
 | `load` helper | Already have `require` | `require "test_helper"` works |

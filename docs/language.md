@@ -531,7 +531,7 @@ The code generator (`compiler/codegen.go`) traverses the typed AST and emits a s
 
 **`//line` directives**: The codegen emits `//line file.rg:N` directives before each statement so that Go runtime panics show `.rg` source locations instead of generated Go line numbers.
 
-**Test harness**: When `rats` blocks are present, the codegen generates a TAP-compliant test runner instead of a regular `main()`. Each test block becomes a separate function, with optional `setup`/`teardown` hooks.
+**Test harness**: When `rats` blocks are present, the codegen generates a TAP-compliant test runner instead of a regular `main()`. Each test block becomes a separate function, with optional `setup`/`teardown` (per-test) and `setup_file`/`teardown_file` (per-file) hooks.
 
 ### Function Naming Conventions
 
@@ -652,5 +652,6 @@ end
 Test files use the `_test.rg` extension and produce TAP (Test Anything Protocol) output. The test harness supports:
 
 - `setup` / `teardown` functions called before/after each test
+- `setup_file` / `teardown_file` functions called once before/after all tests
 - `test.assert_eq`, `test.assert`, `test.skip` from the test module
 - Exit code 1 on any test failure

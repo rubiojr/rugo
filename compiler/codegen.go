@@ -73,6 +73,8 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	var nsVars []*AssignStmt // top-level assignments from require'd files (emitted as package-level vars)
 	var setupFunc *FuncDef
 	var teardownFunc *FuncDef
+	var setupFileFunc *FuncDef
+	var teardownFileFunc *FuncDef
 	funcLines := make(map[string]int) // track first definition line per function
 	for _, s := range prog.Statements {
 		switch st := s.(type) {
@@ -91,6 +93,10 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 				setupFunc = st
 			} else if st.Name == "teardown" && st.Namespace == "" {
 				teardownFunc = st
+			} else if st.Name == "setup_file" && st.Namespace == "" {
+				setupFileFunc = st
+			} else if st.Name == "teardown_file" && st.Namespace == "" {
+				teardownFileFunc = st
 			}
 			funcs = append(funcs, st)
 		case *TestDef:
@@ -248,7 +254,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	g.writeDispatchMaps(funcs)
 
 	if len(tests) > 0 {
-		return g.generateTestHarness(tests, topStmts, setupFunc, teardownFunc)
+		return g.generateTestHarness(tests, topStmts, setupFunc, teardownFunc, setupFileFunc, teardownFileFunc)
 	}
 
 	if len(benches) > 0 {
@@ -272,7 +278,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	return g.sb.String(), nil
 }
 
-func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, setup, teardown *FuncDef) (string, error) {
+func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, setup, teardown, setupFile, teardownFile *FuncDef) (string, error) {
 	// Emit each test as a function
 	for i, t := range tests {
 		funcName := fmt.Sprintf("rugo_test_%d", i)
@@ -343,13 +349,21 @@ func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, se
 
 	setupArg := "nil"
 	teardownArg := "nil"
+	setupFileArg := "nil"
+	teardownFileArg := "nil"
 	if setup != nil {
 		setupArg = "rugofn_setup"
 	}
 	if teardown != nil {
 		teardownArg = "rugofn_teardown"
 	}
-	g.writef("}, %s, %s, _test)\n", setupArg, teardownArg)
+	if setupFile != nil {
+		setupFileArg = "rugofn_setup_file"
+	}
+	if teardownFile != nil {
+		teardownFileArg = "rugofn_teardown_file"
+	}
+	g.writef("}, %s, %s, %s, %s, _test)\n", setupArg, teardownArg, setupFileArg, teardownFileArg)
 
 	g.popScope()
 	g.indent--

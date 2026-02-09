@@ -125,7 +125,7 @@ type rugoTestCase struct {
 }
 
 // rugo_test_runner executes tests and produces TAP output with optional color.
-func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}, testInstance *Test) {
+func rugo_test_runner(tests []rugoTestCase, setup, teardown, setupFile, teardownFile func() interface{}, testInstance *Test) {
 	colorOK := "\033[32m"
 	colorFail := "\033[31m"
 	colorSkip := "\033[33m"
@@ -151,6 +151,13 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown func() interface{}, 
 	totalSkipped := 0
 	fmt.Println("TAP version 13")
 	fmt.Printf("1..%d\n", len(tests))
+
+	if teardownFile != nil {
+		defer teardownFile()
+	}
+	if setupFile != nil {
+		setupFile()
+	}
 
 	for i, t := range tests {
 		testNum := i + 1

@@ -219,12 +219,12 @@ func TestIsSHA(t *testing.T) {
 		{"abc1234", true},
 		{"deadbeef", true},
 		{"abcdef1234567890abcdef1234567890abcdef12", true},
-		{"ABC1234", false},   // uppercase
-		{"abc123", false},    // too short (6)
-		{"main", false},      // not hex
-		{"v1.0.0", false},    // not hex
-		{"", false},          // empty
-		{"abc12g4", false},   // non-hex char
+		{"ABC1234", false}, // uppercase
+		{"abc123", false},  // too short (6)
+		{"main", false},    // not hex
+		{"v1.0.0", false},  // not hex
+		{"", false},        // empty
+		{"abc12g4", false}, // non-hex char
 	}
 	for _, tt := range tests {
 		if got := isSHA(tt.s); got != tt.want {
