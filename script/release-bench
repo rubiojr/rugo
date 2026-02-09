@@ -1,0 +1,159 @@
+#!/usr/bin/env rugo
+
+# Release benchmark runner
+# Captures Go compiler and Rugo runtime benchmarks for the current git tag.
+#
+# Usage:
+#   script/release-bench                        # auto-detect latest tag
+#   VERSION=v0.9.0 script/release-bench         # explicit version
+
+use "str"
+use "conv"
+use "os"
+import "os" as go_os
+import "strings"
+import "path/filepath"
+
+# --- Resolve version ---
+
+version = go_os.getenv("VERSION")
+if version == ""
+  version = str.trim(`git describe --tags --exact-match 2>/dev/null || git describe --tags --abbrev=0 2>/dev/null`)
+end
+
+if version == ""
+  puts "error: no git tag found. Set VERSION=v0.x.0"
+  os.exit(1)
+end
+
+puts "=== Release Benchmarks for #{version} ==="
+puts ""
+
+# --- Check for existing files ---
+
+compiler_path = filepath.join("bench", "history", version + "-compiler.txt")
+rugo_path = filepath.join("bench", "history", version + "-rugo.txt")
+
+for path in [compiler_path, rugo_path]
+  exists = try go_os.read_file(path) or nil
+  if exists != nil
+    puts "error: #{path} already exists. Remove it first to re-run."
+    os.exit(1)
+  end
+end
+
+# --- Detect hardware ---
+
+cpu = str.trim(`grep 'model name' /proc/cpuinfo | head -1 | sed 's/.*: *//'`)
+threads = str.trim(`nproc`)
+mem_kb = str.trim(`grep MemTotal /proc/meminfo | awk '{print $2}'`)
+mem_gb = conv.to_s(conv.to_i(mem_kb) / 1024 / 1024)
+os_name = str.trim(`source /etc/os-release && echo "$NAME $VERSION_ID"`)
+kernel = str.trim(`uname -r`)
+go_ver = str.trim(`go version | awk '{print $3}' | sed 's/go//'`)
+go_plat = str.trim(`go env GOOS`) + "/" + str.trim(`go env GOARCH`)
+
+header_hw = "# Hardware: #{cpu}, #{threads} threads, #{mem_gb}GB RAM"
+header_os = "# OS: #{os_name} (kernel #{kernel})"
+header_go = "# Go: #{go_ver} #{go_plat}"
+header = header_hw + "\n" + header_os + "\n" + header_go + "\n"
+
+puts header_hw
+puts header_os
+puts header_go
+puts ""
+
+# --- Go compiler benchmarks ---
+
+puts "Running Go compiler benchmarks (count=5)..."
+bench_output = `go test -bench=. -benchmem -count=5 ./compiler/ 2>&1`
+go_os.write_file(compiler_path, header + bench_output + "\n", 0644)
+puts "  Saved to #{compiler_path}"
+puts ""
+
+# --- Build rugo and run Rugo runtime benchmarks ---
+
+puts "Building rugo..."
+go build -o /tmp/rugo_bench_runner .
+puts ""
+
+puts "Running Rugo runtime benchmarks..."
+raw_output = `/tmp/rugo_bench_runner bench bench/ 2>&1 | sed 's/\x1b\[[0-9;]*m//g' | grep -E '^===|^  '`
+go_os.write_file(rugo_path, header + raw_output + "\n", 0644)
+puts "  Saved to #{rugo_path}"
+puts ""
+
+rm /tmp/rugo_bench_runner
+
+# --- Compare with previous version ---
+
+all_files = str.trim(`ls bench/history/*-rugo.txt 2>/dev/null | sort -V`)
+if all_files == ""
+  puts "Done. No previous benchmarks to compare against."
+  os.exit(0)
+end
+
+versions = []
+for f in str.split(all_files, "\n")
+  v = strings.trim_suffix(filepath.base(f), "-rugo.txt")
+  versions = append(versions, v)
+end
+
+if len(versions) < 2
+  puts "Done. No previous version to compare against."
+  os.exit(0)
+end
+
+prev = versions[len(versions) - 2]
+prev_path = filepath.join("bench", "history", prev + "-rugo.txt")
+
+puts "=== Comparison: #{prev} → #{version} ==="
+puts ""
+
+def parse_bench_file(path)
+  content = go_os.read_file(path)
+  results = {}
+  for line in str.split(content, "\n")
+    if !strings.has_prefix(line, "  ")
+      next
+    end
+    parts = []
+    for p in str.split(str.trim(line), "  ")
+      p = str.trim(p)
+      if p != ""
+        parts = append(parts, p)
+      end
+    end
+    if len(parts) >= 2
+      name = parts[0]
+      val_str = parts[1]
+      if strings.contains(val_str, "(")
+        val_str = str.trim(strings.split(val_str, "(")[0])
+      end
+      results[name] = val_str
+    end
+  end
+  return results
+end
+
+old_bench = parse_bench_file(prev_path)
+new_bench = parse_bench_file(rugo_path)
+
+for name, old_val in old_bench
+  if new_bench[name] != nil
+    new_val = new_bench[name]
+    line = "  " + name
+    while len(line) < 47
+      line = line + " "
+    end
+    line = line + old_val
+    while len(line) < 65
+      line = line + " "
+    end
+    line = line + "→  " + new_val
+    puts line
+  end
+end
+
+puts ""
+puts "Done. Benchmark files saved in bench/history/."
