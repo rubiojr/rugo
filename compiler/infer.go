@@ -161,8 +161,12 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s Statement) {
 	case *WhileStmt:
 		inferExpr(ti, scope, st.Condition)
 		ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
-		for _, s := range st.Body {
-			inferStmt(ti, scope, s)
+		// Infer body twice: same rationale as ForStmt — the first pass
+		// may widen variable types that affect expression types.
+		for pass := 0; pass < 2; pass++ {
+			for _, s := range st.Body {
+				inferStmt(ti, scope, s)
+			}
 		}
 
 	case *ForStmt:
@@ -172,8 +176,13 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s Statement) {
 		if st.IndexVar != "" {
 			scope.set(st.IndexVar, TypeDynamic)
 		}
-		for _, s := range st.Body {
-			inferStmt(ti, scope, s)
+		// Infer body twice: the first pass may widen variable types
+		// (e.g. lines = lines + dynamic_var), and the second pass
+		// ensures expression types reflect the widened variables.
+		for pass := 0; pass < 2; pass++ {
+			for _, s := range st.Body {
+				inferStmt(ti, scope, s)
+			}
 		}
 
 	case *ReturnStmt:
