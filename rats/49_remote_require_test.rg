@@ -35,11 +35,11 @@ def setup_file()
   RG
   test.write_file("/tmp/rats_remote_require/work/rugo-test-mod.rg", mod_src)
 
-  r = test.run("cd /tmp/rats_remote_require/work && git add . && git commit -m initial && git tag v0.1.0")
+  r = test.run("cd /tmp/rats_remote_require/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v0.1.0")
   if r["status"] != 0
     puts "DEBUG setup git commit: " + r["output"]
   end
-  r = test.run("cd /tmp/rats_remote_require/work && git push origin main v0.1.0")
+  r = test.run("cd /tmp/rats_remote_require/work && git push origin HEAD v0.1.0")
   if r["status"] != 0
     puts "DEBUG setup git push: " + r["output"]
   end
