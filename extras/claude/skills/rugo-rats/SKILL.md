@@ -131,6 +131,20 @@ The `rugo rats` command:
 
 Assertions use `panic()` to abort the test on failure — Go's `recover()` catches them cleanly.
 
+## Test Helpers
+
+RATS supports shared helper files via a `helpers/` directory next to the test file. Any `.rg` files in `helpers/` are automatically `require`d into the test file before parsing, so functions and constants defined there are available to all tests without explicit `require` statements.
+
+```
+my_tests/
+  helpers/
+    web_utils.rg      # defines start_server(), etc.
+    fixtures.rg        # defines test data
+  feature_test.rg      # can call start_server() directly
+```
+
+The compiler generates `require "helpers/web_utils" as "web_utils"` (and so on) for each `.rg` file in the directory. Helpers are only loaded in test mode (`rugo rats`), not during normal `rugo run`.
+
 ## Inline Tests
 
 Tests can be embedded directly in regular `.rg` files alongside normal code.
@@ -168,14 +182,65 @@ are skipped during discovery.
 
 ## Regression Test Suite
 
-The `rats/` directory contains the project's regression test suite:
+The `rats/` directory contains the project's regression test suite (54 test files, 600+ tests):
 
-| File | Coverage |
-|------|----------|
-| `rats/13_spawn_test.rg` | 21 tests: block, one-liner, fan-out, try/or, .done, .wait, functions, empty body, codegen gating, native binary, 5 negative tests |
-| `rats/14_parallel_test.rg` | 11 tests: ordered results, shell commands, single expr, nested, try/or, empty body, import gating, native binary, 2 negative tests |
-| `rats/28_bench_test.rg` | 4 tests: basic bench, multi bench, bench with functions, bench keyword in emit |
-| `rats/gobridge/` | 60 tests across 7 files covering all 8 Go bridge packages plus edge cases and aliasing |
+| File | Tests | Coverage area |
+|------|-------|---------------|
+| `rats/01_cli_test.rg` | 9 | CLI basics |
+| `rats/02_variables_test.rg` | 8 | Variable assignment |
+| `rats/03_control_flow_test.rg` | 4 | if/else, loops |
+| `rats/04_functions_test.rg` | 9 | Function definitions |
+| `rats/05_data_structures_test.rg` | 5 | Arrays, hashes |
+| `rats/06_modules_test.rg` | 9 | Module system |
+| `rats/07_require_shell_test.rg` | 3 | require + shell |
+| `rats/08_rats_self_test.rg` | 10 | RATS self-tests |
+| `rats/09_try_or_test.rg` | 5 | try/or error handling |
+| `rats/10_error_output_test.rg` | 7 | Error output formatting |
+| `rats/10_raise_test.rg` | 5 | raise keyword |
+| `rats/11_backticks_test.rg` | 4 | Backtick shell exec |
+| `rats/12_syntax_errors_test.rg` | 21 | Syntax error reporting |
+| `rats/13_spawn_test.rg` | 29 | spawn concurrency |
+| `rats/14_parallel_test.rg` | 11 | parallel blocks |
+| `rats/15_test_colors_test.rg` | 8 | Color output |
+| `rats/16_cli_module_test.rg` | 17 | CLI module |
+| `rats/17_color_module_test.rg` | 7 | Color module |
+| `rats/18_escape_sequences_test.rg` | 9 | Escape sequences |
+| `rats/19_json_module_test.rg` | 10 | JSON module |
+| `rats/20_custom_modules_test.rg` | 4 | Custom modules |
+| `rats/21_summary_test.rg` | 2 | Test summary output |
+| `rats/22_raw_strings_test.rg` | 8 | Raw strings |
+| `rats/23_comparisons_test.rg` | 8 | Comparison operators |
+| `rats/24_constants_test.rg` | 8 | Constants |
+| `rats/25_arg_count_test.rg` | 6 | Argument count checks |
+| `rats/26_negative_index_test.rg` | 5 | Negative indexing |
+| `rats/27_pipes_test.rg` | 14 | Pipe operator |
+| `rats/28_bench_test.rg` | 4 | Benchmarks |
+| `rats/29_module_edge_cases_test.rg` | 8 | Module edge cases |
+| `rats/30_heredoc_test.rg` | 12 | Heredocs |
+| `rats/31_structs_test.rg` | 69 | Structs |
+| `rats/32_hash_keys_test.rg` | 12 | Hash keys |
+| `rats/33_hash_colon_syntax_test.rg` | 16 | Hash colon syntax |
+| `rats/34_web_module_test.rg` | 31 | Web module |
+| `rats/35_web_middleware_test.rg` | 16 | Web middleware |
+| `rats/36_inline_tests_test.rg` | 4 | Inline tests |
+| `rats/37_error_ux_test.rg` | 32 | Error UX |
+| `rats/38_def_optional_parens_test.rg` | 11 | Optional parens |
+| `rats/39_type_inference_test.rg` | 25 | Type inference |
+| `rats/40_test_timeout_test.rg` | 3 | Test timeouts |
+| `rats/41_lambdas_test.rg` | 19 | Lambdas |
+| `rats/42_http_module_test.rg` | 10 | HTTP module |
+| `rats/43_require_typed_call_test.rg` | 2 | Typed require calls |
+| `rats/44_subdir_require_test.rg` | 2 | Subdir require |
+| `rats/45_require_scope_test.rg` | 3 | Require scoping |
+| `rats/46_type_of_test.rg` | 19 | type_of() |
+| `rats/47_if_scope_test.rg` | 5 | If block scoping |
+| `rats/48_bare_variable_test.rg` | 11 | Bare variable errors |
+| `rats/49_remote_require_test.rg` | 5 | Remote require |
+| `rats/50_setup_file_test.rg` | 2 | setup_file/teardown_file |
+| `rats/51_setup_teardown_combined_test.rg` | 3 | Combined hooks |
+| `rats/fmt_test.rg` | 9 | fmt module |
+| `rats/re_test.rg` | 16 | Regex module |
+| `rats/gobridge/` | 60 | 7 files covering Go bridge packages |
 
 Fixtures live in `rats/fixtures/` (`.rg` files for scripts, `_test.rg` files for test fixtures).
 
