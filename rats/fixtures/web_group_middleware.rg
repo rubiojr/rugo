@@ -1,7 +1,6 @@
 # Fixture: route group with middleware
 use "web"
 use "http"
-import "time"
 
 web.get("/public", "public_handler")
 
@@ -21,8 +20,8 @@ def dashboard_handler(req)
   return web.text("dashboard")
 end
 
-spawn web.listen(19113)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19113/public").body)
-puts(http.get("http://localhost:19113/admin/dashboard").body)
+puts(http.get("http://localhost:#{_port}/public").body)
+puts(http.get("http://localhost:#{_port}/admin/dashboard").body)

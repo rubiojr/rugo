@@ -5,6 +5,8 @@
 # setup() runs before each individual test.
 # teardown() runs after each individual test.
 use "test"
+use "web"
+use "http"
 use "os"
 
 def setup_file()
@@ -28,4 +30,23 @@ end
 rats "setup resets per-test state"
   result = test.run("cat " + test.tmpdir() + "/per_test.txt")
   test.assert_eq(result["output"], "fresh")
+end
+
+rats "web.listen(0) + web.port() assigns dynamic port"
+  p = web.free_port()
+  script = <<~SCRIPT
+    use "web"
+    use "http"
+    web.get("/hello", "handler")
+    def handler(req)
+      return web.text("hi")
+    end
+    spawn web.listen(#{p})
+    web.port()
+    puts(http.get("http://localhost:#{p}/hello").body)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/server.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/server.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hi")
 end

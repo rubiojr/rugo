@@ -1,7 +1,6 @@
 # Fixture: URL parameters
 use "web"
 use "http"
-import "time"
 
 web.get("/users/:id", "show_user")
 
@@ -10,8 +9,8 @@ def show_user(req)
   return web.text("user:" + id)
 end
 
-spawn web.listen(19102)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19102/users/42").body)
-puts(http.get("http://localhost:19102/users/hello").body)
+puts(http.get("http://localhost:#{_port}/users/42").body)
+puts(http.get("http://localhost:#{_port}/users/hello").body)

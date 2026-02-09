@@ -1,7 +1,6 @@
 # Fixture: global middleware
 use "web"
 use "http"
-import "time"
 
 web.middleware("block_all")
 web.get("/hello", "hello_handler")
@@ -14,7 +13,7 @@ def hello_handler(req)
   return web.text("should not reach")
 end
 
-spawn web.listen(19109)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19109/hello").body)
+puts(http.get("http://localhost:#{_port}/hello").body)

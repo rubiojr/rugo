@@ -1,7 +1,6 @@
 # Fixture: route groups with prefix
 use "web"
 use "http"
-import "time"
 
 web.get("/", "home_handler")
 
@@ -22,9 +21,9 @@ def posts_handler(req)
   return web.text("posts")
 end
 
-spawn web.listen(19112)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19112/").body)
-puts(http.get("http://localhost:19112/api/users").body)
-puts(http.get("http://localhost:19112/api/posts").body)
+puts(http.get("http://localhost:#{_port}/").body)
+puts(http.get("http://localhost:#{_port}/api/users").body)
+puts(http.get("http://localhost:#{_port}/api/posts").body)

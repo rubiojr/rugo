@@ -305,7 +305,28 @@ web.listen(3000)
 spawn web.listen(3000)
 ```
 
+Pass `0` to let the kernel assign a free port:
+
+```ruby
+spawn web.listen(0)
+p = web.port()    # blocks until bound, returns assigned port
+puts("Server on port #{p}")
+```
+
 The server logs `web: listening on :PORT` to stderr on startup.
+
+### `web.port()`
+
+Returns the port assigned by the last `web.listen()` call. Blocks until the server has bound, making it safe to call immediately after `spawn web.listen(0)`.
+
+### `web.free_port()`
+
+Asks the kernel for a free TCP port and returns it. Useful when you need to know the port before starting the server (e.g., for interpolation into scripts):
+
+```ruby
+p = web.free_port()
+spawn web.listen(p)
+```
 
 ## Full Example
 

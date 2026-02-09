@@ -33,6 +33,9 @@ type Compiler struct {
 	goImports map[string]string // package path → alias (empty = default)
 	// nsFuncs tracks namespace+function pairs to detect duplicates.
 	nsFuncs map[string]string // "ns.func" → source file
+	// sourcePrefix is prepended to the main file source before parsing.
+	// Used to auto-inject require statements for test helpers.
+	sourcePrefix string
 }
 
 // CompileResult holds the output of a compilation.
@@ -62,7 +65,13 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 	c.BaseDir = filepath.Dir(absPath)
 
+	// In test mode, auto-require .rg files from helpers/ dir next to the test file.
+	if c.TestMode {
+		c.sourcePrefix = c.discoverHelpers()
+	}
+
 	prog, err := c.parseFile(absPath, displayPath(absPath))
+	c.sourcePrefix = "" // Only apply to the main file, not requires
 	if err != nil {
 		return nil, err
 	}
@@ -80,6 +89,29 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename}, nil
+}
+
+// discoverHelpers finds .rg files in a helpers/ directory next to the test file
+// and returns require statements to prepend to the source.
+func (c *Compiler) discoverHelpers() string {
+	helpersDir := filepath.Join(c.BaseDir, "helpers")
+	entries, err := os.ReadDir(helpersDir)
+	if err != nil {
+		return ""
+	}
+	var lines []string
+	for _, e := range entries {
+		name := e.Name()
+		if e.IsDir() || !strings.HasSuffix(name, ".rg") {
+			continue
+		}
+		base := strings.TrimSuffix(name, ".rg")
+		lines = append(lines, fmt.Sprintf("require \"helpers/%s\" as \"%s\"", base, base))
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	return strings.Join(lines, "\n") + "\n"
 }
 
 // goModContent generates a go.mod with require lines for any external
@@ -215,7 +247,7 @@ func (c *Compiler) parseFile(filename, displayName string) (*Program, error) {
 	}
 
 	// Expand heredocs before comment stripping (bodies may contain #).
-	cleaned, err := expandHeredocs(string(src))
+	cleaned, err := expandHeredocs(c.sourcePrefix + string(src))
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}

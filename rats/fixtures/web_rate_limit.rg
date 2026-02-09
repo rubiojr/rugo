@@ -1,7 +1,6 @@
 # Fixture: rate_limiter blocks after burst
 use "web"
 use "http"
-import "time"
 
 web.rate_limit(2)
 web.middleware("rate_limiter")
@@ -11,11 +10,11 @@ def ping_handler(req)
   return web.text("pong")
 end
 
-spawn web.listen(19203)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
 # First 2 pass (burst = 2)
-puts(http.get("http://localhost:19203/ping").body)
-puts(http.get("http://localhost:19203/ping").body)
+puts(http.get("http://localhost:#{_port}/ping").body)
+puts(http.get("http://localhost:#{_port}/ping").body)
 # Third is rate limited
-puts(http.get("http://localhost:19203/ping").body)
+puts(http.get("http://localhost:#{_port}/ping").body)

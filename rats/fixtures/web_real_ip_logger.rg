@@ -1,7 +1,6 @@
 # Fixture: real_ip + logger ordering (real_ip before logger shows correct IP)
 use "web"
 use "http"
-import "time"
 
 web.middleware("real_ip")
 web.middleware("logger")
@@ -11,7 +10,7 @@ def check_handler(req)
   return web.text(req.remote_addr)
 end
 
-spawn web.listen(19206)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19206/check").body)
+puts(http.get("http://localhost:#{_port}/check").body)

@@ -1,6 +1,7 @@
 # RATS: Test web module built-in middleware (real_ip, rate_limiter)
 use "test"
 use "json"
+use "web"
 
 # --- real_ip middleware ---
 
@@ -11,18 +12,18 @@ rats "real_ip strips port from remote_addr"
 end
 
 rats "real_ip resolves X-Forwarded-For header"
+  p = web.free_port()
   script = <<~SCRIPT
     use "web"
     use "http"
-    import "time"
     web.middleware("real_ip")
     web.get("/ip", "ip_handler")
     def ip_handler(req)
       return web.text(req.remote_addr)
     end
-    spawn web.listen(19210)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19210/ip").body)
+    spawn web.listen(#{p})
+    web.port()
+    puts(http.get("http://localhost:#{p}/ip").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -38,18 +39,18 @@ rats "real_ip works before logger"
 end
 
 rats "real_ip without headers strips port"
+  p = web.free_port()
   script = <<~SCRIPT
     use "web"
     use "http"
-    import "time"
     web.middleware("real_ip")
     web.get("/check", "check_handler")
     def check_handler(req)
       return web.text(req.remote_addr)
     end
-    spawn web.listen(19211)
-    time.sleep_ms(300)
-    r = http.get("http://localhost:19211/check").body
+    spawn web.listen(#{p})
+    web.port()
+    r = http.get("http://localhost:#{p}/check").body
     puts(r)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
@@ -60,18 +61,18 @@ rats "real_ip without headers strips port"
 end
 
 rats "real_ip does not interfere with handler"
+  p = web.free_port()
   script = <<~SCRIPT
     use "web"
     use "http"
-    import "time"
     web.middleware("real_ip")
     web.get("/data", "data_handler")
     def data_handler(req)
       return web.json({"ip" => req.remote_addr, "method" => req.method})
     end
-    spawn web.listen(19212)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19212/data").body)
+    spawn web.listen(#{p})
+    web.port()
+    puts(http.get("http://localhost:#{p}/data").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -111,21 +112,21 @@ rats "rate_limiter default 10 rps without config"
 end
 
 rats "rate_limiter returns 429 JSON error"
+  p = web.free_port()
   script = <<~SCRIPT
     use "web"
     use "http"
     use "json"
-    import "time"
     web.rate_limit(1)
     web.middleware("rate_limiter")
     web.get("/api", "api_handler")
     def api_handler(req)
       return web.text("ok")
     end
-    spawn web.listen(19213)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19213/api").body)
-    puts(http.get("http://localhost:19213/api").body)
+    spawn web.listen(#{p})
+    web.port()
+    puts(http.get("http://localhost:#{p}/api").body)
+    puts(http.get("http://localhost:#{p}/api").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -137,10 +138,10 @@ rats "rate_limiter returns 429 JSON error"
 end
 
 rats "rate_limiter with route-level middleware"
+  p = web.free_port()
   script = <<~SCRIPT
     use "web"
     use "http"
-    import "time"
     web.rate_limit(1)
     web.get("/free", "free_handler")
     web.get("/limited", "limited_handler", "rate_limiter")
@@ -150,11 +151,11 @@ rats "rate_limiter with route-level middleware"
     def limited_handler(req)
       return web.text("limited")
     end
-    spawn web.listen(19214)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19214/limited").body)
-    puts(http.get("http://localhost:19214/limited").body)
-    puts(http.get("http://localhost:19214/free").body)
+    spawn web.listen(#{p})
+    web.port()
+    puts(http.get("http://localhost:#{p}/limited").body)
+    puts(http.get("http://localhost:#{p}/limited").body)
+    puts(http.get("http://localhost:#{p}/free").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -167,20 +168,20 @@ rats "rate_limiter with route-level middleware"
 end
 
 rats "rate_limiter with float rps"
+  p = web.free_port()
   script = <<~SCRIPT
     use "web"
     use "http"
-    import "time"
     web.rate_limit(0.5)
     web.middleware("rate_limiter")
     web.get("/slow", "slow_handler")
     def slow_handler(req)
       return web.text("ok")
     end
-    spawn web.listen(19215)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19215/slow").body)
-    puts(http.get("http://localhost:19215/slow").body)
+    spawn web.listen(#{p})
+    web.port()
+    puts(http.get("http://localhost:#{p}/slow").body)
+    puts(http.get("http://localhost:#{p}/slow").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -193,10 +194,10 @@ end
 # --- combined middleware ---
 
 rats "real_ip + rate_limiter work together"
+  p = web.free_port()
   script = <<~SCRIPT
     use "web"
     use "http"
-    import "time"
     web.rate_limit(2)
     web.middleware("real_ip")
     web.middleware("rate_limiter")
@@ -204,11 +205,11 @@ rats "real_ip + rate_limiter work together"
     def combo_handler(req)
       return web.text("ip:" + req.remote_addr)
     end
-    spawn web.listen(19216)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19216/combo").body)
-    puts(http.get("http://localhost:19216/combo").body)
-    puts(http.get("http://localhost:19216/combo").body)
+    spawn web.listen(#{p})
+    web.port()
+    puts(http.get("http://localhost:#{p}/combo").body)
+    puts(http.get("http://localhost:#{p}/combo").body)
+    puts(http.get("http://localhost:#{p}/combo").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -220,10 +221,10 @@ rats "real_ip + rate_limiter work together"
 end
 
 rats "real_ip + logger + rate_limiter full stack"
+  p = web.free_port()
   script = <<~SCRIPT
     use "web"
     use "http"
-    import "time"
     web.rate_limit(5)
     web.middleware("real_ip")
     web.middleware("logger")
@@ -232,9 +233,9 @@ rats "real_ip + logger + rate_limiter full stack"
     def stack_handler(req)
       return web.json({"ok" => true})
     end
-    spawn web.listen(19217)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19217/stack").body)
+    spawn web.listen(#{p})
+    web.port()
+    puts(http.get("http://localhost:#{p}/stack").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")

@@ -41,6 +41,10 @@ type Web struct {
 	// rate limiter config
 	rateLimitRPS float64
 	rateLimiter  *tokenBucketLimiter
+	// assigned port after listen
+	listenPort  int
+	listenReady chan struct{}
+	readyOnce   sync.Once
 }
 
 // --- token bucket rate limiter ---
@@ -231,11 +235,35 @@ func (w *Web) Listen(port int) interface{} {
 		w.handleRequest(wr, r)
 	})
 
-	addr := fmt.Sprintf(":%d", port)
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		panic(fmt.Sprintf("web.listen: %v", err))
+	}
+	w.listenPort = ln.Addr().(*net.TCPAddr).Port
+	w.readyOnce.Do(func() { w.listenReady = make(chan struct{}) })
+	close(w.listenReady)
+	if err := http.Serve(ln, handler); err != nil {
 		panic(fmt.Sprintf("web.listen: %v", err))
 	}
 	return nil
+}
+
+// Port blocks until web.listen() has bound and returns the assigned port.
+func (w *Web) Port() interface{} {
+	w.readyOnce.Do(func() { w.listenReady = make(chan struct{}) })
+	<-w.listenReady
+	return w.listenPort
+}
+
+// FreePort asks the kernel for a free port and returns it.
+func (*Web) FreePort() interface{} {
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(fmt.Sprintf("web.free_port: %v", err))
+	}
+	port := l.Addr().(*net.TCPAddr).Port
+	l.Close()
+	return port
 }
 
 // --- Internal: request handling ---

@@ -2,7 +2,6 @@
 use "web"
 use "http"
 use "json"
-import "time"
 
 web.post("/echo", "echo_handler")
 
@@ -11,8 +10,8 @@ def echo_handler(req)
   return web.json({"received" => data["message"]})
 end
 
-spawn web.listen(19116)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-response = http.post("http://localhost:19116/echo", "{\"message\":\"hello\"}").body
+response = http.post("http://localhost:#{_port}/echo", "{\"message\":\"hello\"}").body
 puts(response)

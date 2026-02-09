@@ -1,7 +1,6 @@
 # Fixture: root path handler
 use "web"
 use "http"
-import "time"
 
 web.get("/", "root_handler")
 
@@ -9,7 +8,7 @@ def root_handler(req)
   return web.text("root")
 end
 
-spawn web.listen(19117)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19117/").body)
+puts(http.get("http://localhost:#{_port}/").body)

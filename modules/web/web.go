@@ -25,6 +25,8 @@ func init() {
 			{Name: "end_group", Args: nil},
 			{Name: "static", Args: []modules.ArgType{modules.String, modules.String}},
 			{Name: "listen", Args: []modules.ArgType{modules.Int}},
+			{Name: "port", Args: nil},
+			{Name: "free_port", Args: nil},
 			{Name: "text", Args: []modules.ArgType{modules.String}, Variadic: true},
 			{Name: "html", Args: []modules.ArgType{modules.String}, Variadic: true},
 			{Name: "json", Args: []modules.ArgType{modules.Any}, Variadic: true},

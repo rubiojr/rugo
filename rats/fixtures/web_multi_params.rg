@@ -1,7 +1,6 @@
 # Fixture: multiple URL parameters
 use "web"
 use "http"
-import "time"
 
 web.get("/posts/:pid/comments/:cid", "show_comment")
 
@@ -11,7 +10,7 @@ def show_comment(req)
   return web.text(pid + ":" + cid)
 end
 
-spawn web.listen(19103)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19103/posts/5/comments/99").body)
+puts(http.get("http://localhost:#{_port}/posts/5/comments/99").body)

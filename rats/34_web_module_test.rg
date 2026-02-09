@@ -140,18 +140,17 @@ end
 # --- Inline script tests for advanced features ---
 
 rats "web.json with status code 201"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
     use "json"
-    import "time"
     web.post("/items", "create_item")
     def create_item(req)
       return web.json({"ok" => true}, 201)
     end
-    spawn web.listen(19130)
-    time.sleep_ms(300)
-    puts(http.post("http://localhost:19130/items", "{}").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.post("http://localhost:#{_port}/items", "{}").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -160,17 +159,16 @@ rats "web.json with status code 201"
 end
 
 rats "web.text with status code 404"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.get("/missing", "missing_handler")
     def missing_handler(req)
       return web.text("not found", 404)
     end
-    spawn web.listen(19131)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19131/missing").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/missing").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -179,17 +177,16 @@ rats "web.text with status code 404"
 end
 
 rats "nested hash in JSON response"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.get("/nested", "nested_handler")
     def nested_handler(req)
       return web.json({"user" => {"name" => "Alice", "age" => 30}})
     end
-    spawn web.listen(19132)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19132/nested").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/nested").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -199,17 +196,16 @@ rats "nested hash in JSON response"
 end
 
 rats "handler receives correct method for POST"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.post("/check", "check_method")
     def check_method(req)
       return web.text(req.method)
     end
-    spawn web.listen(19133)
-    time.sleep_ms(300)
-    puts(http.post("http://localhost:19133/check", "").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.post("http://localhost:#{_port}/check", "").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -218,10 +214,9 @@ rats "handler receives correct method for POST"
 end
 
 rats "middleware chain runs in order"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.middleware("mw_first")
     web.middleware("mw_second")
     web.get("/chain", "chain_handler")
@@ -234,9 +229,9 @@ rats "middleware chain runs in order"
     def chain_handler(req)
       return web.text("should not reach")
     end
-    spawn web.listen(19134)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19134/chain").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/chain").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -245,18 +240,17 @@ rats "middleware chain runs in order"
 end
 
 rats "built-in logger middleware runs without error"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.middleware("logger")
     web.get("/logged", "logged_handler")
     def logged_handler(req)
       return web.text("ok")
     end
-    spawn web.listen(19135)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19135/logged").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/logged").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -266,19 +260,18 @@ rats "built-in logger middleware runs without error"
 end
 
 rats "custom headers on response"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.get("/custom", "custom_handler")
     def custom_handler(req)
       resp = web.text("with headers")
       resp["headers"] = {"X-Custom" => "hello"}
       return resp
     end
-    spawn web.listen(19136)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19136/custom").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/custom").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -287,10 +280,9 @@ rats "custom headers on response"
 end
 
 rats "web.group and end_group reset prefix"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.group("/api")
       web.get("/items", "items_handler")
     web.end_group()
@@ -301,10 +293,10 @@ rats "web.group and end_group reset prefix"
     def outside_handler(req)
       return web.text("outside")
     end
-    spawn web.listen(19137)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19137/api/items").body)
-    puts(http.get("http://localhost:19137/outside").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/api/items").body)
+    puts(http.get("http://localhost:#{_port}/outside").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -318,15 +310,14 @@ rats "handler with string interpolation"
   script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.get("/greet/:name", "greet_handler")
     def greet_handler(req)
       name = req.params["name"]
       return web.text("Hello, #{name}!")
     end
-    spawn web.listen(19138)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19138/greet/Rugo").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/greet/Rugo").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -365,10 +356,9 @@ rats "web emit includes dispatch map"
 end
 
 rats "multiple routes to different handlers"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.get("/a", "handler_a")
     web.get("/b", "handler_b")
     web.get("/c", "handler_c")
@@ -381,11 +371,11 @@ rats "multiple routes to different handlers"
     def handler_c(req)
       return web.text("C")
     end
-    spawn web.listen(19139)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19139/a").body)
-    puts(http.get("http://localhost:19139/b").body)
-    puts(http.get("http://localhost:19139/c").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/a").body)
+    puts(http.get("http://localhost:#{_port}/b").body)
+    puts(http.get("http://localhost:#{_port}/c").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")
@@ -397,19 +387,18 @@ rats "multiple routes to different handlers"
 end
 
 rats "request params hash via dot access"
-  script = <<~SCRIPT
+  script = <<~'SCRIPT'
     use "web"
     use "http"
-    import "time"
     web.get("/users/:id/posts/:pid", "nested")
     def nested(req)
       id = req.params["id"]
       pid = req.params["pid"]
       return web.json({"user_id" => id, "post_id" => pid})
     end
-    spawn web.listen(19140)
-    time.sleep_ms(300)
-    puts(http.get("http://localhost:19140/users/7/posts/42").body)
+    spawn web.listen(0)
+    _port = web.port()
+    puts(http.get("http://localhost:#{_port}/users/7/posts/42").body)
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rg", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rg")

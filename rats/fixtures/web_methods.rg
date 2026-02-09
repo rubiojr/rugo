@@ -1,7 +1,6 @@
 # Fixture: multiple HTTP methods
 use "web"
 use "http"
-import "time"
 
 web.get("/resource", "get_resource")
 web.post("/resource", "post_resource")
@@ -29,11 +28,11 @@ def patch_resource(req)
   return web.text("PATCH")
 end
 
-spawn web.listen(19114)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19114/resource").body)
-puts(http.post("http://localhost:19114/resource", "").body)
-puts(http.put("http://localhost:19114/resource", "").body)
-puts(http.delete("http://localhost:19114/resource").body)
-puts(http.patch("http://localhost:19114/resource", "").body)
+puts(http.get("http://localhost:#{_port}/resource").body)
+puts(http.post("http://localhost:#{_port}/resource", "").body)
+puts(http.put("http://localhost:#{_port}/resource", "").body)
+puts(http.delete("http://localhost:#{_port}/resource").body)
+puts(http.patch("http://localhost:#{_port}/resource", "").body)

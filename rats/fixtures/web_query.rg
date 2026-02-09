@@ -1,7 +1,6 @@
 # Fixture: query string parameters
 use "web"
 use "http"
-import "time"
 
 web.get("/search", "search_handler")
 
@@ -11,7 +10,7 @@ def search_handler(req)
   return web.text(q + ":" + limit)
 end
 
-spawn web.listen(19107)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19107/search?q=rugo&limit=10").body)
+puts(http.get("http://localhost:#{_port}/search?q=rugo&limit=10").body)

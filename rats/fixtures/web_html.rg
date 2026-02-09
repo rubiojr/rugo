@@ -1,7 +1,6 @@
 # Fixture: HTML response
 use "web"
 use "http"
-import "time"
 
 web.get("/page", "page_handler")
 
@@ -9,7 +8,7 @@ def page_handler(req)
   return web.html("<h1>Hello</h1>")
 end
 
-spawn web.listen(19106)
-time.sleep_ms(300)
+spawn web.listen(0)
+_port = web.port()
 
-puts(http.get("http://localhost:19106/page").body)
+puts(http.get("http://localhost:#{_port}/page").body)
