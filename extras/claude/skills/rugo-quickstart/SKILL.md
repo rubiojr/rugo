@@ -601,7 +601,7 @@ Use `as` to alias: `import "strings" as str_go`.
 
 ### Global Builtins
 
-Available without any import: `puts`, `print`, `len`, `append`.
+Available without any import: `puts`, `print`, `len`, `append`, `type_of`.
 
 ### User Modules
 
@@ -1000,11 +1000,17 @@ dog.rename(rex, "Rexy")
 puts dog.bark(rex)            # Rexy says woof!
 ```
 
-### Type Tag
+### Type Introspection
+
+Use `type_of()` to get the type name of any value. For structs, it returns the struct name:
 
 ```ruby
 rex = Dog("Rex", "Lab")
-puts rex.__type__            # Dog
+puts type_of(rex)            # Dog
+puts type_of("hello")        # String
+puts type_of(42)             # Integer
+puts type_of([1, 2])         # Array
+puts type_of({a: 1})         # Hash
 ```
 
 ## Web Server

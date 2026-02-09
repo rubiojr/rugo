@@ -1,0 +1,99 @@
+use "test"
+
+# type_of builtin — returns the type name of any value
+
+struct Point
+  x
+  y
+end
+
+rats "type_of string"
+  test.assert_eq(type_of("hello"), "String")
+end
+
+rats "type_of empty string"
+  test.assert_eq(type_of(""), "String")
+end
+
+rats "type_of integer"
+  test.assert_eq(type_of(42), "Integer")
+end
+
+rats "type_of zero"
+  test.assert_eq(type_of(0), "Integer")
+end
+
+rats "type_of negative integer"
+  test.assert_eq(type_of(-1), "Integer")
+end
+
+rats "type_of float"
+  test.assert_eq(type_of(3.14), "Float")
+end
+
+rats "type_of bool true"
+  test.assert_eq(type_of(true), "Bool")
+end
+
+rats "type_of bool false"
+  test.assert_eq(type_of(false), "Bool")
+end
+
+rats "type_of nil"
+  test.assert_eq(type_of(nil), "Nil")
+end
+
+rats "type_of array"
+  test.assert_eq(type_of([1, 2, 3]), "Array")
+end
+
+rats "type_of empty array"
+  test.assert_eq(type_of([]), "Array")
+end
+
+rats "type_of hash"
+  test.assert_eq(type_of({a: 1, b: 2}), "Hash")
+end
+
+rats "type_of empty hash"
+  test.assert_eq(type_of({}), "Hash")
+end
+
+rats "type_of lambda"
+  f = fn(x) x + 1 end
+  test.assert_eq(type_of(f), "Lambda")
+end
+
+rats "type_of variable"
+  x = "hello"
+  test.assert_eq(type_of(x), "String")
+  x = 42
+  test.assert_eq(type_of(x), "Integer")
+end
+
+rats "type_of in condition"
+  x = [1, 2]
+  if type_of(x) == "Array"
+    test.assert_eq(true, true)
+  else
+    test.assert_eq(true, false)
+  end
+end
+
+rats "type_of struct"
+  p = Point(1, 2)
+  test.assert_eq(type_of(p), "Point")
+end
+
+rats "type_of distinguishes struct from hash"
+  h = {x: 1, y: 2}
+  p = Point(1, 2)
+  test.assert_eq(type_of(h), "Hash")
+  test.assert_eq(type_of(p), "Point")
+end
+
+rats ".__type__ access is a compile error"
+  result = test.run("./bin/rugo run rats/fixtures/type_of_blocked.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "use type_of() instead")
+end

@@ -241,9 +241,9 @@ rats "struct constructor creates hash with fields"
   test.assert_eq(p.y, 20)
 end
 
-rats "struct has __type__ tag"
+rats "struct type via type_of"
   p = Point(1, 2)
-  test.assert_eq(p.__type__, "Point")
+  test.assert_eq(type_of(p), "Point")
 end
 
 rats "struct new() via namespace"
@@ -259,13 +259,13 @@ end
 
 rats "empty struct"
   e = Empty()
-  test.assert_eq(e.__type__, "Empty")
+  test.assert_eq(type_of(e), "Empty")
 end
 
 rats "single-field struct"
   s = Single(42)
   test.assert_eq(s.val, 42)
-  test.assert_eq(s.__type__, "Single")
+  test.assert_eq(type_of(s), "Single")
 end
 
 # ============================================================
@@ -389,16 +389,16 @@ rats "require namespace method modifies self"
   test.assert_eq(rex.name, "Rexy")
 end
 
-rats "require namespace __type__ tag"
+rats "require namespace type_of"
   rex = dog.new("Rex", "Lab")
-  test.assert_eq(rex.__type__, "Dog")
+  test.assert_eq(type_of(rex), "Dog")
 end
 
 rats "multiple namespaces with different structs"
   rex = dog.new("Rex", "Lab")
   luna = cat.new("Luna", "black")
-  test.assert_eq(rex.__type__, "Dog")
-  test.assert_eq(luna.__type__, "Cat")
+  test.assert_eq(type_of(rex), "Dog")
+  test.assert_eq(type_of(luna), "Cat")
   test.assert_eq(dog.bark(rex), "Rex says woof!")
   test.assert_eq(cat.meow(luna), "Luna says meow!")
 end

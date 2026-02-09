@@ -648,6 +648,9 @@ func (g *codeGen) writeIndexAssign(ia *IndexAssignStmt) error {
 }
 
 func (g *codeGen) writeDotAssign(da *DotAssignStmt) error {
+	if da.Field == "__type__" {
+		return fmt.Errorf("cannot assign to .__type__ — use type_of() for type introspection")
+	}
 	obj, err := g.exprString(da.Object)
 	if err != nil {
 		return err
@@ -1075,6 +1078,9 @@ func (g *codeGen) unaryExpr(e *UnaryExpr) (string, error) {
 }
 
 func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
+	if e.Field == "__type__" {
+		return "", fmt.Errorf("cannot access .__type__ directly — use type_of() instead")
+	}
 	// Rugo stdlib or namespace access without call
 	if ns, ok := e.Object.(*IdentExpr); ok {
 		nsName := ns.Name
@@ -1206,6 +1212,11 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 			return fmt.Sprintf("rugo_append(%s)", g.boxedArgs(args, e.Args)), nil
 		case "raise":
 			return fmt.Sprintf("rugo_raise(%s)", g.boxedArgs(args, e.Args)), nil
+		case "type_of":
+			if len(e.Args) != 1 {
+				return "", fmt.Errorf("type_of expects 1 argument, got %d", len(e.Args))
+			}
+			return fmt.Sprintf("rugo_type_of(%s)", g.boxedArgs(args, e.Args)), nil
 		default:
 			// Sibling function call within a namespace: resolve unqualified
 			// calls against the current function's namespace first.

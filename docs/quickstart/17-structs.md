@@ -66,13 +66,15 @@ puts dog.bark(rex)            # Rexy says woof!
 
 The namespace acts as the "class" — `dog.new()` creates instances, `dog.bark(rex)` calls methods.
 
-## Type Tag
+## Type Introspection
 
-Structs automatically include a `__type__` field for identification:
+Use `type_of()` to get the type name of any value. For structs, it returns the struct name:
 
 ```ruby
 rex = Dog("Rex", "Lab")
-puts rex.__type__            # Dog
+puts type_of(rex)            # Dog
+puts type_of("hello")        # String
+puts type_of(42)             # Integer
 ```
 
 ## See Also

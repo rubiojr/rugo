@@ -275,6 +275,35 @@ func rugo_len(args ...interface{}) interface{} {
 	panic(fmt.Sprintf("cannot get length of %T", args[0]))
 }
 
+func rugo_type_of(args ...interface{}) interface{} {
+	if len(args) == 0 { panic("type_of requires one argument") }
+	v := args[0]
+	switch v.(type) {
+	case nil:
+		return "Nil"
+	case bool:
+		return "Bool"
+	case int:
+		return "Integer"
+	case float64:
+		return "Float"
+	case string:
+		return "String"
+	case []interface{}:
+		return "Array"
+	case map[interface{}]interface{}:
+		m := v.(map[interface{}]interface{})
+		if t, ok := m["__type__"]; ok {
+			return t
+		}
+		return "Hash"
+	case func(...interface{}) interface{}:
+		return "Lambda"
+	default:
+		return "Unknown"
+	}
+}
+
 func rugo_append(args ...interface{}) interface{} {
 	if len(args) < 2 { panic("append requires array and value arguments") }
 	arr, ok := args[0].([]interface{})
