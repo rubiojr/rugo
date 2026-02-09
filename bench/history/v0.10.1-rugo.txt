@@ -1,0 +1,36 @@
+# Hardware: AMD Ryzen AI 7 PRO 350 w/ Radeon 860M, 16 threads, 30GB RAM
+# OS: Fedora Linux 43 (kernel 6.18.7-200.fc43.x86_64)
+# Go: 1.25.6 linux/amd64
+=== bench/arithmetic_bench.rg ===
+  fib(10)                                    184.3 ns/op (5556417 runs)
+  fib(20)                                     22.5 µs/op (45953 runs)
+  fib(25)                                    246.1 µs/op (4142 runs)
+  integer arithmetic chain                   219.4 ns/op (4576940 runs)
+  float arithmetic chain                     218.5 ns/op (4606116 runs)
+  comparison heavy loop                      222.7 ns/op (4565955 runs)
+=== bench/collections_bench.rg ===
+  array creation (10 elements)                 0.8 ns/op (1208365710 runs)
+  array iteration (for-in)                   140.1 ns/op (7488532 runs)
+  array index access (100 reads)             470.0 ns/op (2353227 runs)
+  hash creation (5 pairs)                     54.9 ns/op (18513692 runs)
+  hash lookup (100 reads)                      1.4 µs/op (740756 runs)
+  array append (100 elements)                  2.6 µs/op (525486 runs)
+=== bench/control_flow_bench.rg ===
+  while loop (10000 iterations)                2.1 µs/op (492106 runs)
+  for-in with range array                     16.7 µs/op (60171 runs)
+  if/elsif/else chain                        218.4 ns/op (4586740 runs)
+  function call overhead                     221.1 ns/op (4595500 runs)
+=== bench/io_bench.rg ===
+  puts single arg (100 calls)                 32.2 µs/op (33109 runs)
+  puts multi arg (100 calls)                  52.1 µs/op (19411 runs)
+=== bench/strings_bench.rg ===
+  string concat (100 iterations)               2.4 µs/op (499001 runs)
+  string interpolation                        69.1 ns/op (14963075 runs)
+  conv.to_s on integers                        4.7 µs/op (247647 runs)
+=== bench/type_inference_bench.rg ===
+  typed fib(25)                              243.4 µs/op (4148 runs)
+  typed integer accumulator                    2.0 µs/op (493085 runs)
+  typed float accumulator                      2.0 µs/op (495230 runs)
+  typed boolean conditions                     2.0 µs/op (493860 runs)
+  typed nested arithmetic                    222.9 ns/op (4499471 runs)
+  mixed for-in with typed accumulator         19.3 µs/op (52033 runs)
