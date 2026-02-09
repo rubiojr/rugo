@@ -80,7 +80,7 @@ func Execute(version string) {
 						Name:    "jobs",
 						Aliases: []string{"j"},
 						Usage:   "Parallel test files",
-						Value:   1,
+						Value:   4,
 					},
 					&cli.BoolFlag{
 						Name:    "no-color",
