@@ -463,7 +463,7 @@ Node (interface)
 │   ├── Program           — root node, contains []Statement
 │   ├── UseStmt           — use "module" (Rugo stdlib)
 │   ├── ImportStmt        — import "go/pkg" [as alias] (Go bridge)
-│   ├── RequireStmt       — require "path" [as "alias" | with mod1, mod2, ...]
+│   ├── RequireStmt       — require "path" [as alias | with mod1, mod2, ...]
 │   ├── FuncDef           — def name(params) body end
 │   ├── TestDef           — rats "name" body end
 │   ├── IfStmt            — if/elsif/else/end
@@ -602,7 +602,8 @@ User modules use `require`:
 
 ```ruby
 require "helpers"            # loads helpers.rg, namespace: helpers
-require "lib/utils" as "u"  # loads lib/utils.rg, namespace: u
+require "lib/utils" as u    # loads lib/utils.rg, namespace: u
+require "lib/utils" as "u"  # quoted form also accepted
 
 helpers.greet("World")
 u.compute(42)

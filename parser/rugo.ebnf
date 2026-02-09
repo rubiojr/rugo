@@ -21,7 +21,7 @@ Statement   = UseStmt
 
 UseStmt     = "use" str_lit .
 ImportStmt  = "import" str_lit [ "as" ident ] .
-RequireStmt = "require" str_lit [ "as" str_lit | "with" ident { ',' ident } ] .
+RequireStmt = "require" str_lit [ "as" ( str_lit | ident ) | "with" ident { ',' ident } ] .
 FuncDef     = "def" ident '(' [ ParamList ] ')' Body "end" .
 TestDef     = "rats" str_lit Body "end" .
 BenchDef    = "bench" str_lit Body "end" .

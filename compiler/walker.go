@@ -225,7 +225,7 @@ func (w *walker) walkImportStmt(ast []int32) (Statement, error) {
 }
 
 func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {
-	// RequireStmt = "require" str_lit [ "as" str_lit | "with" ident { ',' ident } ] .
+	// RequireStmt = "require" str_lit [ "as" ( str_lit | ident ) | "with" ident { ',' ident } ] .
 	_, ast = w.readToken(ast) // skip "require"
 	tok, ast := w.readToken(ast)
 	path := unquoteString(tok.src)

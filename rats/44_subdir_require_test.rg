@@ -13,3 +13,10 @@ rats "subdirectory require with alias still works"
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello aliased")
 end
+
+# Bug 2c46d81: require ... as should accept unquoted alias like import does
+rats "require with unquoted alias works"
+  result = test.run("rugo run rats/fixtures/subdir_require_unquoted_alias.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello unquoted")
+end
