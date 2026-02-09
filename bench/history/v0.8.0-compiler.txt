@@ -1,0 +1,54 @@
+# Hardware: AMD Ryzen AI 7 PRO 350, 16 threads, 32GB RAM
+# OS: Fedora 43 (kernel 6.18.7)
+# Go: 1.25.6 linux/amd64
+goos: linux
+goarch: amd64
+pkg: github.com/rubiojr/rugo/compiler
+cpu: AMD Ryzen AI 7 PRO 350 w/ Radeon 860M          
+BenchmarkCompileHelloWorld-16             	   46092	     21767 ns/op	   34828 B/op	     207 allocs/op
+BenchmarkCompileHelloWorld-16             	   59636	     20305 ns/op	   34828 B/op	     207 allocs/op
+BenchmarkCompileHelloWorld-16             	   61017	     20032 ns/op	   34828 B/op	     207 allocs/op
+BenchmarkCompileHelloWorld-16             	   62084	     17841 ns/op	   34827 B/op	     207 allocs/op
+BenchmarkCompileHelloWorld-16             	   70756	     17612 ns/op	   34827 B/op	     207 allocs/op
+BenchmarkCompileFunctions-16              	   10000	    111869 ns/op	  167923 B/op	    1089 allocs/op
+BenchmarkCompileFunctions-16              	    9643	    114828 ns/op	  167923 B/op	    1089 allocs/op
+BenchmarkCompileFunctions-16              	    9302	    114754 ns/op	  167926 B/op	    1089 allocs/op
+BenchmarkCompileFunctions-16              	   10000	    112509 ns/op	  167924 B/op	    1089 allocs/op
+BenchmarkCompileFunctions-16              	   10000	    117472 ns/op	  167923 B/op	    1089 allocs/op
+BenchmarkCompileControlFlow-16            	   10000	    100789 ns/op	  137804 B/op	     925 allocs/op
+BenchmarkCompileControlFlow-16            	   12314	     98081 ns/op	  137806 B/op	     925 allocs/op
+BenchmarkCompileControlFlow-16            	   12326	     97556 ns/op	  137805 B/op	     925 allocs/op
+BenchmarkCompileControlFlow-16            	   10519	    111032 ns/op	  137804 B/op	     925 allocs/op
+BenchmarkCompileControlFlow-16            	   12465	     96550 ns/op	  137806 B/op	     925 allocs/op
+BenchmarkCompileStringInterpolation-16    	   24774	     48144 ns/op	   69717 B/op	     680 allocs/op
+BenchmarkCompileStringInterpolation-16    	   25165	     50441 ns/op	   69718 B/op	     680 allocs/op
+BenchmarkCompileStringInterpolation-16    	   21840	     55116 ns/op	   69718 B/op	     680 allocs/op
+BenchmarkCompileStringInterpolation-16    	   22053	     52960 ns/op	   69716 B/op	     680 allocs/op
+BenchmarkCompileStringInterpolation-16    	   24571	     51550 ns/op	   69716 B/op	     680 allocs/op
+BenchmarkCompileArraysHashes-16           	    9553	    124744 ns/op	  164202 B/op	    1105 allocs/op
+BenchmarkCompileArraysHashes-16           	    8966	    126502 ns/op	  164202 B/op	    1105 allocs/op
+BenchmarkCompileArraysHashes-16           	   10000	    120517 ns/op	  164202 B/op	    1105 allocs/op
+BenchmarkCompileArraysHashes-16           	   10144	    116393 ns/op	  164200 B/op	    1105 allocs/op
+BenchmarkCompileArraysHashes-16           	    9498	    111444 ns/op	  164201 B/op	    1105 allocs/op
+BenchmarkPreprocess-16                    	  214242	      5687 ns/op	    4608 B/op	      42 allocs/op
+BenchmarkPreprocess-16                    	  204799	      5942 ns/op	    4608 B/op	      42 allocs/op
+BenchmarkPreprocess-16                    	  206406	      5739 ns/op	    4608 B/op	      42 allocs/op
+BenchmarkPreprocess-16                    	  206671	      6007 ns/op	    4608 B/op	      42 allocs/op
+BenchmarkPreprocess-16                    	  194484	      5862 ns/op	    4608 B/op	      42 allocs/op
+BenchmarkCodegen-16                       	   24662	     47505 ns/op	   73382 B/op	     559 allocs/op
+BenchmarkCodegen-16                       	   26865	     44771 ns/op	   73383 B/op	     559 allocs/op
+BenchmarkCodegen-16                       	   25168	     46429 ns/op	   73382 B/op	     559 allocs/op
+BenchmarkCodegen-16                       	   25304	     48189 ns/op	   73382 B/op	     559 allocs/op
+BenchmarkCodegen-16                       	   25173	     47980 ns/op	   73382 B/op	     559 allocs/op
+BenchmarkInfer-16                         	   81266	     14487 ns/op	   13080 B/op	     124 allocs/op
+BenchmarkInfer-16                         	   93559	     14302 ns/op	   13080 B/op	     124 allocs/op
+BenchmarkInfer-16                         	   84612	     16620 ns/op	   13080 B/op	     124 allocs/op
+BenchmarkInfer-16                         	   75762	     13944 ns/op	   13080 B/op	     124 allocs/op
+BenchmarkInfer-16                         	   97267	     13225 ns/op	   13080 B/op	     124 allocs/op
+BenchmarkInferControlFlow-16              	  218577	      5774 ns/op	    8000 B/op	      21 allocs/op
+BenchmarkInferControlFlow-16              	  193881	      5667 ns/op	    8000 B/op	      21 allocs/op
+BenchmarkInferControlFlow-16              	   93897	     10797 ns/op	    8000 B/op	      21 allocs/op
+BenchmarkInferControlFlow-16              	  121688	      9996 ns/op	    8000 B/op	      21 allocs/op
+BenchmarkInferControlFlow-16              	  109291	     10436 ns/op	    8000 B/op	      21 allocs/op
+PASS
+ok  	github.com/rubiojr/rugo/compiler	53.067s

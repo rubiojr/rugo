@@ -1,3 +1,6 @@
+# Hardware: AMD Ryzen AI 7 PRO 350, 16 threads, 32GB RAM
+# OS: Fedora 43 (kernel 6.18.7)
+# Go: 1.25.6 linux/amd64
 === bench/arithmetic_bench.rg ===
   [1mfib(10)                                 [0m [36m  190.9 ns/op[0m [33m(5364216 runs)[0m
   [1mfib(20)                                 [0m [36m   23.7 µs/op[0m [33m(44919 runs)[0m
