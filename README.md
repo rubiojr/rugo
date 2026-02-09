@@ -10,7 +10,7 @@ In a world of software aboundance, agents create your favorite languages.
 
 Will they work? maybe.
 
-Will it burn the planet? perhaps, in the meantime, we'll have great companies.
+Will it burn the planet? perhaps, [in the meantime, we'll have great companies](https://www.youtube.com/watch?v=YE5adUeTe_I).
 
 Can we escape this? In a world currently dominated by software, unlikely.
 
