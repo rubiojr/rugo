@@ -5,9 +5,10 @@ use "str"
 use "conv"
 use "os"
 
-# Examples that block (e.g. start a server) and can't run in CI.
+# Examples that block (e.g. start a server) or need network/auth in CI.
 skip = [
-  "examples/web_example.rg"
+  "examples/web_example.rg",
+  "examples/remote_require.rg"
 ]
 
 def should_skip(path, skip_list)
