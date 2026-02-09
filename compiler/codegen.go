@@ -673,19 +673,37 @@ func (g *codeGen) writeExprStmt(e *ExprStmt) error {
 }
 
 func (g *codeGen) writeIf(i *IfStmt) error {
+	// Pre-declare variables assigned in any branch so they're visible
+	// after the if block (Ruby-like scoping: if/else doesn't create a new scope).
+	var allBranches []Statement
+	allBranches = append(allBranches, i.Body...)
+	for _, ec := range i.ElsifClauses {
+		allBranches = append(allBranches, ec.Body...)
+	}
+	allBranches = append(allBranches, i.ElseBody...)
+	for _, name := range collectAssignTargets(allBranches) {
+		if !g.isDeclared(name) {
+			varType := g.varType(name)
+			if varType.IsTyped() {
+				g.writef("var %s %s\n", name, varType.GoType())
+			} else {
+				g.writef("var %s interface{}\n", name)
+			}
+			g.declareVar(name)
+		}
+	}
+
 	cond, err := g.exprString(i.Condition)
 	if err != nil {
 		return err
 	}
 	g.writef("if %s {\n", g.condExpr(cond, i.Condition))
 	g.indent++
-	g.pushScope()
 	for _, s := range i.Body {
 		if err := g.writeStmt(s); err != nil {
 			return err
 		}
 	}
-	g.popScope()
 	g.indent--
 	for _, ec := range i.ElsifClauses {
 		cond, err := g.exprString(ec.Condition)
@@ -694,29 +712,52 @@ func (g *codeGen) writeIf(i *IfStmt) error {
 		}
 		g.writef("} else if %s {\n", g.condExpr(cond, ec.Condition))
 		g.indent++
-		g.pushScope()
 		for _, s := range ec.Body {
 			if err := g.writeStmt(s); err != nil {
 				return err
 			}
 		}
-		g.popScope()
 		g.indent--
 	}
 	if len(i.ElseBody) > 0 {
 		g.writeln("} else {")
 		g.indent++
-		g.pushScope()
 		for _, s := range i.ElseBody {
 			if err := g.writeStmt(s); err != nil {
 				return err
 			}
 		}
-		g.popScope()
 		g.indent--
 	}
 	g.writeln("}")
 	return nil
+}
+
+// collectAssignTargets returns variable names assigned in a list of statements,
+// in order of first appearance. It recurses into nested if/else blocks.
+func collectAssignTargets(stmts []Statement) []string {
+	var names []string
+	seen := make(map[string]bool)
+	var collect func([]Statement)
+	collect = func(stmts []Statement) {
+		for _, s := range stmts {
+			switch st := s.(type) {
+			case *AssignStmt:
+				if !seen[st.Target] {
+					names = append(names, st.Target)
+					seen[st.Target] = true
+				}
+			case *IfStmt:
+				collect(st.Body)
+				for _, clause := range st.ElsifClauses {
+					collect(clause.Body)
+				}
+				collect(st.ElseBody)
+			}
+		}
+	}
+	collect(stmts)
+	return names
 }
 
 func (g *codeGen) writeWhile(w *WhileStmt) error {

@@ -117,6 +117,28 @@ Config["port"] = 8080   # OK — mutates contents, not the binding
 Config = {}             # compile error — reassigns the binding
 ```
 
+### Variable Scoping
+
+Different blocks create different scoping boundaries:
+
+| Block | Own scope? | Sees outer vars? | Vars leak out? |
+|-------|-----------|-------------------|----------------|
+| **Top-level** | Yes (root) | — | — |
+| **`def` function** | Yes | No (isolated) | No |
+| **`fn` lambda** | Yes | Yes (captures outer) | No |
+| **`if/elsif/else`** | No (transparent) | Yes | Yes |
+| **`while` loop** | Yes | Yes (read + modify) | No |
+| **`for..in` loop** | Yes | Yes (read + modify) | No |
+| **`spawn` block** | Yes | Yes (shared) | No |
+
+**Functions are fully isolated** — they cannot read top-level variables. This is a key difference from lambdas, which capture the surrounding scope.
+
+**`if` blocks are transparent** — they share the parent scope. Variables created inside an `if` block are accessible after the block ends.
+
+**Loops create their own scope** — `while` and `for` loops can read and modify outer variables, but variables first assigned inside the loop body are local to that iteration scope. The `for` loop variable is also local.
+
+**Lambdas capture outer scope** — they can read variables from the enclosing scope, but variables assigned inside the lambda don't leak out.
+
 ### Control Flow
 
 Control flow uses Ruby-style `end`-delimited blocks:
