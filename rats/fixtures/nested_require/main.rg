@@ -1,0 +1,2 @@
+require "commands"
+commands.run()

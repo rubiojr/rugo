@@ -420,6 +420,10 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 						}
 						resolved = append(resolved, st)
 					case *FuncDef:
+						if st.Namespace != "" {
+							resolved = append(resolved, st)
+							continue
+						}
 						nsKey := ns + "." + st.Name
 						if src, exists := c.nsFuncs[nsKey]; exists {
 							return nil, fmt.Errorf("function %q in namespace %q already defined (from %s)", st.Name, ns, src)
@@ -428,6 +432,10 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 						st.Namespace = ns
 						resolved = append(resolved, st)
 					case *AssignStmt:
+						if st.Namespace != "" {
+							resolved = append(resolved, st)
+							continue
+						}
 						st.Namespace = ns
 						resolved = append(resolved, st)
 					}
@@ -509,7 +517,8 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			}
 		}
 
-		// Include use/import statements and function definitions from required files
+		// Include use/import statements and function definitions from required files.
+		// Functions/assignments already namespaced by a deeper require are passed through.
 		for _, rs := range reqProg.Statements {
 			switch st := rs.(type) {
 			case *UseStmt:
@@ -521,6 +530,11 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				}
 				resolved = append(resolved, st)
 			case *FuncDef:
+				if st.Namespace != "" {
+					// Already namespaced from a nested require — pass through
+					resolved = append(resolved, st)
+					continue
+				}
 				// Detect duplicate function in same namespace
 				nsKey := ns + "." + st.Name
 				if src, exists := c.nsFuncs[nsKey]; exists {
@@ -530,6 +544,10 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				st.Namespace = ns
 				resolved = append(resolved, st)
 			case *AssignStmt:
+				if st.Namespace != "" {
+					resolved = append(resolved, st)
+					continue
+				}
 				// Top-level assignments (constants) from required files
 				st.Namespace = ns
 				resolved = append(resolved, st)

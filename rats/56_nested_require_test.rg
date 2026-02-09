@@ -1,0 +1,20 @@
+# RATS: Nested require preserves inner namespaces (bug 62fc8fa)
+# When a file requires modules with same-named functions,
+# nesting that file via another require should not cause collisions.
+use "test"
+
+rats "nested require preserves inner namespaces"
+  result = test.run("rugo run rats/fixtures/nested_require/main.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "alpha:1")
+  test.assert_eq(lines[1], "beta:2")
+end
+
+rats "direct require with same-named functions still works"
+  result = test.run("rugo run rats/fixtures/nested_require/direct.rg")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "alpha:1")
+  test.assert_eq(lines[1], "beta:2")
+end
