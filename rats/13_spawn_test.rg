@@ -166,7 +166,7 @@ end
 rats "panic in spawn propagates through .value"
   result = test.run("rugo run rats/fixtures/err_spawn_panic_value.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "integer divide by zero")
+  test.assert_contains(result["output"], "division by zero")
 end
 
 # --- Negative: error output format ---

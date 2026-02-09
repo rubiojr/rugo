@@ -89,7 +89,7 @@ end
 rats "panic in parallel propagates"
   result = test.run("rugo run rats/fixtures/err_parallel_panic.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "integer divide by zero")
+  test.assert_contains(result["output"], "division by zero")
 end
 
 rats "parallel error output has no Go stacktrace"
