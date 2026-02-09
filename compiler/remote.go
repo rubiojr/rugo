@@ -469,11 +469,17 @@ func (c *Compiler) UpdateLockEntry(module string) error {
 		if module != "" && entry.Module != module {
 			continue
 		}
-		// Only re-resolve mutable versions.
-		r, err := parseRemotePath(entry.Module + "@" + entry.Version)
+		// Reconstruct the remote path. _default means "no version specified",
+		// so we must not append it as a real @version suffix.
+		remoteSrc := entry.Module
+		if entry.Version != "_default" {
+			remoteSrc += "@" + entry.Version
+		}
+		r, err := parseRemotePath(remoteSrc)
 		if err != nil {
 			continue
 		}
+		// Only re-resolve mutable versions.
 		if r.isImmutable() {
 			continue
 		}

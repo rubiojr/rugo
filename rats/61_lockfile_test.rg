@@ -246,3 +246,80 @@ rats "lock file with require with clause"
   test.assert_eq(lock_result["status"], 0)
   test.assert_contains(lock_result["output"], "localhost:" + port + "/lockuser/lock-mod")
 end
+
+rats "rugo update re-resolves mutable _default dependency"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod" as "mod"
+    puts mod.greet("Rugo")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+
+  # First run: generates lock file with _default version
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello v2, Rugo!")
+
+  # Read the initial SHA from lock
+  lock_before = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  test.assert_contains(lock_before, "_default")
+
+  # Push a v3 commit to the repo
+  mod_src3 = <<~RG
+    def greet(name)
+      return "Hello v3, " + name + "!"
+    end
+  RG
+  bd = base_dir()
+  test.write_file(bd + "/work/lock-mod.rg", mod_src3)
+  r = test.run("cd " + bd + "/work && git add . && git commit -m v3 && git push origin HEAD")
+  if r["status"] != 0
+    puts "DEBUG v3 push: " + r["output"]
+  end
+  r = test.run("cd " + bd + "/repos/lockuser/lock-mod.git && git update-server-info")
+
+  # Run rugo update from the directory containing rugo.lock
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo update")
+  if result["status"] != 0
+    puts "DEBUG update: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+
+  # Lock file should be updated with new SHA
+  lock_after = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  test.assert_contains(lock_after, "_default")
+
+  # Run again — should now get v3
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  if result["status"] != 0
+    puts "DEBUG post-update run: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello v3, Rugo!")
+end
+
+rats "rugo update skips immutable versions"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("Rugo")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+
+  # First run: generates lock file with v1.0.0
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  test.assert_eq(result["status"], 0)
+
+  lock_before = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+
+  # Run update — should not change the SHA for immutable v1.0.0
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo update")
+  test.assert_eq(result["status"], 0)
+
+  lock_after = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  test.assert_eq(lock_before, lock_after)
+end
