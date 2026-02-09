@@ -175,3 +175,7 @@ rugo emit script.rg       # print generated Go code
 - [Quickstart Guide](docs/quickstart.md)
 - [Modules Reference](docs/modules.md)
 
+---
+
+*Built by someone who's not a compiler expert — just a curious developer dusting off compiler theory notes from 25 years ago, learning as he goes. Rugo is a labor of love, not a production tool.*
+
