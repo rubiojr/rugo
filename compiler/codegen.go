@@ -506,16 +506,32 @@ func (g *codeGen) writeFunc(f *FuncDef) error {
 	}
 	g.currentFunc = f
 	g.inFunc = true
-	for _, s := range f.Body {
+	hasImplicitReturn := false
+	for i, s := range f.Body {
+		// Implicit return: last expression in function body becomes the return value.
+		if i == len(f.Body)-1 {
+			if es, ok := s.(*ExprStmt); ok {
+				g.emitLineDirective(es.SourceLine)
+				expr, err := g.exprString(es.Expression)
+				if err != nil {
+					return err
+				}
+				g.writef("return %s\n", expr)
+				hasImplicitReturn = true
+				continue
+			}
+		}
 		if err := g.writeStmt(s); err != nil {
 			return err
 		}
 	}
-	// Default return: typed zero value or nil.
-	if fti != nil && fti.ReturnType.IsTyped() {
-		g.writef("return %s\n", typedZero(fti.ReturnType))
-	} else {
-		g.writeln("return nil")
+	if !hasImplicitReturn {
+		// Default return: typed zero value or nil.
+		if fti != nil && fti.ReturnType.IsTyped() {
+			g.writef("return %s\n", typedZero(fti.ReturnType))
+		} else {
+			g.writeln("return nil")
+		}
 	}
 	g.inFunc = false
 	g.currentFunc = nil
@@ -1276,6 +1292,8 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 			return fmt.Sprintf("rugo_append(%s)", g.boxedArgs(args, e.Args)), nil
 		case "raise":
 			return fmt.Sprintf("rugo_raise(%s)", g.boxedArgs(args, e.Args)), nil
+		case "exit":
+			return fmt.Sprintf("rugo_exit(%s)", g.boxedArgs(args, e.Args)), nil
 		case "type_of":
 			if len(e.Args) != 1 {
 				return "", fmt.Errorf("type_of expects 1 argument, got %d", len(e.Args))

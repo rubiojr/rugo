@@ -213,6 +213,15 @@ func rugo_raise(args ...interface{}) interface{} {
 	panic(rugo_to_string(args[0]))
 }
 
+func rugo_exit(args ...interface{}) interface{} {
+	code := 0
+	if len(args) > 0 {
+		code = rugo_to_int(args[0])
+	}
+	os.Exit(code)
+	return nil
+}
+
 func rugo_shell(args ...interface{}) interface{} {
 	if len(args) == 0 { panic("shell requires at least one argument") }
 	cmdStr := rugo_to_string(args[0])

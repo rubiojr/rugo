@@ -631,6 +631,9 @@ These functions are always available without any `use` or `import`:
 | `print(args...)` | Print args separated by spaces, no trailing newline |
 | `len(v)` | Length of string, array, or hash |
 | `append(arr, val)` | Append value to array, returns new array |
+| `raise(msg)` | Raise a runtime error with the given message |
+| `type_of(v)` | Returns the type name of a value as a string |
+| `exit(code?)` | Terminate the program with optional exit code (default: 0) |
 
 ## Testing
 

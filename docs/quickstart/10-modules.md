@@ -46,7 +46,17 @@ See the full [Modules Reference](../modules.md) for all available packages and f
 
 ## Global Builtins
 
-Available without any import: `puts`, `print`, `len`, `append`.
+Available without any import: `puts`, `print`, `len`, `append`, `exit`, `raise`, `type_of`.
+
+### exit
+
+Terminate the program with an optional exit code (defaults to 0):
+
+```ruby
+exit        # exit with code 0
+exit(1)     # exit with code 1
+exit 42     # paren-free syntax
+```
 
 ## User Modules
 
