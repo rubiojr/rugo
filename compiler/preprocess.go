@@ -14,7 +14,7 @@ var rugoKeywords = map[string]bool{
 	"true": true, "false": true, "nil": true, "import": true, "use": true,
 	"rats": true, "try": true, "or": true,
 	"spawn": true, "parallel": true, "bench": true, "fn": true,
-	"struct": true,
+	"struct": true, "with": true,
 }
 
 var rugoBuiltins = map[string]bool{

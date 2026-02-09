@@ -52,11 +52,12 @@ type ImportStmt struct {
 func (i *ImportStmt) node() {}
 func (i *ImportStmt) stmt() {}
 
-// RequireStmt represents require "path" [as "alias"].
+// RequireStmt represents require "path" [as "alias" | with mod1, mod2, ...].
 type RequireStmt struct {
 	BaseStmt
 	Path  string
-	Alias string // empty means use filename as namespace
+	Alias string   // empty means use filename as namespace
+	With  []string // selective sub-module names (mutually exclusive with Alias)
 }
 
 func (r *RequireStmt) node() {}

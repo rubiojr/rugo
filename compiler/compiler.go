@@ -353,6 +353,89 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			continue
 		}
 
+		// Validate: "with" only works with remote requires
+		if len(req.With) > 0 && !isRemoteRequire(req.Path) {
+			return nil, fmt.Errorf("%s:%d: 'with' can only be used with remote requires (e.g., require \"github.com/user/repo\" with mod1, mod2)", prog.SourceFile, req.StmtLine())
+		}
+
+		// Handle "with" clause: load specific sub-modules from a remote repo
+		if len(req.With) > 0 {
+			cacheDir, err := c.fetchRemoteRepo(req.Path)
+			if err != nil {
+				return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
+			}
+
+			for _, modName := range req.With {
+				modFile := filepath.Join(cacheDir, modName+".rg")
+				if !fileExists(modFile) {
+					return nil, fmt.Errorf("%s:%d: module %q not found in %s (no %s.rg)", prog.SourceFile, req.StmtLine(), modName, req.Path, modName)
+				}
+
+				absPath, err := filepath.Abs(modFile)
+				if err != nil {
+					return nil, fmt.Errorf("resolving require path %s/%s: %w", req.Path, modName, err)
+				}
+
+				if c.loaded[absPath] {
+					continue
+				}
+				c.loaded[absPath] = true
+
+				reqProg, err := c.parseFile(absPath, displayPath(absPath))
+				if err != nil {
+					return nil, fmt.Errorf("in require %q (with %s): %w", req.Path, modName, err)
+				}
+
+				oldBase := c.BaseDir
+				c.BaseDir = filepath.Dir(absPath)
+				reqProg, err = c.resolveRequires(reqProg)
+				c.BaseDir = oldBase
+				if err != nil {
+					return nil, err
+				}
+
+				ns := modName
+
+				if c.imports[ns] {
+					return nil, fmt.Errorf("%s:%d: require namespace %q (from with) conflicts with use'd stdlib module", prog.SourceFile, req.StmtLine(), ns)
+				}
+				for pkg, alias := range c.goImports {
+					bridgeNS := alias
+					if bridgeNS == "" {
+						bridgeNS = gobridge.DefaultNS(pkg)
+					}
+					if ns == bridgeNS {
+						return nil, fmt.Errorf("%s:%d: require namespace %q (from with) conflicts with imported Go bridge package %q", prog.SourceFile, req.StmtLine(), ns, pkg)
+					}
+				}
+
+				for _, rs := range reqProg.Statements {
+					switch st := rs.(type) {
+					case *UseStmt:
+						c.imports[st.Module] = true
+						resolved = append(resolved, st)
+					case *ImportStmt:
+						if _, exists := c.goImports[st.Package]; !exists {
+							c.goImports[st.Package] = st.Alias
+						}
+						resolved = append(resolved, st)
+					case *FuncDef:
+						nsKey := ns + "." + st.Name
+						if src, exists := c.nsFuncs[nsKey]; exists {
+							return nil, fmt.Errorf("function %q in namespace %q already defined (from %s)", st.Name, ns, src)
+						}
+						c.nsFuncs[nsKey] = req.Path + "/" + modName
+						st.Namespace = ns
+						resolved = append(resolved, st)
+					case *AssignStmt:
+						st.Namespace = ns
+						resolved = append(resolved, st)
+					}
+				}
+			}
+			continue
+		}
+
 		var absPath string
 
 		if isRemoteRequire(req.Path) {

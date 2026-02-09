@@ -40,3 +40,4 @@ rugo emit script.rg       # print generated Go code
 17. [Go Bridge](quickstart/16-go-bridge.md)
 18. [Structs](quickstart/17-structs.md)
 19. [Web Server](quickstart/18-web.md)
+20. [Remote Modules](quickstart/19-remote-modules.md)

@@ -225,21 +225,39 @@ func (w *walker) walkImportStmt(ast []int32) (Statement, error) {
 }
 
 func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {
-	// RequireStmt = "require" str_lit [ "as" str_lit ] .
+	// RequireStmt = "require" str_lit [ "as" str_lit | "with" ident { ',' ident } ] .
 	_, ast = w.readToken(ast) // skip "require"
 	tok, ast := w.readToken(ast)
 	path := unquoteString(tok.src)
 	alias := ""
-	// Check for optional "as" alias
+	var with []string
+	// Check for optional "as" alias or "with" clause
 	if len(ast) > 0 && ast[0] >= 0 {
 		nextTok := w.p.Token(ast[0])
 		if parser.Symbol(nextTok.Ch) == parser.RugoTOK_as {
 			_, ast = w.readToken(ast) // consume "as"
 			aliasTok, _ := w.readToken(ast)
 			alias = unquoteString(aliasTok.src)
+		} else if parser.Symbol(nextTok.Ch) == parser.RugoTOK_with {
+			_, ast = w.readToken(ast) // consume "with"
+			// Read comma-separated identifiers
+			for len(ast) > 0 && ast[0] >= 0 {
+				identTok, rest := w.readToken(ast)
+				with = append(with, identTok.src)
+				ast = rest
+				// Check for comma
+				if len(ast) > 0 && ast[0] >= 0 {
+					commaTok := w.p.Token(ast[0])
+					if commaTok.Src() == "," {
+						_, ast = w.readToken(ast) // consume ","
+					} else {
+						break
+					}
+				}
+			}
 		}
 	}
-	return &RequireStmt{Path: path, Alias: alias}, nil
+	return &RequireStmt{Path: path, Alias: alias, With: with}, nil
 }
 
 func (w *walker) walkTestDef(ast []int32) (Statement, error) {

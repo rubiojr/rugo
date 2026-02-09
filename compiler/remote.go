@@ -209,13 +209,19 @@ func gitClone(r *remotePath, dest string) error {
 // findEntryPoint locates the main .rg file in a cloned module directory.
 //
 // Resolution order (at root or subpath):
-//  1. <name>.rg (repo name or subpath basename)
-//  2. main.rg
-//  3. Exactly one .rg file
+//  1. <subpath>.rg at the repo root (flat-file subpath, e.g. client.rg)
+//  2. <name>.rg in the subpath directory (repo name or subpath basename)
+//  3. main.rg
+//  4. Exactly one .rg file
 func findEntryPoint(cacheDir string, r *remotePath) (string, error) {
 	dir := cacheDir
 	name := r.Repo
 	if r.Subpath != "" {
+		// Flat-file subpath: check for <root>/<subpath>.rg first
+		flatCandidate := filepath.Join(cacheDir, r.Subpath+".rg")
+		if fileExists(flatCandidate) {
+			return flatCandidate, nil
+		}
 		dir = filepath.Join(cacheDir, r.Subpath)
 		name = filepath.Base(r.Subpath)
 	}
@@ -250,7 +256,8 @@ func findEntryPoint(cacheDir string, r *remotePath) (string, error) {
 	if len(rgFiles) == 0 {
 		return "", fmt.Errorf("no .rg files found in module %s/%s/%s", r.Host, r.Owner, r.Repo)
 	}
-	return "", fmt.Errorf("cannot determine entry point for module %s/%s/%s: found %d .rg files (add a %s.rg or main.rg)", r.Host, r.Owner, r.Repo, len(rgFiles), name)
+	hint := name + ".rg or main.rg, or use 'with' to select specific modules"
+	return "", fmt.Errorf("cannot determine entry point for module %s/%s/%s: found %d .rg files (add a %s)", r.Host, r.Owner, r.Repo, len(rgFiles), hint)
 }
 
 // resolveRemoteModule fetches a remote git module and returns the local
@@ -273,6 +280,28 @@ func (c *Compiler) resolveRemoteModule(requirePath string) (string, error) {
 	}
 
 	return findEntryPoint(cacheDir, r)
+}
+
+// fetchRemoteRepo fetches a remote git repo and returns the cache directory.
+// Unlike resolveRemoteModule, it does not resolve an entry point.
+func (c *Compiler) fetchRemoteRepo(requirePath string) (string, error) {
+	r, err := parseRemotePath(requirePath)
+	if err != nil {
+		return "", err
+	}
+
+	cacheDir, err := c.moduleCacheDir(r)
+	if err != nil {
+		return "", err
+	}
+
+	if needsFetch(cacheDir, r) {
+		if err := gitClone(r, cacheDir); err != nil {
+			return "", err
+		}
+	}
+
+	return cacheDir, nil
 }
 
 // remoteDefaultNamespace returns the default namespace for a remote require path.

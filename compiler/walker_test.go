@@ -362,6 +362,37 @@ func TestWalkRequireWithAlias(t *testing.T) {
 	}
 }
 
+func TestWalkRequireWithSingle(t *testing.T) {
+	prog := parseAndWalk(t, `require "github.com/user/repo" with client`)
+	req, ok := prog.Statements[0].(*RequireStmt)
+	if !ok {
+		t.Fatalf("expected RequireStmt, got %T", prog.Statements[0])
+	}
+	if req.Path != "github.com/user/repo" {
+		t.Errorf("path = %q, want %q", req.Path, "github.com/user/repo")
+	}
+	if req.Alias != "" {
+		t.Errorf("alias = %q, want empty", req.Alias)
+	}
+	if len(req.With) != 1 || req.With[0] != "client" {
+		t.Errorf("with = %v, want [client]", req.With)
+	}
+}
+
+func TestWalkRequireWithMultiple(t *testing.T) {
+	prog := parseAndWalk(t, `require "github.com/user/repo" with client, issue, repo`)
+	req, ok := prog.Statements[0].(*RequireStmt)
+	if !ok {
+		t.Fatalf("expected RequireStmt, got %T", prog.Statements[0])
+	}
+	if len(req.With) != 3 {
+		t.Fatalf("with = %v, want 3 items", req.With)
+	}
+	if req.With[0] != "client" || req.With[1] != "issue" || req.With[2] != "repo" {
+		t.Errorf("with = %v, want [client issue repo]", req.With)
+	}
+}
+
 func TestWalkDotExpr(t *testing.T) {
 	prog := parseAndWalk(t, `x = ns.value`)
 	assign := prog.Statements[0].(*AssignStmt)

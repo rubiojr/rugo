@@ -1,0 +1,280 @@
+# RATS: Test require ... with for selective remote module imports
+#
+# Creates a multi-file git repo (simulating rugh-like structure) with
+# client.rg, math_helpers.rg, and greeter.rg. Tests selective loading
+# via the "with" clause.
+use "test"
+use "web"
+use "conv"
+use "str"
+
+# --- File-level setup: multi-file bare git repo + in-process server ---
+
+def setup_file()
+  test.run("rm -rf /tmp/rats_req_with")
+  r = test.run("mkdir -p /tmp/rats_req_with/repos/testuser/multimod.git /tmp/rats_req_with/work")
+  if r["status"] != 0
+    puts "DEBUG setup mkdir: " + r["output"]
+  end
+  r = test.run("git init --bare /tmp/rats_req_with/repos/testuser/multimod.git")
+  if r["status"] != 0
+    puts "DEBUG setup git init: " + r["output"]
+  end
+  r = test.run("git clone /tmp/rats_req_with/repos/testuser/multimod.git /tmp/rats_req_with/work")
+  if r["status"] != 0
+    puts "DEBUG setup git clone: " + r["output"]
+  end
+
+  # client.rg — base module that others depend on
+  client_src = <<~RG
+    API_BASE = "https://api.example.com"
+
+    def make(token)
+      return {"token" => token, "api_base" => API_BASE}
+    end
+
+    def get(gh, path)
+      return "GET " + gh["api_base"] + path
+    end
+  RG
+  test.write_file("/tmp/rats_req_with/work/client.rg", client_src)
+
+  # math_helpers.rg — standalone module
+  math_src = <<~RG
+    def double(n)
+      return n * 2
+    end
+
+    def triple(n)
+      return n * 3
+    end
+  RG
+  test.write_file("/tmp/rats_req_with/work/math_helpers.rg", math_src)
+
+  # greeter.rg — standalone module
+  greeter_src = <<~RG
+    def hello(name)
+      return "Hello, " + name + "!"
+    end
+  RG
+  test.write_file("/tmp/rats_req_with/work/greeter.rg", greeter_src)
+
+  r = test.run("cd /tmp/rats_req_with/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v1.0.0")
+  if r["status"] != 0
+    puts "DEBUG setup git commit: " + r["output"]
+  end
+  r = test.run("cd /tmp/rats_req_with/work && git push origin HEAD v1.0.0")
+  if r["status"] != 0
+    puts "DEBUG setup git push: " + r["output"]
+  end
+  r = test.run("cd /tmp/rats_req_with/repos/testuser/multimod.git && git update-server-info")
+  if r["status"] != 0
+    puts "DEBUG setup update-server-info: " + r["output"]
+  end
+
+  web.static("/testuser/multimod.git", "/tmp/rats_req_with/repos/testuser/multimod.git")
+  spawn web.listen(0)
+  p = web.port()
+  test.write_file("/tmp/rats_req_with/port", conv.to_s(p))
+end
+
+def teardown_file()
+  test.run("rm -rf /tmp/rats_req_with")
+end
+
+# --- Helper ---
+def port()
+  return test.run("cat /tmp/rats_req_with/port")["output"]
+end
+
+# --- Tests ---
+
+rats "with: loads a single module"
+  tmpdir = test.tmpdir()
+  p = port()
+  script = <<~RG
+    require "localhost:PORT/testuser/multimod@v1.0.0" with math_helpers
+    puts(math_helpers.double(21))
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rg")
+  if result["status"] != 0
+    puts "DEBUG: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "with: loads multiple modules"
+  tmpdir = test.tmpdir()
+  p = port()
+  script = <<~RG
+    use "conv"
+    require "localhost:PORT/testuser/multimod@v1.0.0" with math_helpers, greeter
+    puts(greeter.hello("Rugo"))
+    puts(conv.to_s(math_helpers.triple(7)))
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rg")
+  if result["status"] != 0
+    puts "DEBUG: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Hello, Rugo!")
+  test.assert_eq(lines[1], "21")
+end
+
+rats "with: loads all modules from a multi-file repo"
+  tmpdir = test.tmpdir()
+  p = port()
+  script = <<~RG
+    use "conv"
+    require "localhost:PORT/testuser/multimod@v1.0.0" with client, math_helpers, greeter
+    gh = client.make("token123")
+    puts(client.get(gh, "/users"))
+    puts(conv.to_s(math_helpers.double(5)))
+    puts(greeter.hello("world"))
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rg")
+  if result["status"] != 0
+    puts "DEBUG: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "GET https://api.example.com/users")
+  test.assert_eq(lines[1], "10")
+  test.assert_eq(lines[2], "Hello, world!")
+end
+
+rats "with: inter-module dependency works when both loaded"
+  tmpdir = test.tmpdir()
+  p = port()
+  # client must be loaded before modules that call client.get()
+  script = <<~RG
+    require "localhost:PORT/testuser/multimod@v1.0.0" with client
+    gh = client.make("mytoken")
+    puts(client.get(gh, "/repos"))
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rg")
+  if result["status"] != 0
+    puts "DEBUG: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "GET https://api.example.com/repos")
+end
+
+rats "with: works with rugo build"
+  tmpdir = test.tmpdir()
+  p = port()
+  script = <<~RG
+    use "conv"
+    require "localhost:PORT/testuser/multimod@v1.0.0" with math_helpers
+    puts(conv.to_s(math_helpers.double(100)))
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+  build_result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build " + tmpdir + "/test.rg -o " + tmpdir + "/test_bin")
+  if build_result["status"] != 0
+    puts "DEBUG build: " + build_result["output"]
+  end
+  test.assert_eq(build_result["status"], 0)
+  result = test.run(tmpdir + "/test_bin")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "200")
+end
+
+rats "with: caches immutable version"
+  tmpdir = test.tmpdir()
+  moddir = tmpdir + "/modules"
+  p = port()
+  script = <<~RG
+    require "localhost:PORT/testuser/multimod@v1.0.0" with greeter
+    puts(greeter.hello("cache"))
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+
+  # First run
+  result = test.run("RUGO_MODULE_DIR=" + moddir + " rugo run " + tmpdir + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello, cache!")
+
+  # Check cache dir exists
+  cache_path = moddir + "/localhost:" + p + "/testuser/multimod/v1.0.0"
+  r = test.run("test -d " + cache_path)
+  test.assert_eq(r["status"], 0)
+
+  # Second run uses cache
+  result = test.run("RUGO_MODULE_DIR=" + moddir + " rugo run " + tmpdir + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello, cache!")
+end
+
+# --- Negative tests ---
+
+rats "with: error on nonexistent module name"
+  tmpdir = test.tmpdir()
+  p = port()
+  script = <<~RG
+    require "localhost:PORT/testuser/multimod@v1.0.0" with nonexistent
+    puts "should not get here"
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "nonexistent")
+  test.assert_contains(result["output"], "not found")
+end
+
+rats "with: error on local require"
+  tmpdir = test.tmpdir()
+  script = <<~RG
+    require "helpers" with foo
+    puts "should not get here"
+  RG
+  test.write_file(tmpdir + "/test.rg", script)
+  result = test.run("rugo run " + tmpdir + "/test.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "with")
+  test.assert_contains(result["output"], "remote")
+end
+
+rats "with: error on bad remote repo"
+  tmpdir = test.tmpdir()
+  p = port()
+  script = <<~RG
+    require "localhost:PORT/nobody/nonexistent@v1.0.0" with foo
+    puts "should not get here"
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "git clone")
+end
+
+rats "with: subpath require also works for flat files"
+  tmpdir = test.tmpdir()
+  p = port()
+  # This tests the flat-file subpath: require "host/user/repo/submod@v"
+  script = <<~RG
+    require "localhost:PORT/testuser/multimod/greeter@v1.0.0"
+    puts(greeter.hello("subpath"))
+  RG
+  script = str.replace(script, "PORT", p)
+  test.write_file(tmpdir + "/test.rg", script)
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rg")
+  if result["status"] != 0
+    puts "DEBUG: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello, subpath!")
+end

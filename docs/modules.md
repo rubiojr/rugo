@@ -134,6 +134,34 @@ puts utils.slugify("Hello World")
 Remote modules are cached in `~/.rugo/modules/`. Tagged versions and commit
 SHAs are immutable — once downloaded, they're never re-fetched.
 
+#### Selective Imports with `with`
+
+Multi-file remote modules can be loaded selectively using `with`:
+
+```ruby
+# Load only the modules you need
+require "github.com/user/my-lib@v1.0.0" with client, issue
+
+# Each name loads <name>.rg from the repo root as its own namespace
+client.make("token")
+issue.list(gh, "owner", "repo")
+```
+
+Without `with`, the repo's entry point (`main.rg`, `<repo-name>.rg`, or the
+sole `.rg` file) is loaded. With `with`, the entry point is bypassed and each
+named file is loaded directly.
+
+`with` and `as` are mutually exclusive. `with` only works on remote requires.
+
+#### Subpath Requires
+
+You can also require a specific file from a remote repo by path:
+
+```ruby
+require "github.com/user/my-lib/client@v1.0.0"
+# loads client.rg from the repo root, namespace "client"
+```
+
 ### Search Path
 
 Rugo resolves `require` paths with two simple rules:
