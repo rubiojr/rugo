@@ -139,6 +139,55 @@ the `RUGO_MODULE_DIR` environment variable:
 RUGO_MODULE_DIR=/tmp/my-cache rugo run script.rg
 ```
 
+## Lock File (`rugo.lock`)
+
+When you build or run a script that uses remote modules, Rugo automatically
+generates a `rugo.lock` file next to your source file. This records the exact
+commit SHA for every remote dependency, making builds reproducible.
+
+### Format
+
+```
+# rugo.lock — auto-generated, do not edit
+github.com/user/repo v1.0.0 abc1234def5678901234567890abcdef12345678
+github.com/user/utils _default 9f8e7d6c5b4a321098765432109876fedcba9876
+```
+
+Each line: `<module-path> <version-label> <resolved-sha>`
+
+### How It Works
+
+1. **First build**: Modules are fetched, SHAs recorded in `rugo.lock`
+2. **Subsequent builds**: Locked SHAs are used — no network fetch needed
+3. **Mutable versions** (`@main`, no version): Locked to their resolved SHA until explicitly updated
+4. **Immutable versions** (`@v1.0.0`, `@abc1234`): Recorded for completeness and tamper detection
+
+### Updating Dependencies
+
+```bash
+rugo update                    # re-resolve all mutable dependencies
+rugo update github.com/user/repo  # re-resolve a specific module
+```
+
+Or delete `rugo.lock` and rebuild to re-resolve everything.
+
+### Frozen Builds (CI)
+
+Use `--frozen` with `rugo build` to fail if the lock file is missing or stale:
+
+```bash
+rugo build --frozen app.rg -o app
+```
+
+This ensures CI builds use exactly the locked versions. If a new dependency
+is added but `rugo.lock` wasn't updated, the build fails immediately.
+
+### Best Practices
+
+- **Commit `rugo.lock`** to version control for reproducible builds
+- Use `rugo update` to intentionally upgrade mutable dependencies
+- Use `--frozen` in CI to catch unintentional dependency changes
+
 ---
 
 **Quick reference:**

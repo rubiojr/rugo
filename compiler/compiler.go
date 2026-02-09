@@ -25,6 +25,14 @@ type Compiler struct {
 	// ModuleDir overrides the default module cache directory (~/.rugo/modules).
 	// Used for testing. When empty, the default is used.
 	ModuleDir string
+	// Frozen errors if the lock file is stale or a new dependency is resolved.
+	Frozen bool
+	// lockFile holds parsed lock entries during compilation.
+	lockFile *LockFile
+	// lockFilePath is the path to the rugo.lock file.
+	lockFilePath string
+	// lockDirty tracks whether the lock file was modified during compilation.
+	lockDirty bool
 	// loaded tracks already-loaded files to prevent duplicate requires.
 	loaded map[string]bool
 	// imports tracks which Rugo stdlib modules have been imported via use.
@@ -65,6 +73,16 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 	c.BaseDir = filepath.Dir(absPath)
 
+	// Initialize lock file: read existing rugo.lock next to the source file.
+	if c.lockFile == nil {
+		c.lockFilePath = filepath.Join(c.BaseDir, "rugo.lock")
+		lf, err := ReadLockFile(c.lockFilePath)
+		if err != nil {
+			return nil, err
+		}
+		c.lockFile = lf
+	}
+
 	// In test mode, auto-require .rg files from helpers/ dir next to the test file.
 	if c.TestMode {
 		c.sourcePrefix = c.discoverHelpers()
@@ -82,6 +100,13 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 		return nil, err
 	}
 
+	// Write lock file if modified during compilation.
+	if c.lockDirty {
+		if err := WriteLockFile(c.lockFilePath, c.lockFile); err != nil {
+			return nil, err
+		}
+	}
+
 	// Generate Go source
 	goSrc, err := generate(resolved, filename, c.TestMode)
 	if err != nil {
@@ -89,6 +114,13 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename}, nil
+}
+
+// InitLock sets the lock file and path for the compiler.
+// Used by the update command to inject a pre-loaded lock file.
+func (c *Compiler) InitLock(path string, lf *LockFile) {
+	c.lockFilePath = path
+	c.lockFile = lf
 }
 
 // discoverHelpers finds .rg files in a helpers/ directory next to the test file

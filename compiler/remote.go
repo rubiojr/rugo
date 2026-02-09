@@ -140,8 +140,9 @@ func parseRemotePath(path string) (*remotePath, error) {
 // Uses ModuleDir from the compiler if set, then RUGO_MODULE_DIR env var,
 // then falls back to ~/.rugo/modules/.
 //
-//	~/.rugo/modules/github.com/user/repo/v1.0.0/
-func (c *Compiler) moduleCacheDir(r *remotePath) (string, error) {
+// For locked mutable versions, uses _sha_<sha>/ to store each resolved
+// commit independently. Immutable versions use their version label directly.
+func (c *Compiler) moduleCacheDir(r *remotePath, lockedSHA string) (string, error) {
 	base := c.ModuleDir
 	if base == "" {
 		base = os.Getenv("RUGO_MODULE_DIR")
@@ -153,7 +154,30 @@ func (c *Compiler) moduleCacheDir(r *remotePath) (string, error) {
 		}
 		base = filepath.Join(home, ".rugo", "modules")
 	}
-	return filepath.Join(base, r.Host, r.Owner, r.Repo, r.versionLabel()), nil
+
+	versionDir := r.versionLabel()
+	if lockedSHA != "" && !r.isImmutable() {
+		versionDir = "_sha_" + lockedSHA
+	}
+
+	return filepath.Join(base, r.Host, r.Owner, r.Repo, versionDir), nil
+}
+
+// moduleCacheBase returns the base cache directory for module lookups
+// (without the version subdirectory).
+func (c *Compiler) moduleCacheBase() (string, error) {
+	base := c.ModuleDir
+	if base == "" {
+		base = os.Getenv("RUGO_MODULE_DIR")
+	}
+	if base == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("cannot determine home directory: %w", err)
+		}
+		base = filepath.Join(home, ".rugo", "modules")
+	}
+	return base, nil
 }
 
 // needsFetch returns true if the module needs to be (re-)fetched.
@@ -202,6 +226,47 @@ func gitClone(r *remotePath, dest string) error {
 		if err != nil {
 			return fmt.Errorf("git clone %s: %s", r.cloneURL(), strings.TrimSpace(string(output)))
 		}
+	}
+	return nil
+}
+
+// gitRevParseSHA returns the full commit SHA for HEAD in the given git repo directory.
+func gitRevParseSHA(repoDir string) (string, error) {
+	cmd := exec.Command("git", "-C", repoDir, "rev-parse", "HEAD")
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git rev-parse HEAD in %s: %w", repoDir, err)
+	}
+	return strings.TrimSpace(string(output)), nil
+}
+
+// gitCloneAtSHA clones a repo and checks out a specific commit SHA.
+// Used when the lock file pins a mutable version to a known SHA.
+func gitCloneAtSHA(r *remotePath, dest, sha string) error {
+	if err := os.RemoveAll(dest); err != nil {
+		return fmt.Errorf("cleaning cache directory: %w", err)
+	}
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("creating cache directory: %w", err)
+	}
+
+	// Clone without branch, then checkout the specific SHA.
+	args := []string{"clone", r.cloneURL(), dest}
+	cmd := exec.Command("git", args...)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git clone %s: %s", r.cloneURL(), strings.TrimSpace(string(output)))
+	}
+
+	// Checkout the locked SHA.
+	cmd = exec.Command("git", "-C", dest, "checkout", sha)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		os.RemoveAll(dest)
+		return fmt.Errorf("git checkout %s: %s", sha, strings.TrimSpace(string(output)))
 	}
 	return nil
 }
@@ -260,6 +325,111 @@ func findEntryPoint(cacheDir string, r *remotePath) (string, error) {
 	return "", fmt.Errorf("cannot determine entry point for module %s/%s/%s: found %d .rg files (add a %s)", r.Host, r.Owner, r.Repo, len(rgFiles), hint)
 }
 
+// resolveRemoteWithLock fetches a remote module, respecting the lock file.
+// It returns the cache directory where the module is stored and records
+// the resolved SHA in the lock file.
+func (c *Compiler) resolveRemoteWithLock(r *remotePath) (string, error) {
+	moduleKey := r.moduleKey()
+	versionLabel := r.versionLabel()
+
+	// Ensure lock file is initialized (may be called outside Compile).
+	if c.lockFile == nil {
+		c.lockFile = NewLockFile()
+	}
+
+	// Check the lock file for a pinned SHA.
+	var lockedSHA string
+	if entry := c.lockFile.Lookup(moduleKey, versionLabel); entry != nil {
+		lockedSHA = entry.SHA
+	}
+
+	// Determine cache directory (uses _sha_<sha>/ for locked mutable versions).
+	cacheDir, err := c.moduleCacheDir(r, lockedSHA)
+	if err != nil {
+		return "", err
+	}
+
+	// If locked SHA cache exists, skip fetch entirely.
+	if lockedSHA != "" {
+		if _, err := os.Stat(cacheDir); err == nil {
+			return cacheDir, nil
+		}
+		// Locked SHA not in cache — need to fetch at that SHA.
+		if c.Frozen {
+			return "", fmt.Errorf("--frozen: locked module %s@%s (sha %s) not in cache", moduleKey, versionLabel, lockedSHA[:7])
+		}
+		if err := gitCloneAtSHA(r, cacheDir, lockedSHA); err != nil {
+			return "", err
+		}
+		return cacheDir, nil
+	}
+
+	// No lock entry — resolve normally.
+	if c.Frozen {
+		return "", fmt.Errorf("--frozen: no lock entry for %s@%s", moduleKey, versionLabel)
+	}
+
+	// For immutable versions, use the standard needsFetch logic.
+	if r.isImmutable() {
+		if _, err := os.Stat(cacheDir); err == nil {
+			// Already cached. Record in lock file for completeness.
+			sha, err := gitRevParseSHA(cacheDir)
+			if err == nil {
+				c.lockFile.Set(moduleKey, versionLabel, sha)
+				c.lockDirty = true
+			}
+			return cacheDir, nil
+		}
+		if err := gitClone(r, cacheDir); err != nil {
+			return "", err
+		}
+		sha, err := gitRevParseSHA(cacheDir)
+		if err != nil {
+			return cacheDir, nil // non-fatal: lock just won't have this entry
+		}
+		c.lockFile.Set(moduleKey, versionLabel, sha)
+		c.lockDirty = true
+		return cacheDir, nil
+	}
+
+	// Mutable version without lock: clone to a temp dir, get SHA, then move to _sha_<sha>/.
+	tmpDir, err := c.moduleCacheDir(r, "")
+	if err != nil {
+		return "", err
+	}
+	if err := gitClone(r, tmpDir); err != nil {
+		return "", err
+	}
+	sha, err := gitRevParseSHA(tmpDir)
+	if err != nil {
+		// Can't get SHA — fall back to the temp dir without lock.
+		return tmpDir, nil
+	}
+
+	// Move to the SHA-keyed directory.
+	finalDir, err := c.moduleCacheDir(r, sha)
+	if err != nil {
+		return tmpDir, nil
+	}
+
+	if finalDir != tmpDir {
+		// If SHA dir already exists, remove the temp clone.
+		if _, err := os.Stat(finalDir); err == nil {
+			os.RemoveAll(tmpDir)
+		} else {
+			os.MkdirAll(filepath.Dir(finalDir), 0755)
+			if err := os.Rename(tmpDir, finalDir); err != nil {
+				// Rename failed (cross-device?), keep tmpDir.
+				return tmpDir, nil
+			}
+		}
+	}
+
+	c.lockFile.Set(moduleKey, versionLabel, sha)
+	c.lockDirty = true
+	return finalDir, nil
+}
+
 // ResolveRemoteModule fetches a remote git module and returns the local
 // path to its entry point .rg file.
 func (c *Compiler) ResolveRemoteModule(requirePath string) (string, error) {
@@ -268,15 +438,9 @@ func (c *Compiler) ResolveRemoteModule(requirePath string) (string, error) {
 		return "", err
 	}
 
-	cacheDir, err := c.moduleCacheDir(r)
+	cacheDir, err := c.resolveRemoteWithLock(r)
 	if err != nil {
 		return "", err
-	}
-
-	if needsFetch(cacheDir, r) {
-		if err := gitClone(r, cacheDir); err != nil {
-			return "", err
-		}
 	}
 
 	return findEntryPoint(cacheDir, r)
@@ -290,18 +454,62 @@ func (c *Compiler) FetchRemoteRepo(requirePath string) (string, error) {
 		return "", err
 	}
 
-	cacheDir, err := c.moduleCacheDir(r)
-	if err != nil {
-		return "", err
+	return c.resolveRemoteWithLock(r)
+}
+
+// UpdateLockEntry re-resolves a mutable dependency, ignoring the existing
+// lock entry, and updates the lock file. If module is empty, all mutable
+// entries are updated.
+func (c *Compiler) UpdateLockEntry(module string) error {
+	if c.lockFile == nil {
+		return fmt.Errorf("no lock file loaded")
 	}
 
-	if needsFetch(cacheDir, r) {
-		if err := gitClone(r, cacheDir); err != nil {
-			return "", err
+	for _, entry := range c.lockFile.Entries {
+		if module != "" && entry.Module != module {
+			continue
 		}
+		// Only re-resolve mutable versions.
+		r, err := parseRemotePath(entry.Module + "@" + entry.Version)
+		if err != nil {
+			continue
+		}
+		if r.isImmutable() {
+			continue
+		}
+
+		// Clone fresh to the version-label dir (not SHA dir).
+		tmpDir, err := c.moduleCacheDir(r, "")
+		if err != nil {
+			return err
+		}
+		if err := gitClone(r, tmpDir); err != nil {
+			return fmt.Errorf("updating %s@%s: %w", entry.Module, entry.Version, err)
+		}
+		sha, err := gitRevParseSHA(tmpDir)
+		if err != nil {
+			return fmt.Errorf("updating %s@%s: %w", entry.Module, entry.Version, err)
+		}
+
+		// Move to SHA-keyed directory.
+		finalDir, err := c.moduleCacheDir(r, sha)
+		if err == nil && finalDir != tmpDir {
+			if _, err := os.Stat(finalDir); err == nil {
+				os.RemoveAll(tmpDir)
+			} else {
+				os.MkdirAll(filepath.Dir(finalDir), 0755)
+				os.Rename(tmpDir, finalDir)
+			}
+		}
+
+		entry.SHA = sha
+		c.lockDirty = true
 	}
 
-	return cacheDir, nil
+	if c.lockDirty {
+		return WriteLockFile(c.lockFilePath, c.lockFile)
+	}
+	return nil
 }
 
 // remoteDefaultNamespace returns the default namespace for a remote require path.

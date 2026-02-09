@@ -60,6 +60,10 @@ func Execute(version string) {
 						Aliases: []string{"o"},
 						Usage:   "Output binary name",
 					},
+					&cli.BoolFlag{
+						Name:  "frozen",
+						Usage: "Error if rugo.lock is stale or a new dependency needs resolving",
+					},
 				},
 				Action: buildAction,
 			},
@@ -126,6 +130,12 @@ func Execute(version string) {
 				},
 				Action: docAction,
 			},
+			{
+				Name:      "update",
+				Usage:     "Re-resolve mutable remote dependencies and update rugo.lock",
+				ArgsUsage: "[module-path]",
+				Action:    updateAction,
+			},
 		},
 	}
 
@@ -145,9 +155,9 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 
 func buildAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
-		return fmt.Errorf("usage: rugo build [-o output] <file.rg>")
+		return fmt.Errorf("usage: rugo build [-o output] [--frozen] <file.rg>")
 	}
-	comp := &compiler.Compiler{}
+	comp := &compiler.Compiler{Frozen: cmd.Bool("frozen")}
 	output := cmd.String("output")
 	// Also check if -o was passed after the filename (urfave quirk)
 	if output == "" {
@@ -171,6 +181,33 @@ func emitAction(ctx context.Context, cmd *cli.Command) error {
 	}
 	fmt.Print(src)
 	return nil
+}
+
+func updateAction(ctx context.Context, cmd *cli.Command) error {
+	// Find the rugo.lock in the current directory.
+	lockPath, err := filepath.Abs("rugo.lock")
+	if err != nil {
+		return err
+	}
+
+	lf, err := compiler.ReadLockFile(lockPath)
+	if err != nil {
+		return err
+	}
+	if len(lf.Entries) == 0 {
+		fmt.Fprintln(os.Stderr, "no rugo.lock found or lock file is empty")
+		return nil
+	}
+
+	comp := &compiler.Compiler{}
+	comp.InitLock(lockPath, lf)
+
+	module := ""
+	if cmd.NArg() > 0 {
+		module = cmd.Args().First()
+	}
+
+	return comp.UpdateLockEntry(module)
 }
 
 // isRugoScript checks if a file exists and looks like a rugo script.

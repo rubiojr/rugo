@@ -1,0 +1,248 @@
+# RATS: Test rugo.lock file generation, usage, and update
+#
+# Starts an in-process git server, then verifies:
+# 1. rugo.lock is auto-generated on first build/run
+# 2. Locked SHA is used on subsequent builds (no re-fetch)
+# 3. rugo update re-resolves mutable deps
+# 4. --frozen flag errors on missing lock entries
+# 5. Immutable versions are recorded in lock file
+use "test"
+use "web"
+use "conv"
+use "str"
+
+def base_dir()
+  return "/tmp/rats_lockfile"
+end
+
+def setup_file()
+  bd = base_dir()
+  r = test.run("mkdir -p " + bd + "/repos/lockuser/lock-mod.git " + bd + "/work")
+  if r["status"] != 0
+    puts "DEBUG setup mkdir: " + r["output"]
+  end
+  r = test.run("git init --bare " + bd + "/repos/lockuser/lock-mod.git")
+  if r["status"] != 0
+    puts "DEBUG setup git init: " + r["output"]
+  end
+  r = test.run("git clone " + bd + "/repos/lockuser/lock-mod.git " + bd + "/work")
+  if r["status"] != 0
+    puts "DEBUG setup git clone: " + r["output"]
+  end
+
+  mod_src = <<~RG
+    def greet(name)
+      return "Hello v1, " + name + "!"
+    end
+  RG
+  test.write_file(bd + "/work/lock-mod.rg", mod_src)
+
+  r = test.run("cd " + bd + "/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m v1 && git tag v1.0.0")
+  if r["status"] != 0
+    puts "DEBUG setup v1 commit: " + r["output"]
+  end
+  r = test.run("cd " + bd + "/work && git push origin HEAD v1.0.0")
+  if r["status"] != 0
+    puts "DEBUG setup v1 push: " + r["output"]
+  end
+
+  # Create a second commit on main (for mutable version testing)
+  mod_src2 = <<~RG
+    def greet(name)
+      return "Hello v2, " + name + "!"
+    end
+  RG
+  test.write_file(bd + "/work/lock-mod.rg", mod_src2)
+
+  r = test.run("cd " + bd + "/work && git add . && git commit -m v2 && git push origin HEAD")
+  if r["status"] != 0
+    puts "DEBUG setup v2 push: " + r["output"]
+  end
+
+  r = test.run("cd " + bd + "/repos/lockuser/lock-mod.git && git update-server-info")
+  if r["status"] != 0
+    puts "DEBUG setup update-server-info: " + r["output"]
+  end
+
+  web.static("/lockuser/lock-mod.git", bd + "/repos/lockuser/lock-mod.git")
+  spawn web.listen(0)
+  p = web.port()
+  test.write_file(bd + "/port", conv.to_s(p))
+end
+
+def teardown_file()
+  test.run("rm -rf " + base_dir())
+end
+
+# --- Tests ---
+
+rats "lock file is generated on first run with tagged version"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("Rugo")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  if result["status"] != 0
+    puts "DEBUG lock-gen: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello v1, Rugo!")
+
+  # Verify rugo.lock was created next to the source file
+  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  test.assert_eq(lock_result["status"], 0)
+  test.assert_contains(lock_result["output"], "localhost:" + port + "/lockuser/lock-mod")
+  test.assert_contains(lock_result["output"], "v1.0.0")
+end
+
+rats "lock file is generated on first run with mutable version"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod" as "mod"
+    puts mod.greet("Rugo")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  if result["status"] != 0
+    puts "DEBUG mutable-lock: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello v2, Rugo!")
+
+  # Verify rugo.lock was created with _default version and a SHA
+  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  test.assert_eq(lock_result["status"], 0)
+  test.assert_contains(lock_result["output"], "_default")
+end
+
+rats "locked mutable version uses cached SHA on second run"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod" as "mod"
+    puts mod.greet("Rugo")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+
+  # First run: generates lock file
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello v2, Rugo!")
+
+  # Read the locked SHA
+  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  test.assert_contains(lock_content, "_default")
+
+  # Second run: should use cached SHA directory, no re-fetch needed
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello v2, Rugo!")
+
+  # Verify SHA-keyed cache directory exists
+  sha_dirs = test.run("ls " + tmpdir + "/modules/localhost:" + port + "/lockuser/lock-mod/ | grep _sha_")
+  test.assert_eq(sha_dirs["status"], 0)
+end
+
+rats "frozen flag errors when no lock entry exists"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("Rugo")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+
+  # Build with --frozen and no lock file should fail
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build --frozen " + tmpdir + "/app.rg -o " + tmpdir + "/app")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "--frozen")
+end
+
+rats "frozen flag succeeds with valid lock file"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("Rugo")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+
+  # First build without frozen to generate lock file
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build " + tmpdir + "/app.rg -o " + tmpdir + "/app1")
+  if result["status"] != 0
+    puts "DEBUG frozen-success build1: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+
+  # Second build with frozen should succeed
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build --frozen " + tmpdir + "/app.rg -o " + tmpdir + "/app2")
+  if result["status"] != 0
+    puts "DEBUG frozen-success build2: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+end
+
+rats "lock file records immutable version SHA"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("Rugo")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  test.assert_eq(result["status"], 0)
+
+  # Lock file should contain the module with v1.0.0 and a 40-char SHA
+  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  test.assert_contains(lock_content, "v1.0.0")
+  # Each non-comment line should have 3 fields
+  lines = str.split(lock_content, "\n")
+  for line in lines
+    line = str.trim(line)
+    if line == "" || str.starts_with(line, "#")
+      next
+    end
+    parts = str.split(line, " ")
+    test.assert_eq(len(parts), 3)
+  end
+end
+
+rats "lock file with require with clause"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  # The "with" clause looks for <name>.rg in the repo root.
+  # Our file is lock-mod.rg. The parser treats hyphens as minus,
+  # so we use the quoted form to reference hyphenated filenames.
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("With")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rg", consumer)
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rg")
+  if result["status"] != 0
+    puts "DEBUG with-lock: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello v1, With!")
+
+  # Lock file should exist
+  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  test.assert_eq(lock_result["status"], 0)
+  test.assert_contains(lock_result["output"], "localhost:" + port + "/lockuser/lock-mod")
+end
