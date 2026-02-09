@@ -49,28 +49,15 @@ Rugo stands on the shoulders of giants:
 * **Rust** (inline tests alongside code).
 * **Elixir** (Lambdas)
 
+#### Ruby-like syntax
+
 ```ruby
-use "http"
-
-# Fetch something from the web
-body = http.get("https://httpbin.org/get")
-puts body
-
-# Shell commands just work
-ls -la | head -5
-
-# Functions
 def greet(name)
   puts "Hello, #{name}!"
 end
 
-greet "World"
+greet("World")
 
-# Lambdas — first-class functions
-double = fn(x) x * 2 end
-puts double(5)  # 10
-
-# for..in with string interpolation
 scores = [90, 85, 72]
 for score in scores
   if score >= 90
@@ -79,61 +66,92 @@ for score in scores
     puts "#{score} → B"
   end
 end
+```
 
-# Hashes and compound assignment
-counts = {}
-words = ["hello", "world", "hello", "hello", "world"]
-for word in words
-  if counts[word]
-    counts[word] += 1
-  else
-    counts[word] = 1
-  end
-end
-for k, v in counts
-  puts "#{k}: #{v}"
-end
+#### Shell fallback
 
-# Error handling
+```ruby
+ls -la | head -3
+name = `whoami`
+puts "I'm #{name}"
+```
+
+#### Lambdas
+
+```ruby
+double = fn(x) x * 2 end
+puts double(5)
+
+add = fn(a, b) a + b end
+puts add(2, 3)
+```
+
+#### Modules
+
+```ruby
+use "str"
+use "conv"
+
+puts str.upper("hello rugo")
+puts conv.to_i("42") + 8
+```
+
+#### Go stdlib bridge
+
+```ruby
+import "math"
+import "strings"
+
+puts math.sqrt(144.0)
+puts strings.to_upper("hello")
+```
+
+#### Error handling
+
+```ruby
+import "strconv"
+
 hostname = try `hostname` or "localhost"
 puts "Running on #{hostname}"
 
-# Raise errors from your own code
-def connect(token)
-  if token == nil
-    raise "token is required"
-  end
+n = try strconv.atoi("nope") or 0
+puts n
+```
+
+#### Concurrency
+
+```ruby
+a = spawn 2 + 2
+b = spawn 3 * 3
+
+puts a.value
+puts b.value
+```
+
+#### Structs
+
+```ruby
+struct Dog
+  name
+  breed
 end
-result = try connect(nil) or err
-  puts "Error: " + err
-end
 
-# Concurrency with spawn
-task = spawn http.get("https://httpbin.org/get")
-puts task.value
+rex = Dog("Rex", "Labrador")
+puts rex.name
+puts rex.breed
+```
 
-# Parallel execution
-results = parallel
-  http.get("https://httpbin.org/get")
-  http.get("https://httpbin.org/headers")
-end
-puts results[0]
-puts results[1]
+#### Inline tests
 
-# Go stdlib bridge — call Go packages directly
-import "math"
-import "strconv"
-
-puts math.sqrt(144.0)                        # 12
-
-# Error handling with Go bridge
-n = try strconv.atoi("not a number") or 0
-puts n  # 0
-
-# Inline tests — ignored by rugo run, executed by rugo rats
+```ruby
 use "test"
-rats "math.sqrt returns correct value"
-  test.assert_eq(math.sqrt(144.0), 12.0)
+
+def add(a, b)
+  return a + b
+end
+
+rats "add works"
+  test.assert_eq(add(2, 3), 5)
 end
 ```
 
