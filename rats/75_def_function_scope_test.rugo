@@ -1,0 +1,72 @@
+# RATS: Test that def functions can access top-level variables
+use "test"
+
+rats "def function can access top-level constant"
+  script = <<~SCRIPT
+    GREETING = "hello"
+    def greet()
+      return GREETING
+    end
+    puts greet()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "def function can access top-level variable"
+  script = <<~SCRIPT
+    count = 42
+    def get_count()
+      return count
+    end
+    puts get_count()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "def function can access top-level hash"
+  script = <<~SCRIPT
+    config = {greeting: "hello"}
+    def get_greeting()
+      return config["greeting"]
+    end
+    puts get_greeting()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "def function can access top-level array"
+  script = <<~SCRIPT
+    items = [1, 2, 3]
+    def first_item()
+      return items[0]
+    end
+    puts first_item()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "1")
+end
+
+rats "def function with params still works alongside top-level vars"
+  script = <<~SCRIPT
+    PREFIX = "Hello"
+    def greet(name)
+      return PREFIX + ", " + name + "!"
+    end
+    puts greet("world")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello, world!")
+end
