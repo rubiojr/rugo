@@ -671,6 +671,57 @@ These functions are always available without any `use` or `import`:
 | `type_of(v)` | Returns the type name of a value as a string |
 | `exit(code?)` | Terminate the program with optional exit code (default: 0) |
 
+## Built-in Collection Methods
+
+Arrays and hashes have built-in methods dispatched via `rugo_dot_call`. These are always available without imports. Built-in methods take priority over hash key lookup — use `hash["key"]` for key access when a key name collides with a method.
+
+### Array Methods
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `.map(fn)` | Array | Transform each element |
+| `.filter(fn)` | Array | Keep elements where fn returns truthy |
+| `.reject(fn)` | Array | Remove elements where fn returns truthy |
+| `.each(fn)` | nil | Iterate with side effects |
+| `.reduce(init, fn)` | Any | Accumulate: `fn(acc, val)` |
+| `.find(fn)` | Any/nil | First matching element |
+| `.any(fn)` | Bool | True if any element matches |
+| `.all(fn)` | Bool | True if all elements match |
+| `.count(fn)` | Int | Count matching elements |
+| `.join(sep)` | String | Join elements with separator |
+| `.first()` | Any/nil | First element |
+| `.last()` | Any/nil | Last element |
+| `.min()` | Any/nil | Minimum value (numeric or string) |
+| `.max()` | Any/nil | Maximum value (numeric or string) |
+| `.sum()` | Number | Sum of numeric elements |
+| `.flatten()` | Array | Flatten one level of nesting |
+| `.uniq()` | Array | Remove duplicates (preserving order) |
+| `.sort_by(fn)` | Array | Sort by lambda result (non-mutating) |
+| `.flat_map(fn)` | Array | Map then flatten |
+| `.take(n)` | Array | First n elements |
+| `.drop(n)` | Array | All but first n elements |
+| `.zip(other)` | Array | Pair elements from two arrays |
+| `.chunk(n)` | Array | Split into groups of n |
+
+### Hash Methods
+
+Hash method lambdas receive `(key, value)`:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `.map(fn)` | Array | Transform each pair: `fn(k, v)` |
+| `.filter(fn)` | Hash | Keep pairs where `fn(k, v)` returns truthy |
+| `.reject(fn)` | Hash | Remove pairs where `fn(k, v)` returns truthy |
+| `.each(fn)` | nil | Iterate pairs: `fn(k, v)` |
+| `.reduce(init, fn)` | Any | Accumulate: `fn(acc, k, v)` |
+| `.find(fn)` | Array/nil | First matching `[key, value]` pair |
+| `.any(fn)` | Bool | True if any pair matches |
+| `.all(fn)` | Bool | True if all pairs match |
+| `.count(fn)` | Int | Count matching pairs |
+| `.keys()` | Array | All keys |
+| `.values()` | Array | All values |
+| `.merge(other)` | Hash | Combine hashes (other wins conflicts) |
+
 ## Testing
 
 Rugo includes a built-in test framework using `rats/end` blocks:

@@ -1,0 +1,318 @@
+# RATS: Built-in hash collection methods
+# Tests for .map, .filter, .reject, .each, .reduce, .find, .any, .all,
+# .count, .keys, .values, .merge
+use "test"
+
+# ============================================================
+# A. map
+# ============================================================
+
+rats "hash.map transforms each pair into array"
+  script = <<~SCRIPT
+    use "conv"
+    h = {a: 1, b: 2}
+    result = h.map(fn(k, v) conv.to_s(k) + "=" + conv.to_s(v) end)
+    puts(len(result))
+    puts(type_of(result))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "2")
+  test.assert_eq(lines[1], "Array")
+end
+
+# ============================================================
+# B. filter
+# ============================================================
+
+rats "hash.filter returns a hash with matching pairs"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2, c: 3}
+    result = h.filter(fn(k, v) v > 1 end)
+    puts(type_of(result))
+    puts(len(result))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Hash")
+  test.assert_eq(lines[1], "2")
+end
+
+rats "hash.filter by key"
+  script = <<~SCRIPT
+    h = {name: "Alice", age: 30, city: "NYC"}
+    result = h.filter(fn(k, v) k != "age" end)
+    puts(result["name"])
+    puts(result["city"])
+    puts(result["age"] == nil)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Alice")
+  test.assert_eq(lines[1], "NYC")
+  test.assert_eq(lines[2], "true")
+end
+
+# ============================================================
+# C. reject
+# ============================================================
+
+rats "hash.reject removes matching pairs"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2, c: 3}
+    result = h.reject(fn(k, v) v > 1 end)
+    puts(type_of(result))
+    puts(len(result))
+    puts(result["a"])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Hash")
+  test.assert_eq(lines[1], "1")
+  test.assert_eq(lines[2], "1")
+end
+
+# ============================================================
+# D. each
+# ============================================================
+
+rats "hash.each iterates all pairs"
+  script = <<~SCRIPT
+    use "conv"
+    h = {a: 1, b: 2}
+    items = []
+    h.each(fn(k, v) items = append(items, k) end)
+    puts(len(items))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "2")
+end
+
+# ============================================================
+# E. reduce
+# ============================================================
+
+rats "hash.reduce accumulates over pairs"
+  script = <<~SCRIPT
+    use "conv"
+    h = {a: 1, b: 2, c: 3}
+    sum = h.reduce(0, fn(acc, k, v) acc + v end)
+    puts(sum)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "6")
+end
+
+# ============================================================
+# F. find
+# ============================================================
+
+rats "hash.find returns first matching pair as array"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2, c: 3}
+    found = h.find(fn(k, v) v == 2 end)
+    puts(type_of(found))
+    puts(found[0])
+    puts(found[1])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Array")
+  test.assert_eq(lines[1], "b")
+  test.assert_eq(lines[2], "2")
+end
+
+rats "hash.find returns nil when no match"
+  script = <<~SCRIPT
+    h = {a: 1}
+    found = h.find(fn(k, v) v > 10 end)
+    puts(found == nil)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+# ============================================================
+# G. any / all
+# ============================================================
+
+rats "hash.any returns true when match exists"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2, c: 3}
+    puts(h.any(fn(k, v) v > 2 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "hash.any returns false when no match"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2}
+    puts(h.any(fn(k, v) v > 10 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "false")
+end
+
+rats "hash.all returns true when all match"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2, c: 3}
+    puts(h.all(fn(k, v) v > 0 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "hash.all returns false when one fails"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2, c: 3}
+    puts(h.all(fn(k, v) v > 1 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "false")
+end
+
+# ============================================================
+# H. count
+# ============================================================
+
+rats "hash.count counts matching pairs"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2, c: 3}
+    puts(h.count(fn(k, v) v > 1 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "2")
+end
+
+# ============================================================
+# I. keys / values
+# ============================================================
+
+rats "hash.keys returns all keys"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2}
+    keys = h.keys()
+    puts(type_of(keys))
+    puts(len(keys))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Array")
+  test.assert_eq(lines[1], "2")
+end
+
+rats "hash.values returns all values"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2}
+    vals = h.values()
+    puts(type_of(vals))
+    puts(len(vals))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Array")
+  test.assert_eq(lines[1], "2")
+end
+
+# ============================================================
+# J. merge
+# ============================================================
+
+rats "hash.merge combines two hashes"
+  script = <<~SCRIPT
+    h1 = {a: 1, b: 2}
+    h2 = {b: 99, c: 3}
+    result = h1.merge(h2)
+    puts(result["a"])
+    puts(result["b"])
+    puts(result["c"])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "1")
+  test.assert_eq(lines[1], "99")
+  test.assert_eq(lines[2], "3")
+end
+
+rats "hash.merge does not mutate original"
+  script = <<~SCRIPT
+    h1 = {a: 1}
+    h2 = {b: 2}
+    merged = h1.merge(h2)
+    puts(len(h1))
+    puts(len(merged))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "1")
+  test.assert_eq(lines[1], "2")
+end
+
+# ============================================================
+# K. Hash key lookup still works for non-reserved names
+# ============================================================
+
+rats "hash lambda via dot call still works"
+  script = <<~SCRIPT
+    ops = {greet: fn(name) "hello " + name end}
+    puts(ops.greet("world"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello world")
+end
+
+# ============================================================
+# L. Method priority: built-in wins over hash key
+# ============================================================
+
+rats "built-in method takes priority over hash key"
+  script = <<~SCRIPT
+    h = {keys: "my_keys_value", name: "test"}
+    result = h.keys()
+    puts(type_of(result))
+    puts(len(result))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Array")
+  test.assert_eq(lines[1], "2")
+end

@@ -70,4 +70,4 @@ end
 `break` and `next` work in `while` loops too.
 
 ---
-Next: [Functions](08-functions.md)
+Next: [Collection Methods](07b-collection-methods.md)

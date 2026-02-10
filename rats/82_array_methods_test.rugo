@@ -1,0 +1,544 @@
+# RATS: Built-in array collection methods
+# Tests for .map, .filter, .reject, .each, .reduce, .find, .any, .all,
+# .count, .join, .first, .last, .min, .max, .sum, .flatten, .uniq,
+# .sort_by, .flat_map, .take, .drop, .zip, .chunk
+use "test"
+
+# ============================================================
+# A. map
+# ============================================================
+
+rats "array.map transforms each element"
+  script = <<~SCRIPT
+    nums = [1, 2, 3]
+    result = nums.map(fn(x) x * 2 end)
+    puts(result[0])
+    puts(result[1])
+    puts(result[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "2")
+  test.assert_eq(lines[1], "4")
+  test.assert_eq(lines[2], "6")
+end
+
+rats "array.map on empty array returns empty"
+  script = <<~SCRIPT
+    result = [].map(fn(x) x * 2 end)
+    puts(len(result))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "0")
+end
+
+# ============================================================
+# B. filter
+# ============================================================
+
+rats "array.filter keeps matching elements"
+  script = <<~SCRIPT
+    nums = [1, 2, 3, 4, 5]
+    result = nums.filter(fn(x) x > 3 end)
+    puts(len(result))
+    puts(result[0])
+    puts(result[1])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "2")
+  test.assert_eq(lines[1], "4")
+  test.assert_eq(lines[2], "5")
+end
+
+rats "array.filter on empty array returns empty"
+  script = <<~SCRIPT
+    result = [].filter(fn(x) x > 0 end)
+    puts(len(result))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "0")
+end
+
+# ============================================================
+# C. reject
+# ============================================================
+
+rats "array.reject removes matching elements"
+  script = <<~SCRIPT
+    nums = [1, 2, 3, 4, 5]
+    result = nums.reject(fn(x) x > 3 end)
+    puts(len(result))
+    puts(result[0])
+    puts(result[1])
+    puts(result[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "1")
+  test.assert_eq(lines[2], "2")
+  test.assert_eq(lines[3], "3")
+end
+
+# ============================================================
+# D. each
+# ============================================================
+
+rats "array.each iterates with side effects"
+  script = <<~SCRIPT
+    use "conv"
+    total = 0
+    nums = [10, 20, 30]
+    nums.each(fn(x) total = total end)
+    puts(len(nums))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "3")
+end
+
+# ============================================================
+# E. reduce
+# ============================================================
+
+rats "array.reduce accumulates a result"
+  script = <<~SCRIPT
+    nums = [1, 2, 3, 4, 5]
+    sum = nums.reduce(0, fn(acc, x) acc + x end)
+    puts(sum)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "15")
+end
+
+rats "array.reduce with string accumulator"
+  script = <<~SCRIPT
+    words = ["hello", "world"]
+    result = words.reduce("", fn(acc, w) acc + w + " " end)
+    puts(result)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello world ")
+end
+
+# ============================================================
+# F. find
+# ============================================================
+
+rats "array.find returns first matching element"
+  script = <<~SCRIPT
+    nums = [1, 2, 3, 4, 5]
+    found = nums.find(fn(x) x > 3 end)
+    puts(found)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "4")
+end
+
+rats "array.find returns nil when no match"
+  script = <<~SCRIPT
+    nums = [1, 2, 3]
+    found = nums.find(fn(x) x > 10 end)
+    puts(found == nil)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+# ============================================================
+# G. any / all
+# ============================================================
+
+rats "array.any returns true when match exists"
+  script = <<~SCRIPT
+    puts([1, 2, 3].any(fn(x) x > 2 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "array.any returns false when no match"
+  script = <<~SCRIPT
+    puts([1, 2, 3].any(fn(x) x > 10 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "false")
+end
+
+rats "array.all returns true when all match"
+  script = <<~SCRIPT
+    puts([1, 2, 3].all(fn(x) x > 0 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "array.all returns false when one fails"
+  script = <<~SCRIPT
+    puts([1, 2, 3].all(fn(x) x > 1 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "false")
+end
+
+# ============================================================
+# H. count
+# ============================================================
+
+rats "array.count counts matching elements"
+  script = <<~SCRIPT
+    nums = [1, 2, 3, 4, 5]
+    puts(nums.count(fn(x) x > 2 end))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "3")
+end
+
+# ============================================================
+# I. join
+# ============================================================
+
+rats "array.join with separator"
+  script = <<~SCRIPT
+    words = ["a", "b", "c"]
+    puts(words.join(", "))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "a, b, c")
+end
+
+rats "array.join with empty separator"
+  script = <<~SCRIPT
+    letters = ["x", "y", "z"]
+    puts(letters.join(""))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "xyz")
+end
+
+rats "array.join converts non-strings"
+  script = <<~SCRIPT
+    nums = [1, 2, 3]
+    puts(nums.join("-"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "1-2-3")
+end
+
+# ============================================================
+# J. first / last
+# ============================================================
+
+rats "array.first returns first element"
+  script = <<~SCRIPT
+    puts([10, 20, 30].first())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "10")
+end
+
+rats "array.last returns last element"
+  script = <<~SCRIPT
+    puts([10, 20, 30].last())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "30")
+end
+
+rats "array.first on empty returns nil"
+  script = <<~SCRIPT
+    puts([].first() == nil)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+# ============================================================
+# K. min / max / sum
+# ============================================================
+
+rats "array.min returns minimum value"
+  script = <<~SCRIPT
+    puts([3, 1, 4, 1, 5].min())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "1")
+end
+
+rats "array.max returns maximum value"
+  script = <<~SCRIPT
+    puts([3, 1, 4, 1, 5].max())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "5")
+end
+
+rats "array.sum returns total"
+  script = <<~SCRIPT
+    puts([10, 20, 30].sum())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "60")
+end
+
+# ============================================================
+# L. flatten / uniq
+# ============================================================
+
+rats "array.flatten one level deep"
+  script = <<~SCRIPT
+    use "conv"
+    nested = [[1, 2], [3, 4], 5]
+    result = nested.flatten()
+    puts(len(result))
+    puts(result[0])
+    puts(result[4])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "5")
+  test.assert_eq(lines[1], "1")
+  test.assert_eq(lines[2], "5")
+end
+
+rats "array.uniq removes duplicates preserving order"
+  script = <<~SCRIPT
+    result = [1, 2, 2, 3, 1].uniq()
+    puts(len(result))
+    puts(result[0])
+    puts(result[1])
+    puts(result[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "1")
+  test.assert_eq(lines[2], "2")
+  test.assert_eq(lines[3], "3")
+end
+
+# ============================================================
+# M. sort_by
+# ============================================================
+
+rats "array.sort_by sorts by lambda result"
+  script = <<~SCRIPT
+    fruits = ["banana", "apple", "cherry", "fig"]
+    result = fruits.sort_by(fn(s) len(s) end)
+    puts(result[0])
+    puts(result[1])
+    puts(result[2])
+    puts(result[3])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "fig")
+  test.assert_eq(lines[1], "apple")
+  test.assert_eq(lines[2], "banana")
+  test.assert_eq(lines[3], "cherry")
+end
+
+rats "array.sort_by does not mutate original"
+  script = <<~SCRIPT
+    nums = [3, 1, 2]
+    sorted = nums.sort_by(fn(x) x end)
+    puts(nums[0])
+    puts(sorted[0])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "1")
+end
+
+# ============================================================
+# N. flat_map
+# ============================================================
+
+rats "array.flat_map maps and flattens"
+  script = <<~SCRIPT
+    result = [1, 2, 3].flat_map(fn(x) [x, x * 10] end)
+    puts(len(result))
+    puts(result[0])
+    puts(result[1])
+    puts(result[4])
+    puts(result[5])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "6")
+  test.assert_eq(lines[1], "1")
+  test.assert_eq(lines[2], "10")
+  test.assert_eq(lines[3], "3")
+  test.assert_eq(lines[4], "30")
+end
+
+# ============================================================
+# O. take / drop
+# ============================================================
+
+rats "array.take returns first n elements"
+  script = <<~SCRIPT
+    result = [1, 2, 3, 4, 5].take(3)
+    puts(len(result))
+    puts(result[0])
+    puts(result[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "1")
+  test.assert_eq(lines[2], "3")
+end
+
+rats "array.drop returns all but first n"
+  script = <<~SCRIPT
+    result = [1, 2, 3, 4, 5].drop(3)
+    puts(len(result))
+    puts(result[0])
+    puts(result[1])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "2")
+  test.assert_eq(lines[1], "4")
+  test.assert_eq(lines[2], "5")
+end
+
+# ============================================================
+# P. zip
+# ============================================================
+
+rats "array.zip pairs elements from two arrays"
+  script = <<~SCRIPT
+    a = [1, 2, 3]
+    b = ["x", "y", "z"]
+    result = a.zip(b)
+    puts(len(result))
+    puts(result[0][0])
+    puts(result[0][1])
+    puts(result[2][0])
+    puts(result[2][1])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "1")
+  test.assert_eq(lines[2], "x")
+  test.assert_eq(lines[3], "3")
+  test.assert_eq(lines[4], "z")
+end
+
+# ============================================================
+# Q. chunk
+# ============================================================
+
+rats "array.chunk splits into groups"
+  script = <<~SCRIPT
+    result = [1, 2, 3, 4, 5].chunk(2)
+    puts(len(result))
+    puts(len(result[0]))
+    puts(len(result[2]))
+    puts(result[0][0])
+    puts(result[2][0])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "2")
+  test.assert_eq(lines[2], "1")
+  test.assert_eq(lines[3], "1")
+  test.assert_eq(lines[4], "5")
+end
+
+# ============================================================
+# R. Chaining
+# ============================================================
+
+rats "array method chaining works"
+  script = <<~SCRIPT
+    result = [1, 2, 3, 4, 5].filter(fn(x) x > 2 end).map(fn(x) x * 10 end).join(" + ")
+    puts(result)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "30 + 40 + 50")
+end
+
+rats "array map then reduce chain"
+  script = <<~SCRIPT
+    result = [1, 2, 3].map(fn(x) x * x end).reduce(0, fn(acc, x) acc + x end)
+    puts(result)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "14")
+end

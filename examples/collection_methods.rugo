@@ -1,0 +1,62 @@
+# Collection methods — built-in on arrays and hashes
+# No imports needed!
+
+# === Transform ===
+nums = [1, 2, 3, 4, 5]
+puts "doubled: " + nums.map(fn(x) x * 2 end).join(", ")
+
+# === Filter ===
+evens = nums.filter(fn(x) x % 2 == 0 end)
+puts "evens: " + evens.join(", ")
+
+# === Reduce ===
+sum = nums.reduce(0, fn(acc, x) acc + x end)
+puts "sum: #{sum}"
+
+# === Search ===
+found = nums.find(fn(x) x > 3 end)
+puts "first > 3: #{found}"
+puts "any > 4? #{nums.any(fn(x) x > 4 end)}"
+puts "all > 0? #{nums.all(fn(x) x > 0 end)}"
+
+# === Utilities ===
+puts "min: #{nums.min()}, max: #{nums.max()}, sum: #{nums.sum()}"
+puts "first: #{nums.first()}, last: #{nums.last()}"
+
+# === Sort, uniq, flatten ===
+words = ["banana", "fig", "apple", "cherry"]
+puts "sorted by length: " + words.sort_by(fn(w) len(w) end).join(", ")
+puts "unique: " + [1, 2, 2, 3, 1, 3].uniq().join(", ")
+puts "flat: " + [[1, 2], [3, 4], [5]].flatten().join(", ")
+
+# === Slicing ===
+puts "take 3: " + nums.take(3).join(", ")
+puts "drop 3: " + nums.drop(3).join(", ")
+puts "chunks of 2: #{nums.chunk(2)}"
+
+# === Chaining ===
+result = nums
+  .filter(fn(x) x > 2 end)
+  .map(fn(x) x * 10 end)
+  .join(" + ")
+puts "chained: #{result}"
+
+# === Hash methods ===
+person = {name: "Alice", age: 30, city: "NYC"}
+
+puts "keys: " + person.keys().join(", ")
+puts "values: " + person.values().join(", ")
+
+# filter returns a hash
+no_age = person.filter(fn(k, v) k != "age" end)
+puts "without age: #{no_age}"
+
+# merge
+full = person.merge({email: "alice@test.com"})
+puts "merged: #{full}"
+
+# reduce over hash
+use "conv"
+total = {apples: 3, bananas: 5, cherries: 2}
+  .reduce(0, fn(acc, k, v) acc + v end)
+puts "total fruit: #{total}"

@@ -216,6 +216,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	g.writeln(`"os"`)
 	g.writeln(`"os/exec"`)
 	g.writeln(`"runtime/debug"`)
+	g.writeln(`"sort"`)
 	g.writeln(`"strings"`)
 	if needsSyncImport {
 		g.writeln(`"sync"`)
@@ -225,7 +226,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	}
 	baseImports := map[string]bool{
 		"fmt": true, "os": true, "os/exec": true,
-		"runtime/debug": true, "strings": true,
+		"runtime/debug": true, "strings": true, "sort": true,
 	}
 	emittedImports := make(map[string]bool)
 	for k := range baseImports {
@@ -295,6 +296,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	g.writeln("var _ = os.Exit")
 	g.writeln("var _ = exec.Command")
 	g.writeln("var _ = strings.NewReader")
+	g.writeln("var _ = sort.Slice")
 	g.writeln("var _ = debug.Stack")
 	if needsSyncImport {
 		g.writeln("var _ sync.Once")
@@ -1779,6 +1781,7 @@ func (g *codeGen) fnExpr(e *FnExpr) (string, error) {
 	for i, p := range e.Params {
 		buf.WriteString(fmt.Sprintf("\t\tvar %s interface{}\n", p))
 		buf.WriteString(fmt.Sprintf("\t\tif len(_args) > %d { %s = _args[%d] }\n", i, p, i))
+		buf.WriteString(fmt.Sprintf("\t\t_ = %s\n", p))
 	}
 	for _, line := range strings.Split(bodyCode, "\n") {
 		if line != "" {
