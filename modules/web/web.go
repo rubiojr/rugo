@@ -36,6 +36,7 @@ func init() {
 		},
 		GoImports:     []string{"encoding/json", "fmt", "io", "log", "math", "net", "net/http", "os", "path/filepath", "strings", "sync", "time"},
 		DispatchEntry: "listen",
+		DispatchTransform: func(s string) string { return s },
 		Runtime:       modules.CleanRuntime(runtime),
 	})
 }

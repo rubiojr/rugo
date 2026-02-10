@@ -1,10 +1,7 @@
 # RATS: use "web" should only register route handlers in the dispatch map
-# Bug: all def functions get registered, causing type mismatch errors
-# when requiring a web module from a file with typed def functions.
 use "test"
 
 rats "typed def function compiles alongside use web"
-  test.skip("known bug: web dispatch map registers all def functions")
   script = <<~SCRIPT
     use "web"
 
@@ -21,13 +18,11 @@ rats "typed def function compiles alongside use web"
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rugo", script)
   result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
-  # BUG: currently fails with type mismatch in web dispatch map
   test.assert_eq(result["status"], 0)
   test.run("rm -f " + test.tmpdir() + "/webbin")
 end
 
 rats "require web module with local typed def compiles"
-  test.skip("known bug: web dispatch map registers all def functions")
   mock = <<~MOD
     use "web"
     use "json"
@@ -56,13 +51,11 @@ rats "require web module with local typed def compiles"
   CALLER
   test.write_file(test.tmpdir() + "/caller.rugo", caller)
   result = test.run("rugo build " + test.tmpdir() + "/caller.rugo -o " + test.tmpdir() + "/callerbin")
-  # BUG: currently fails because my_helper gets added to web dispatch map
   test.assert_eq(result["status"], 0)
   test.run("rm -f " + test.tmpdir() + "/callerbin")
 end
 
 rats "private def function not added to web dispatch map"
-  test.skip("known bug: web dispatch map registers all def functions")
   script = <<~SCRIPT
     use "web"
 
@@ -79,7 +72,6 @@ rats "private def function not added to web dispatch map"
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rugo", script)
   result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
-  # BUG: even private functions get added to the dispatch map
   test.assert_eq(result["status"], 0)
   test.run("rm -f " + test.tmpdir() + "/webbin")
 end

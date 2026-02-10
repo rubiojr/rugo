@@ -55,6 +55,12 @@ type Module struct {
 	// function names to their Go implementations, which the module's runtime uses
 	// to route commands to handlers.
 	DispatchEntry string
+	// DispatchTransform maps a handler name from source (e.g. the string argument
+	// in web.get("/", "handler") or cli.cmd("db:seed", "...")) to the Go function
+	// name used in the dispatch map. When nil, the identity transform is used
+	// (handler name == function name). Only functions whose transformed names match
+	// a def function are included in the dispatch map.
+	DispatchTransform func(string) string
 	// Doc is the module-level documentation shown by `rugo doc`.
 	Doc string
 }

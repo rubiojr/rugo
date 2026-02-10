@@ -341,7 +341,8 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	}
 
 	// Dispatch maps for modules that declare DispatchEntry
-	g.writeDispatchMaps(funcs)
+	dispatchHandlers := collectDispatchHandlers(prog.Statements, g.imports)
+	g.writeDispatchMaps(funcs, dispatchHandlers)
 
 	if len(tests) > 0 {
 		return g.generateTestHarness(tests, topStmts, setupFunc, teardownFunc, setupFileFunc, teardownFileFunc)
@@ -540,12 +541,21 @@ func (g *codeGen) writeSpawnRuntime() {
 
 // writeDispatchMaps generates typed dispatch maps for modules that declare DispatchEntry.
 // Each map maps user-defined function names to their Go implementations.
-// Only non-namespaced functions with exactly 1 parameter are included (handler convention).
-func (g *codeGen) writeDispatchMaps(funcs []*FuncDef) {
+// When a module provides DispatchTransform, only functions matching transformed
+// handler names from the source are included. Otherwise all eligible functions are included.
+func (g *codeGen) writeDispatchMaps(funcs []*FuncDef, handlers map[string]bool) {
 	for _, name := range importedModuleNames(g.imports) {
 		m, ok := modules.Get(name)
 		if !ok || m.DispatchEntry == "" {
 			continue
+		}
+		// Build the set of transformed handler names for this module
+		var resolved map[string]bool
+		if m.DispatchTransform != nil {
+			resolved = make(map[string]bool)
+			for h := range handlers {
+				resolved[m.DispatchTransform(h)] = true
+			}
 		}
 		g.writef("var rugo_%s_dispatch = map[string]func(interface{}) interface{}{\n", m.Name)
 		g.indent++
@@ -553,11 +563,88 @@ func (g *codeGen) writeDispatchMaps(funcs []*FuncDef) {
 			if f.Namespace != "" || len(f.Params) != 1 {
 				continue
 			}
+			if resolved != nil && !resolved[f.Name] {
+				continue
+			}
 			g.writef("%q: rugofn_%s,\n", f.Name, f.Name)
 		}
 		g.indent--
 		g.writeln("}")
 		g.writeln("")
+	}
+}
+
+// collectDispatchHandlers scans top-level statements for module method calls
+// that register handler functions (e.g. web.get("/", "handler"), cli.cmd("greet", "fn"))
+// and returns the set of handler function names referenced.
+func collectDispatchHandlers(stmts []Statement, imports map[string]bool) map[string]bool {
+	handlers := make(map[string]bool)
+	// Collect module names that have dispatch entries
+	dispatchModules := make(map[string]bool)
+	for name := range imports {
+		if m, ok := modules.Get(name); ok && m.DispatchEntry != "" {
+			dispatchModules[m.Name] = true
+		}
+	}
+	if len(dispatchModules) == 0 {
+		return handlers
+	}
+	for _, s := range stmts {
+		collectDispatchHandlersFromStmt(s, dispatchModules, handlers)
+	}
+	return handlers
+}
+
+func collectDispatchHandlersFromStmt(s Statement, dispatchModules map[string]bool, handlers map[string]bool) {
+	switch st := s.(type) {
+	case *ExprStmt:
+		collectDispatchHandlersFromExpr(st.Expression, dispatchModules, handlers)
+	case *IfStmt:
+		for _, b := range st.Body {
+			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
+		}
+		for _, ei := range st.ElsifClauses {
+			for _, b := range ei.Body {
+				collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
+			}
+		}
+		for _, b := range st.ElseBody {
+			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
+		}
+	case *ForStmt:
+		for _, b := range st.Body {
+			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
+		}
+	case *WhileStmt:
+		for _, b := range st.Body {
+			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
+		}
+	case *FuncDef:
+		for _, b := range st.Body {
+			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
+		}
+	}
+}
+
+func collectDispatchHandlersFromExpr(e Expr, dispatchModules map[string]bool, handlers map[string]bool) {
+	call, ok := e.(*CallExpr)
+	if !ok {
+		return
+	}
+	// Check if this is a module.method() call on a dispatch module
+	dot, ok := call.Func.(*DotExpr)
+	if !ok {
+		return
+	}
+	ident, ok := dot.Object.(*IdentExpr)
+	if !ok || !dispatchModules[ident.Name] {
+		return
+	}
+	// Extract string literal arguments as potential handler names
+	for _, arg := range call.Args {
+		if str, ok := arg.(*StringLiteral); ok {
+			handlers[str.Value] = true
+		}
 	}
 }
 

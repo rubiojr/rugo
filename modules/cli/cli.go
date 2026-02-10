@@ -2,6 +2,7 @@ package climod
 
 import (
 	_ "embed"
+	"strings"
 
 	"github.com/rubiojr/rugo/modules"
 )
@@ -29,6 +30,9 @@ func init() {
 			{Name: "help", Args: nil, Doc: "Print the auto-generated help message."},
 		},
 		DispatchEntry: "run",
+		DispatchTransform: func(s string) string {
+			return strings.NewReplacer(":", "_", "-", "_", " ", "_").Replace(s)
+		},
 		Runtime:       modules.CleanRuntime(runtime),
 	})
 }
