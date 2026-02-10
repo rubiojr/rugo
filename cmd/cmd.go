@@ -224,14 +224,39 @@ func modTidyAction(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	// Track which file introduced each module version for conflict detection.
+	type modSource struct {
+		version string
+		file    string
+	}
+	moduleVersions := make(map[string]modSource) // module path → first source
+
 	// Compile each file to discover and resolve remote dependencies.
 	for _, f := range rugoFiles {
+		keysBefore := copyStringSet(r.ResolvedKeys())
+
 		comp := &compiler.Compiler{Resolver: r}
 		// Compile triggers require resolution; we discard the output.
 		if _, err := comp.Compile(f); err != nil {
 			// Skip files that fail to compile (syntax errors, etc.)
 			fmt.Fprintf(os.Stderr, "warning: skipping %s: %s\n", filepath.Base(f), err)
 			continue
+		}
+
+		// Check new resolved keys for version conflicts.
+		for key := range r.ResolvedKeys() {
+			if keysBefore[key] {
+				continue
+			}
+			mod, ver := remote.SplitLockKey(key)
+			if mod == "" {
+				continue
+			}
+			if existing, ok := moduleVersions[mod]; ok && existing.version != ver {
+				return fmt.Errorf("version conflict for %s:\n  %s requires %s\n  %s requires %s\nAlign on a single version, then re-run 'rugo mod tidy'.",
+					mod, existing.file, existing.version, filepath.Base(f), ver)
+			}
+			moduleVersions[mod] = modSource{version: ver, file: filepath.Base(f)}
 		}
 	}
 
@@ -244,6 +269,18 @@ func modTidyAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	return r.WriteLock()
+}
+
+// copyStringSet returns a shallow copy of a string set.
+func copyStringSet(m map[string]bool) map[string]bool {
+	if m == nil {
+		return nil
+	}
+	c := make(map[string]bool, len(m))
+	for k := range m {
+		c[k] = true
+	}
+	return c
 }
 
 func modUpdateAction(ctx context.Context, cmd *cli.Command) error {

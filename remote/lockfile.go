@@ -130,3 +130,12 @@ func (lf *LockFile) Prune(keep map[string]bool) {
 	}
 	lf.Entries = kept
 }
+
+// SplitLockKey splits a lock key ("module@version") into module and version.
+func SplitLockKey(key string) (module, version string) {
+	idx := strings.LastIndex(key, "@")
+	if idx < 0 {
+		return "", ""
+	}
+	return key[:idx], key[idx+1:]
+}

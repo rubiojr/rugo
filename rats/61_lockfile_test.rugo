@@ -510,10 +510,10 @@ rats "mod tidy with multiple files collects all deps"
   file_a = str.replace(file_a, "PORT", port)
   test.write_file(tmpdir + "/a.rugo", file_a)
 
-  # File B: mutable version
+  # File B: same tagged version, different alias
   file_b = <<~RG
-    require "localhost:PORT/lockuser/lock-mod" as "mod"
-    puts mod.greet("B")
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "lib"
+    puts lib.greet("B")
   RG
   file_b = str.replace(file_b, "PORT", port)
   test.write_file(tmpdir + "/b.rugo", file_b)
@@ -524,10 +524,9 @@ rats "mod tidy with multiple files collects all deps"
   result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
-  # Lock should have both the tagged and mutable entries
+  # Lock should have the tagged entry
   lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
   test.assert_contains(lock_content, "v1.0.0")
-  test.assert_contains(lock_content, "_default")
 end
 
 rats "mod tidy does not scan subdirectories"
@@ -826,4 +825,223 @@ rats "mod tidy prunes hand-added stale entries"
   if str.contains(lock_after, "fake.com/bogus/module")
     test.fail("stale hand-added entry should have been pruned")
   end
+end
+
+# --- Version conflict detection ---
+
+rats "mod tidy errors on different tagged versions across files"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  # File A: tagged v1.0.0
+  file_a = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("A")
+  RG
+  file_a = str.replace(file_a, "PORT", port)
+  test.write_file(tmpdir + "/a.rugo", file_a)
+
+  # File B: mutable (no version = _default)
+  file_b = <<~RG
+    require "localhost:PORT/lockuser/lock-mod" as "mod"
+    puts mod.greet("B")
+  RG
+  file_b = str.replace(file_b, "PORT", port)
+  test.write_file(tmpdir + "/b.rugo", file_b)
+
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "version conflict")
+  test.assert_contains(result["output"], "lock-mod")
+end
+
+rats "mod tidy errors on tagged vs mutable in same file"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  # Single file requiring same module with two different versions
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod_v1"
+    require "localhost:PORT/lockuser/lock-mod" as "mod_latest"
+    puts mod_v1.greet("pinned")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rugo", consumer)
+
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "version conflict")
+end
+
+rats "mod tidy allows same version across files"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  # Both files use the same tagged version — no conflict
+  file_a = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("A")
+  RG
+  file_a = str.replace(file_a, "PORT", port)
+  test.write_file(tmpdir + "/a.rugo", file_a)
+
+  file_b = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "lib"
+    puts lib.greet("B")
+  RG
+  file_b = str.replace(file_b, "PORT", port)
+  test.write_file(tmpdir + "/b.rugo", file_b)
+
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  test.assert_eq(result["status"], 0)
+
+  # Lock should have exactly one entry for this module
+  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  test.assert_contains(lock_content, "v1.0.0")
+end
+
+rats "mod tidy conflict message includes file names"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  file_a = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("A")
+  RG
+  file_a = str.replace(file_a, "PORT", port)
+  test.write_file(tmpdir + "/alpha.rugo", file_a)
+
+  file_b = <<~RG
+    require "localhost:PORT/lockuser/lock-mod" as "mod"
+    puts mod.greet("B")
+  RG
+  file_b = str.replace(file_b, "PORT", port)
+  test.write_file(tmpdir + "/beta.rugo", file_b)
+
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "alpha.rugo")
+  test.assert_contains(result["output"], "beta.rugo")
+end
+
+rats "mod tidy conflict does not write lock file"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  file_a = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("A")
+  RG
+  file_a = str.replace(file_a, "PORT", port)
+  test.write_file(tmpdir + "/a.rugo", file_a)
+
+  file_b = <<~RG
+    require "localhost:PORT/lockuser/lock-mod" as "mod"
+    puts mod.greet("B")
+  RG
+  file_b = str.replace(file_b, "PORT", port)
+  test.write_file(tmpdir + "/b.rugo", file_b)
+
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  test.assert_neq(result["status"], 0)
+
+  # No lock file should have been written
+  lock_result = test.run("test -f " + tmpdir + "/rugo.lock")
+  test.assert_neq(lock_result["status"], 0)
+end
+
+rats "mod tidy conflict resolved by aligning versions"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  # Start with conflicting versions
+  file_a = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("A")
+  RG
+  file_a = str.replace(file_a, "PORT", port)
+  test.write_file(tmpdir + "/a.rugo", file_a)
+
+  file_b = <<~RG
+    require "localhost:PORT/lockuser/lock-mod" as "mod"
+    puts mod.greet("B")
+  RG
+  file_b = str.replace(file_b, "PORT", port)
+  test.write_file(tmpdir + "/b.rugo", file_b)
+
+  # Should fail
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  test.assert_neq(result["status"], 0)
+
+  # Fix by aligning both to v1.0.0
+  file_b_fixed = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("B")
+  RG
+  file_b_fixed = str.replace(file_b_fixed, "PORT", port)
+  test.write_file(tmpdir + "/b.rugo", file_b_fixed)
+
+  # Should succeed now
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  test.assert_eq(result["status"], 0)
+
+  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  test.assert_eq(lock_result["status"], 0)
+  test.assert_contains(lock_result["output"], "v1.0.0")
+end
+
+# --- Runtime behavior with conflicting versions ---
+
+rats "run allows two versions of same module in one file (runtime)"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  # A single file loading both versions — this compiles and runs fine
+  # because they get different namespaces. mod tidy would reject this,
+  # but rugo run doesn't enforce version policy.
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "v1"
+    require "localhost:PORT/lockuser/lock-mod" as "latest"
+    puts v1.greet("pinned")
+    puts latest.greet("floating")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rugo", consumer)
+
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>/dev/null")
+  test.assert_eq(result["status"], 0)
+  # Both versions work — v1 gets v1 code, latest gets latest code
+  test.assert_contains(result["output"], "Hello v1, pinned!")
+  lines = str.split(result["output"], "\n")
+  test.assert_eq(len(lines), 2)
+  # The second line uses the latest version (v2 or later depending on test order)
+  test.assert_contains(lines[1], "floating!")
+end
+
+rats "run with lock pins each version independently"
+  tmpdir = test.tmpdir()
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+
+  # File uses tagged version
+  consumer = <<~RG
+    require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
+    puts mod.greet("locked")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file(tmpdir + "/app.rugo", consumer)
+
+  # Tidy to create lock
+  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  test.assert_eq(result["status"], 0)
+
+  # Run uses the locked version
+  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>/dev/null")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello v1, locked!")
+
+  # Even if we push a new tag that overwrites v1.0.0 (which git shouldn't
+  # allow normally), the lock SHA would still pin us. The point is: the
+  # lock file makes this deterministic.
+  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  test.assert_contains(lock_content, "v1.0.0")
 end
