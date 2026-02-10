@@ -496,7 +496,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				if fileExists(reqPath + ".rg") {
 					reqPath += ".rg"
 				} else if info, err := os.Stat(reqPath); err == nil && info.IsDir() {
-					entryPoint, err := findLocalEntryPoint(reqPath)
+					entryPoint, err := FindLocalEntryPoint(reqPath)
 					if err != nil {
 						return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, req.StmtLine(), err)
 					}
@@ -1166,9 +1166,9 @@ func fileExists(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
-// findLocalEntryPoint resolves the entry point .rg file within a local directory.
+// FindLocalEntryPoint resolves the entry point .rg file within a local directory.
 // Resolution order: <dirname>.rg → main.rg → sole .rg file.
-func findLocalEntryPoint(dir string) (string, error) {
+func FindLocalEntryPoint(dir string) (string, error) {
 	name := filepath.Base(dir)
 
 	// 1. <dirname>.rg

@@ -263,25 +263,30 @@ func docAction(ctx context.Context, cmd *cli.Command) error {
 		return nil
 	}
 
-	// Mode 2: stdlib module (use)
+	// Mode 2: local directory (e.g. ./gummy, gummy, .)
+	if info, err := os.Stat(target); err == nil && info.IsDir() {
+		return docLocalDir(target, symbol)
+	}
+
+	// Mode 3: stdlib module (use)
 	if m, ok := modules.Get(target); ok {
 		docOutput(rugodoc.FormatModule(m))
 		return nil
 	}
 
-	// Mode 3: bridge package by namespace (import)
+	// Mode 4: bridge package by namespace (import)
 	if pkg, ok := gobridge.LookupByNS(target); ok {
 		docOutput(rugodoc.FormatBridgePackage(pkg))
 		return nil
 	}
 
-	// Mode 4: bridge package by full path
+	// Mode 5: bridge package by full path
 	if pkg := gobridge.GetPackage(target); pkg != nil {
 		docOutput(rugodoc.FormatBridgePackage(pkg))
 		return nil
 	}
 
-	// Mode 5: remote module (e.g. github.com/user/repo)
+	// Mode 6: remote module (e.g. github.com/user/repo)
 	if remote.IsRemoteRequire(target) {
 		return docRemote(target, symbol)
 	}
@@ -321,6 +326,32 @@ func docRemote(target, symbol string) error {
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", dir, err)
 	}
+	docOutput(rugodoc.FormatFile(fd))
+	return nil
+}
+
+// docLocalDir prints documentation for a local directory module.
+// It finds the entry point .rg file and aggregates docs from all .rg files.
+func docLocalDir(dir, symbol string) error {
+	entryPath, err := compiler.FindLocalEntryPoint(dir)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", dir, err)
+	}
+
+	fd, err := rugodoc.ExtractDir(dir, entryPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", dir, err)
+	}
+
+	if symbol != "" {
+		doc, sig, found := rugodoc.LookupSymbol(fd, symbol)
+		if !found {
+			return fmt.Errorf("%s: symbol %q not found", dir, symbol)
+		}
+		docOutput(rugodoc.FormatSymbol(doc, sig))
+		return nil
+	}
+
 	docOutput(rugodoc.FormatFile(fd))
 	return nil
 }

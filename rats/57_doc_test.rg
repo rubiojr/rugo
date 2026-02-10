@@ -232,3 +232,36 @@ rats "rugo doc examples/documented.rg works"
   test.assert_contains(result["output"], "def factorial(n)")
   test.assert_contains(result["output"], "def greet(name)")
 end
+
+# Test: rugo doc on local directory with entry point
+rats "rugo doc local directory shows docs"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p " + tmpdir + "/mymod")
+  test.write_file(tmpdir + "/mymod/mymod.rg", "# My module.\n\n# Does stuff.\ndef do_stuff()\n  return 1\nend\n")
+  test.write_file(tmpdir + "/mymod/helpers.rg", "# A helper.\ndef helper()\n  return 2\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/mymod")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "My module.")
+  test.assert_contains(result["output"], "def do_stuff")
+  test.assert_contains(result["output"], "def helper")
+end
+
+# Test: rugo doc on local directory with symbol lookup
+rats "rugo doc local directory symbol lookup"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p " + tmpdir + "/mymod")
+  test.write_file(tmpdir + "/mymod/mymod.rg", "# Adds numbers.\ndef add(a, b)\n  return a + b\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/mymod add")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "def add(a, b)")
+  test.assert_contains(result["output"], "Adds numbers.")
+end
+
+# Test: rugo doc on local directory with missing symbol fails
+rats "rugo doc local directory missing symbol fails"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p " + tmpdir + "/mymod")
+  test.write_file(tmpdir + "/mymod/mymod.rg", "def foo()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/mymod nope")
+  test.assert_neq(result["status"], 0)
+end
