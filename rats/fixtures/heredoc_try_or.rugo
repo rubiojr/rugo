@@ -1,0 +1,6 @@
+script = <<~SCRIPT
+  import "encoding/json"
+  result = try json.unmarshal("bad") or "fallback"
+  puts result
+SCRIPT
+puts script

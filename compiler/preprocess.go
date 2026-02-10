@@ -1054,8 +1054,8 @@ func expandTrySugar(src string) (string, []int) {
 		prefix := ""
 		tryPart := trimmed
 		if eqIdx := strings.Index(trimmed, "= try "); eqIdx >= 0 {
-			// Verify it's not == (comparison)
-			if eqIdx == 0 || trimmed[eqIdx-1] != '=' && trimmed[eqIdx-1] != '!' && trimmed[eqIdx-1] != '<' && trimmed[eqIdx-1] != '>' {
+			// Verify it's not == (comparison) and not inside a string literal
+			if (eqIdx == 0 || trimmed[eqIdx-1] != '=' && trimmed[eqIdx-1] != '!' && trimmed[eqIdx-1] != '<' && trimmed[eqIdx-1] != '>') && !isInsideString(trimmed, eqIdx) {
 				prefix = trimmed[:eqIdx+2]
 				tryPart = strings.TrimSpace(trimmed[eqIdx+2:])
 			}
@@ -1150,7 +1150,7 @@ func expandSpawnSugar(src string, lineMap []int) (string, []int) {
 		prefix := ""
 		spawnPart := trimmed
 		if eqIdx := strings.Index(trimmed, "= spawn "); eqIdx >= 0 {
-			if eqIdx == 0 || trimmed[eqIdx-1] != '=' && trimmed[eqIdx-1] != '!' && trimmed[eqIdx-1] != '<' && trimmed[eqIdx-1] != '>' {
+			if (eqIdx == 0 || trimmed[eqIdx-1] != '=' && trimmed[eqIdx-1] != '!' && trimmed[eqIdx-1] != '<' && trimmed[eqIdx-1] != '>') && !isInsideString(trimmed, eqIdx) {
 				prefix = trimmed[:eqIdx+2]
 				spawnPart = strings.TrimSpace(trimmed[eqIdx+2:])
 			}
@@ -1179,6 +1179,33 @@ func expandSpawnSugar(src string, lineMap []int) (string, []int) {
 		newMap = append(newMap, origLine)
 	}
 	return strings.Join(result, "\n"), newMap
+}
+
+// isInsideString reports whether position pos in line falls inside a string literal.
+func isInsideString(line string, pos int) bool {
+	inDouble := false
+	inSingle := false
+	escaped := false
+	for i := 0; i < pos && i < len(line); i++ {
+		ch := line[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+	}
+	return inDouble || inSingle
 }
 
 // findTopLevelOr finds " or " at the top level (not inside parens, brackets, or strings).

@@ -83,6 +83,13 @@ rats "heredoc emits valid Go"
   test.assert_contains(result["output"], "fmt.Sprintf")
 end
 
+rats "heredoc containing try/or syntax is not expanded"
+  result = test.run("rugo run rats/fixtures/heredoc_try_or.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "try json.unmarshal")
+  test.assert_contains(result["output"], 'or "fallback"')
+end
+
 rats "heredoc compiles to native binary"
   test.run("rugo build -o " + test.tmpdir() + "/heredoc_test rats/fixtures/heredoc_basic.rugo")
   result = test.run(test.tmpdir() + "/heredoc_test")
