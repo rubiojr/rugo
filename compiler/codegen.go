@@ -930,12 +930,20 @@ func (g *codeGen) writeFor(f *ForStmt) error {
 	// Declare the loop variable(s)
 	if idxVar != "" {
 		// Two-variable form: for key, val in hash / for idx, val in arr
-		g.writef("%s := rugo_for_kv.Key\n", iterVar)
-		g.writef("_ = %s\n", iterVar)
-		g.declareVar(iterVar)
-		g.writef("%s := rugo_for_kv.Val\n", idxVar)
-		g.writef("_ = %s\n", idxVar)
-		g.declareVar(idxVar)
+		if iterVar == "_" {
+			g.writef("_ = rugo_for_kv.Key\n")
+		} else {
+			g.writef("%s := rugo_for_kv.Key\n", iterVar)
+			g.writef("_ = %s\n", iterVar)
+			g.declareVar(iterVar)
+		}
+		if idxVar == "_" {
+			g.writef("_ = rugo_for_kv.Val\n")
+		} else {
+			g.writef("%s := rugo_for_kv.Val\n", idxVar)
+			g.writef("_ = %s\n", idxVar)
+			g.declareVar(idxVar)
+		}
 	} else {
 		// Single-variable form: for val in arr
 		g.writef("%s := rugo_for_kv.Val\n", iterVar)

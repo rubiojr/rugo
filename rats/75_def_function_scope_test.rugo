@@ -70,3 +70,108 @@ rats "def function with params still works alongside top-level vars"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, world!")
 end
+
+rats "local assignment shadows top-level var (no promotion)"
+  script = <<~SCRIPT
+    name = "top"
+    def shadow()
+      name = "local"
+      return name
+    end
+    puts shadow()
+    puts name
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "local")
+  test.assert_eq(result["lines"][1], "top")
+end
+
+rats "multiple functions share same promoted var"
+  script = <<~SCRIPT
+    BASE = "/api"
+    def route_a()
+      return BASE + "/a"
+    end
+    def route_b()
+      return BASE + "/b"
+    end
+    puts route_a()
+    puts route_b()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "/api/a")
+  test.assert_eq(result["lines"][1], "/api/b")
+end
+
+rats "promoted var used in condition inside def"
+  script = <<~SCRIPT
+    LIMIT = 10
+    def check(n)
+      if n > LIMIT
+        return "over"
+      end
+      return "under"
+    end
+    puts check(5)
+    puts check(15)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "under")
+  test.assert_eq(result["lines"][1], "over")
+end
+
+rats "promoted var used in loop inside def"
+  script = <<~SCRIPT
+    items = ["a", "b", "c"]
+    def joined()
+      result = ""
+      for _, v in items
+        result = result + v
+      end
+      return result
+    end
+    puts joined()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "abc")
+end
+
+rats "function without top-level refs still works"
+  script = <<~SCRIPT
+    UNUSED = "never read"
+    def add(a, b)
+      return a + b
+    end
+    puts add(3, 4)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "7")
+end
+
+rats "assigning top-level var inside def creates local shadow"
+  script = <<~SCRIPT
+    counter = 0
+    def bump()
+      counter = 99
+      return counter
+    end
+    puts bump()
+    puts counter
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  # bump() gets a local shadow, main keeps original value
+  test.assert_eq(result["lines"][0], "99")
+  test.assert_eq(result["lines"][1], "0")
+end
