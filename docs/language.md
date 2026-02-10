@@ -649,7 +649,7 @@ utils.slugify("Hello World")
 
 Remote modules are shallow-cloned and cached in `~/.rugo/modules/`. Tagged versions (`@v1.0.0`) and commit SHAs are cached forever; branch refs (`@main`) are locked to their resolved SHA on first fetch.
 
-A `rugo.lock` file is automatically generated next to your source file, recording the exact commit SHA for every remote module. This makes builds reproducible — subsequent builds use the locked SHAs without network access. Use `rugo update` to re-resolve mutable dependencies, or `rugo build --frozen` to fail if the lock file is stale.
+Use `rugo mod tidy` to generate a `rugo.lock` file that records the exact commit SHA for every remote module, making builds reproducible. Use `rugo mod update` to re-resolve mutable dependencies, or `rugo build --frozen` to fail if the lock file is stale.
 
 There is no implicit search path — the require string tells you exactly where the code comes from: a relative path is local, a URL-shaped path is remote.
 

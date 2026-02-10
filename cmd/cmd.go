@@ -132,10 +132,22 @@ func Execute(version string) {
 				Action: docAction,
 			},
 			{
-				Name:      "update",
-				Usage:     "Re-resolve mutable remote dependencies and update rugo.lock",
-				ArgsUsage: "[module-path]",
-				Action:    updateAction,
+				Name:  "mod",
+				Usage: "Manage remote module dependencies",
+				Commands: []*cli.Command{
+					{
+						Name:      "tidy",
+						Usage:     "Resolve remote dependencies and write rugo.lock",
+						ArgsUsage: "",
+						Action:    modTidyAction,
+					},
+					{
+						Name:      "update",
+						Usage:     "Re-resolve mutable remote dependencies and update rugo.lock",
+						ArgsUsage: "[module-path]",
+						Action:    modUpdateAction,
+					},
+				},
 			},
 		},
 	}
@@ -184,7 +196,57 @@ func emitAction(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-func updateAction(ctx context.Context, cmd *cli.Command) error {
+func modTidyAction(ctx context.Context, cmd *cli.Command) error {
+	dir, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+
+	// Find all .rugo files in the current directory (non-recursive).
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return fmt.Errorf("reading directory: %w", err)
+	}
+	var rugoFiles []string
+	for _, e := range entries {
+		if !e.IsDir() && compiler.IsRugoFile(e.Name()) {
+			rugoFiles = append(rugoFiles, filepath.Join(dir, e.Name()))
+		}
+	}
+	if len(rugoFiles) == 0 {
+		fmt.Fprintln(os.Stderr, "no .rugo files found in current directory")
+		return nil
+	}
+
+	// Create a shared resolver for all files.
+	r := &remote.Resolver{SuppressHint: true}
+	if err := r.InitLockFromDir(dir); err != nil {
+		return err
+	}
+
+	// Compile each file to discover and resolve remote dependencies.
+	for _, f := range rugoFiles {
+		comp := &compiler.Compiler{Resolver: r}
+		// Compile triggers require resolution; we discard the output.
+		if _, err := comp.Compile(f); err != nil {
+			// Skip files that fail to compile (syntax errors, etc.)
+			fmt.Fprintf(os.Stderr, "warning: skipping %s: %s\n", filepath.Base(f), err)
+			continue
+		}
+	}
+
+	// Prune entries that were not resolved during this tidy run.
+	if keys := r.ResolvedKeys(); keys != nil {
+		r.LockFile().Prune(keys)
+	} else {
+		// No remote deps resolved — remove the lock file if it exists.
+		r.LockFile().Prune(nil)
+	}
+
+	return r.WriteLock()
+}
+
+func modUpdateAction(ctx context.Context, cmd *cli.Command) error {
 	// Find the rugo.lock in the current directory.
 	lockPath, err := filepath.Abs("rugo.lock")
 	if err != nil {

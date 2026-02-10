@@ -117,3 +117,16 @@ func WriteLockFile(path string, lf *LockFile) error {
 	}
 	return nil
 }
+
+// Prune removes entries whose keys are not in the keep set.
+func (lf *LockFile) Prune(keep map[string]bool) {
+	var kept []*LockEntry
+	for _, e := range lf.Entries {
+		if keep[e.lockKey()] {
+			kept = append(kept, e)
+		} else {
+			delete(lf.index, e.lockKey())
+		}
+	}
+	lf.Entries = kept
+}

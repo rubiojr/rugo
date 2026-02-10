@@ -12,12 +12,22 @@ type Resolver struct {
 	ModuleDir string
 	// Frozen errors if the lock file is stale or a new dependency is resolved.
 	Frozen bool
+	// ReadOnly prevents writing the lock file to disk.
+	ReadOnly bool
 	// lockFile holds parsed lock entries during compilation.
 	lockFile *LockFile
 	// lockFilePath is the path to the rugo.lock file.
 	lockFilePath string
 	// lockDirty tracks whether the lock file was modified during resolution.
 	lockDirty bool
+	// lockExists tracks whether the lock file existed on disk at init time.
+	lockExists bool
+	// hintShown tracks whether the "run rugo mod tidy" hint was printed.
+	hintShown bool
+	// SuppressHint prevents the "run rugo mod tidy" hint from being printed.
+	SuppressHint bool
+	// resolvedKeys tracks lock keys resolved during this session (for pruning).
+	resolvedKeys map[string]bool
 }
 
 // InitLock sets the lock file and path for the resolver.
@@ -30,6 +40,9 @@ func (r *Resolver) InitLock(path string, lf *LockFile) {
 // InitLockFromDir initializes the lock file from a rugo.lock in the given directory.
 func (r *Resolver) InitLockFromDir(dir string) error {
 	r.lockFilePath = filepath.Join(dir, "rugo.lock")
+	if _, err := os.Stat(r.lockFilePath); err == nil {
+		r.lockExists = true
+	}
 	lf, err := ReadLockFile(r.lockFilePath)
 	if err != nil {
 		return err
@@ -40,6 +53,9 @@ func (r *Resolver) InitLockFromDir(dir string) error {
 
 // WriteLockIfDirty writes the lock file to disk if it was modified.
 func (r *Resolver) WriteLockIfDirty() error {
+	if r.ReadOnly {
+		return nil
+	}
 	if r.lockDirty {
 		return WriteLockFile(r.lockFilePath, r.lockFile)
 	}
@@ -49,6 +65,29 @@ func (r *Resolver) WriteLockIfDirty() error {
 // LockDirty returns whether the lock file was modified during resolution.
 func (r *Resolver) LockDirty() bool {
 	return r.lockDirty
+}
+
+// trackResolved records a module key as resolved during this session.
+func (r *Resolver) trackResolved(module, version string) {
+	if r.resolvedKeys == nil {
+		r.resolvedKeys = make(map[string]bool)
+	}
+	r.resolvedKeys[module+"@"+version] = true
+}
+
+// ResolvedKeys returns the set of lock keys resolved during this session.
+func (r *Resolver) ResolvedKeys() map[string]bool {
+	return r.resolvedKeys
+}
+
+// WriteLock writes the lock file to disk unconditionally.
+func (r *Resolver) WriteLock() error {
+	return WriteLockFile(r.lockFilePath, r.lockFile)
+}
+
+// LockFile returns the resolver's lock file.
+func (r *Resolver) LockFile() *LockFile {
+	return r.lockFile
 }
 
 // ResolveModule fetches a remote git module and returns the local
@@ -166,6 +205,7 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 	// If locked SHA cache exists, skip fetch entirely.
 	if lockedSHA != "" {
 		if _, err := os.Stat(cacheDir); err == nil {
+			r.trackResolved(moduleKey, versionLabel)
 			return cacheDir, nil
 		}
 		// Locked SHA not in cache — need to fetch at that SHA.
@@ -175,12 +215,21 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 		if err := gitCloneAtSHA(rp, cacheDir, lockedSHA); err != nil {
 			return "", err
 		}
+		r.trackResolved(moduleKey, versionLabel)
 		return cacheDir, nil
 	}
 
 	// No lock entry — resolve normally.
 	if r.Frozen {
 		return "", fmt.Errorf("--frozen: no lock entry for %s@%s", moduleKey, versionLabel)
+	}
+
+	// Hint the user to run rugo mod tidy when a lock file exists but is
+	// missing an entry (stale lock). Don't hint if there's no lock file at
+	// all — the user hasn't opted into dependency pinning yet.
+	if !r.hintShown && !r.SuppressHint && r.lockExists {
+		fmt.Fprintf(os.Stderr, "hint: run 'rugo mod tidy' to pin dependencies\n")
+		r.hintShown = true
 	}
 
 	// For immutable versions, use the standard needsFetch logic.
@@ -192,6 +241,7 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 				r.lockFile.Set(moduleKey, versionLabel, sha)
 				r.lockDirty = true
 			}
+			r.trackResolved(moduleKey, versionLabel)
 			return cacheDir, nil
 		}
 		if err := gitClone(rp, cacheDir); err != nil {
@@ -203,6 +253,7 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 		}
 		r.lockFile.Set(moduleKey, versionLabel, sha)
 		r.lockDirty = true
+		r.trackResolved(moduleKey, versionLabel)
 		return cacheDir, nil
 	}
 
@@ -241,5 +292,6 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 
 	r.lockFile.Set(moduleKey, versionLabel, sha)
 	r.lockDirty = true
+	r.trackResolved(moduleKey, versionLabel)
 	return finalDir, nil
 }

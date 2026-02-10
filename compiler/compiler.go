@@ -28,6 +28,10 @@ type Compiler struct {
 	ModuleDir string
 	// Frozen errors if the lock file is stale or a new dependency is resolved.
 	Frozen bool
+	// Resolver overrides the default remote resolver. When set, the compiler
+	// uses this resolver instead of creating one. Used by mod tidy to share
+	// a single resolver across multiple compilations.
+	Resolver *remote.Resolver
 	// resolver handles remote module fetching, caching, and lock file state.
 	resolver *remote.Resolver
 	// loaded tracks already-loaded files and the namespace they were loaded under.
@@ -74,9 +78,13 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 
 	// Initialize remote resolver.
 	if c.resolver == nil {
-		c.resolver = &remote.Resolver{ModuleDir: c.ModuleDir, Frozen: c.Frozen}
-		if err := c.resolver.InitLockFromDir(c.BaseDir); err != nil {
-			return nil, err
+		if c.Resolver != nil {
+			c.resolver = c.Resolver
+		} else {
+			c.resolver = &remote.Resolver{ModuleDir: c.ModuleDir, Frozen: c.Frozen, ReadOnly: c.TestMode}
+			if err := c.resolver.InitLockFromDir(c.BaseDir); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -94,11 +102,6 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	// Resolve requires recursively
 	resolved, err := c.resolveRequires(prog)
 	if err != nil {
-		return nil, err
-	}
-
-	// Write lock file if modified during compilation.
-	if err := c.resolver.WriteLockIfDirty(); err != nil {
 		return nil, err
 	}
 
