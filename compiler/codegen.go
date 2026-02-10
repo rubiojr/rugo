@@ -143,17 +143,11 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		g.nsVarNames[nv.Namespace+"."+nv.Target] = true
 	}
 
-	// Identify top-level variables referenced by handler functions.
-	// Handler functions are emitted as top-level Go functions but top-level
+	// Identify top-level variables referenced by user-defined functions.
+	// All def functions are emitted as top-level Go functions but top-level
 	// variables live inside main(). Promote referenced vars to package-level.
-	hasDispatchModule := false
-	for name := range g.imports {
-		if m, ok := modules.Get(name); ok && m.DispatchEntry != "" {
-			hasDispatchModule = true
-			break
-		}
-	}
-	if hasDispatchModule {
+	// Exclude variables that the function also assigns to (local shadows).
+	{
 		// Collect top-level assignment targets
 		topVarNames := make(map[string]bool)
 		for _, s := range topStmts {
@@ -161,14 +155,22 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 				topVarNames[a.Target] = true
 			}
 		}
-		// Collect idents referenced by handler functions (non-namespaced, 1 param)
+		// Collect idents referenced by any non-namespaced function,
+		// excluding those that the function itself assigns to.
 		for _, f := range funcs {
-			if f.Namespace != "" || len(f.Params) != 1 {
+			if f.Namespace != "" {
 				continue
+			}
+			// Collect variables assigned inside this function body
+			localAssigns := make(map[string]bool)
+			for _, s := range f.Body {
+				if a, ok := s.(*AssignStmt); ok {
+					localAssigns[a.Target] = true
+				}
 			}
 			refs := collectIdents(f.Body)
 			for name := range refs {
-				if topVarNames[name] {
+				if topVarNames[name] && !localAssigns[name] {
 					g.handlerVars[name] = true
 				}
 			}
@@ -295,7 +297,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		g.writeln("")
 	}
 
-	// Package-level variables for handler function access
+	// Package-level variables for user-defined function access
 	if len(g.handlerVars) > 0 {
 		names := make([]string, 0, len(g.handlerVars))
 		for name := range g.handlerVars {
