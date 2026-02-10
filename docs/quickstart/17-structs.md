@@ -36,7 +36,7 @@ puts data.user.name       # Alice
 Define methods on a struct type with `def Type.method()`. The first parameter `self` is added automatically:
 
 ```ruby
-# dog.rg
+# dog.rugo
 struct Dog
   name
   breed

@@ -5,7 +5,7 @@ Benchmark blocks auto-calibrate iteration count and report timing results.
 
 ## Writing Benchmarks
 
-Create a `.rg` file with `bench` blocks:
+Create a `.rugo` file with `bench` blocks:
 
 ```ruby
 use "bench"
@@ -33,10 +33,10 @@ end
 ## Running Benchmarks
 
 ```bash
-rugo run benchmarks.rg          # run a single benchmark file
-rugo bench                      # run all _bench.rg files in current directory
-rugo bench bench/               # run all _bench.rg files in a directory
-rugo bench bench/fib_bench.rg   # run a specific file
+rugo run benchmarks.rugo          # run a single benchmark file
+rugo bench                      # run all _bench.rugo files in current directory
+rugo bench bench/               # run all _bench.rugo files in a directory
+rugo bench bench/fib_bench.rugo   # run a specific file
 ```
 
 Output looks like:
@@ -54,15 +54,15 @@ Each `bench` block is run repeatedly. The framework:
 2. **Auto-calibrates** — starts with 1 iteration, scales up until total time ≥ 1 second
 3. **Reports** nanoseconds per operation and total iterations
 
-## Using `_bench.rg` Files with `rugo bench`
+## Using `_bench.rugo` Files with `rugo bench`
 
-The `rugo bench` command discovers `_bench.rg` files in the target
+The `rugo bench` command discovers `_bench.rugo` files in the target
 directory. This convention mirrors Go's `_test.go` naming — benchmark
-files use the `_bench.rg` suffix to distinguish them from regular
-scripts (`.rg`) and tests (`_test.rg`).
+files use the `_bench.rugo` suffix to distinguish them from regular
+scripts (`.rugo`) and tests (`_test.rugo`).
 
 ```bash
-# Create bench/arithmetic_bench.rg
+# Create bench/arithmetic_bench.rugo
 rugo bench bench/
 ```
 

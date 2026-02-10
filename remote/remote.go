@@ -273,46 +273,43 @@ func gitCloneAtSHA(r *remotePath, dest, sha string) error {
 	return nil
 }
 
-// FindEntryPoint locates the main .rg file in a cloned module directory.
+// FindEntryPoint locates the main Rugo file in a cloned module directory.
 //
 // Resolution order (at root or subpath):
-//  1. <subpath>.rg at the repo root (flat-file subpath, e.g. client.rg)
-//  2. <name>.rg in the subpath directory (repo name or subpath basename)
-//  3. main.rg
-//  4. Exactly one .rg file
+//  1. <subpath>.rugo or <subpath>.rg at the repo root (flat-file subpath)
+//  2. <name>.rugo or <name>.rg in the subpath directory
+//  3. main.rugo or main.rg
+//  4. Exactly one Rugo source file
 func FindEntryPoint(cacheDir string, r *remotePath) (string, error) {
 	dir := cacheDir
 	name := r.Repo
 	if r.Subpath != "" {
-		// Flat-file subpath: check for <root>/<subpath>.rg first
-		flatCandidate := filepath.Join(cacheDir, r.Subpath+".rg")
-		if fileExists(flatCandidate) {
-			return flatCandidate, nil
+		// Flat-file subpath: check for <root>/<subpath>.rugo or .rg first
+		if found := findRugoFile(filepath.Join(cacheDir, r.Subpath)); found != "" {
+			return found, nil
 		}
 		dir = filepath.Join(cacheDir, r.Subpath)
 		name = filepath.Base(r.Subpath)
 	}
 
-	// 1. <name>.rg
-	candidate := filepath.Join(dir, name+".rg")
-	if fileExists(candidate) {
-		return candidate, nil
+	// 1. <name>.rugo or <name>.rg
+	if found := findRugoFile(filepath.Join(dir, name)); found != "" {
+		return found, nil
 	}
 
-	// 2. main.rg
-	candidate = filepath.Join(dir, "main.rg")
-	if fileExists(candidate) {
-		return candidate, nil
+	// 2. main.rugo or main.rg
+	if found := findRugoFile(filepath.Join(dir, "main")); found != "" {
+		return found, nil
 	}
 
-	// 3. Exactly one .rg file
+	// 3. Exactly one Rugo source file
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", fmt.Errorf("reading module directory %s: %w", dir, err)
 	}
 	var rgFiles []string
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".rg") {
+		if !e.IsDir() && isRugoFile(e.Name()) {
 			rgFiles = append(rgFiles, filepath.Join(dir, e.Name()))
 		}
 	}
@@ -321,10 +318,26 @@ func FindEntryPoint(cacheDir string, r *remotePath) (string, error) {
 	}
 
 	if len(rgFiles) == 0 {
-		return "", fmt.Errorf("no .rg files found in module %s/%s/%s", r.Host, r.Owner, r.Repo)
+		return "", fmt.Errorf("no Rugo source files found in module %s/%s/%s", r.Host, r.Owner, r.Repo)
 	}
-	hint := name + ".rg or main.rg, or use 'with' to select specific modules"
-	return "", fmt.Errorf("cannot determine entry point for module %s/%s/%s: found %d .rg files (add a %s)", r.Host, r.Owner, r.Repo, len(rgFiles), hint)
+	hint := name + ".rugo or main.rugo, or use 'with' to select specific modules"
+	return "", fmt.Errorf("cannot determine entry point for module %s/%s/%s: found %d Rugo files (add a %s)", r.Host, r.Owner, r.Repo, len(rgFiles), hint)
+}
+
+// isRugoFile returns true if the filename has a Rugo extension (.rugo or .rg).
+func isRugoFile(name string) bool {
+	return strings.HasSuffix(name, ".rugo") || strings.HasSuffix(name, ".rg")
+}
+
+// findRugoFile looks for a Rugo source file, preferring .rugo over .rg.
+func findRugoFile(basePath string) string {
+	if fileExists(basePath + ".rugo") {
+		return basePath + ".rugo"
+	}
+	if fileExists(basePath + ".rg") {
+		return basePath + ".rg"
+	}
+	return ""
 }
 
 func fileExists(path string) bool {

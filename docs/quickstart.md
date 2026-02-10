@@ -11,9 +11,9 @@ go install github.com/rubiojr/rugo@latest
 ## Run your first script
 
 ```bash
-rugo run script.rg        # compile and run
-rugo build script.rg      # compile to native binary
-rugo emit script.rg       # print generated Go code
+rugo run script.rugo        # compile and run
+rugo build script.rugo      # compile to native binary
+rugo emit script.rugo       # print generated Go code
 rugo doc http             # show module documentation
 ```
 

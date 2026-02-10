@@ -7,8 +7,8 @@ use "os"
 
 # Examples that block (e.g. start a server) or need network/auth in CI.
 skip = [
-  "examples/web_example.rg",
-  "examples/remote_require.rg"
+  "examples/web_example.rugo",
+  "examples/remote_require.rugo"
 ]
 
 def should_skip(path, skip_list)
@@ -54,7 +54,7 @@ puts "  Running examples"
 puts "==============================="
 puts ""
 
-output = `find examples -name '*.rg' -type f -not -path '*/slug/*' | sort`
+output = `find examples -name '*.rugo' -type f -not -path '*/slug/*' | sort`
 files = str.split(str.trim(output), "\n")
 ran = 0
 skipped = 0

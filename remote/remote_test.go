@@ -27,7 +27,7 @@ func TestIsRemoteRequire(t *testing.T) {
 		{"lib/math", false},
 		{"lib/utils", false},
 		{"../shared/helpers", false},
-		{"helpers.rg", false},
+		{"helpers.rugo", false},
 	}
 
 	for _, tt := range tests {
@@ -234,9 +234,9 @@ func TestIsSHA(t *testing.T) {
 }
 
 func TestFindEntryPoint(t *testing.T) {
-	t.Run("finds repo-name.rg", func(t *testing.T) {
+	t.Run("finds repo-name.rugo", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "mylib.rg"), []byte("def foo()\nend\n"), 0644)
+		os.WriteFile(filepath.Join(dir, "mylib.rugo"), []byte("def foo()\nend\n"), 0644)
 		os.WriteFile(filepath.Join(dir, "README.md"), []byte("# mylib"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
@@ -244,43 +244,43 @@ func TestFindEntryPoint(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if filepath.Base(got) != "mylib.rg" {
-			t.Errorf("got %q, want mylib.rg", got)
+		if filepath.Base(got) != "mylib.rugo" {
+			t.Errorf("got %q, want mylib.rugo", got)
 		}
 	})
 
-	t.Run("falls back to main.rg", func(t *testing.T) {
+	t.Run("falls back to main.rugo", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "main.rg"), []byte("def foo()\nend\n"), 0644)
+		os.WriteFile(filepath.Join(dir, "main.rugo"), []byte("def foo()\nend\n"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
 		got, err := FindEntryPoint(dir, r)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if filepath.Base(got) != "main.rg" {
-			t.Errorf("got %q, want main.rg", got)
+		if filepath.Base(got) != "main.rugo" {
+			t.Errorf("got %q, want main.rugo", got)
 		}
 	})
 
-	t.Run("falls back to single .rg file", func(t *testing.T) {
+	t.Run("falls back to single Rugo file", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "helpers.rg"), []byte("def foo()\nend\n"), 0644)
+		os.WriteFile(filepath.Join(dir, "helpers.rugo"), []byte("def foo()\nend\n"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
 		got, err := FindEntryPoint(dir, r)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if filepath.Base(got) != "helpers.rg" {
-			t.Errorf("got %q, want helpers.rg", got)
+		if filepath.Base(got) != "helpers.rugo" {
+			t.Errorf("got %q, want helpers.rugo", got)
 		}
 	})
 
-	t.Run("errors on multiple .rg files", func(t *testing.T) {
+	t.Run("errors on multiple Rugo files", func(t *testing.T) {
 		dir := t.TempDir()
-		os.WriteFile(filepath.Join(dir, "a.rg"), []byte("def a()\nend\n"), 0644)
-		os.WriteFile(filepath.Join(dir, "b.rg"), []byte("def b()\nend\n"), 0644)
+		os.WriteFile(filepath.Join(dir, "a.rugo"), []byte("def a()\nend\n"), 0644)
+		os.WriteFile(filepath.Join(dir, "b.rugo"), []byte("def b()\nend\n"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
 		_, err := FindEntryPoint(dir, r)
@@ -289,14 +289,14 @@ func TestFindEntryPoint(t *testing.T) {
 		}
 	})
 
-	t.Run("errors on no .rg files", func(t *testing.T) {
+	t.Run("errors on no Rugo files", func(t *testing.T) {
 		dir := t.TempDir()
 		os.WriteFile(filepath.Join(dir, "README.md"), []byte("# mylib"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "mylib"}
 		_, err := FindEntryPoint(dir, r)
 		if err == nil {
-			t.Error("expected error for no .rg files")
+			t.Error("expected error for no Rugo files")
 		}
 	})
 
@@ -304,15 +304,15 @@ func TestFindEntryPoint(t *testing.T) {
 		dir := t.TempDir()
 		sub := filepath.Join(dir, "utils")
 		os.MkdirAll(sub, 0755)
-		os.WriteFile(filepath.Join(sub, "utils.rg"), []byte("def foo()\nend\n"), 0644)
+		os.WriteFile(filepath.Join(sub, "utils.rugo"), []byte("def foo()\nend\n"), 0644)
 
 		r := &remotePath{Host: "github.com", Owner: "user", Repo: "repo", Subpath: "utils"}
 		got, err := FindEntryPoint(dir, r)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if filepath.Base(got) != "utils.rg" {
-			t.Errorf("got %q, want utils.rg", got)
+		if filepath.Base(got) != "utils.rugo" {
+			t.Errorf("got %q, want utils.rugo", got)
 		}
 	})
 }

@@ -19,7 +19,7 @@ web.listen(3000)
 Run it and visit `http://localhost:3000`:
 
 ```bash
-rugo run server.rg
+rugo run server.rugo
 ```
 
 ## Routes and URL Parameters

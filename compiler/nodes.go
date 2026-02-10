@@ -14,7 +14,7 @@ type Statement interface {
 
 // BaseStmt provides common fields for all statements.
 type BaseStmt struct {
-	SourceLine int // line number in the original .rg source
+	SourceLine int // line number in the original source
 }
 
 func (b BaseStmt) StmtLine() int { return b.SourceLine }

@@ -1,6 +1,6 @@
 # Remote Modules
 
-Rugo can load `.rg` modules directly from git repositories. This lets you
+Rugo can load `.rugo` modules directly from git repositories. This lets you
 share and reuse Rugo code without any package registry.
 
 ## Basic Usage
@@ -30,13 +30,13 @@ require "github.com/user/lib@v1.0.0" as "lib"
 
 ## Multi-File Libraries with `with`
 
-The `with` clause selectively loads specific `.rg` files from a directory.
+The `with` clause selectively loads specific `.rugo` files from a directory.
 It works with both remote repositories and local directories.
 
 ### Local Directories
 
 ```ruby
-# Given a directory mylib/ containing client.rg and helpers.rg:
+# Given a directory mylib/ containing client.rugo and helpers.rugo:
 require "mylib" with client, helpers
 
 puts client.connect()
@@ -44,7 +44,7 @@ puts helpers.format("data")
 ```
 
 The path must point to a directory (not a file). Each name in the `with`
-list loads `<name>.rg` from that directory.
+list loads `<name>.rugo` from that directory.
 
 ### Remote Repositories
 
@@ -56,27 +56,27 @@ gh = client.from_env()
 issues = issue.list(gh, "rubiojr", "rugo")
 ```
 
-Each name in the `with` list loads `<name>.rg` from the repository root
-(or `lib/<name>.rg` as a fallback).
-The filename becomes the namespace — `client.rg` becomes the `client`
-namespace, `issue.rg` becomes `issue`, etc.
+Each name in the `with` list loads `<name>.rugo` from the repository root
+(or `lib/<name>.rugo` as a fallback).
+The filename becomes the namespace — `client.rugo` becomes the `client`
+namespace, `issue.rugo` becomes `issue`, etc.
 
 ### How `with` Works
 
 1. The repo is fetched once (same caching rules as regular requires)
-2. Each named `.rg` file is loaded from the repo root (or `lib/` fallback)
-3. Each file gets its own namespace (the filename without `.rg`)
-4. No entry point (`main.rg`) is needed
+2. Each named `.rugo` file is loaded from the repo root (or `lib/` fallback)
+3. Each file gets its own namespace (the filename without `.rugo`)
+4. No entry point (`main.rugo`) is needed
 
 ### Without `with`
 
 Without `with`, Rugo looks for an entry point in this order:
 
-1. `<repo-name>.rg` (e.g., `rugh.rg` for a repo named `rugh`)
-2. `main.rg`
-3. The sole `.rg` file (if there's exactly one)
+1. `<repo-name>.rugo` (e.g., `rugh.rugo` for a repo named `rugh`)
+2. `main.rugo`
+3. The sole `.rugo` file (if there's exactly one)
 
-If there are multiple `.rg` files and no entry point, you'll get an error
+If there are multiple `.rugo` files and no entry point, you'll get an error
 suggesting you use `with`.
 
 ## Publishing a Multi-File Module
@@ -88,27 +88,27 @@ manifest, no build step.
 
 ```
 my-lib/
-  client.rg       # → client namespace
-  helpers.rg      # → helpers namespace
-  main.rg         # (optional) entry point for bare require
+  client.rugo       # → client namespace
+  helpers.rugo      # → helpers namespace
+  main.rugo         # (optional) entry point for bare require
   README.md
 ```
 
 ### Rules for Module Authors
 
-- Each `.rg` file at the repo root becomes a loadable module
+- Each `.rugo` file at the repo root becomes a loadable module
 - Function names are the public API — there's no `export` keyword
 - Prefix private helpers with `_` by convention (e.g., `def _internal()`)
-- If your library has inter-module dependencies (e.g., `helpers.rg` calls
+- If your library has inter-module dependencies (e.g., `helpers.rugo` calls
   `client.get()`), document the required load order
-- Add a `main.rg` if you want `require "..." ` (without `with`) to work
+- Add a `main.rugo` if you want `require "..." ` (without `with`) to work
 
 ### Optional Entry Point
 
-If you want users to load everything with a single require, add a `main.rg`:
+If you want users to load everything with a single require, add a `main.rugo`:
 
 ```ruby
-# main.rg — loads all sub-modules
+# main.rugo — loads all sub-modules
 require "./client"
 require "./helpers"
 ```
@@ -125,7 +125,7 @@ require "github.com/user/my-lib@v1.0.0" with client
 
 ## Inter-Module Dependencies
 
-If one module calls functions from another (e.g., `issue.rg` calls
+If one module calls functions from another (e.g., `issue.rugo` calls
 `client.get()`), the consumer must load both:
 
 ```ruby
@@ -141,7 +141,7 @@ You can also require a specific file by subpath:
 
 ```ruby
 require "github.com/user/my-lib/client@v1.0.0"
-# loads client.rg from the repo root, namespace "client"
+# loads client.rugo from the repo root, namespace "client"
 ```
 
 This is an alternative to `with` when you only need a single module.
@@ -152,7 +152,7 @@ Remote modules are cached in `~/.rugo/modules/` by default. Override with
 the `RUGO_MODULE_DIR` environment variable:
 
 ```bash
-RUGO_MODULE_DIR=/tmp/my-cache rugo run script.rg
+RUGO_MODULE_DIR=/tmp/my-cache rugo run script.rugo
 ```
 
 ## Lock File (`rugo.lock`)
@@ -192,7 +192,7 @@ Or delete `rugo.lock` and rebuild to re-resolve everything.
 Use `--frozen` with `rugo build` to fail if the lock file is missing or stale:
 
 ```bash
-rugo build --frozen app.rg -o app
+rugo build --frozen app.rugo -o app
 ```
 
 This ensures CI builds use exactly the locked versions. If a new dependency
@@ -215,7 +215,7 @@ require "github.com/user/lib@v1.0.0" as "lib"
 # Multi-file: load specific modules
 require "github.com/user/lib@v1.0.0" with client, helpers
 
-# Multi-file: load everything (needs main.rg in repo)
+# Multi-file: load everything (needs main.rugo in repo)
 require "github.com/user/lib@v1.0.0"
 
 # Subpath: single file from a multi-file repo

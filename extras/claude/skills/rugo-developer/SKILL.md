@@ -1,6 +1,6 @@
 ---
 name: rugo-developer
-description: Expert in developing Rugo, a Ruby-inspired language that compiles to native binaries via Go. Load when working on the rugo compiler, parser, modules, or writing .rg scripts.
+description: Expert in developing Rugo, a Ruby-inspired language that compiles to native binaries via Go. Load when working on the rugo compiler, parser, modules, or writing .rugo scripts.
 ---
 
 # Rugo Developer Skill
@@ -10,7 +10,7 @@ description: Expert in developing Rugo, a Ruby-inspired language that compiles t
 * Rugo is written in Go.
 * Avoid introducing insecure code; ask first. Security is paramount.
 * Read `preference.md` and `rats.md` in the repo root for current design decisions and pending work before making changes.
-* **Load the `rugo-quickstart` skill** when writing `.rg` scripts or helping users with Rugo language syntax and features.
+* **Load the `rugo-quickstart` skill** when writing `.rugo` scripts or helping users with Rugo language syntax and features.
 * **Load the `rugo-native-module-writer` when you are writing or debuging a Rugo module written in Rugo lang.
 
 ## Project Overview
@@ -18,7 +18,7 @@ description: Expert in developing Rugo, a Ruby-inspired language that compiles t
 Rugo is a tiny Ruby-inspired language that compiles to native binaries via Go. The compiler pipeline is:
 
 ```
-.rg source → preprocess → parse (EBNF grammar) → AST walk → Go codegen → go build
+.rugo source → preprocess → parse (EBNF grammar) → AST walk → Go codegen → go build
 ```
 
 Repository: `github.com/rubiojr/rugo`
@@ -38,13 +38,13 @@ Repository: `github.com/rubiojr/rugo`
 | `compiler/gobridge/` | Go stdlib bridge: type registry and per-package mapping files |
 | `compiler/compiler.go` | Orchestrates: file loading, require resolution, compilation |
 | `cmd/dev/` | Developer tools: `modgen` module scaffolding |
-| `doc/` | Documentation extractor: parses `.rg` doc comments, formats module/bridge docs |
+| `doc/` | Documentation extractor: parses `.rugo` doc comments, formats module/bridge docs |
 | `modules/` | Stdlib module registry and built-in modules |
 | `modules/module.go` | Module type, registry API, `CleanRuntime` helper |
 | `modules/{os,http,conv,str,test,bench,fmt,re}/` | Built-in modules (each has registration + `runtime.go`) |
-| `rats/` | RATS regression tests (`_test.rg` files) |
-| `bench/` | Performance benchmarks (`_bench.rg` files) |
-| `examples/` | Example `.rg` scripts |
+| `rats/` | RATS regression tests (`_test.rugo` files) |
+| `bench/` | Performance benchmarks (`_bench.rugo` files) |
+| `examples/` | Example `.rugo` scripts |
 | `docs/mods.md` | Module system documentation |
 | `changes.md` | Syntax improvement proposals and status |
 | `script/test` | Rugo test runner script (builds rugo, runs Go tests, discovers and runs examples) |
@@ -73,7 +73,7 @@ Repository: `github.com/rubiojr/rugo`
 
 ### 1. Preprocessor (`compiler/preprocess.go`)
 
-Transforms raw `.rg` source before parsing:
+Transforms raw `.rugo` source before parsing:
 - Desugars compound assignment: `x += y` → `x = x + y` (also works with index targets like `arr[0] += 1`)
 - Rewrites paren-free function calls: `puts "hi"` → `puts("hi")`
 - Expands string interpolation: `"Hello, #{name}"` → `("Hello, " + __to_s(name) + "")`
@@ -120,7 +120,7 @@ Rugo has three import mechanisms:
 |---------|---------|---------|
 | `use` | Rugo stdlib modules (hand-crafted wrappers) | `use "http"` |
 | `import` | Go stdlib bridge (auto-generated calls) | `import "strings"` |
-| `require` | User `.rg` files | `require "helpers"` |
+| `require` | User `.rugo` files | `require "helpers"` |
 
 ### Rugo Stdlib Modules (`use`)
 
@@ -220,21 +220,21 @@ go test ./... -count=1
 
 ### RATS Regression Tests
 
-RATS (Rugo Automated Testing System) tests live in `rats/` as `_test.rg` files. **Load the `rugo-rats` skill** for full details on test syntax, assertions, the test runner, and the regression test suite.
+RATS (Rugo Automated Testing System) tests live in `rats/` as `_test.rugo` files. **Load the `rugo-rats` skill** for full details on test syntax, assertions, the test runner, and the regression test suite.
 
 ```bash
-rugo rats rats/                    # run all _test.rg files in rats/
-rugo rats rats/03_control_flow_test.rg  # run a specific test file
+rugo rats rats/                    # run all _test.rugo files in rats/
+rugo rats rats/03_control_flow_test.rugo  # run a specific test file
 ```
 
 ### Benchmarks
 
-Benchmarks use the `bench` keyword and `_bench.rg` file convention (like Go's `_test.go`):
+Benchmarks use the `bench` keyword and `_bench.rugo` file convention (like Go's `_test.go`):
 
 ```bash
-rugo bench bench/                        # run all _bench.rg files in bench/
-rugo bench bench/arithmetic_bench.rg     # run a specific benchmark
-rugo bench bench/io_bench.rg 1>/dev/null # redirect program stdout, keep bench output on stderr
+rugo bench bench/                        # run all _bench.rugo files in bench/
+rugo bench bench/arithmetic_bench.rugo     # run a specific benchmark
+rugo bench bench/io_bench.rugo 1>/dev/null # redirect program stdout, keep bench output on stderr
 ```
 
 Benchmark files use `use "bench"` and `bench` blocks:
@@ -249,7 +249,7 @@ end
 
 The framework auto-calibrates iterations (scales until ≥1s elapsed), reports ns/op and run count. Output goes to stderr with ANSI colors (respects `NO_COLOR`).
 
-Benchmark files in `bench/`: `arithmetic_bench.rg`, `strings_bench.rg`, `collections_bench.rg`, `control_flow_bench.rg`, `io_bench.rg`.
+Benchmark files in `bench/`: `arithmetic_bench.rugo`, `strings_bench.rugo`, `collections_bench.rugo`, `control_flow_bench.rugo`, `io_bench.rugo`.
 
 ### Go-side Compiler Benchmarks
 
@@ -265,11 +265,11 @@ Covers: `CompileHelloWorld`, `CompileFunctions`, `CompileControlFlow`, `CompileS
 rugo run script/test
 ```
 
-### Test a .rg script
+### Test a .rugo script
 
 ```bash
-go run . run examples/hello.rg
-go run . emit examples/hello.rg   # inspect generated Go code
+go run . run examples/hello.rugo
+go run . emit examples/hello.rugo   # inspect generated Go code
 ```
 
 ### Inspect generated Go for debugging
@@ -277,7 +277,7 @@ go run . emit examples/hello.rg   # inspect generated Go code
 Use `emit` to see what Go code is produced — this is the best way to debug codegen issues:
 
 ```bash
-go run . emit script.rg
+go run . emit script.rugo
 ```
 
 ## Development Workflow
@@ -342,20 +342,20 @@ puts results[0]
 
 See the `rugo-rats` skill for the full regression test inventory. Key test files:
 
-- `rats/13_spawn_test.rg`, `rats/14_parallel_test.rg`, `rats/28_bench_test.rg`
-- `rats/57_doc_test.rg`, `rats/58_doc_remote_test.rg` — 32 doc command tests (local + remote integration)
+- `rats/13_spawn_test.rugo`, `rats/14_parallel_test.rugo`, `rats/28_bench_test.rugo`
+- `rats/57_doc_test.rugo`, `rats/58_doc_remote_test.rugo` — 32 doc command tests (local + remote integration)
 - `rats/gobridge/` — 60 tests across 7 files covering all 8 Go bridge packages
 - Fixtures in `rats/fixtures/`
 
 ## Documentation System (`rugo doc`)
 
-The `rugo doc` command provides introspection for `.rg` files, stdlib modules, Go bridge packages, and remote modules.
+The `rugo doc` command provides introspection for `.rugo` files, stdlib modules, Go bridge packages, and remote modules.
 
 ### Architecture
 
 | Component | Purpose |
 |-----------|---------|
-| `doc/doc.go` | Text-level extractor: scans raw `.rg` source, attaches `#` comment blocks to `def`/`struct` declarations via blank-line rule |
+| `doc/doc.go` | Text-level extractor: scans raw `.rugo` source, attaches `#` comment blocks to `def`/`struct` declarations via blank-line rule |
 | `doc/format.go` | Terminal formatter: renders `FileDoc`, modules, and bridge packages in `go doc`-style output |
 | `cmd/cmd.go` `docAction` | CLI dispatcher: routes to file/module/bridge/remote handlers, pipes through `bat` if available |
 
@@ -372,11 +372,11 @@ Both `modules.Module`/`modules.FuncDef` and `gobridge.Package`/`gobridge.GoFuncS
 ### Modes
 
 ```bash
-rugo doc file.rg              # all docs in a .rg file
-rugo doc file.rg symbol       # specific function or struct
+rugo doc file.rugo              # all docs in a .rugo file
+rugo doc file.rugo symbol       # specific function or struct
 rugo doc http                 # stdlib module (use)
 rugo doc strings              # bridge package (import)
-rugo doc github.com/user/repo # remote module (aggregates all .rg files)
+rugo doc github.com/user/repo # remote module (aggregates all .rugo files)
 rugo doc --all                # list all modules and bridge packages
 ```
 
@@ -386,7 +386,7 @@ When `bat` is on PATH and `NO_COLOR` is not set, output is piped through `bat --
 
 ### Remote module docs
 
-Uses `Compiler.ResolveRemoteModule` to fetch, then `doc.ExtractDir` to aggregate docs from all `.rg` files in the module directory. The entry file's doc becomes the top-level doc.
+Uses `Compiler.ResolveRemoteModule` to fetch, then `doc.ExtractDir` to aggregate docs from all `.rugo` files in the module directory. The entry file's doc becomes the top-level doc.
 
 ## Common Pitfalls
 

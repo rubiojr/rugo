@@ -1,11 +1,11 @@
 ---
 name: rugo-native-module-writer
-description: Expert in writing native Rugo modules (.rg libraries). Load when creating multi-file Rugo libraries, designing module APIs, or structuring require/with patterns.
+description: Expert in writing native Rugo modules (.rugo libraries). Load when creating multi-file Rugo libraries, designing module APIs, or structuring require/with patterns.
 ---
 
 # Rugo Native Module Writer
 
-Write multi-file `.rg` libraries that consumers load via `require` and `with`.
+Write multi-file `.rugo` libraries that consumers load via `require` and `with`.
 
 ## Directory Layouts
 
@@ -13,10 +13,10 @@ Write multi-file `.rg` libraries that consumers load via `require` and `with`.
 
 ```
 rugh/
-  client.rg          # → client namespace
-  issue.rg           # → issue namespace
-  repo.rg            # → repo namespace
-  main.rg            # (optional) entry point for bare require
+  client.rugo          # → client namespace
+  issue.rugo           # → issue namespace
+  repo.rugo            # → repo namespace
+  main.rugo            # (optional) entry point for bare require
 ```
 
 Consumer: `require "rugh" with client, issue`
@@ -25,11 +25,11 @@ Consumer: `require "rugh" with client, issue`
 
 ```
 gummy/
-  gummy.rg           # barrel file: require "lib/db" etc.
+  gummy.rugo           # barrel file: require "lib/db" etc.
   lib/
-    db.rg            # core module
-    sql.rg           # helper module
-    fts.rg           # extension module
+    db.rugo            # core module
+    sql.rugo           # helper module
+    fts.rugo           # extension module
 ```
 
 Consumer: `require "gummy" with db` — the `with` clause checks the root first, then `lib/` as fallback.
@@ -43,19 +43,19 @@ Consumer: `require "gummy" with db` — the `with` clause checks the root first,
 
 ### `require "dir"` (bare, no with)
 
-Resolves entry point: `<dirname>.rg` → `main.rg` → sole `.rg` file. A file always takes precedence over a directory of the same name.
+Resolves entry point: `<dirname>.rugo` → `main.rugo` → sole `.rugo` file. A file always takes precedence over a directory of the same name.
 
 ### `require "dir" with mod1, mod2`
 
-Each name loads `<name>.rg` from the directory root. If not found, checks `lib/<name>.rg`. Root takes precedence over lib/.
+Each name loads `<name>.rugo` from the directory root. If not found, checks `lib/<name>.rugo`. Root takes precedence over lib/.
 
 ### Nested requires pass through
 
-When `commands.rg` requires `mods/alpha` and `mods/beta`, those namespaces (`alpha`, `beta`) are visible to the file that requires `commands`. They keep their own namespaces — they do NOT get re-namespaced under `commands`.
+When `commands.rugo` requires `mods/alpha` and `mods/beta`, those namespaces (`alpha`, `beta`) are visible to the file that requires `commands`. They keep their own namespaces — they do NOT get re-namespaced under `commands`.
 
 ### Barrel files
 
-A barrel file (e.g., `gummy.rg`) that only contains `require` statements exposes the inner namespaces to the consumer. The barrel file itself has no namespace unless it defines its own functions.
+A barrel file (e.g., `gummy.rugo`) that only contains `require` statements exposes the inner namespaces to the consumer. The barrel file itself has no namespace unless it defines its own functions.
 
 ## API Patterns
 
@@ -64,7 +64,7 @@ A barrel file (e.g., `gummy.rg`) that only contains `require` statements exposes
 Structs are the preferred way to build module APIs:
 
 ```ruby
-# mydb.rg
+# mydb.rugo
 use "sqlite"
 
 struct DB
@@ -135,7 +135,7 @@ Each layer returns closures: `open()` → handle with `model()` → model with `
 Modules can call functions from sibling modules they require:
 
 ```ruby
-# lib/db.rg
+# lib/db.rugo
 require "sql"
 require "fts"
 
@@ -208,8 +208,8 @@ rats "module works end to end"
     result = core.do_thing("input")
     puts(result)
   SCRIPT
-  test.write_file(tmpdir + "/test.rg", script)
-  result = test.run("rugo run " + tmpdir + "/test.rg")
+  test.write_file(tmpdir + "/test.rugo", script)
+  result = test.run("rugo run " + tmpdir + "/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "expected")
 end

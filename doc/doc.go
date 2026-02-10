@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// FileDoc holds all extracted documentation for a single .rg file.
+// FileDoc holds all extracted documentation for a single Rugo file.
 type FileDoc struct {
 	Path    string
 	Doc     string // file-level doc (first # block before any code)
@@ -36,7 +36,7 @@ type StructDoc struct {
 	Line   int // 1-based line number of the struct keyword
 }
 
-// ExtractFile reads a .rg file and extracts all documentation.
+// ExtractFile reads a Rugo file and extracts all documentation.
 func ExtractFile(path string) (*FileDoc, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -45,7 +45,7 @@ func ExtractFile(path string) (*FileDoc, error) {
 	return Extract(string(data), path), nil
 }
 
-// ExtractDir reads all .rg files in a directory (non-recursive) and returns
+// ExtractDir reads all Rugo files in a directory (non-recursive) and returns
 // aggregated documentation. The entry file's doc becomes the top-level doc.
 // Other files contribute their functions and structs.
 func ExtractDir(dir, entryFile string) (*FileDoc, error) {
@@ -72,7 +72,7 @@ func ExtractDir(dir, entryFile string) (*FileDoc, error) {
 	}
 
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".rg") {
+		if e.IsDir() || !isRugoFile(e.Name()) {
 			continue
 		}
 		if e.Name() == entryBase {
@@ -260,6 +260,11 @@ func isHeredocDelim(s string) bool {
 		}
 	}
 	return len(s) > 0
+}
+
+// isRugoFile returns true if the filename has a Rugo extension (.rugo or .rg).
+func isRugoFile(name string) bool {
+	return strings.HasSuffix(name, ".rugo") || strings.HasSuffix(name, ".rg")
 }
 
 // LookupSymbol finds a specific function or struct by name in a FileDoc.

@@ -1,17 +1,17 @@
 # Testing with RATS
 
 Rugo includes **RATS** (Rugo Automated Testing System), a built-in test
-framework inspired by BATS. Tests live in `_test.rg` files and use the `test` module.
+framework inspired by BATS. Tests live in `_test.rugo` files and use the `test` module.
 
 ## Writing Your First Test
 
-Create a file called `test/greet_test.rg`:
+Create a file called `test/greet_test.rugo`:
 
 ```ruby
 use "test"
 
 rats "prints hello"
-  result = test.run("rugo run greet.rg")
+  result = test.run("rugo run greet.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello")
 end
@@ -20,8 +20,8 @@ end
 ## Running Tests
 
 ```bash
-rugo rats                       # run all _test.rg files in rats/ (or current dir)
-rugo rats test/greet_test.rg         # run a specific file
+rugo rats                       # run all _test.rugo files in rats/ (or current dir)
+rugo rats test/greet_test.rugo         # run a specific file
 rugo rats --filter "hello"      # filter by test name
 ```
 
@@ -87,7 +87,7 @@ You can build a Rugo script and test the resulting binary:
 use "test"
 
 rats "binary works"
-  test.run("rugo build greet.rg -o /tmp/greet")
+  test.run("rugo build greet.rugo -o /tmp/greet")
   result = test.run("/tmp/greet")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello")
@@ -158,12 +158,12 @@ teardown_file()
 
 ## Inline Tests
 
-You can embed `rats` blocks directly in regular `.rg` files. When you run the
+You can embed `rats` blocks directly in regular `.rugo` files. When you run the
 file normally with `rugo run`, the test blocks are silently ignored. When you
 run the file with `rugo rats`, only the test blocks execute.
 
 ```ruby
-# greet.rg
+# greet.rugo
 use "test"
 
 def greet(name)
@@ -180,10 +180,10 @@ end
 ```
 
 ```bash
-rugo run greet.rg       # prints "Hello, World!" — tests ignored
-rugo rats greet.rg      # runs the inline tests
+rugo run greet.rugo       # prints "Hello, World!" — tests ignored
+rugo rats greet.rugo      # runs the inline tests
 ```
 
-When scanning a directory, `rugo rats` automatically discovers both `_test.rg`
-files and regular `.rg` files that contain `rats` blocks (directories named
+When scanning a directory, `rugo rats` automatically discovers both `_test.rugo`
+files and regular `.rugo` files that contain `rats` blocks (directories named
 `fixtures` are skipped).

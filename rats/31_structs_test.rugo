@@ -1,0 +1,510 @@
+use "test"
+use "conv"
+use "str"
+require "fixtures/struct_dog" as "dog"
+require "fixtures/struct_cat" as "cat"
+
+struct Point
+  x
+  y
+end
+
+struct Empty
+end
+
+struct Single
+  val
+end
+
+def Point.sum()
+  return self.x + self.y
+end
+
+def Point.scaled(factor)
+  return Point(self.x * factor, self.y * factor)
+end
+
+def Point.to_s()
+  return "(" + conv.to_s(self.x) + ", " + conv.to_s(self.y) + ")"
+end
+
+def Point.move(dx, dy)
+  self.x = self.x + dx
+  self.y = self.y + dy
+end
+
+def get_name(obj)
+  return obj.name
+end
+
+def make_hash()
+  return {"key" => "val"}
+end
+
+def make_person()
+  return {"name" => "Alice"}
+end
+
+def mutate(obj)
+  obj.x = 999
+end
+
+# ============================================================
+# A. Hash Dot-Access — Basic
+# ============================================================
+
+rats "hash dot-access read"
+  person = {"name" => "Alice", "age" => 30}
+  test.assert_eq(person.name, "Alice")
+  test.assert_eq(person.age, 30)
+end
+
+rats "hash dot-access write"
+  person = {"name" => "Alice"}
+  person.name = "Bob"
+  test.assert_eq(person.name, "Bob")
+end
+
+rats "hash dot-access returns nil for missing field"
+  h = {"x" => 1}
+  test.assert_eq(h.y, nil)
+end
+
+rats "hash dot-access on nested hash"
+  outer = {"inner" => {"value" => 42}}
+  test.assert_eq(outer.inner.value, 42)
+end
+
+rats "hash dot-access on empty hash returns nil"
+  h = {}
+  test.assert_eq(h.anything, nil)
+end
+
+rats "hash dot-set creates new field"
+  h = {}
+  h.name = "new"
+  test.assert_eq(h.name, "new")
+end
+
+rats "hash dot-access field with nil value"
+  h = {"x" => nil}
+  test.assert_eq(h.x, nil)
+end
+
+rats "hash dot-access field with false value"
+  h = {"active" => false}
+  test.assert_eq(h.active, false)
+end
+
+rats "hash dot-access field with zero value"
+  h = {"count" => 0}
+  test.assert_eq(h.count, 0)
+end
+
+rats "hash dot-access field with empty string"
+  h = {"name" => ""}
+  test.assert_eq(h.name, "")
+end
+
+# ============================================================
+# B. Dot-Access — Expression Contexts
+# ============================================================
+
+rats "dot access in string interpolation"
+  person = {"name" => "Alice"}
+  msg = "Hello, #{person.name}!"
+  test.assert_eq(msg, "Hello, Alice!")
+end
+
+rats "dot access in arithmetic"
+  p = Point(10, 20)
+  total = p.x + p.y
+  test.assert_eq(total, 30)
+end
+
+rats "dot access in comparison"
+  item = {"price" => 50}
+  test.assert_eq(item.price > 40, true)
+  test.assert_eq(item.price < 40, false)
+end
+
+rats "dot access with for loop"
+  items = [{"name" => "a"}, {"name" => "b"}, {"name" => "c"}]
+  names = []
+  for item in items
+    names = append(names, item.name)
+  end
+  test.assert_eq(len(names), 3)
+  test.assert_eq(names[0], "a")
+end
+
+rats "dot access in if condition"
+  config = {"enabled" => true}
+  result = "no"
+  if config.enabled
+    result = "yes"
+  end
+  test.assert_eq(result, "yes")
+end
+
+rats "dot access in while condition"
+  state = {"counter" => 3}
+  total = 0
+  while state.counter > 0
+    total = total + state.counter
+    state.counter = state.counter - 1
+  end
+  test.assert_eq(total, 6)
+end
+
+rats "dot access in return statement"
+  h = {"name" => "Alice"}
+  test.assert_eq(get_name(h), "Alice")
+end
+
+rats "dot access in function argument"
+  h = {"msg" => "hello"}
+  test.assert_eq(len(h.msg), 5)
+end
+
+rats "dot access on indexed array element"
+  arr = [{"name" => "a"}, {"name" => "b"}]
+  test.assert_eq(arr[0].name, "a")
+  test.assert_eq(arr[1].name, "b")
+end
+
+rats "dot set on indexed array element"
+  arr = [{"name" => "a"}, {"name" => "b"}]
+  arr[0].name = "z"
+  test.assert_eq(arr[0].name, "z")
+  test.assert_eq(arr[1].name, "b")
+end
+
+rats "dot access on function return value"
+  test.assert_eq(make_hash().key, "val")
+end
+
+rats "compound assignment on dot field"
+  h = {"count" => 10}
+  h.count += 5
+  test.assert_eq(h.count, 15)
+  h.count -= 3
+  test.assert_eq(h.count, 12)
+  h.count *= 2
+  test.assert_eq(h.count, 24)
+end
+
+rats "deep nesting dot access"
+  a = {"b" => {"c" => {"d" => {"e" => 99}}}}
+  test.assert_eq(a.b.c.d.e, 99)
+end
+
+rats "dot access in try/or"
+  h = {"x" => 1}
+  result = try h.x or 0
+  test.assert_eq(result, 1)
+end
+
+rats "dot access in array literal"
+  h = {"x" => 1, "y" => 2}
+  arr = [h.x, h.y]
+  test.assert_eq(arr[0], 1)
+  test.assert_eq(arr[1], 2)
+end
+
+rats "dot access in hash value"
+  src = {"name" => "Alice"}
+  dest = {"greeting" => "Hello, " + src.name}
+  test.assert_eq(dest.greeting, "Hello, Alice")
+end
+
+rats "dot access both sides of comparison"
+  a = {"val" => 10}
+  b = {"val" => 20}
+  test.assert_eq(a.val < b.val, true)
+  test.assert_eq(a.val == b.val, false)
+end
+
+rats "dot access with logical operators"
+  config = {"a" => true, "b" => false}
+  test.assert_eq(config.a && config.b, false)
+  test.assert_eq(config.a || config.b, true)
+end
+
+# ============================================================
+# C. Struct Construction
+# ============================================================
+
+rats "struct constructor creates hash with fields"
+  p = Point(10, 20)
+  test.assert_eq(p.x, 10)
+  test.assert_eq(p.y, 20)
+end
+
+rats "struct type via type_of"
+  p = Point(1, 2)
+  test.assert_eq(type_of(p), "Point")
+end
+
+rats "struct new() via namespace"
+  rex = dog.new("Rex", "Labrador")
+  test.assert_eq(rex.name, "Rex")
+end
+
+rats "struct field assignment"
+  p = Point(10, 20)
+  p.x = 99
+  test.assert_eq(p.x, 99)
+end
+
+rats "empty struct"
+  e = Empty()
+  test.assert_eq(type_of(e), "Empty")
+end
+
+rats "single-field struct"
+  s = Single(42)
+  test.assert_eq(s.val, 42)
+  test.assert_eq(type_of(s), "Single")
+end
+
+# ============================================================
+# D. Struct Instance Behavior
+# ============================================================
+
+rats "struct instances are independent"
+  a = Point(1, 2)
+  b = Point(3, 4)
+  a.x = 99
+  test.assert_eq(a.x, 99)
+  test.assert_eq(b.x, 3)
+end
+
+rats "struct passed to function has reference semantics"
+  p = Point(1, 2)
+  mutate(p)
+  test.assert_eq(p.x, 999)
+end
+
+rats "struct in array"
+  points = [Point(1, 2), Point(3, 4), Point(5, 6)]
+  test.assert_eq(len(points), 3)
+  test.assert_eq(points[0].x, 1)
+  test.assert_eq(points[2].y, 6)
+end
+
+rats "struct in hash value"
+  registry = {"origin" => Point(0, 0), "cursor" => Point(10, 20)}
+  test.assert_eq(registry.origin.x, 0)
+  test.assert_eq(registry.cursor.y, 20)
+end
+
+rats "iterating over array of structs"
+  points = [Point(1, 0), Point(2, 0), Point(3, 0)]
+  total = 0
+  for p in points
+    total = total + p.x
+  end
+  test.assert_eq(total, 6)
+end
+
+rats "struct equality by reference"
+  a = Point(1, 2)
+  b = Point(1, 2)
+  # Different instances are not the same object but have same field values
+  test.assert_eq(a.x, b.x)
+  test.assert_eq(a.y, b.y)
+end
+
+rats "struct add new field after construction"
+  p = Point(1, 2)
+  p.z = 3
+  test.assert_eq(p.z, 3)
+  test.assert_eq(p.x, 1)
+end
+
+# ============================================================
+# E. Method Definitions
+# ============================================================
+
+rats "method with implicit self"
+  p = Point(10, 20)
+  result = sum(p)
+  test.assert_eq(result, 30)
+end
+
+rats "method returns a value"
+  p = Point(3, 4)
+  s = to_s(p)
+  test.assert_eq(s, "(3, 4)")
+end
+
+rats "method with multiple parameters"
+  p = Point(1, 2)
+  move(p, 10, 20)
+  test.assert_eq(p.x, 11)
+  test.assert_eq(p.y, 22)
+end
+
+rats "method returning new struct"
+  p = Point(2, 3)
+  q = scaled(p, 10)
+  test.assert_eq(q.x, 20)
+  test.assert_eq(q.y, 30)
+  # Original unchanged
+  test.assert_eq(p.x, 2)
+end
+
+rats "method with self in string interpolation"
+  p = Point(5, 10)
+  s = to_s(p)
+  test.assert_eq(s, "(5, 10)")
+end
+
+rats "chaining method results"
+  p = Point(2, 3)
+  q = scaled(p, 5)
+  test.assert_eq(sum(q), 25)
+end
+
+# ============================================================
+# F. Namespace / Require Integration
+# ============================================================
+
+rats "require namespace constructor"
+  rex = dog.new("Rex", "Labrador")
+  test.assert_eq(rex.name, "Rex")
+  test.assert_eq(rex.breed, "Labrador")
+end
+
+rats "require namespace method call"
+  rex = dog.new("Rex", "Labrador")
+  result = dog.bark(rex)
+  test.assert_eq(result, "Rex says woof!")
+end
+
+rats "require namespace method modifies self"
+  rex = dog.new("Rex", "Labrador")
+  dog.rename(rex, "Rexy")
+  test.assert_eq(rex.name, "Rexy")
+end
+
+rats "require namespace type_of"
+  rex = dog.new("Rex", "Lab")
+  test.assert_eq(type_of(rex), "Dog")
+end
+
+rats "multiple namespaces with different structs"
+  rex = dog.new("Rex", "Lab")
+  luna = cat.new("Luna", "black")
+  test.assert_eq(type_of(rex), "Dog")
+  test.assert_eq(type_of(luna), "Cat")
+  test.assert_eq(dog.bark(rex), "Rex says woof!")
+  test.assert_eq(cat.meow(luna), "Luna says meow!")
+end
+
+rats "struct from different namespace in same collection"
+  rex = dog.new("Rex", "Lab")
+  luna = cat.new("Luna", "black")
+  pets = [rex, luna]
+  test.assert_eq(pets[0].name, "Rex")
+  test.assert_eq(pets[1].name, "Luna")
+end
+
+# ============================================================
+# G. Interaction with Existing Features
+# ============================================================
+
+rats "dot access field named value (task method collision)"
+  config = {"value" => 42}
+  test.assert_eq(config.value, 42)
+end
+
+rats "dot access field named done (task method collision)"
+  status = {"done" => true}
+  test.assert_eq(status.done, true)
+end
+
+rats "struct with module function on field"
+  h = {"name" => "  Alice  "}
+  test.assert_eq(str.trim(h.name), "Alice")
+end
+
+rats "struct field in conv.to_s"
+  h = {"num" => 42}
+  test.assert_eq(conv.to_s(h.num), "42")
+end
+
+rats "dot access with negation"
+  h = {"flag" => true}
+  test.assert_eq(!h.flag, false)
+end
+
+rats "dot access with unary minus"
+  h = {"x" => 5}
+  test.assert_eq(-h.x, -5)
+end
+
+# ============================================================
+# H. Negative Tests — Runtime Errors
+# ============================================================
+
+rats "dot access on int is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_dot_access_int.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot access .name on int")
+end
+
+rats "dot access on string is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_dot_access_string.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot access .name on string")
+end
+
+rats "dot access on array is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_dot_access_array.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot access .name")
+end
+
+rats "dot access on bool is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_dot_access_bool.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot access .name on bool")
+end
+
+rats "dot access on nil is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_dot_access_nil.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot access .name")
+end
+
+rats "dot set on int is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_dot_set_int.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot set .name on int")
+end
+
+rats "dot set on nil is a runtime error"
+  result = test.run("rugo run rats/fixtures/err_dot_set_nil.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot set .name")
+end
+
+rats "calling method without namespace is a compile error"
+  result = test.run("rugo run rats/fixtures/err_method_no_namespace.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "undefined")
+end
+
+rats "calling method with args without namespace is a compile error"
+  result = test.run("rugo run rats/fixtures/err_method_no_namespace_args.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "undefined")
+end
+
+rats "calling new() without namespace is a compile error"
+  result = test.run("rugo run rats/fixtures/err_new_no_namespace.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "undefined")
+end

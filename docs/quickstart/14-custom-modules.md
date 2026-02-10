@@ -84,7 +84,7 @@ Then build and use it:
 
 ```bash
 go build -o myrugo .
-./myrugo script.rg
+./myrugo script.rugo
 ```
 
 ## Using Custom Modules in Scripts

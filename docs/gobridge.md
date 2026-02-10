@@ -161,7 +161,7 @@ Special cases are needed for:
 
 ### 3. Add tests
 
-Create `rats/gobridge/<pkg>_test.rg`:
+Create `rats/gobridge/<pkg>_test.rugo`:
 
 ```ruby
 use "test"
@@ -191,8 +191,8 @@ Inspect the generated Go to confirm correct codegen:
 
 ```bash
 echo 'import "newpkg"
-puts newpkg.do_thing("hello", 42)' > /tmp/test.rg
-bin/rugo emit /tmp/test.rg
+puts newpkg.do_thing("hello", 42)' > /tmp/test.rugo
+bin/rugo emit /tmp/test.rugo
 ```
 
 ## Special Case Catalog
@@ -314,12 +314,12 @@ All 8 whitelisted packages have comprehensive regression tests in `rats/gobridge
 
 | File | Tests | Covers |
 |------|-------|--------|
-| `strings_test.rg` | 14 | All string functions including cut, fields, equal_fold |
-| `strconv_test.rg` | 6 | atoi, itoa, format_float, parse_float, format_bool, parse_int |
-| `math_test.rg` | 9 | Arithmetic, trig, rounding, special values (NaN, Inf) |
-| `filepath_test.rg` | 8 | join, base, dir, ext, split, is_abs, rel, clean |
-| `rand_test.rg` | 5 | int_n, float64, n alias, range validation |
-| `misc_test.rg` | 10 | sort, time, os (env, files, dirs) |
-| `edge_cases_test.rg` | 8 | Error handling, aliasing, namespace conflicts, try/or |
+| `strings_test.rugo` | 14 | All string functions including cut, fields, equal_fold |
+| `strconv_test.rugo` | 6 | atoi, itoa, format_float, parse_float, format_bool, parse_int |
+| `math_test.rugo` | 9 | Arithmetic, trig, rounding, special values (NaN, Inf) |
+| `filepath_test.rugo` | 8 | join, base, dir, ext, split, is_abs, rel, clean |
+| `rand_test.rugo` | 5 | int_n, float64, n alias, range validation |
+| `misc_test.rugo` | 10 | sort, time, os (env, files, dirs) |
+| `edge_cases_test.rugo` | 8 | Error handling, aliasing, namespace conflicts, try/or |
 
 Run all: `rugo rats rats/gobridge/`

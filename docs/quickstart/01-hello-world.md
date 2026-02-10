@@ -1,6 +1,6 @@
 # Hello World
 
-Create `hello.rg`:
+Create `hello.rugo`:
 
 ```ruby
 puts "Hello, World!"
@@ -9,13 +9,13 @@ puts "Hello, World!"
 Run it:
 
 ```bash
-rugo run hello.rg
+rugo run hello.rugo
 ```
 
 Or compile to a native binary:
 
 ```bash
-rugo build hello.rg
+rugo build hello.rugo
 ./hello
 ```
 

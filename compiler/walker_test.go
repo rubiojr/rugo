@@ -20,7 +20,7 @@ func parseAndWalk(t *testing.T, src string) *Program {
 		cleaned += "\n"
 	}
 	p := &parser.Parser{}
-	ast, err := p.Parse("test.rg", []byte(cleaned))
+	ast, err := p.Parse("test.rugo", []byte(cleaned))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}

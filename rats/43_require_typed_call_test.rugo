@@ -1,0 +1,18 @@
+# RATS: Test namespaced function calls with typed parameters (bug 2349292)
+# When a require'd function calls another in the same namespace,
+# interface{} args must be converted to match typed params.
+use "test"
+
+rats "namespaced call with interface{} to typed param compiles and runs"
+  result = test.run("rugo run rats/fixtures/require_typed_call.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "literal-token")
+end
+
+rats "namespaced call passes env value through typed param"
+  result = test.run("rugo run rats/fixtures/require_typed_call.rugo")
+  test.assert_eq(result["status"], 0)
+  # HOME should be non-empty
+  lines = result["lines"]
+  test.assert_true(len(lines) >= 2)
+end

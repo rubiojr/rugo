@@ -143,7 +143,7 @@ count = try sqlite.query_val(conn, "SELECT COUNT(*) FROM t") or 0
 Wrap sqlite calls in a struct for lightweight OOP:
 
 ```ruby
-# user_repo.rg
+# user_repo.rugo
 use "sqlite"
 
 struct UserRepo
@@ -168,7 +168,7 @@ end
 ```
 
 ```ruby
-# main.rg
+# main.rugo
 use "sqlite"
 require "user_repo"
 

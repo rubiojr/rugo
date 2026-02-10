@@ -1,0 +1,50 @@
+# RATS: Test ANSI color output in test results
+use "test"
+
+# Test: passing tests have green ANSI color by default
+rats "test output includes ANSI colors for passing tests"
+  result = test.run("RUGO_FORCE_COLOR=1 NO_COLOR= rugo rats rats/fixtures/color_pass.rugo 2>&1 | grep -qP '\\x1b\\[' && echo yes || echo no")
+  test.assert_eq(result["output"], "yes")
+end
+
+# Test: failing tests have red ANSI color
+rats "test output includes ANSI red for failing tests"
+  result = test.run("RUGO_FORCE_COLOR=1 NO_COLOR= rugo rats rats/fixtures/color_mixed.rugo 2>&1 | grep -qP '\\x1b\\[31m' && echo yes || echo no")
+  test.assert_eq(result["output"], "yes")
+end
+
+# Test: skipped tests have yellow ANSI color
+rats "test output includes ANSI yellow for skipped tests"
+  result = test.run("RUGO_FORCE_COLOR=1 NO_COLOR= rugo rats rats/fixtures/color_mixed.rugo 2>&1 | grep -qP '\\x1b\\[33m' && echo yes || echo no")
+  test.assert_eq(result["output"], "yes")
+end
+
+# Test: --no-color flag disables ANSI colors
+rats "--no-color flag disables ANSI escape sequences"
+  result = test.run("RUGO_FORCE_COLOR= rugo rats --no-color rats/fixtures/color_pass.rugo 2>&1 | grep -qP '\\x1b\\[' && echo yes || echo no")
+  test.assert_eq(result["output"], "no")
+end
+
+# Test: NO_COLOR env var disables ANSI colors
+rats "NO_COLOR=1 env var disables ANSI escape sequences"
+  result = test.run("RUGO_FORCE_COLOR= NO_COLOR=1 rugo rats rats/fixtures/color_pass.rugo 2>&1 | grep -qP '\\x1b\\[' && echo yes || echo no")
+  test.assert_eq(result["output"], "no")
+end
+
+# Test: summary line has green on passed count when all pass
+rats "summary line is green when all tests pass"
+  result = test.run("RUGO_FORCE_COLOR=1 NO_COLOR= rugo rats rats/fixtures/color_pass.rugo 2>&1 | grep -qP '\\x1b\\[32m\\d+ passed' && echo yes || echo no")
+  test.assert_eq(result["output"], "yes")
+end
+
+# Test: summary line has red on failed count when any test fails
+rats "summary line is red when tests fail"
+  result = test.run("RUGO_FORCE_COLOR=1 NO_COLOR= rugo rats rats/fixtures/color_mixed.rugo 2>&1 | grep -qP '\\x1b\\[31m\\d+ failed' && echo yes || echo no")
+  test.assert_eq(result["output"], "yes")
+end
+
+# Test: --no-color summary has no escape sequences
+rats "--no-color summary has no escape sequences"
+  result = test.run("RUGO_FORCE_COLOR= rugo rats --no-color rats/fixtures/color_mixed.rugo 2>&1 | tail -1")
+  test.assert_contains(result["output"], "3 tests, 1 passed, 1 failed, 1 skipped")
+end

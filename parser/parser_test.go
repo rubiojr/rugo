@@ -9,7 +9,7 @@ import (
 func TestParseSimple(t *testing.T) {
 	src := []byte("puts(\"hello\")\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -23,7 +23,7 @@ func TestParseSimple(t *testing.T) {
 func TestParseAssignment(t *testing.T) {
 	src := []byte("x = 42\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -34,7 +34,7 @@ func TestParseAssignment(t *testing.T) {
 func TestParseFunction(t *testing.T) {
 	src := []byte("def greet(name)\nputs(name)\nend\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -44,7 +44,7 @@ func TestParseFunction(t *testing.T) {
 func TestParseIf(t *testing.T) {
 	src := []byte("if x == 1\nputs(\"one\")\nelsif x == 2\nputs(\"two\")\nelse\nputs(\"other\")\nend\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -54,7 +54,7 @@ func TestParseIf(t *testing.T) {
 func TestParseWhile(t *testing.T) {
 	src := []byte("while x > 0\nx = x - 1\nend\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -64,7 +64,7 @@ func TestParseWhile(t *testing.T) {
 func TestParseArray(t *testing.T) {
 	src := []byte("x = [1, 2, 3]\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestParseArray(t *testing.T) {
 func TestParseHash(t *testing.T) {
 	src := []byte("x = {\"a\" => 1, \"b\" => 2}\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -84,7 +84,7 @@ func TestParseHash(t *testing.T) {
 func TestParseStringLit(t *testing.T) {
 	src := []byte("x = \"hello world\"\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -94,7 +94,7 @@ func TestParseStringLit(t *testing.T) {
 func TestParseRequire(t *testing.T) {
 	src := []byte("require \"helpers\"\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -104,7 +104,7 @@ func TestParseRequire(t *testing.T) {
 func TestParseReturn(t *testing.T) {
 	src := []byte("def foo()\nreturn 42\nend\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -114,7 +114,7 @@ func TestParseReturn(t *testing.T) {
 func TestParseUnary(t *testing.T) {
 	src := []byte("x = -1\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -124,7 +124,7 @@ func TestParseUnary(t *testing.T) {
 func TestParseBoolOps(t *testing.T) {
 	src := []byte("x = a && b || c\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -134,7 +134,7 @@ func TestParseBoolOps(t *testing.T) {
 func TestParseNested(t *testing.T) {
 	src := []byte("x = (1 + 2) * 3\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestParseNested(t *testing.T) {
 func TestParseMultipleStatements(t *testing.T) {
 	src := []byte("x = 1\ny = 2\nputs(x + y)\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -154,7 +154,7 @@ func TestParseMultipleStatements(t *testing.T) {
 func TestParseFuncCall(t *testing.T) {
 	src := []byte("foo(1, 2, 3)\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -164,7 +164,7 @@ func TestParseFuncCall(t *testing.T) {
 func TestParseIndexAccess(t *testing.T) {
 	src := []byte("x = arr[0]\n")
 	p := &Parser{}
-	ast, err := p.Parse("test.rg", src)
+	ast, err := p.Parse("test.rugo", src)
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}

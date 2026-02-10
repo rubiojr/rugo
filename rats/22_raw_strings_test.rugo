@@ -1,0 +1,61 @@
+# RATS: Test single-quoted raw string literals
+use "test"
+
+rats "raw strings preserve backslash-n literally"
+  result = test.run("rugo run rats/fixtures/raw_string_basic.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], 'hello\nworld')
+  test.assert_eq(lines[1], 'tab\there')
+end
+
+rats "raw strings preserve escape sequences literally"
+  result = test.run("rugo run rats/fixtures/raw_string_escape.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], '\x1b[32mgreen\x1b[0m')
+  test.assert_eq(lines[1], '\033[31mred\033[0m')
+  test.assert_eq(lines[2], '\n\t\r')
+end
+
+rats "raw strings support escaped quote and backslash"
+  result = test.run("rugo run rats/fixtures/raw_string_special.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "can't stop")
+  test.assert_eq(lines[1], 'back\slash')
+end
+
+rats "raw and double-quoted string concatenation"
+  result = test.run("rugo run rats/fixtures/raw_string_concat.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], 'raw\ndouble')
+end
+
+rats "raw strings do not process interpolation"
+  result = test.run("rugo run rats/fixtures/raw_string_interpolation.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], 'hello #{name}')
+end
+
+rats "hash inside raw string is not a comment"
+  result = test.run("rugo run rats/fixtures/raw_string_comment.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], 'hello # world')
+end
+
+rats "raw string in emit produces valid Go"
+  result = test.run("rugo emit rats/fixtures/raw_string_basic.rugo")
+  test.assert_eq(result["status"], 0)
+  # The Go source should contain the literal \\n (escaped backslash + n)
+  test.assert_contains(result["output"], "hello\\\\nworld")
+end
+
+rats "raw strings compile to native binary"
+  test.run("rugo build -o " + test.tmpdir() + "/raw_test rats/fixtures/raw_string_basic.rugo")
+  result = test.run(test.tmpdir() + "/raw_test")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], 'hello\nworld')
+end

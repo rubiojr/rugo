@@ -3,7 +3,7 @@
 // Build:
 //
 //	go build -o myrugo .
-//	./myrugo ../example.rg
+//	./myrugo ../example.rugo
 package main
 
 import (

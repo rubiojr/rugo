@@ -52,7 +52,7 @@ func (r *Resolver) LockDirty() bool {
 }
 
 // ResolveModule fetches a remote git module and returns the local
-// path to its entry point .rg file.
+// path to its entry point Rugo file.
 func (r *Resolver) ResolveModule(requirePath string) (string, error) {
 	rp, err := parseRemotePath(requirePath)
 	if err != nil {

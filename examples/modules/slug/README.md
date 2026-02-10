@@ -13,7 +13,7 @@ slug/
     runtime.go     # Go runtime (struct + methods)
   custom-rugo/     # A custom Rugo binary that includes the slug module
     main.go        # Thin wrapper: stdlib + slug module
-  example.rg       # Example Rugo script using the slug module
+  example.rugo       # Example Rugo script using the slug module
 ```
 
 ## Build & Run
@@ -21,7 +21,7 @@ slug/
 ```bash
 cd custom-rugo
 go build -o myrugo .
-./myrugo ../example.rg
+./myrugo ../example.rugo
 ```
 
 ## How It Works
@@ -31,4 +31,4 @@ go build -o myrugo .
 2. `custom-rugo/main.go` imports the slug module alongside the standard Rugo
    modules, then calls `cmd.Execute()`.
 3. The resulting binary is a full Rugo compiler with the `slug` module available
-   for `import "slug"` in `.rg` scripts.
+   for `import "slug"` in `.rugo` scripts.

@@ -22,7 +22,7 @@ Every new feature **must** include:
 
 1. **End-to-end RATS tests** (`rats/`) — this is the most important part. Add test cases to an existing `.rt` file or create a new one with fixtures in `rats/fixtures/`. Cover both happy paths and error cases.
 
-2. **An example script** (`examples/`) — a self-contained `.rg` file demonstrating the feature. Examples are run by `script/test` and serve as living documentation.
+2. **An example script** (`examples/`) — a self-contained `.rugo` file demonstrating the feature. Examples are run by `script/test` and serve as living documentation.
 
 3. **Language docs update** (`docs/language.md`) — document the syntax, semantics, and any edge cases.
 

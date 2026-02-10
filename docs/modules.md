@@ -6,7 +6,7 @@ Rugo has three module systems:
 |---------|---------|---------|
 | `use` | Load Rugo stdlib modules | `use "http"` |
 | `import` | Bridge to Go stdlib packages | `import "strings"` |
-| `require` | Load user `.rg` files | `require "helpers"` |
+| `require` | Load user `.rugo` files | `require "helpers"` |
 
 All three are accessed as `namespace.function()`.
 
@@ -94,17 +94,17 @@ Available without any import:
 
 ## User Modules (`require`)
 
-Create reusable `.rg` files and load them with `require`:
+Create reusable `.rugo` files and load them with `require`:
 
 ```ruby
-# math_helpers.rg
+# math_helpers.rugo
 def double(n)
   return n * 2
 end
 ```
 
 ```ruby
-# main.rg
+# main.rugo
 require "math_helpers"
 puts math_helpers.double(21)   # 42
 ```
@@ -118,7 +118,7 @@ puts m.double(21)   # 42
 
 ### Remote Modules
 
-Load `.rg` modules directly from git repositories:
+Load `.rugo` modules directly from git repositories:
 
 ```ruby
 require "github.com/user/rugo-utils@v1.0.0" as "utils"
@@ -137,7 +137,7 @@ SHAs are immutable — once downloaded, they're never re-fetched.
 
 #### Selective Imports with `with`
 
-Load specific `.rg` files from a local directory or remote repository using `with`:
+Load specific `.rugo` files from a local directory or remote repository using `with`:
 
 ```ruby
 # Local directory
@@ -150,11 +150,11 @@ client.make("token")
 issue.list(gh, "owner", "repo")
 ```
 
-Each name loads `<name>.rg` from the directory or repo root as its own namespace.
-If not found at the root, `lib/<name>.rg` is checked as a fallback.
+Each name loads `<name>.rugo` from the directory or repo root as its own namespace.
+If not found at the root, `lib/<name>.rugo` is checked as a fallback.
 
-For remote modules, without `with`, the repo's entry point (`main.rg`, `<repo-name>.rg`, or the
-sole `.rg` file) is loaded. With `with`, the entry point is bypassed and each
+For remote modules, without `with`, the repo's entry point (`main.rugo`, `<repo-name>.rugo`, or the
+sole `.rugo` file) is loaded. With `with`, the entry point is bypassed and each
 named file is loaded directly.
 
 `with` and `as` are mutually exclusive. For local requires, the path must be a directory.
@@ -165,18 +165,18 @@ You can also require a specific file from a remote repo by path:
 
 ```ruby
 require "github.com/user/my-lib/client@v1.0.0"
-# loads client.rg from the repo root, namespace "client"
+# loads client.rugo from the repo root, namespace "client"
 ```
 
 ### Search Path
 
 Rugo resolves `require` paths with two simple rules:
 
-1. **Relative to calling file** — `require "helpers"` loads `helpers.rg` from
+1. **Relative to calling file** — `require "helpers"` loads `helpers.rugo` from
    the same directory as the file containing the `require`. Subdirectories
-   work too: `require "lib/utils"` loads `lib/utils.rg`. The `.rg` extension
+   work too: `require "lib/utils"` loads `lib/utils.rugo`. The `.rugo` extension
    is added automatically if missing. If the path resolves to a directory,
-   Rugo looks for an entry point: `<dirname>.rg` → `main.rg` → sole `.rg`
+   Rugo looks for an entry point: `<dirname>.rugo` → `main.rugo` → sole `.rugo`
    file. A file always takes precedence over a directory of the same name.
 
 2. **Remote URL** — if the path looks like a URL (`github.com/user/repo`),

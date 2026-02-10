@@ -20,7 +20,7 @@ import (
 func compileToGo(t *testing.T, src string) string {
 	t.Helper()
 	prog := parseAndWalk(t, src)
-	goSrc, err := generate(prog, "test.rg", false)
+	goSrc, err := generate(prog, "test.rugo", false)
 	if err != nil {
 		t.Fatalf("Generate error: %v", err)
 	}
@@ -318,9 +318,9 @@ func TestGenNot(t *testing.T) {
 // --- Compiler Integration Tests ---
 
 func TestCompilerCompile(t *testing.T) {
-	// Write a temp .rg file
+	// Write a temp Rugo file
 	tmpDir := t.TempDir()
-	file := filepath.Join(tmpDir, "test.rg")
+	file := filepath.Join(tmpDir, "test.rugo")
 	os.WriteFile(file, []byte("puts(\"hello\")\n"), 0644)
 
 	c := &Compiler{}
@@ -337,11 +337,11 @@ func TestCompilerRequire(t *testing.T) {
 	tmpDir := t.TempDir()
 
 	// Write helper file
-	helperFile := filepath.Join(tmpDir, "helpers.rg")
+	helperFile := filepath.Join(tmpDir, "helpers.rugo")
 	os.WriteFile(helperFile, []byte("def double(n)\nreturn n * 2\nend\n"), 0644)
 
 	// Write main file — uses namespaced call
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("require \"helpers\"\nputs(helpers.double(21))\n"), 0644)
 
 	c := &Compiler{}
@@ -357,10 +357,10 @@ func TestCompilerRequire(t *testing.T) {
 func TestCompilerDuplicateRequire(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	helperFile := filepath.Join(tmpDir, "helpers.rg")
+	helperFile := filepath.Join(tmpDir, "helpers.rugo")
 	os.WriteFile(helperFile, []byte("def foo()\nreturn 1\nend\n"), 0644)
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("require \"helpers\"\nrequire \"helpers\"\nputs(helpers.foo())\n"), 0644)
 
 	c := &Compiler{}
@@ -378,7 +378,7 @@ func TestCompilerDuplicateRequire(t *testing.T) {
 func TestCompilerComments(t *testing.T) {
 	c := &Compiler{}
 	tmpDir := t.TempDir()
-	file := filepath.Join(tmpDir, "test.rg")
+	file := filepath.Join(tmpDir, "test.rugo")
 	os.WriteFile(file, []byte("# this is a comment\nputs(\"hello\") # inline\n"), 0644)
 
 	result, err := c.Compile(file)
@@ -759,7 +759,7 @@ func TestPreprocessShellBeforeDefFuncAfter(t *testing.T) {
 func TestGenDotCall(t *testing.T) {
 	// Unknown ns.func() should compile to rugo_dot_call (runtime dispatch)
 	prog := parseAndWalk(t, `ns.func(1, 2)`)
-	_, err := generate(prog, "test.rg", false)
+	_, err := generate(prog, "test.rugo", false)
 	if err != nil {
 		t.Errorf("unexpected error for dot call: %v", err)
 	}
@@ -782,10 +782,10 @@ func TestRuntimeShellFunction(t *testing.T) {
 func TestCompilerNamespacedRequire(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	helperFile := filepath.Join(tmpDir, "math_utils.rg")
+	helperFile := filepath.Join(tmpDir, "math_utils.rugo")
 	os.WriteFile(helperFile, []byte("def add(a, b)\nreturn a + b\nend\n"), 0644)
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("require \"math_utils\"\nputs(math_utils.add(1, 2))\n"), 0644)
 
 	c := &Compiler{}
@@ -804,10 +804,10 @@ func TestCompilerNamespacedRequire(t *testing.T) {
 func TestCompilerAliasedRequire(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	helperFile := filepath.Join(tmpDir, "long_module_name.rg")
+	helperFile := filepath.Join(tmpDir, "long_module_name.rugo")
 	os.WriteFile(helperFile, []byte("def foo()\nreturn 1\nend\n"), 0644)
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("require \"long_module_name\" as \"m\"\nputs(m.foo())\n"), 0644)
 
 	c := &Compiler{}
@@ -1042,7 +1042,7 @@ func TestCompoundAssignCompilesToGo(t *testing.T) {
 func TestParseForIn(t *testing.T) {
 	src := "for x in arr\nputs(x)\nend\n"
 	p := &parser.Parser{}
-	_, err := p.Parse("test.rg", []byte(src))
+	_, err := p.Parse("test.rugo", []byte(src))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -1051,7 +1051,7 @@ func TestParseForIn(t *testing.T) {
 func TestParseForInWithIndex(t *testing.T) {
 	src := "for x, i in arr\nputs(x)\nend\n"
 	p := &parser.Parser{}
-	_, err := p.Parse("test.rg", []byte(src))
+	_, err := p.Parse("test.rugo", []byte(src))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -1082,7 +1082,7 @@ func TestGenForInWithIndex(t *testing.T) {
 func TestParseBreak(t *testing.T) {
 	src := "while true\nbreak\nend\n"
 	p := &parser.Parser{}
-	_, err := p.Parse("test.rg", []byte(src))
+	_, err := p.Parse("test.rugo", []byte(src))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -1091,7 +1091,7 @@ func TestParseBreak(t *testing.T) {
 func TestParseNext(t *testing.T) {
 	src := "while true\nnext\nend\n"
 	p := &parser.Parser{}
-	_, err := p.Parse("test.rg", []byte(src))
+	_, err := p.Parse("test.rugo", []byte(src))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
@@ -1135,9 +1135,9 @@ func TestGenIndexAssignHash(t *testing.T) {
 func TestRequireAliasStdlibNameWithoutImport(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("def upper(s)\nreturn \"CUSTOM: \" + s\nend\n"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rugo"), []byte("def upper(s)\nreturn \"CUSTOM: \" + s\nend\n"), 0644)
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("require \"helpers\" as \"str\"\nputs(str.upper(\"hello\"))\n"), 0644)
 
 	c := &Compiler{}
@@ -1153,9 +1153,9 @@ func TestRequireAliasStdlibNameWithoutImport(t *testing.T) {
 func TestRequireAliasConflictsWithImport(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("def upper(s)\nreturn \"CUSTOM\"\nend\n"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rugo"), []byte("def upper(s)\nreturn \"CUSTOM\"\nend\n"), 0644)
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("use \"str\"\nrequire \"helpers\" as \"str\"\nputs(str.upper(\"hello\"))\n"), 0644)
 
 	c := &Compiler{}
@@ -1168,15 +1168,15 @@ func TestRequireAliasConflictsWithImport(t *testing.T) {
 func TestRequiredFileImports(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("use \"conv\"\ndef double_str(n)\nreturn conv.to_s(n * 2)\nend\n"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rugo"), []byte("use \"conv\"\ndef double_str(n)\nreturn conv.to_s(n * 2)\nend\n"), 0644)
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("require \"helpers\"\nputs(helpers.double_str(21))\n"), 0644)
 
 	c := &Compiler{}
 	result, err := c.Compile(mainFile)
 	require.NoError(t, err)
-	// The conv module runtime should be emitted because helpers.rg imports it
+	// The conv module runtime should be emitted because helpers.rugo imports it
 	assert.Contains(t, result.GoSource, "rugo_conv_to_s(", "conv wrapper call should exist")
 	// The conv module struct/runtime must also be emitted
 	assert.Contains(t, result.GoSource, "type Conv struct", "conv runtime should be emitted from required file's import")
@@ -1186,7 +1186,7 @@ func TestRequiredFileImports(t *testing.T) {
 func TestImportInsideFuncBodyErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("def foo()\nuse \"conv\"\nend\n"), 0644)
 
 	c := &Compiler{}
@@ -1198,9 +1198,9 @@ func TestImportInsideFuncBodyErrors(t *testing.T) {
 func TestRequireInsideFuncBodyErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	os.WriteFile(filepath.Join(tmpDir, "helpers.rg"), []byte("def foo()\nreturn 1\nend\n"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "helpers.rugo"), []byte("def foo()\nreturn 1\nend\n"), 0644)
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("def bar()\nrequire \"helpers\"\nend\n"), 0644)
 
 	c := &Compiler{}
@@ -1212,7 +1212,7 @@ func TestRequireInsideFuncBodyErrors(t *testing.T) {
 func TestImportInsideIfBodyErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("if true\nuse \"conv\"\nend\n"), 0644)
 
 	c := &Compiler{}
@@ -1224,10 +1224,10 @@ func TestImportInsideIfBodyErrors(t *testing.T) {
 func TestDuplicateNamespaceFunctionErrors(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	os.WriteFile(filepath.Join(tmpDir, "a.rg"), []byte("def foo()\nreturn \"a\"\nend\n"), 0644)
-	os.WriteFile(filepath.Join(tmpDir, "b.rg"), []byte("def foo()\nreturn \"b\"\nend\n"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "a.rugo"), []byte("def foo()\nreturn \"a\"\nend\n"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "b.rugo"), []byte("def foo()\nreturn \"b\"\nend\n"), 0644)
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("require \"a\" as \"ns\"\nrequire \"b\" as \"ns\"\nputs(ns.foo())\n"), 0644)
 
 	c := &Compiler{}
@@ -1240,7 +1240,7 @@ func TestDuplicateNamespaceFunctionErrors(t *testing.T) {
 func TestDuplicateImportDeduplicates(t *testing.T) {
 	tmpDir := t.TempDir()
 
-	mainFile := filepath.Join(tmpDir, "main.rg")
+	mainFile := filepath.Join(tmpDir, "main.rugo")
 	os.WriteFile(mainFile, []byte("use \"conv\"\nuse \"conv\"\nputs(conv.to_s(42))\n"), 0644)
 
 	c := &Compiler{}

@@ -25,11 +25,11 @@ The rules are simple:
 ## `rugo doc` Command
 
 ```bash
-# Show docs for a .rg file
-rugo doc myfile.rg
+# Show docs for a .rugo file
+rugo doc myfile.rugo
 
 # Show docs for a specific function or struct
-rugo doc myfile.rg factorial
+rugo doc myfile.rugo factorial
 
 # Show docs for a stdlib module
 rugo doc http
@@ -50,7 +50,7 @@ Set `NO_COLOR=1` to disable.
 
 ## Example
 
-Create a file `lib.rg`:
+Create a file `lib.rugo`:
 
 ```ruby
 # Math utility library.
@@ -70,7 +70,7 @@ end
 Then run:
 
 ```
-$ rugo doc lib.rg
+$ rugo doc lib.rugo
 Math utility library.
 
 struct Point { x, y }

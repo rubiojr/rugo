@@ -32,11 +32,11 @@ func Execute(version string) {
 		Usage:                  "A Ruby-inspired language that compiles to Go",
 		Version:                version,
 		UseShortOptionHandling: true,
-		// Allow `rugo script.rg` as shorthand for `rugo run script.rg`
+		// Allow `rugo script.rugo` as shorthand for `rugo run script.rugo`
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			if cmd.NArg() > 0 {
 				arg := cmd.Args().First()
-				if strings.HasSuffix(arg, ".rg") || isRugoScript(arg) {
+				if compiler.IsRugoFile(arg) || isRugoScript(arg) {
 					comp := &compiler.Compiler{}
 					return comp.Run(arg, cmd.Args().Tail()...)
 				}
@@ -46,15 +46,15 @@ func Execute(version string) {
 		Commands: []*cli.Command{
 			{
 				Name:            "run",
-				Usage:           "Compile and run a .rg file",
-				ArgsUsage:       "<file.rg> [args...]",
+				Usage:           "Compile and run a Rugo source file",
+				ArgsUsage:       "<file.rugo> [args...]",
 				SkipFlagParsing: true,
 				Action:          runAction,
 			},
 			{
 				Name:      "build",
-				Usage:     "Compile a .rg file to a native binary",
-				ArgsUsage: "<file.rg>",
+				Usage:     "Compile a Rugo source file to a native binary",
+				ArgsUsage: "<file.rugo>",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "output",
@@ -71,13 +71,13 @@ func Execute(version string) {
 			{
 				Name:      "emit",
 				Usage:     "Output the generated Go source code",
-				ArgsUsage: "<file.rg>",
+				ArgsUsage: "<file.rugo>",
 				Action:    emitAction,
 			},
 			{
 				Name:      "rats",
-				Usage:     "Run tests from _test.rg files and .rg files with inline rats blocks",
-				ArgsUsage: "[file.rg | directory]",
+				Usage:     "Run tests from _test.rugo files and Rugo files with inline rats blocks",
+				ArgsUsage: "[file.rugo | directory]",
 				Flags: []cli.Flag{
 					&cli.StringFlag{
 						Name:    "filter",
@@ -106,8 +106,8 @@ func Execute(version string) {
 			},
 			{
 				Name:      "bench",
-				Usage:     "Run _bench.rg benchmark files",
-				ArgsUsage: "[file_bench.rg | directory]",
+				Usage:     "Run _bench.rugo benchmark files",
+				ArgsUsage: "[file_bench.rugo | directory]",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "no-color",
@@ -121,7 +121,7 @@ func Execute(version string) {
 			{
 				Name:      "doc",
 				Usage:     "Show documentation for files, modules, and bridge packages",
-				ArgsUsage: "<file.rg|module|package> [symbol]",
+				ArgsUsage: "<file.rugo|module|package> [symbol]",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "all",
@@ -148,7 +148,7 @@ func Execute(version string) {
 
 func runAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
-		return fmt.Errorf("usage: rugo run <file.rg> [args...]")
+		return fmt.Errorf("usage: rugo run <file.rugo> [args...]")
 	}
 	comp := &compiler.Compiler{}
 	return comp.Run(cmd.Args().First(), cmd.Args().Tail()...)
@@ -156,7 +156,7 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 
 func buildAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
-		return fmt.Errorf("usage: rugo build [-o output] [--frozen] <file.rg>")
+		return fmt.Errorf("usage: rugo build [-o output] [--frozen] <file.rugo>")
 	}
 	comp := &compiler.Compiler{Frozen: cmd.Bool("frozen")}
 	output := cmd.String("output")
@@ -173,7 +173,7 @@ func buildAction(ctx context.Context, cmd *cli.Command) error {
 
 func emitAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
-		return fmt.Errorf("usage: rugo emit <file.rg>")
+		return fmt.Errorf("usage: rugo emit <file.rugo>")
 	}
 	comp := &compiler.Compiler{}
 	src, err := comp.Emit(cmd.Args().First())
@@ -245,8 +245,8 @@ func docAction(ctx context.Context, cmd *cli.Command) error {
 		symbol = cmd.Args().Get(1)
 	}
 
-	// Mode 1: .rg file
-	if strings.HasSuffix(target, ".rg") {
+	// Mode 1: Rugo source file
+	if compiler.IsRugoFile(target) {
 		fd, err := rugodoc.ExtractFile(target)
 		if err != nil {
 			return fmt.Errorf("reading %s: %w", target, err)
@@ -295,7 +295,7 @@ func docAction(ctx context.Context, cmd *cli.Command) error {
 }
 
 // docRemote fetches a remote module and prints its documentation.
-// Aggregates docs from all .rg files in the module directory.
+// Aggregates docs from all Rugo files in the module directory.
 func docRemote(target, symbol string) error {
 	r := &remote.Resolver{}
 
@@ -331,7 +331,7 @@ func docRemote(target, symbol string) error {
 }
 
 // docLocalDir prints documentation for a local directory module.
-// It finds the entry point .rg file and aggregates docs from all .rg files.
+// It finds the entry point Rugo file and aggregates docs from all Rugo files.
 func docLocalDir(dir, symbol string) error {
 	entryPath, err := compiler.FindLocalEntryPoint(dir)
 	if err != nil {
@@ -388,7 +388,7 @@ func benchAction(ctx context.Context, cmd *cli.Command) error {
 		os.Setenv("NO_COLOR", "1")
 	}
 
-	// Collect _bench.rg benchmark files
+	// Collect benchmark files (_bench.rugo and _bench.rg)
 	var files []string
 	for _, target := range targets {
 		info, err := os.Stat(target)
@@ -401,7 +401,7 @@ func benchAction(ctx context.Context, cmd *cli.Command) error {
 				return fmt.Errorf("reading directory %s: %w", target, err)
 			}
 			for _, e := range entries {
-				if !e.IsDir() && strings.HasSuffix(e.Name(), "_bench.rg") {
+				if !e.IsDir() && compiler.IsRugoBenchFile(e.Name()) {
 					files = append(files, filepath.Join(target, e.Name()))
 				}
 			}
@@ -411,7 +411,7 @@ func benchAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	if len(files) == 0 {
-		return fmt.Errorf("no _bench.rg benchmark files found")
+		return fmt.Errorf("no benchmark files found")
 	}
 
 	for _, f := range files {
@@ -458,7 +458,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		os.Setenv("RUGO_TEST_TIMEOUT", "30")
 	}
 
-	// Collect test files: _test.rg files and .rg files containing inline rats blocks
+	// Collect test files: _test.rugo/_test.rg files and Rugo files with inline rats blocks
 	var files []string
 	for _, target := range targets {
 		info, err := os.Stat(target)
@@ -476,9 +476,9 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 					}
 					return nil
 				}
-				if strings.HasSuffix(d.Name(), "_test.rg") {
+				if compiler.IsRugoTestFile(d.Name()) {
 					files = append(files, path)
-				} else if strings.HasSuffix(d.Name(), ".rg") && fileHasRatsBlocks(path) {
+				} else if compiler.IsRugoFile(d.Name()) && fileHasRatsBlocks(path) {
 					files = append(files, path)
 				}
 				return nil
@@ -616,7 +616,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	return nil
 }
 
-// fileHasRatsBlocks reports whether a .rg file contains rats test blocks.
+// fileHasRatsBlocks reports whether a Rugo file contains rats test blocks.
 // It uses a lightweight line scan to avoid parsing the full file.
 func fileHasRatsBlocks(path string) bool {
 	data, err := os.ReadFile(path)

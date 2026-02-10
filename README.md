@@ -164,10 +164,10 @@ go install github.com/rubiojr/rugo@latest
 ## Usage
 
 ```bash
-rugo script.rg            # compile and run
-rugo build script.rg      # compile to native binary
-rugo rats script.rg       # run inline tests
-rugo emit script.rg       # print generated Go code
+rugo script.rugo            # compile and run
+rugo build script.rugo      # compile to native binary
+rugo rats script.rugo       # run inline tests
+rugo emit script.rugo       # print generated Go code
 ```
 
 ## Documentation

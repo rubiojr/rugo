@@ -1,6 +1,6 @@
 ---
 name: rugo-quickstart
-description: Rugo language quickstart guide. Load when writing .rg scripts, learning Rugo syntax, or helping users with Rugo language features.
+description: Rugo language quickstart guide. Load when writing .rugo scripts, learning Rugo syntax, or helping users with Rugo language features.
 ---
 
 # Rugo Quickstart
@@ -16,15 +16,15 @@ go install github.com/rubiojr/rugo@latest
 ## Run your first script
 
 ```bash
-rugo run script.rg        # compile and run
-rugo build script.rg      # compile to native binary
-rugo emit script.rg       # print generated Go code
+rugo run script.rugo        # compile and run
+rugo build script.rugo      # compile to native binary
+rugo emit script.rugo       # print generated Go code
 rugo doc http             # show module documentation
 ```
 
 ## Hello World
 
-Create `hello.rg`:
+Create `hello.rugo`:
 
 ```ruby
 puts "Hello, World!"
@@ -33,13 +33,13 @@ puts "Hello, World!"
 Run it:
 
 ```bash
-rugo run hello.rg
+rugo run hello.rugo
 ```
 
 Or compile to a native binary:
 
 ```bash
-rugo build hello.rg
+rugo build hello.rugo
 ./hello
 ```
 
@@ -572,7 +572,7 @@ Rugo has three module systems:
 |---------|---------|---------|
 | `use` | Rugo stdlib modules | `use "http"` |
 | `import` | Go stdlib bridge | `import "strings"` |
-| `require` | User `.rg` files | `require "helpers"` |
+| `require` | User `.rugo` files | `require "helpers"` |
 
 ### Rugo Stdlib Modules
 
@@ -607,14 +607,14 @@ Available without any import: `puts`, `print`, `len`, `append`, `type_of`.
 ### User Modules
 
 ```ruby
-# math_helpers.rg
+# math_helpers.rugo
 def double(n)
   return n * 2
 end
 ```
 
 ```ruby
-# main.rg
+# main.rugo
 require "math_helpers"
 puts math_helpers.double(21)   # 42
 ```
@@ -713,7 +713,7 @@ result = try task.wait(2) or "timed out"
 
 ## Testing with RATS
 
-RATS (Rugo Automated Testing System) uses `_test.rg` files and the `test` module.
+RATS (Rugo Automated Testing System) uses `_test.rugo` files and the `test` module.
 
 ### Writing Tests
 
@@ -721,7 +721,7 @@ RATS (Rugo Automated Testing System) uses `_test.rg` files and the `test` module
 use "test"
 
 rats "prints hello"
-  result = test.run("rugo run greet.rg")
+  result = test.run("rugo run greet.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello")
 end
@@ -730,8 +730,8 @@ end
 ### Running Tests
 
 ```bash
-rugo rats                            # run all _test.rg in current dir
-rugo rats test/greet_test.rg         # run a specific file
+rugo rats                            # run all _test.rugo in current dir
+rugo rats test/greet_test.rugo         # run a specific file
 rugo rats --filter "hello"           # filter by test name
 ```
 
@@ -761,7 +761,7 @@ end
 use "test"
 
 rats "binary works"
-  test.run("rugo build greet.rg -o /tmp/greet")
+  test.run("rugo build greet.rugo -o /tmp/greet")
   result = test.run("/tmp/greet")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello")
@@ -771,10 +771,10 @@ end
 
 ### Inline Tests
 
-Embed `rats` blocks in regular `.rg` files. `rugo run` ignores them; `rugo rats` executes them.
+Embed `rats` blocks in regular `.rugo` files. `rugo run` ignores them; `rugo rats` executes them.
 
 ```ruby
-# greet.rg
+# greet.rugo
 use "test"
 
 def greet(name)
@@ -790,11 +790,11 @@ end
 ```
 
 ```bash
-rugo run greet.rg       # prints "Hello, World!" — tests ignored
-rugo rats greet.rg      # runs the inline tests
+rugo run greet.rugo       # prints "Hello, World!" — tests ignored
+rugo rats greet.rugo      # runs the inline tests
 ```
 
-When scanning a directory, `rugo rats` discovers both `_test.rg` files and regular `.rg` files containing `rats` blocks (directories named `fixtures` are skipped).
+When scanning a directory, `rugo rats` discovers both `_test.rugo` files and regular `.rugo` files containing `rats` blocks (directories named `fixtures` are skipped).
 
 ## Custom Modules (Advanced)
 
@@ -893,9 +893,9 @@ end
 ```
 
 ```bash
-rugo run benchmarks.rg          # run a single benchmark file
-rugo bench                      # run all _bench.rg files in current dir
-rugo bench bench/               # run all _bench.rg in a directory
+rugo run benchmarks.rugo          # run a single benchmark file
+rugo bench                      # run all _bench.rugo files in current dir
+rugo bench bench/               # run all _bench.rugo in a directory
 ```
 
 The framework auto-calibrates iterations (scales until ≥1s elapsed), reports ns/op and run count.
@@ -979,7 +979,7 @@ puts data.user.name       # Alice
 ### Methods
 
 ```ruby
-# dog.rg
+# dog.rugo
 struct Dog
   name
   breed
@@ -1133,7 +1133,7 @@ web.end_group()
 
 ## Remote Modules
 
-Load `.rg` modules directly from git repositories — no package registry needed.
+Load `.rugo` modules directly from git repositories — no package registry needed.
 
 ### Basic Usage
 
@@ -1160,7 +1160,7 @@ gh = client.from_env()
 issues = issue.list(gh, "rubiojr", "rugo")
 ```
 
-Each name loads `<name>.rg` from the repo root. Without `with`, Rugo looks for `<repo-name>.rg`, then `main.rg`, then the sole `.rg` file.
+Each name loads `<name>.rugo` from the repo root. Without `with`, Rugo looks for `<repo-name>.rugo`, then `main.rugo`, then the sole `.rugo` file.
 
 ### Subpath Requires
 
@@ -1206,8 +1206,8 @@ end
 ### `rugo doc` Command
 
 ```bash
-rugo doc file.rg              # all docs in a file
-rugo doc file.rg factorial    # specific function or struct
+rugo doc file.rugo              # all docs in a file
+rugo doc file.rugo factorial    # specific function or struct
 rugo doc http                 # stdlib module
 rugo doc strings              # bridge package
 rugo doc github.com/user/repo # remote module

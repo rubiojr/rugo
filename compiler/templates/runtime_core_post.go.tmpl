@@ -1,15 +1,24 @@
 func rugo_panic_handler(e interface{}) {
-	// Parse debug.Stack() to find the .rg source location
+	// Parse debug.Stack() to find the Rugo source location
 	stack := string(debug.Stack())
 	file := ""
 	line := ""
-	// Find .rg frames after the panic() frame (skip recovery frames)
+	// Find Rugo frames after the panic() frame (skip recovery frames)
 	lines := strings.Split(stack, "\n")
 	pastPanic := false
 	for _, s := range lines {
 		if strings.Contains(s, "panic(") { pastPanic = true; continue }
 		if !pastPanic { continue }
 		s = strings.TrimSpace(s)
+		// Check for .rugo: first (preferred), then .rg: (deprecated)
+		if idx := strings.Index(s, ".rugo:"); idx >= 0 {
+			rest := s[idx+6:]
+			lineEnd := strings.IndexAny(rest, " +")
+			if lineEnd < 0 { lineEnd = len(rest) }
+			line = rest[:lineEnd]
+			file = s[:idx+5]
+			break
+		}
 		if idx := strings.Index(s, ".rg:"); idx >= 0 {
 			rest := s[idx+4:]
 			lineEnd := strings.IndexAny(rest, " +")

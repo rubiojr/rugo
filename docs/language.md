@@ -4,10 +4,10 @@ This document describes the design and implementation of the Rugo programming la
 
 ## Overview
 
-Rugo's compilation pipeline transforms `.rg` source files into native binaries through a series of well-defined stages:
+Rugo's compilation pipeline transforms `.rugo` source files into native binaries through a series of well-defined stages:
 
 ```
-.rg source
+.rugo source
    │
    ▼
 Strip comments
@@ -415,7 +415,7 @@ Function name resolution is *positional* at the top level: a `def` must appear b
 
 ### Line Map
 
-The preprocessor produces a line map that tracks the correspondence between preprocessed line numbers and original source line numbers. This is threaded through the walker and codegen so that `//line` directives and error messages reference the correct `.rg` source location.
+The preprocessor produces a line map that tracks the correspondence between preprocessed line numbers and original source line numbers. This is threaded through the walker and codegen so that `//line` directives and error messages reference the correct `.rugo` source location.
 
 ## Parser
 
@@ -510,7 +510,7 @@ Node (interface)
     └── FnExpr            — fn(params) body end (lambda)
 ```
 
-Every statement node embeds `BaseStmt`, which carries a `SourceLine` field mapping back to the original `.rg` source. This is populated by the walker using the line map from the preprocessor.
+Every statement node embeds `BaseStmt`, which carries a `SourceLine` field mapping back to the original `.rugo` source. This is populated by the walker using the line map from the preprocessor.
 
 ### AST Walker
 
@@ -542,7 +542,7 @@ The code generator (`compiler/codegen.go`) traverses the typed AST and emits a s
 
 **`try/or` expressions**: Compile to a Go IIFE with `defer/recover`. The tried expression is the return value; if it panics, the recovery handler runs and produces the fallback value.
 
-**`//line` directives**: The codegen emits `//line file.rg:N` directives before each statement so that Go runtime panics show `.rg` source locations instead of generated Go line numbers.
+**`//line` directives**: The codegen emits `//line file.rugo:N` directives before each statement so that Go runtime panics show `.rugo` source locations instead of generated Go line numbers.
 
 **Test harness**: When `rats` blocks are present, the codegen generates a TAP-compliant test runner instead of a regular `main()`. Each test block becomes a separate function, with optional `setup`/`teardown` (per-test) and `setup_file`/`teardown_file` (per-file) hooks.
 
@@ -565,7 +565,7 @@ Rugo has three ways to bring in external functionality:
 |---------|---------|---------|
 | `use` | Load Rugo stdlib modules | `use "http"` |
 | `import` | Bridge to Go stdlib packages | `import "strings"` |
-| `require` | Load user `.rg` files | `require "helpers"` |
+| `require` | Load user `.rugo` files | `require "helpers"` |
 
 ### Rugo Stdlib Modules (`use`)
 
@@ -578,7 +578,7 @@ A module consists of:
 
 #### How Modules Work at Compile Time
 
-1. User writes `use "http"` in their `.rg` script.
+1. User writes `use "http"` in their `.rugo` script.
 2. The codegen looks up the module in the registry and collects its Go imports.
 3. The module's `FullRuntime()` method generates:
    - The cleaned runtime source (struct + methods)
@@ -614,17 +614,17 @@ Function names use `snake_case` in Rugo and are auto-converted to Go's `PascalCa
 User modules use `require`:
 
 ```ruby
-require "helpers"            # loads helpers.rg, namespace: helpers
-require "lib/utils" as u    # loads lib/utils.rg, namespace: u
+require "helpers"            # loads helpers.rugo, namespace: helpers
+require "lib/utils" as u    # loads lib/utils.rugo, namespace: u
 require "lib/utils" as "u"  # quoted form also accepted
 
 helpers.greet("World")
 u.compute(42)
 ```
 
-Paths are resolved relative to the calling file. The `.rg` extension is added automatically if missing. Requires are resolved recursively and deduplicated. If the path points to a directory, Rugo resolves an entry point: `<dirname>.rg` → `main.rg` → sole `.rg` file (file takes precedence over directory when both exist).
+Paths are resolved relative to the calling file. The `.rugo` extension is added automatically if missing. Requires are resolved recursively and deduplicated. If the path points to a directory, Rugo resolves an entry point: `<dirname>.rugo` → `main.rugo` → sole `.rugo` file (file takes precedence over directory when both exist).
 
-The `with` clause selectively loads specific `.rg` files from a directory (local or remote):
+The `with` clause selectively loads specific `.rugo` files from a directory (local or remote):
 
 ```ruby
 # Local directory
@@ -635,7 +635,7 @@ client.connect()
 require "github.com/user/rugo-utils@v1.0.0" with client, helpers
 ```
 
-Each name loads `<name>.rg` from the directory or repository root (falling back to `lib/<name>.rg`), using the filename as the namespace.
+Each name loads `<name>.rugo` from the directory or repository root (falling back to `lib/<name>.rugo`), using the filename as the namespace.
 
 Remote git repositories can also be required as a single module:
 
@@ -681,7 +681,7 @@ rats "string interpolation"
 end
 ```
 
-Test files use the `_test.rg` extension and produce TAP (Test Anything Protocol) output. The test harness supports:
+Test files use the `_test.rugo` extension and produce TAP (Test Anything Protocol) output. The test harness supports:
 
 - `setup` / `teardown` functions called before/after each test
 - `setup_file` / `teardown_file` functions called once before/after all tests
@@ -720,8 +720,8 @@ end
 Use `rugo doc` to view documentation for files, modules, and bridge packages:
 
 ```bash
-rugo doc file.rg           # all docs in a file
-rugo doc file.rg factorial # specific symbol
+rugo doc file.rugo           # all docs in a file
+rugo doc file.rugo factorial # specific symbol
 rugo doc http              # stdlib module
 rugo doc strings           # bridge package
 rugo doc --all             # list everything

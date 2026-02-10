@@ -6,7 +6,7 @@ Rugo has three module systems:
 |---------|---------|---------|
 | `use` | Rugo stdlib modules | `use "http"` |
 | `import` | Go stdlib bridge | `import "strings"` |
-| `require` | User `.rg` files | `require "helpers"` |
+| `require` | User `.rugo` files | `require "helpers"` |
 
 ## Rugo Stdlib Modules
 
@@ -60,54 +60,54 @@ exit 42     # paren-free syntax
 
 ## User Modules
 
-Create reusable `.rg` files and load them with `require`:
+Create reusable `.rugo` files and load them with `require`:
 
 ```ruby
-# math_helpers.rg
+# math_helpers.rugo
 def double(n)
   return n * 2
 end
 ```
 
 ```ruby
-# main.rg
+# main.rugo
 require "math_helpers"
 puts math_helpers.double(21)   # 42
 ```
 
 Functions are namespaced by filename. User modules can `use` Rugo stdlib modules in their functions — the imports are automatically propagated.
 
-Paths are resolved relative to the calling file. `require "lib/utils"` loads `lib/utils.rg` from the calling file's directory.
+Paths are resolved relative to the calling file. `require "lib/utils"` loads `lib/utils.rugo` from the calling file's directory.
 
 ### Directory Modules
 
 If the require path points to a directory instead of a file, Rugo resolves an entry point automatically:
 
-1. `<dirname>.rg` (e.g., `mylib/mylib.rg`)
-2. `main.rg`
-3. The sole `.rg` file (if there's exactly one)
+1. `<dirname>.rugo` (e.g., `mylib/mylib.rugo`)
+2. `main.rugo`
+3. The sole `.rugo` file (if there's exactly one)
 
 ```ruby
-# Given a directory mylib/ containing mylib.rg:
+# Given a directory mylib/ containing mylib.rugo:
 require "mylib"
 puts mylib.greet("world")
 ```
 
-If a file `mylib.rg` exists alongside a directory `mylib/`, the file takes precedence.
+If a file `mylib.rugo` exists alongside a directory `mylib/`, the file takes precedence.
 
 ### Multi-File Libraries with `with`
 
-Use `with` to selectively load specific `.rg` files from a local directory:
+Use `with` to selectively load specific `.rugo` files from a local directory:
 
 ```ruby
-# Given a directory mylib/ containing greet.rg and math.rg:
+# Given a directory mylib/ containing greet.rugo and math.rugo:
 require "mylib" with greet, math
 
 puts greet.greet("world")
 puts math.double(21)   # 42
 ```
 
-Each name in the `with` list loads `<name>.rg` from the directory root, or from `lib/<name>.rg` as a fallback. The filename becomes the namespace. This works with both local directories and remote repositories.
+Each name in the `with` list loads `<name>.rugo` from the directory root, or from `lib/<name>.rugo` as a fallback. The filename becomes the namespace. This works with both local directories and remote repositories.
 
 ### Remote Modules
 

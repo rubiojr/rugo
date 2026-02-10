@@ -32,7 +32,7 @@ type codeGen struct {
 	goImports       map[string]string // Go bridge packages: path → alias
 	namespaces      map[string]bool   // known require namespaces
 	nsVarNames      map[string]bool   // namespaced var names: "ns.name" → true
-	sourceFile      string            // original .rg filename for //line directives
+	sourceFile      string            // original source filename for //line directives
 	hasSpawn        bool              // whether spawn is used
 	hasParallel     bool              // whether parallel is used
 	hasBench        bool              // whether bench blocks are present

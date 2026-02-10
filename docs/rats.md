@@ -41,12 +41,12 @@ Key features:
 
 ## Proposed Rugo Design
 
-### Test file syntax (`_test.rg` files)
+### Test file syntax (`_test.rugo` files)
 
-Tests can live in dedicated `_test.rg` files or inline in regular `.rg` files.
+Tests can live in dedicated `_test.rugo` files or inline in regular `.rugo` files.
 
 ```ruby
-# test/myapp_test.rg
+# test/myapp_test.rugo
 use "test"
 use "os"
 
@@ -93,8 +93,8 @@ end
 
 ```bash
 rugo rats                            # run all test files in rats/ (or current dir)
-rugo rats test/myapp_test.rg         # run specific file
-rugo rats myapp.rg                   # run inline tests in a regular .rg file
+rugo rats test/myapp_test.rugo         # run specific file
+rugo rats myapp.rugo                   # run inline tests in a regular .rugo file
 rugo rats --filter "greet"           # filter by test name
 rugo rats -j 4                       # run with 4 parallel workers
 rugo rats -j 1                       # run sequentially
@@ -160,7 +160,7 @@ result = test.run("echo hello")
 
 The `rugo rats` command would:
 
-1. Discover `_test.rg` files (in `test/` by default, or specified paths)
+1. Discover `_test.rugo` files (in `test/` by default, or specified paths)
 2. For each file:
    a. Parse and find all `rats "name" ... end` blocks
    b. Find `setup`/`teardown`/`setup_file`/`teardown_file` if defined
@@ -251,7 +251,7 @@ Functions needed:
 ### 3. Test runner (`rugo rats` command) (Required)
 
 A new subcommand in `main.go` that:
-- Scans for `_test.rg` files
+- Scans for `_test.rugo` files
 - Parses them to find test blocks
 - Generates a special Go program with test harness
 - Compiles and runs it
@@ -300,7 +300,7 @@ These BATS features can be deferred or aren't needed:
 ## Example: Testing a Rugo Script
 
 ```ruby
-# greet.rg
+# greet.rugo
 use "os"
 
 def greet(name)
@@ -315,17 +315,17 @@ greet("World")
 ```
 
 ```ruby
-# test/greet_test.rg
+# test/greet_test.rugo
 use "test"
 
 rats "outputs greeting"
-  result = test.run("rugo run greet.rg")
+  result = test.run("rugo run greet.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello, World!")
 end
 
 rats "greet binary works"
-  test.run("rugo build greet.rg -o /tmp/greet")
+  test.run("rugo build greet.rugo -o /tmp/greet")
   result = test.run("/tmp/greet")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, World!")
@@ -333,7 +333,7 @@ end
 ```
 
 ```
-$ rugo rats test/greet_test.rg
+$ rugo rats test/greet_test.rugo
  ✓ outputs greeting
  ✓ greet binary works
 
@@ -342,12 +342,12 @@ $ rugo rats test/greet_test.rg
 
 ## Inline Tests
 
-Tests can be embedded directly in regular `.rg` files alongside normal code.
+Tests can be embedded directly in regular `.rugo` files alongside normal code.
 When run with `rugo run`, the `rats` blocks are silently ignored. When run
 with `rugo rats`, they execute as tests.
 
 ```ruby
-# math.rg
+# math.rugo
 use "test"
 
 def add(a, b)
@@ -364,13 +364,13 @@ end
 ```
 
 ```
-$ rugo run math.rg
+$ rugo run math.rugo
 5
 
-$ rugo rats math.rg
+$ rugo rats math.rugo
  ✓ add returns the sum
 ```
 
-When scanning a directory, `rugo rats` discovers both `_test.rg` files and
-regular `.rg` files containing `rats` blocks. Directories named `fixtures`
+When scanning a directory, `rugo rats` discovers both `_test.rugo` files and
+regular `.rugo` files containing `rats` blocks. Directories named `fixtures`
 are skipped during discovery.

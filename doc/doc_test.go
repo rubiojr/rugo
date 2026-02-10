@@ -12,7 +12,7 @@ func TestExtract_FileDoc(t *testing.T) {
 def foo()
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if fd.Doc != "File-level documentation.\nSecond line." {
 		t.Errorf("file doc = %q", fd.Doc)
 	}
@@ -24,7 +24,7 @@ def add(a, b)
   return a + b
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if len(fd.Funcs) != 1 {
 		t.Fatalf("expected 1 func, got %d", len(fd.Funcs))
 	}
@@ -50,7 +50,7 @@ struct Dog
   breed
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if len(fd.Structs) != 1 {
 		t.Fatalf("expected 1 struct, got %d", len(fd.Structs))
 	}
@@ -72,7 +72,7 @@ func TestExtract_BlankLineBreaksAttachment(t *testing.T) {
 def foo()
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if len(fd.Funcs) != 1 {
 		t.Fatalf("expected 1 func, got %d", len(fd.Funcs))
 	}
@@ -91,7 +91,7 @@ end
 def bar(x)
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if len(fd.Funcs) != 2 {
 		t.Fatalf("expected 2 funcs, got %d", len(fd.Funcs))
 	}
@@ -108,7 +108,7 @@ def Dog.bark()
   return "woof"
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if len(fd.Funcs) != 1 {
 		t.Fatalf("expected 1 func, got %d", len(fd.Funcs))
 	}
@@ -129,7 +129,7 @@ HEREDOC
 def foo()
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if len(fd.Funcs) != 1 {
 		t.Fatalf("expected 1 func, got %d", len(fd.Funcs))
 	}
@@ -145,7 +145,7 @@ func TestExtract_MultilineDoc(t *testing.T) {
 def foo()
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	expected := "Line one.\nLine two.\nLine three."
 	if fd.Funcs[0].Doc != expected {
 		t.Errorf("doc = %q, want %q", fd.Funcs[0].Doc, expected)
@@ -158,7 +158,7 @@ def greet
   puts "hello"
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if len(fd.Funcs) != 1 {
 		t.Fatalf("expected 1 func, got %d", len(fd.Funcs))
 	}
@@ -183,7 +183,7 @@ struct Point
   y
 end
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 
 	doc, sig, found := LookupSymbol(fd, "helper")
 	if !found {
@@ -219,7 +219,7 @@ func TestExtract_FileDocBeforeCode(t *testing.T) {
 require "./client"
 require "./repo"
 `
-	fd := Extract(src, "test.rg")
+	fd := Extract(src, "test.rugo")
 	if fd.Doc != "Module documentation.\nMore details." {
 		t.Errorf("file doc = %q", fd.Doc)
 	}
@@ -229,13 +229,13 @@ func TestExtractDir(t *testing.T) {
 	dir := t.TempDir()
 
 	// Entry file with file-level doc
-	writeFile(t, dir, "main.rg", "# Top-level doc.\nrequire \"./lib\"\n")
+	writeFile(t, dir, "main.rugo", "# Top-level doc.\nrequire \"./lib\"\n")
 	// Library with functions
-	writeFile(t, dir, "lib.rg", "# Adds numbers.\ndef add(a, b)\n  return a + b\nend\n\n# Subtracts.\ndef sub(a, b)\n  return a - b\nend\n")
+	writeFile(t, dir, "lib.rugo", "# Adds numbers.\ndef add(a, b)\n  return a + b\nend\n\n# Subtracts.\ndef sub(a, b)\n  return a - b\nend\n")
 	// Another file with a struct
-	writeFile(t, dir, "types.rg", "# A Point.\nstruct Point\n  x\n  y\nend\n")
+	writeFile(t, dir, "types.rugo", "# A Point.\nstruct Point\n  x\n  y\nend\n")
 
-	fd, err := ExtractDir(dir, dir+"/main.rg")
+	fd, err := ExtractDir(dir, dir+"/main.rugo")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -47,11 +47,13 @@ type Compiler struct {
 type CompileResult struct {
 	GoSource   string
 	Program    *Program
-	SourceFile string // original .rg filename
+	SourceFile string // original source filename
 }
 
-// Compile reads a .rg file, resolves requires, and produces Go source.
+// Compile reads a Rugo source file, resolves requires, and produces Go source.
 func (c *Compiler) Compile(filename string) (*CompileResult, error) {
+	WarnDeprecatedExt(filename)
+
 	if c.loaded == nil {
 		c.loaded = make(map[string]string)
 	}
@@ -78,7 +80,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 		}
 	}
 
-	// In test mode, auto-require .rg files from helpers/ dir next to the test file.
+	// In test mode, auto-require Rugo files from helpers/ dir next to the test file.
 	if c.TestMode {
 		c.sourcePrefix = c.discoverHelpers()
 	}
@@ -109,7 +111,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename}, nil
 }
 
-// discoverHelpers finds .rg files in a helpers/ directory next to the test file
+// discoverHelpers finds Rugo files in a helpers/ directory next to the test file
 // and returns require statements to prepend to the source.
 func (c *Compiler) discoverHelpers() string {
 	helpersDir := filepath.Join(c.BaseDir, "helpers")
@@ -120,10 +122,10 @@ func (c *Compiler) discoverHelpers() string {
 	var lines []string
 	for _, e := range entries {
 		name := e.Name()
-		if e.IsDir() || !strings.HasSuffix(name, ".rg") {
+		if e.IsDir() || !IsRugoFile(name) {
 			continue
 		}
-		base := strings.TrimSuffix(name, ".rg")
+		base := TrimRugoExt(name)
 		lines = append(lines, fmt.Sprintf("require \"helpers/%s\" as \"%s\"", base, base))
 	}
 	if len(lines) == 0 {
@@ -153,7 +155,7 @@ func goModContent(prog *Program) string {
 	return goMod
 }
 
-// Run compiles and runs a .rg file, passing extraArgs to the compiled binary.
+// Run compiles and runs a Rugo source file, passing extraArgs to the compiled binary.
 func (c *Compiler) Run(filename string, extraArgs ...string) error {
 	result, err := c.Compile(filename)
 	if err != nil {
@@ -202,7 +204,7 @@ func (c *Compiler) Run(filename string, extraArgs ...string) error {
 	return nil
 }
 
-// Build compiles a .rg file to a native binary.
+// Build compiles a Rugo source file to a native binary.
 func (c *Compiler) Build(filename, output string) error {
 	result, err := c.Compile(filename)
 	if err != nil {
@@ -249,7 +251,7 @@ func (c *Compiler) Build(filename, output string) error {
 	return nil
 }
 
-// Emit compiles a .rg file and outputs the Go source.
+// Emit compiles a Rugo source file and outputs the Go source.
 func (c *Compiler) Emit(filename string) (string, error) {
 	result, err := c.Compile(filename)
 	if err != nil {
@@ -412,14 +414,15 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			}
 
 			for _, modName := range req.With {
-				modFile := filepath.Join(baseDir, modName+".rg")
-				if !fileExists(modFile) {
+				modFile := FindRugoFile(filepath.Join(baseDir, modName))
+				if modFile == "" {
 					// Fallback: look in lib/ subdirectory
-					modFile = filepath.Join(baseDir, "lib", modName+".rg")
+					modFile = FindRugoFile(filepath.Join(baseDir, "lib", modName))
 				}
-				if !fileExists(modFile) {
-					return nil, fmt.Errorf("%s:%d: module %q not found in %s (no %s.rg)", prog.SourceFile, req.StmtLine(), modName, req.Path, modName)
+				if modFile == "" {
+					return nil, fmt.Errorf("%s:%d: module %q not found in %s (no %s%s)", prog.SourceFile, req.StmtLine(), modName, req.Path, modName, RugoExt)
 				}
+				WarnDeprecatedExt(modFile)
 
 				absPath, err := filepath.Abs(modFile)
 				if err != nil {
@@ -509,10 +512,10 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			if !filepath.IsAbs(reqPath) {
 				reqPath = filepath.Join(c.BaseDir, reqPath)
 			}
-			// Try as a file first (append .rg if needed), then as a directory
-			if !strings.HasSuffix(reqPath, ".rg") {
-				if fileExists(reqPath + ".rg") {
-					reqPath += ".rg"
+			// Try as a file first (append extension if needed), then as a directory
+			if !IsRugoFile(reqPath) {
+				if found := FindRugoFile(reqPath); found != "" {
+					reqPath = found
 				} else if info, err := os.Stat(reqPath); err == nil && info.IsDir() {
 					entryPoint, err := FindLocalEntryPoint(reqPath)
 					if err != nil {
@@ -520,9 +523,10 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 					}
 					reqPath = entryPoint
 				} else {
-					reqPath += ".rg"
+					reqPath += RugoExt
 				}
 			}
+			WarnDeprecatedExt(reqPath)
 			var err error
 			absPath, err = filepath.Abs(reqPath)
 			if err != nil {
@@ -1097,7 +1101,7 @@ func translateBuildError(stderr, sourceFile string) error {
 			prefix := line[:colonIdx]
 			if strings.HasPrefix(prefix, "../") || strings.HasPrefix(prefix, "./") {
 				base := filepath.Base(prefix)
-				if strings.HasSuffix(base, ".rg") {
+				if IsRugoFile(base) {
 					line = base + line[colonIdx:]
 				}
 			}
@@ -1239,31 +1243,29 @@ func validateNamespace(name string) error {
 	return nil
 }
 
-// FindLocalEntryPoint resolves the entry point .rg file within a local directory.
-// Resolution order: <dirname>.rg → main.rg → sole .rg file.
+// FindLocalEntryPoint resolves the entry point Rugo file within a local directory.
+// Resolution order: <dirname>.rugo → <dirname>.rg → main.rugo → main.rg → sole Rugo file.
 func FindLocalEntryPoint(dir string) (string, error) {
 	name := filepath.Base(dir)
 
-	// 1. <dirname>.rg
-	candidate := filepath.Join(dir, name+".rg")
-	if fileExists(candidate) {
-		return candidate, nil
+	// 1. <dirname>.rugo or <dirname>.rg
+	if found := FindRugoFile(filepath.Join(dir, name)); found != "" {
+		return found, nil
 	}
 
-	// 2. main.rg
-	candidate = filepath.Join(dir, "main.rg")
-	if fileExists(candidate) {
-		return candidate, nil
+	// 2. main.rugo or main.rg
+	if found := FindRugoFile(filepath.Join(dir, "main")); found != "" {
+		return found, nil
 	}
 
-	// 3. Exactly one .rg file
+	// 3. Exactly one Rugo source file
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		return "", fmt.Errorf("reading directory %s: %w", dir, err)
 	}
 	var rgFiles []string
 	for _, e := range entries {
-		if !e.IsDir() && strings.HasSuffix(e.Name(), ".rg") {
+		if !e.IsDir() && IsRugoFile(e.Name()) {
 			rgFiles = append(rgFiles, filepath.Join(dir, e.Name()))
 		}
 	}
@@ -1272,7 +1274,7 @@ func FindLocalEntryPoint(dir string) (string, error) {
 	}
 
 	if len(rgFiles) == 0 {
-		return "", fmt.Errorf("no .rg files found in directory %q", dir)
+		return "", fmt.Errorf("no Rugo source files found in directory %q", dir)
 	}
-	return "", fmt.Errorf("cannot determine entry point for directory %q: found %d .rg files (add a %s.rg or main.rg, or use 'with' to select specific modules)", dir, len(rgFiles), name)
+	return "", fmt.Errorf("cannot determine entry point for directory %q: found %d Rugo files (add a %s%s or main%s, or use 'with' to select specific modules)", dir, len(rgFiles), name, RugoExt, RugoExt)
 }
