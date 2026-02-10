@@ -1,0 +1,5 @@
+# String slice — chained with other operations
+text = "hello world"
+sub = text[0, 5]
+puts len(sub)
+puts sub

@@ -1,0 +1,3 @@
+# String slice — length beyond bounds (clamped)
+text = "hello"
+puts text[3, 100]

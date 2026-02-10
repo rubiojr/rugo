@@ -29,3 +29,23 @@ page3 = items[6, page_size]
 puts("Page 1: " + conv.to_s(page1))
 puts("Page 2: " + conv.to_s(page2))
 puts("Page 3: " + conv.to_s(page3))
+
+# --- String slicing works with the same syntax ---
+
+text = "hello world"
+puts("First five: " + text[0, 5])
+puts("Last five:  " + text[6, 5])
+
+# Extract with len()
+puts("Full text:  " + text[0, len(text)])
+
+# Clamped past the end
+puts("Clamped:    " + text[6, 100])
+
+# Start past the end returns empty string
+puts("Empty:      '" + text[99, 5] + "'")
+
+# Practical use: extract a command prefix
+input = "!help show topics"
+cmd = input[1, 4]
+puts("Command: " + cmd)

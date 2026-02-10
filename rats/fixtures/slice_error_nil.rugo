@@ -1,0 +1,3 @@
+# Slice error — nil
+x = nil
+y = x[0, 5]

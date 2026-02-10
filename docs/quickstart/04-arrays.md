@@ -29,7 +29,7 @@ puts matrix[0]        # [1, 2]
 
 ## Slicing
 
-Extract a sub-range with `arr[start, length]`:
+Extract a sub-range with `arr[start, length]` (also works on [strings](03-strings.md#slicing)):
 
 ```ruby
 numbers = [10, 20, 30, 40, 50]

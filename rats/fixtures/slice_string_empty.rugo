@@ -1,0 +1,4 @@
+# String slice — empty string source
+text = ""
+puts text[0, 5]
+puts "done"

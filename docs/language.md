@@ -536,7 +536,7 @@ The code generator (`compiler/codegen.go`) traverses the typed AST and emits a s
 
 **Negative array indexing**: Array access supports negative indices (Ruby behavior). `arr[-1]` returns the last element, `arr[-2]` the second-to-last, etc. This is handled by the `rugo_array_index` runtime helper, which normalizes negative indices by adding `len(arr)`.
 
-**Array slicing**: `arr[start, length]` compiles to `rugo_slice(obj, start, length)`, which returns a new array. Out-of-bounds indices are clamped silently (Ruby behavior) rather than panicking.
+**Slicing**: `obj[start, length]` compiles to `rugo_slice(obj, start, length)`, which supports both arrays and strings. For arrays it returns a new array; for strings it returns a substring. Out-of-bounds indices are clamped silently (Ruby behavior) rather than panicking. Slicing unsupported types (int, bool, hash, etc.) produces a developer-friendly error like `cannot slice hash (expected string or array)`.
 
 **Argument count validation**: User-defined function calls are validated during code generation. If the number of arguments doesn't match the function's parameter count, a Rugo-specific error is emitted (e.g., `wrong number of arguments for greet (2 for 1)`) instead of exposing internal Go compiler errors.
 

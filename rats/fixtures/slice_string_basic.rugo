@@ -1,0 +1,4 @@
+# String slice — basic substring
+text = "hello world"
+puts text[0, 5]
+puts text[6, 5]

@@ -1,0 +1,3 @@
+# String slice — middle extraction
+text = "the quick brown fox"
+puts text[4, 5]

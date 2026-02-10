@@ -1,0 +1,4 @@
+# String slice — single character
+text = "hello"
+puts text[0, 1]
+puts text[4, 1]

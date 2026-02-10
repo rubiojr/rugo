@@ -89,6 +89,24 @@ YAML
 
 The closing delimiter can be indented — leading whitespace is ignored when matching.
 
+## Slicing
+
+Extract a substring with `text[start, length]` — same syntax as array slicing:
+
+```ruby
+text = "hello world"
+puts text[0, 5]     # hello
+puts text[6, 5]     # world
+```
+
+Out-of-bounds slices are clamped silently — no panics:
+
+```ruby
+text = "hello"
+puts text[3, 100]   # lo    — clamped to end
+puts text[99, 5]    # ""    — empty string
+```
+
 ## Concatenation
 
 Concatenation with `+`:
