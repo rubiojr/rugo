@@ -30,8 +30,8 @@ type Compiler struct {
 	Frozen bool
 	// resolver handles remote module fetching, caching, and lock file state.
 	resolver *remote.Resolver
-	// loaded tracks already-loaded files to prevent duplicate requires.
-	loaded map[string]bool
+	// loaded tracks already-loaded files and the namespace they were loaded under.
+	loaded map[string]string // abs path → namespace
 	// imports tracks which Rugo stdlib modules have been imported via use.
 	imports map[string]bool
 	// goImports tracks Go stdlib bridge packages imported via import.
@@ -53,7 +53,7 @@ type CompileResult struct {
 // Compile reads a .rg file, resolves requires, and produces Go source.
 func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	if c.loaded == nil {
-		c.loaded = make(map[string]bool)
+		c.loaded = make(map[string]string)
 	}
 	if c.imports == nil {
 		c.imports = make(map[string]bool)
@@ -332,6 +332,9 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 	for _, s := range prog.Statements {
 		// Validate and deduplicate use statements (Rugo stdlib modules)
 		if use, ok := s.(*UseStmt); ok {
+			if use.Module == "" {
+				return nil, fmt.Errorf("%s:%d: empty module name in use statement", prog.SourceFile, s.StmtLine())
+			}
 			if !modules.IsModule(use.Module) {
 				if suggestion := closestMatch(use.Module, modules.Names()); suggestion != "" {
 					return nil, fmt.Errorf("%s:%d: unknown module %q — did you mean %q?", prog.SourceFile, s.StmtLine(), use.Module, suggestion)
@@ -347,6 +350,9 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 
 		// Validate and deduplicate import statements (Go stdlib bridge)
 		if imp, ok := s.(*ImportStmt); ok {
+			if imp.Package == "" {
+				return nil, fmt.Errorf("%s:%d: empty package name in import statement", prog.SourceFile, s.StmtLine())
+			}
 			ns := goBridgeNamespace(imp)
 			if !gobridge.IsPackage(imp.Package) {
 				if suggestion := closestMatch(imp.Package, gobridge.PackageNames()); suggestion != "" {
@@ -369,6 +375,18 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		if !ok {
 			resolved = append(resolved, s)
 			continue
+		}
+
+		// Validate require path
+		if req.Path == "" {
+			return nil, fmt.Errorf("%s:%d: empty path in require statement", prog.SourceFile, s.StmtLine())
+		}
+
+		// Validate alias
+		if req.Alias != "" {
+			if err := validateNamespace(req.Alias); err != nil {
+				return nil, fmt.Errorf("%s:%d: invalid require alias %q: %s", prog.SourceFile, s.StmtLine(), req.Alias, err)
+			}
 		}
 
 		// Handle "with" clause: load specific sub-modules from a directory
@@ -408,10 +426,10 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 					return nil, fmt.Errorf("resolving require path %s/%s: %w", req.Path, modName, err)
 				}
 
-				if c.loaded[absPath] {
+				if _, alreadyLoaded := c.loaded[absPath]; alreadyLoaded {
 					continue
 				}
-				c.loaded[absPath] = true
+				c.loaded[absPath] = modName
 
 				reqProg, err := c.parseFile(absPath, displayPath(absPath))
 				if err != nil {
@@ -512,10 +530,24 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			}
 		}
 
-		if c.loaded[absPath] {
-			continue // Already loaded
+		// Determine namespace early (needed for dedup check)
+		ns := req.Alias
+		if ns == "" {
+			if remote.IsRemoteRequire(req.Path) {
+				ns, _ = remote.DefaultNamespace(req.Path)
+			} else {
+				base := filepath.Base(req.Path)
+				ns = strings.TrimSuffix(base, filepath.Ext(base))
+			}
 		}
-		c.loaded[absPath] = true
+
+		if prevNS, alreadyLoaded := c.loaded[absPath]; alreadyLoaded {
+			if ns != prevNS {
+				return nil, fmt.Errorf("%s:%d: %q already required as %q — cannot re-require with a different namespace %q", prog.SourceFile, req.StmtLine(), req.Path, prevNS, ns)
+			}
+			continue // Already loaded with same namespace
+		}
+		c.loaded[absPath] = ns
 
 		reqProg, err := c.parseFile(absPath, displayPath(absPath))
 		if err != nil {
@@ -532,17 +564,6 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		c.BaseDir = oldBase
 		if err != nil {
 			return nil, err
-		}
-
-		// Determine namespace: alias or basename of the path
-		ns := req.Alias
-		if ns == "" {
-			if remote.IsRemoteRequire(req.Path) {
-				ns, _ = remote.DefaultNamespace(req.Path)
-			} else {
-				base := filepath.Base(req.Path)
-				ns = strings.TrimSuffix(base, filepath.Ext(base))
-			}
 		}
 
 		// Reject require namespace that conflicts with a use'd Rugo module
@@ -1015,9 +1036,22 @@ func translateBuildError(stderr, sourceFile string) error {
 		if strings.HasPrefix(line, "# ") {
 			continue
 		}
-		// Skip lines referencing generated Go files
+		// Translate lines referencing generated Go files into Rugo-friendly messages
 		if strings.Contains(line, "main.go:") && strings.HasPrefix(strings.TrimSpace(line), "./") {
-			continue
+			// Translate "undefined: rugons_X_Y" to "undefined function X.Y"
+			if strings.Contains(line, "undefined: rugons_") {
+				if idx := strings.Index(line, "undefined: rugons_"); idx >= 0 {
+					goIdent := line[idx+len("undefined: rugons_"):]
+					// rugons_<ns>_<func> → ns.func
+					if us := strings.Index(goIdent, "_"); us >= 0 {
+						ns := goIdent[:us]
+						fn := goIdent[us+1:]
+						line = fmt.Sprintf("%s: undefined function %s.%s (check that the function exists in the required module)", sourceFile, ns, fn)
+					}
+				}
+			} else {
+				continue
+			}
 		}
 		// Translate Go terms to Rugo terms
 		line = strings.ReplaceAll(line, "continue is not in a loop", "next is not in a loop")
@@ -1038,6 +1072,23 @@ func translateBuildError(stderr, sourceFile string) error {
 		}
 		// Strip rugofn_ prefix from function names
 		line = strings.ReplaceAll(line, "rugofn_", "")
+		// Translate remaining rugons_ prefixes in any other error context
+		for strings.Contains(line, "rugons_") {
+			idx := strings.Index(line, "rugons_")
+			rest := line[idx+7:]
+			if us := strings.Index(rest, "_"); us >= 0 {
+				ns := rest[:us]
+				fn := rest[us+1:]
+				// Find end of identifier
+				end := 0
+				for end < len(fn) && (fn[end] == '_' || (fn[end] >= 'a' && fn[end] <= 'z') || (fn[end] >= 'A' && fn[end] <= 'Z') || (fn[end] >= '0' && fn[end] <= '9')) {
+					end++
+				}
+				line = line[:idx] + ns + "." + fn[:end] + line[idx+7+us+1+end:]
+			} else {
+				break
+			}
+		}
 		// Clean up temp dir path prefix in file references
 		if idx := strings.Index(line, sourceFile); idx > 0 {
 			line = line[idx:]
@@ -1055,7 +1106,8 @@ func translateBuildError(stderr, sourceFile string) error {
 	}
 
 	if len(translated) == 0 {
-		return fmt.Errorf("compilation failed")
+		// All lines were internal Go errors — include raw stderr for debugging
+		return fmt.Errorf("compilation failed:\n%s", strings.TrimSpace(stderr))
 	}
 	return fmt.Errorf("%s", strings.Join(translated, "\n"))
 }
@@ -1164,6 +1216,27 @@ func goBridgeNamespace(imp *ImportStmt) string {
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+// validateNamespace checks that a namespace name is a valid Rugo identifier
+// and not a reserved keyword.
+func validateNamespace(name string) error {
+	if name == "" {
+		return fmt.Errorf("cannot be empty")
+	}
+	// Must start with a letter or underscore
+	if !((name[0] >= 'a' && name[0] <= 'z') || (name[0] >= 'A' && name[0] <= 'Z') || name[0] == '_') {
+		return fmt.Errorf("must start with a letter or underscore")
+	}
+	for _, ch := range name {
+		if !((ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9') || ch == '_') {
+			return fmt.Errorf("contains invalid character %q", ch)
+		}
+	}
+	if rugoKeywords[name] {
+		return fmt.Errorf("%q is a reserved keyword", name)
+	}
+	return nil
 }
 
 // FindLocalEntryPoint resolves the entry point .rg file within a local directory.

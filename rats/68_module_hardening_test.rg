@@ -1,0 +1,256 @@
+# RATS: Module system hardening — edge cases and error messages
+use "test"
+use "str"
+
+# --- Empty paths ---
+
+rats "empty require path gives clear error"
+  script = <<~SCRIPT
+    require ""
+  SCRIPT
+  test.write_file(test.tmpdir() + "/empty_require.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/empty_require.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "empty path in require statement")
+end
+
+rats "empty use gives clear error"
+  script = <<~SCRIPT
+    use ""
+  SCRIPT
+  test.write_file(test.tmpdir() + "/empty_use.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/empty_use.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "empty module name")
+end
+
+rats "empty import gives clear error"
+  script = <<~SCRIPT
+    import ""
+  SCRIPT
+  test.write_file(test.tmpdir() + "/empty_import.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/empty_import.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "empty package name")
+end
+
+# --- Keyword aliases ---
+
+rats "require alias 'if' gives clear error"
+  test.run("mkdir -p " + test.tmpdir() + "/kw1")
+  test.write_file(test.tmpdir() + "/kw1/helper.rg", 'def foo() return 1 end')
+  script = <<~SCRIPT
+    require "helper" as "if"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/kw1/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/kw1/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "reserved keyword")
+end
+
+rats "require alias 'def' gives clear error"
+  test.run("mkdir -p " + test.tmpdir() + "/kw2")
+  test.write_file(test.tmpdir() + "/kw2/helper.rg", 'def foo() return 1 end')
+  script = <<~SCRIPT
+    require "helper" as "def"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/kw2/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/kw2/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "reserved keyword")
+end
+
+rats "require alias 'end' gives clear error"
+  test.run("mkdir -p " + test.tmpdir() + "/kw3")
+  test.write_file(test.tmpdir() + "/kw3/helper.rg", 'def foo() return 1 end')
+  script = <<~SCRIPT
+    require "helper" as "end"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/kw3/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/kw3/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "reserved keyword")
+end
+
+rats "require alias 'return' gives clear error"
+  test.run("mkdir -p " + test.tmpdir() + "/kw4")
+  test.write_file(test.tmpdir() + "/kw4/helper.rg", 'def foo() return 1 end')
+  script = <<~SCRIPT
+    require "helper" as "return"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/kw4/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/kw4/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "reserved keyword")
+end
+
+# --- Duplicate requires ---
+
+rats "same file required with different aliases errors"
+  test.run("mkdir -p " + test.tmpdir() + "/dup1")
+  test.write_file(test.tmpdir() + "/dup1/helper.rg", 'def foo() return 42 end')
+  script = <<~SCRIPT
+    require "helper" as "h1"
+    require "helper" as "h2"
+    puts(h1.foo())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/dup1/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/dup1/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "already required")
+end
+
+rats "same file required with same alias is deduplicated"
+  test.run("mkdir -p " + test.tmpdir() + "/dup2")
+  test.write_file(test.tmpdir() + "/dup2/helper.rg", 'def foo() return 42 end')
+  script = <<~SCRIPT
+    require "helper"
+    require "helper"
+    puts(helper.foo())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/dup2/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/dup2/main.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+# --- User module undefined function ---
+
+rats "undefined function on user module gives friendly error"
+  test.run("mkdir -p " + test.tmpdir() + "/undef1")
+  test.write_file(test.tmpdir() + "/undef1/helper.rg", 'def foo() return 42 end')
+  script = <<~SCRIPT
+    require "helper"
+    puts(helper.nonexistent())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/undef1/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/undef1/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "helper.nonexistent")
+  # Must NOT contain internal Go identifier
+  test.assert_false(str.contains(result["output"], "rugons_"))
+end
+
+# --- Circular requires ---
+
+rats "circular require does not crash"
+  test.run("mkdir -p " + test.tmpdir() + "/circ1")
+  a_src = <<~A
+    require "b"
+    def hello()
+      return "hello"
+    end
+  A
+  b_src = <<~B
+    require "a"
+    def world()
+      return "world"
+    end
+  B
+  test.write_file(test.tmpdir() + "/circ1/a.rg", a_src)
+  test.write_file(test.tmpdir() + "/circ1/b.rg", b_src)
+  script = <<~SCRIPT
+    require "a"
+    puts(a.hello())
+  SCRIPT
+  test.write_file(test.tmpdir() + "/circ1/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/circ1/main.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+# --- Missing file ---
+
+rats "require nonexistent file gives clear error"
+  script = <<~SCRIPT
+    require "does_not_exist"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/missing.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/missing.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot find required file")
+  test.assert_contains(result["output"], "does_not_exist")
+end
+
+# --- Syntax error in required file ---
+
+rats "syntax error in required file includes file name"
+  test.run("mkdir -p " + test.tmpdir() + "/synerr")
+  bad_src = <<~'BAD'
+    def foo(
+      return 42
+    end
+  BAD
+  test.write_file(test.tmpdir() + "/synerr/bad.rg", bad_src)
+  script = <<~SCRIPT
+    require "bad"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/synerr/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/synerr/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "bad")
+end
+
+# --- Empty directory ---
+
+rats "require empty directory gives clear error"
+  test.run("mkdir -p " + test.tmpdir() + "/emptydir_test/emptydir")
+  script = <<~SCRIPT
+    require "emptydir"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/emptydir_test/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/emptydir_test/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "no .rg files")
+end
+
+# --- with clause on non-directory ---
+
+rats "require with 'with' on file gives clear error"
+  test.run("mkdir -p " + test.tmpdir() + "/withfile")
+  test.write_file(test.tmpdir() + "/withfile/helper.rg", 'def foo() return 1 end')
+  script = <<~SCRIPT
+    require "helper" with foo
+  SCRIPT
+  test.write_file(test.tmpdir() + "/withfile/main.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/withfile/main.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "not a directory")
+end
+
+# --- Unknown module suggestions ---
+
+rats "typo in use module suggests correct name"
+  script = <<~SCRIPT
+    use "htp"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/typo_use.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/typo_use.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "did you mean")
+  test.assert_contains(result["output"], "http")
+end
+
+rats "typo in import package suggests correct name"
+  script = <<~SCRIPT
+    import "mathh"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/typo_import.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/typo_import.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "did you mean")
+  test.assert_contains(result["output"], "math")
+end
+
+# --- Unknown function on stdlib module ---
+
+rats "unknown function on stdlib module gives clear error"
+  script = <<~SCRIPT
+    use "str"
+    str.nonexistent("hello")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/unknown_func.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/unknown_func.rg")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unknown function str.nonexistent")
+end
