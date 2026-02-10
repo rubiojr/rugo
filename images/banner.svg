@@ -178,7 +178,7 @@
     <text font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', monospace"
           font-size="13" fill="#3FB950" opacity="0.6">$</text>
     <text x="16" font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', monospace"
-          font-size="13" fill="#C9D1D9" opacity="0.6">rugo build hello.rg</text>
+          font-size="13" fill="#C9D1D9" opacity="0.6">rugo build hello.rugo</text>
     <text x="210" font-family="'JetBrains Mono', 'Fira Code', 'SF Mono', monospace"
           font-size="13" fill="#E8364F" opacity="0.6">→ ./hello</text>
   </g>
