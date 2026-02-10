@@ -1,0 +1,69 @@
+# RATS: Test string concat with dynamic variables
+# Regression: codegen emitted raw Go + for interface{} variables
+use "test"
+
+rats "string concat with reassigned variable in if block"
+  script = <<~SCRIPT
+    arr = ["a", "b"]
+    base = "start"
+    if len(arr) > 0
+      base = base + ", " + arr[0]
+    end
+    puts(base)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "start, a")
+end
+
+rats "string concat in loop with dynamic source"
+  script = <<~SCRIPT
+    items = ["x", "y", "z"]
+    result = ""
+    for item in items
+      if result != ""
+        result = result + ", "
+      end
+      result = result + item
+    end
+    puts(result)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "x, y, z")
+end
+
+rats "int arithmetic with reassigned variable in if block"
+  script = <<~SCRIPT
+    arr = [10, 20]
+    total = 0
+    if len(arr) > 0
+      total = total + arr[0]
+    end
+    puts(total)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "10")
+end
+
+rats "compound concat in function with dynamic variable"
+  script = <<~SCRIPT
+    def build(parts)
+      s = "SELECT "
+      s = s + parts[0]
+      if len(parts) > 1
+        s = s + ", " + parts[1]
+      end
+      return s
+    end
+    puts(build(["a", "b"]))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rg", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rg")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "SELECT a, b")
+end

@@ -371,20 +371,34 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			continue
 		}
 
-		// Validate: "with" only works with remote requires
-		if len(req.With) > 0 && !remote.IsRemoteRequire(req.Path) {
-			return nil, fmt.Errorf("%s:%d: 'with' can only be used with remote requires (e.g., require \"github.com/user/repo\" with mod1, mod2)", prog.SourceFile, req.StmtLine())
-		}
-
-		// Handle "with" clause: load specific sub-modules from a remote repo
+		// Handle "with" clause: load specific sub-modules from a directory
 		if len(req.With) > 0 {
-			cacheDir, err := c.resolver.FetchRepo(req.Path)
-			if err != nil {
-				return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
+			var baseDir string
+			if remote.IsRemoteRequire(req.Path) {
+				var err error
+				baseDir, err = c.resolver.FetchRepo(req.Path)
+				if err != nil {
+					return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
+				}
+			} else {
+				// Local path: resolve relative to the calling file's directory
+				localDir := req.Path
+				if !filepath.IsAbs(localDir) {
+					localDir = filepath.Join(c.BaseDir, localDir)
+				}
+				info, err := os.Stat(localDir)
+				if err != nil || !info.IsDir() {
+					return nil, fmt.Errorf("%s:%d: require with 'with' requires a directory, but %q is not a directory", prog.SourceFile, req.StmtLine(), req.Path)
+				}
+				baseDir = localDir
 			}
 
 			for _, modName := range req.With {
-				modFile := filepath.Join(cacheDir, modName+".rg")
+				modFile := filepath.Join(baseDir, modName+".rg")
+				if !fileExists(modFile) {
+					// Fallback: look in lib/ subdirectory
+					modFile = filepath.Join(baseDir, "lib", modName+".rg")
+				}
 				if !fileExists(modFile) {
 					return nil, fmt.Errorf("%s:%d: module %q not found in %s (no %s.rg)", prog.SourceFile, req.StmtLine(), modName, req.Path, modName)
 				}
@@ -474,11 +488,22 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		} else {
 			// Local require: resolve relative to calling file
 			reqPath := req.Path
-			if !strings.HasSuffix(reqPath, ".rg") {
-				reqPath += ".rg"
-			}
 			if !filepath.IsAbs(reqPath) {
 				reqPath = filepath.Join(c.BaseDir, reqPath)
+			}
+			// Try as a file first (append .rg if needed), then as a directory
+			if !strings.HasSuffix(reqPath, ".rg") {
+				if fileExists(reqPath + ".rg") {
+					reqPath += ".rg"
+				} else if info, err := os.Stat(reqPath); err == nil && info.IsDir() {
+					entryPoint, err := findLocalEntryPoint(reqPath)
+					if err != nil {
+						return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, req.StmtLine(), err)
+					}
+					reqPath = entryPoint
+				} else {
+					reqPath += ".rg"
+				}
 			}
 			var err error
 			absPath, err = filepath.Abs(reqPath)
@@ -1139,4 +1164,42 @@ func goBridgeNamespace(imp *ImportStmt) string {
 func fileExists(path string) bool {
 	info, err := os.Stat(path)
 	return err == nil && !info.IsDir()
+}
+
+// findLocalEntryPoint resolves the entry point .rg file within a local directory.
+// Resolution order: <dirname>.rg → main.rg → sole .rg file.
+func findLocalEntryPoint(dir string) (string, error) {
+	name := filepath.Base(dir)
+
+	// 1. <dirname>.rg
+	candidate := filepath.Join(dir, name+".rg")
+	if fileExists(candidate) {
+		return candidate, nil
+	}
+
+	// 2. main.rg
+	candidate = filepath.Join(dir, "main.rg")
+	if fileExists(candidate) {
+		return candidate, nil
+	}
+
+	// 3. Exactly one .rg file
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return "", fmt.Errorf("reading directory %s: %w", dir, err)
+	}
+	var rgFiles []string
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".rg") {
+			rgFiles = append(rgFiles, filepath.Join(dir, e.Name()))
+		}
+	}
+	if len(rgFiles) == 1 {
+		return rgFiles[0], nil
+	}
+
+	if len(rgFiles) == 0 {
+		return "", fmt.Errorf("no .rg files found in directory %q", dir)
+	}
+	return "", fmt.Errorf("cannot determine entry point for directory %q: found %d .rg files (add a %s.rg or main.rg, or use 'with' to select specific modules)", dir, len(rgFiles), name)
 }

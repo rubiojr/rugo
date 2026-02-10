@@ -234,7 +234,7 @@ rats "with: error on nonexistent module name"
   test.assert_contains(result["output"], "not found")
 end
 
-rats "with: error on local require"
+rats "with: error on local path that is not a directory"
   tmpdir = test.tmpdir()
   script = <<~RG
     require "helpers" with foo
@@ -243,8 +243,7 @@ rats "with: error on local require"
   test.write_file(tmpdir + "/test.rg", script)
   result = test.run("rugo run " + tmpdir + "/test.rg")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "with")
-  test.assert_contains(result["output"], "remote")
+  test.assert_contains(result["output"], "not a directory")
 end
 
 rats "with: error on bad remote repo"

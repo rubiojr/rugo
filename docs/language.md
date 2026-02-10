@@ -622,9 +622,22 @@ helpers.greet("World")
 u.compute(42)
 ```
 
-Paths are resolved relative to the calling file. The `.rg` extension is added automatically if missing. Requires are resolved recursively and deduplicated.
+Paths are resolved relative to the calling file. The `.rg` extension is added automatically if missing. Requires are resolved recursively and deduplicated. If the path points to a directory, Rugo resolves an entry point: `<dirname>.rg` → `main.rg` → sole `.rg` file (file takes precedence over directory when both exist).
 
-Remote git repositories can also be required:
+The `with` clause selectively loads specific `.rg` files from a directory (local or remote):
+
+```ruby
+# Local directory
+require "mylib" with client, helpers
+client.connect()
+
+# Remote repository
+require "github.com/user/rugo-utils@v1.0.0" with client, helpers
+```
+
+Each name loads `<name>.rg` from the directory or repository root, using the filename as the namespace.
+
+Remote git repositories can also be required as a single module:
 
 ```ruby
 require "github.com/user/rugo-utils@v1.0.0" as "utils"

@@ -79,6 +79,36 @@ Functions are namespaced by filename. User modules can `use` Rugo stdlib modules
 
 Paths are resolved relative to the calling file. `require "lib/utils"` loads `lib/utils.rg` from the calling file's directory.
 
+### Directory Modules
+
+If the require path points to a directory instead of a file, Rugo resolves an entry point automatically:
+
+1. `<dirname>.rg` (e.g., `mylib/mylib.rg`)
+2. `main.rg`
+3. The sole `.rg` file (if there's exactly one)
+
+```ruby
+# Given a directory mylib/ containing mylib.rg:
+require "mylib"
+puts mylib.greet("world")
+```
+
+If a file `mylib.rg` exists alongside a directory `mylib/`, the file takes precedence.
+
+### Multi-File Libraries with `with`
+
+Use `with` to selectively load specific `.rg` files from a local directory:
+
+```ruby
+# Given a directory mylib/ containing greet.rg and math.rg:
+require "mylib" with greet, math
+
+puts greet.greet("world")
+puts math.double(21)   # 42
+```
+
+Each name in the `with` list loads `<name>.rg` from the directory. The filename becomes the namespace. This works with both local directories and remote repositories.
+
 ### Remote Modules
 
 Load modules directly from git repositories:

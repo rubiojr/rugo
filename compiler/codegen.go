@@ -1071,49 +1071,50 @@ func (g *codeGen) binaryExpr(e *BinaryExpr) (string, error) {
 		return "", err
 	}
 
-	// Typed native ops: emit direct Go operators when both sides are typed.
+	// Typed native ops: emit direct Go operators when both sides are typed
+	// AND will actually produce typed Go values (not interface{}).
 	switch e.Op {
 	case "+":
-		if leftType == TypeInt && rightType == TypeInt {
+		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s + %s)", left, right), nil
 		}
-		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() {
+		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s + %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
 		}
-		if leftType == TypeString && rightType == TypeString {
+		if leftType == TypeString && rightType == TypeString && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s + %s)", left, right), nil
 		}
 		return fmt.Sprintf("rugo_add(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
 
 	case "-":
-		if leftType == TypeInt && rightType == TypeInt {
+		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s - %s)", left, right), nil
 		}
-		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() {
+		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s - %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
 		}
 		return fmt.Sprintf("rugo_sub(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
 
 	case "*":
-		if leftType == TypeInt && rightType == TypeInt {
+		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s * %s)", left, right), nil
 		}
-		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() {
+		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s * %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
 		}
 		return fmt.Sprintf("rugo_mul(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
 
 	case "/":
-		if leftType == TypeInt && rightType == TypeInt {
+		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s / %s)", left, right), nil
 		}
-		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() {
+		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s / %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
 		}
 		return fmt.Sprintf("rugo_div(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
 
 	case "%":
-		if leftType == TypeInt && rightType == TypeInt {
+		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
 			return fmt.Sprintf("(%s %% %s)", left, right), nil
 		}
 		return fmt.Sprintf("rugo_mod(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
@@ -1200,23 +1201,26 @@ func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
 	// Rugo stdlib or namespace access without call
 	if ns, ok := e.Object.(*IdentExpr); ok {
 		nsName := ns.Name
-		if g.imports[nsName] {
-			if goFunc, ok := modules.LookupFunc(nsName, e.Field); ok {
-				return fmt.Sprintf("interface{}(%s)", goFunc), nil
+		// Local variables shadow namespaces for dot access
+		if !g.isDeclared(nsName) {
+			if g.imports[nsName] {
+				if goFunc, ok := modules.LookupFunc(nsName, e.Field); ok {
+					return fmt.Sprintf("interface{}(%s)", goFunc), nil
+				}
+			}
+			// Go bridge function reference (without call)
+			if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
+				if sig, ok := gobridge.Lookup(pkg, e.Field); ok {
+					_ = sig
+					return "", fmt.Errorf("Go bridge function %s.%s must be called with arguments", nsName, e.Field)
+				}
+			}
+			// Known require namespace — function reference
+			if g.namespaces[nsName] {
+				return fmt.Sprintf("interface{}(rugons_%s_%s)", nsName, e.Field), nil
 			}
 		}
-		// Go bridge function reference (without call)
-		if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
-			if sig, ok := gobridge.Lookup(pkg, e.Field); ok {
-				_ = sig
-				return "", fmt.Errorf("Go bridge function %s.%s must be called with arguments", nsName, e.Field)
-			}
-		}
-		// Known require namespace — function reference
-		if g.namespaces[nsName] {
-			return fmt.Sprintf("interface{}(rugons_%s_%s)", nsName, e.Field), nil
-		}
-		// Not a known namespace — dot access (handles both hashes and tasks at runtime)
+		// Not a known namespace or shadowed by variable — dot access (handles both hashes and tasks at runtime)
 		g.usesTaskMethods = g.usesTaskMethods || taskMethodNames[e.Field]
 		return fmt.Sprintf("rugo_dot_get(%s, %q)", nsName, e.Field), nil
 	}
@@ -1244,36 +1248,38 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	if dot, ok := e.Func.(*DotExpr); ok {
 		if ns, ok := dot.Object.(*IdentExpr); ok {
 			nsName := ns.Name
-			// Rugo stdlib module call
-			if g.imports[nsName] {
-				if goFunc, ok := modules.LookupFunc(nsName, dot.Field); ok {
-					return fmt.Sprintf("%s(%s)", goFunc, argStr), nil
-				}
-				return "", fmt.Errorf("unknown function %s.%s in module %q", nsName, dot.Field, nsName)
-			}
-			// Go bridge call
-			if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
-				if sig, ok := gobridge.Lookup(pkg, dot.Field); ok {
-					if !sig.Variadic && len(e.Args) != len(sig.Params) {
-						return "", argCountError(nsName+"."+dot.Field, len(e.Args), len(sig.Params))
+			// Local variables shadow namespaces for dot calls
+			if !g.isDeclared(nsName) {
+				// Rugo stdlib module call
+				if g.imports[nsName] {
+					if goFunc, ok := modules.LookupFunc(nsName, dot.Field); ok {
+						return fmt.Sprintf("%s(%s)", goFunc, argStr), nil
 					}
-					return g.generateGoBridgeCall(pkg, sig, args, nsName+"."+dot.Field), nil
+					return "", fmt.Errorf("unknown function %s.%s in module %q", nsName, dot.Field, nsName)
 				}
-				return "", fmt.Errorf("unknown function %s.%s in Go bridge package %q", nsName, dot.Field, pkg)
-			}
-			// Task method calls on known task variables: task.wait(n), task.value(), task.done()
-			// Also check for known namespace first
-			if g.namespaces[nsName] {
-				nsKey := nsName + "." + dot.Field
-				if expected, ok := g.funcDefs[nsKey]; ok {
-					if len(e.Args) != expected {
-						return "", argCountError(nsName+"."+dot.Field, len(e.Args), expected)
+				// Go bridge call
+				if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
+					if sig, ok := gobridge.Lookup(pkg, dot.Field); ok {
+						if !sig.Variadic && len(e.Args) != len(sig.Params) {
+							return "", argCountError(nsName+"."+dot.Field, len(e.Args), len(sig.Params))
+						}
+						return g.generateGoBridgeCall(pkg, sig, args, nsName+"."+dot.Field), nil
 					}
+					return "", fmt.Errorf("unknown function %s.%s in Go bridge package %q", nsName, dot.Field, pkg)
 				}
-				typedArgs := g.typedCallArgs(nsKey, args, e.Args)
-				return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, typedArgs), nil
+				// Known require namespace
+				if g.namespaces[nsName] {
+					nsKey := nsName + "." + dot.Field
+					if expected, ok := g.funcDefs[nsKey]; ok {
+						if len(e.Args) != expected {
+							return "", argCountError(nsName+"."+dot.Field, len(e.Args), expected)
+						}
+					}
+					typedArgs := g.typedCallArgs(nsKey, args, e.Args)
+					return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, typedArgs), nil
+				}
 			}
-			// Not a known namespace — dispatch via generic DotCall
+			// Not a known namespace or shadowed by variable — dispatch via generic DotCall
 			return fmt.Sprintf("rugo_dot_call(%s, %q, %s)", nsName, dot.Field, argStr), nil
 		}
 		// Non-ident object: e.g. tasks[i].wait(n), q.push(val)
@@ -2067,6 +2073,17 @@ func (g *codeGen) boxed(s string, t RugoType) string {
 		return fmt.Sprintf("interface{}(%s)", s)
 	}
 	return s
+}
+
+// goTyped returns true if the expression will produce a Go-typed value at runtime,
+// not an interface{}. Variables stored as interface{} (varType is dynamic) return false
+// even if the expression type is inferred as typed, because Go's type system won't
+// allow using raw operators on interface{} values.
+func (g *codeGen) goTyped(e Expr) bool {
+	if ident, ok := e.(*IdentExpr); ok {
+		return g.varType(ident.Name).IsTyped()
+	}
+	return g.exprType(e).IsTyped()
 }
 
 // ensureFloat wraps int expressions with float64() for mixed numeric ops.

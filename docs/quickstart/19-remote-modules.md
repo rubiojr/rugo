@@ -30,8 +30,23 @@ require "github.com/user/lib@v1.0.0" as "lib"
 
 ## Multi-File Libraries with `with`
 
-Many libraries consist of multiple files. Use `with` to selectively load
-only the modules you need:
+The `with` clause selectively loads specific `.rg` files from a directory.
+It works with both remote repositories and local directories.
+
+### Local Directories
+
+```ruby
+# Given a directory mylib/ containing client.rg and helpers.rg:
+require "mylib" with client, helpers
+
+puts client.connect()
+puts helpers.format("data")
+```
+
+The path must point to a directory (not a file). Each name in the `with`
+list loads `<name>.rg` from that directory.
+
+### Remote Repositories
 
 ```ruby
 # Load only client and issue modules

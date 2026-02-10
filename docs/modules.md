@@ -137,22 +137,26 @@ SHAs are immutable — once downloaded, they're never re-fetched.
 
 #### Selective Imports with `with`
 
-Multi-file remote modules can be loaded selectively using `with`:
+Load specific `.rg` files from a local directory or remote repository using `with`:
 
 ```ruby
-# Load only the modules you need
-require "github.com/user/my-lib@v1.0.0" with client, issue
+# Local directory
+require "mylib" with client, helpers
+client.make("token")
 
-# Each name loads <name>.rg from the repo root as its own namespace
+# Remote repository
+require "github.com/user/my-lib@v1.0.0" with client, issue
 client.make("token")
 issue.list(gh, "owner", "repo")
 ```
 
-Without `with`, the repo's entry point (`main.rg`, `<repo-name>.rg`, or the
+Each name loads `<name>.rg` from the directory or repo root as its own namespace.
+
+For remote modules, without `with`, the repo's entry point (`main.rg`, `<repo-name>.rg`, or the
 sole `.rg` file) is loaded. With `with`, the entry point is bypassed and each
 named file is loaded directly.
 
-`with` and `as` are mutually exclusive. `with` only works on remote requires.
+`with` and `as` are mutually exclusive. For local requires, the path must be a directory.
 
 #### Subpath Requires
 
@@ -170,7 +174,9 @@ Rugo resolves `require` paths with two simple rules:
 1. **Relative to calling file** — `require "helpers"` loads `helpers.rg` from
    the same directory as the file containing the `require`. Subdirectories
    work too: `require "lib/utils"` loads `lib/utils.rg`. The `.rg` extension
-   is added automatically if missing.
+   is added automatically if missing. If the path resolves to a directory,
+   Rugo looks for an entry point: `<dirname>.rg` → `main.rg` → sole `.rg`
+   file. A file always takes precedence over a directory of the same name.
 
 2. **Remote URL** — if the path looks like a URL (`github.com/user/repo`),
    Rugo fetches the repository via git and resolves the entry point.
