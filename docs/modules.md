@@ -31,6 +31,7 @@ puts resp.body
 | [os](modules/os.md) | Shell execution and process control |
 | [queue](modules/queue.md) | Thread-safe queue for producer-consumer concurrency |
 | [re](modules/re.md) | Regular expressions |
+| [sqlite](modules/sqlite.md) | SQLite database access |
 | [str](modules/str.md) | String utilities |
 | [test](modules/test.md) | Testing and assertions |
 

@@ -12,6 +12,7 @@ import (
 	_ "github.com/rubiojr/rugo/modules/os"
 	_ "github.com/rubiojr/rugo/modules/queue"
 	_ "github.com/rubiojr/rugo/modules/re"
+	_ "github.com/rubiojr/rugo/modules/sqlite"
 	_ "github.com/rubiojr/rugo/modules/str"
 	_ "github.com/rubiojr/rugo/modules/test"
 	_ "github.com/rubiojr/rugo/modules/web"

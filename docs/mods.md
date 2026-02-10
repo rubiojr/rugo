@@ -13,6 +13,7 @@ directory under `modules/` and self-registers at startup via Go's `init()`.
 | `cli`  | `name`, `version`, `about`, `cmd`, `flag`, `bool_flag`, `run`, `parse`, `command`, `get`, `args`, `help` | CLI app builder with commands, flags, and dispatch |
 | `color` | `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`, `bg_*`, `bold`, `dim`, `underline` | ANSI terminal colors and styles |
 | `json` | `parse`, `encode` | JSON parsing and encoding |
+| `sqlite` | `open`, `exec`, `query`, `query_row`, `query_val`, `close` | SQLite database access |
 
 ### Usage in Rugo
 
