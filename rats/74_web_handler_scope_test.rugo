@@ -1,0 +1,53 @@
+# RATS: Test that web handler functions can access top-level variables
+use "test"
+
+rats "web handler can access top-level constant"
+  script = <<~SCRIPT
+    use "web"
+    GREETING = "hello"
+    web.get("/", "handler")
+    def handler(req)
+      return web.text(GREETING)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.assert_eq(result["status"], 0)
+  test.run("rm -f " + test.tmpdir() + "/webbin")
+end
+
+rats "web handler can access top-level variable"
+  script = <<~SCRIPT
+    use "web"
+    count = 42
+    web.get("/count", "count_handler")
+    def count_handler(req)
+      return web.text(count)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.assert_eq(result["status"], 0)
+  test.run("rm -f " + test.tmpdir() + "/webbin")
+end
+
+rats "web handler can access top-level hash"
+  script = <<~SCRIPT
+    use "web"
+    config = {greeting: "hello"}
+    web.get("/", "handler")
+    def handler(req)
+      return web.text(config["greeting"])
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.assert_eq(result["status"], 0)
+  test.run("rm -f " + test.tmpdir() + "/webbin")
+end
+
+rats "web handler fixture compiles"
+  result = test.run("rugo build rats/fixtures/web_handler_scope.rugo -o " + test.tmpdir() + "/webbin")
+  test.assert_eq(result["status"], 0)
+  test.run("rm -f " + test.tmpdir() + "/webbin")
+end

@@ -38,6 +38,7 @@ type codeGen struct {
 	hasBench        bool              // whether bench blocks are present
 	usesTaskMethods bool              // whether .value/.done/.wait appear
 	funcDefs        map[string]int    // user function name → param count
+	handlerVars     map[string]bool   // top-level vars promoted to package-level for handler access
 	testMode        bool              // include rats blocks in output
 	typeInfo        *TypeInfo         // inferred type information (nil disables typed codegen)
 	currentFunc     *FuncDef          // current function being generated (for type lookups)
@@ -58,6 +59,7 @@ func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
 		goImports:   make(map[string]string),
 		namespaces:  make(map[string]bool),
 		nsVarNames:  make(map[string]bool),
+		handlerVars: make(map[string]bool),
 		sourceFile:  sourceFile,
 		funcDefs:    make(map[string]int),
 		testMode:    testMode,
@@ -139,6 +141,38 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	for _, nv := range nsVars {
 		g.namespaces[nv.Namespace] = true
 		g.nsVarNames[nv.Namespace+"."+nv.Target] = true
+	}
+
+	// Identify top-level variables referenced by handler functions.
+	// Handler functions are emitted as top-level Go functions but top-level
+	// variables live inside main(). Promote referenced vars to package-level.
+	hasDispatchModule := false
+	for name := range g.imports {
+		if m, ok := modules.Get(name); ok && m.DispatchEntry != "" {
+			hasDispatchModule = true
+			break
+		}
+	}
+	if hasDispatchModule {
+		// Collect top-level assignment targets
+		topVarNames := make(map[string]bool)
+		for _, s := range topStmts {
+			if a, ok := s.(*AssignStmt); ok && a.Namespace == "" {
+				topVarNames[a.Target] = true
+			}
+		}
+		// Collect idents referenced by handler functions (non-namespaced, 1 param)
+		for _, f := range funcs {
+			if f.Namespace != "" || len(f.Params) != 1 {
+				continue
+			}
+			refs := collectIdents(f.Body)
+			for name := range refs {
+				if topVarNames[name] {
+					g.handlerVars[name] = true
+				}
+			}
+		}
 	}
 
 	// Detect spawn/parallel/bench usage to gate runtime emission and imports
@@ -258,6 +292,19 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		g.writef("var rugons_%s_%s interface{} = %s\n", nv.Namespace, nv.Target, expr)
 	}
 	if len(nsVars) > 0 {
+		g.writeln("")
+	}
+
+	// Package-level variables for handler function access
+	if len(g.handlerVars) > 0 {
+		names := make([]string, 0, len(g.handlerVars))
+		for name := range g.handlerVars {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		for _, name := range names {
+			g.writef("var %s interface{}\n", name)
+		}
 		g.writeln("")
 	}
 
@@ -673,8 +720,15 @@ func (g *codeGen) writeAssign(a *AssignStmt) error {
 		expr = fmt.Sprintf("interface{}(%s)", expr)
 	}
 
-	if g.isDeclared(a.Target) {
+	if g.isDeclared(a.Target) || g.handlerVars[a.Target] {
 		g.writef("%s = %s\n", a.Target, expr)
+		// Track constants for handler vars on first use in main()
+		if g.handlerVars[a.Target] && !g.isDeclared(a.Target) {
+			g.declareVar(a.Target)
+			if len(a.Target) > 0 && a.Target[0] >= 'A' && a.Target[0] <= 'Z' {
+				g.declareConst(a.Target, a.SourceLine)
+			}
+		}
 	} else {
 		g.writef("%s := %s\n", a.Target, expr)
 		g.declareVar(a.Target)
@@ -1721,6 +1775,103 @@ func (g *codeGen) captureOutput(fn func() error) (string, error) {
 	result := g.sb.String()
 	g.sb = saved
 	return result, err
+}
+
+// collectIdents returns the set of identifier names referenced in statements.
+func collectIdents(stmts []Statement) map[string]bool {
+	names := make(map[string]bool)
+	for _, s := range stmts {
+		collectIdentsFromStmt(s, names)
+	}
+	return names
+}
+
+func collectIdentsFromStmt(s Statement, names map[string]bool) {
+	switch st := s.(type) {
+	case *AssignStmt:
+		collectIdentsFromExpr(st.Value, names)
+	case *IndexAssignStmt:
+		collectIdentsFromExpr(st.Object, names)
+		collectIdentsFromExpr(st.Index, names)
+		collectIdentsFromExpr(st.Value, names)
+	case *DotAssignStmt:
+		collectIdentsFromExpr(st.Object, names)
+		collectIdentsFromExpr(st.Value, names)
+	case *ExprStmt:
+		collectIdentsFromExpr(st.Expression, names)
+	case *IfStmt:
+		collectIdentsFromExpr(st.Condition, names)
+		for _, b := range st.Body {
+			collectIdentsFromStmt(b, names)
+		}
+		for _, ei := range st.ElsifClauses {
+			collectIdentsFromExpr(ei.Condition, names)
+			for _, b := range ei.Body {
+				collectIdentsFromStmt(b, names)
+			}
+		}
+		for _, b := range st.ElseBody {
+			collectIdentsFromStmt(b, names)
+		}
+	case *WhileStmt:
+		collectIdentsFromExpr(st.Condition, names)
+		for _, b := range st.Body {
+			collectIdentsFromStmt(b, names)
+		}
+	case *ForStmt:
+		collectIdentsFromExpr(st.Collection, names)
+		for _, b := range st.Body {
+			collectIdentsFromStmt(b, names)
+		}
+	case *ReturnStmt:
+		if st.Value != nil {
+			collectIdentsFromExpr(st.Value, names)
+		}
+	}
+}
+
+func collectIdentsFromExpr(e Expr, names map[string]bool) {
+	switch ex := e.(type) {
+	case *IdentExpr:
+		names[ex.Name] = true
+	case *BinaryExpr:
+		collectIdentsFromExpr(ex.Left, names)
+		collectIdentsFromExpr(ex.Right, names)
+	case *UnaryExpr:
+		collectIdentsFromExpr(ex.Operand, names)
+	case *CallExpr:
+		collectIdentsFromExpr(ex.Func, names)
+		for _, a := range ex.Args {
+			collectIdentsFromExpr(a, names)
+		}
+	case *IndexExpr:
+		collectIdentsFromExpr(ex.Object, names)
+		collectIdentsFromExpr(ex.Index, names)
+	case *SliceExpr:
+		collectIdentsFromExpr(ex.Object, names)
+		collectIdentsFromExpr(ex.Start, names)
+		collectIdentsFromExpr(ex.Length, names)
+	case *DotExpr:
+		collectIdentsFromExpr(ex.Object, names)
+	case *ArrayLiteral:
+		for _, el := range ex.Elements {
+			collectIdentsFromExpr(el, names)
+		}
+	case *HashLiteral:
+		for _, p := range ex.Pairs {
+			collectIdentsFromExpr(p.Key, names)
+			collectIdentsFromExpr(p.Value, names)
+		}
+	case *TryExpr:
+		collectIdentsFromExpr(ex.Expr, names)
+		for _, b := range ex.Handler {
+			collectIdentsFromStmt(b, names)
+		}
+	case *FnExpr:
+		for _, b := range ex.Body {
+			collectIdentsFromStmt(b, names)
+		}
+	}
 }
 
 // Scope management

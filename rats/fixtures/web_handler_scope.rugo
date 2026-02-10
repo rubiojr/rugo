@@ -1,0 +1,16 @@
+use "web"
+
+GREETING = "hello"
+count = 42
+
+web.get("/", "handler")
+def handler(req)
+  return web.text(GREETING)
+end
+
+web.get("/count", "count_handler")
+def count_handler(req)
+  return web.text(count)
+end
+
+web.listen(0)
