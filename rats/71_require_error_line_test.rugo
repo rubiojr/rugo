@@ -1,0 +1,18 @@
+use "test"
+use "str"
+
+# Regression test for git-bug b1930c9:
+# Runtime error line numbers should be accurate for required modules,
+# not offset by concatenation into the main file.
+
+rats "runtime error in required module reports correct line number"
+  result = test.run("rugo run rats/fixtures/require_error_line/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+  # Must reference utils.rugo (not main.rugo) — covered by bug 9f2e69f fix
+  test.assert_contains(result["output"], "utils.rugo")
+  # Line 17 is the actual failing slice in lib/utils.rugo
+  test.assert_contains(result["output"], "utils.rugo:17")
+  # Must NOT report a concatenated offset line number from main.rugo
+  test.assert_false(str.contains(result["output"], "main.rugo:"))
+end

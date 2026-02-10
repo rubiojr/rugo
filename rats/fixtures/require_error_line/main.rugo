@@ -1,0 +1,5 @@
+require "lib/utils"
+
+puts "starting"
+puts "about to call"
+utils.bad_slice([123, 456])

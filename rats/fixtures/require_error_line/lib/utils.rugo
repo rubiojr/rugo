@@ -1,0 +1,20 @@
+# lib/utils.rugo
+def do_nothing()
+  return nil
+end
+
+def also_nothing()
+  return nil
+end
+
+def also_also_nothing()
+  return nil
+end
+
+def bad_slice(items)
+  for item in items
+    # This is line 17 of lib/utils.rugo
+    msg = item[0, 5]
+    puts msg
+  end
+end
