@@ -66,10 +66,11 @@ func (r *RequireStmt) stmt() {}
 // FuncDef represents def name(params) body end.
 type FuncDef struct {
 	BaseStmt
-	Name      string
-	Params    []string
-	Body      []Statement
-	Namespace string // set during require resolution for namespaced functions
+	Name       string
+	Params     []string
+	Body       []Statement
+	Namespace  string // set during require resolution for namespaced functions
+	SourceFile string // original source file for //line directives (set for require'd functions)
 }
 
 func (f *FuncDef) node() {}

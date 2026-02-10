@@ -1,0 +1,7 @@
+def greet(items)
+  for item in items
+    # item is interface{} from the loop — slicing fails at runtime
+    msg = item[0, 5]
+    puts msg
+  end
+end

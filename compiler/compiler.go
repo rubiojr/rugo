@@ -561,6 +561,8 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			return nil, fmt.Errorf("in require %q: %w", req.Path, err)
 		}
 
+		reqSourceFile := reqProg.SourceFile // save before resolveRequires replaces reqProg
+
 		// Recursively resolve requires in the required file
 		oldBase := c.BaseDir
 		c.BaseDir = filepath.Dir(absPath)
@@ -610,6 +612,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				}
 				c.nsFuncs[nsKey] = req.Path
 				st.Namespace = ns
+				st.SourceFile = reqSourceFile
 				resolved = append(resolved, st)
 			case *AssignStmt:
 				if st.Namespace != "" {

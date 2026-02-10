@@ -1,0 +1,15 @@
+use "test"
+use "str"
+
+# Regression test for git-bug 9f2e69f:
+# Runtime errors in required modules should report the correct source file,
+# not the top-level entry file.
+
+rats "runtime error in required module reports correct source file"
+  result = test.run("rugo run rats/fixtures/require_error_file/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+  # Must reference the module file, NOT main.rugo
+  test.assert_contains(result["output"], "greeter.rugo")
+  test.assert_false(str.contains(result["output"], "main.rugo"))
+end

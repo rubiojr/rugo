@@ -491,6 +491,13 @@ func (g *codeGen) writeDispatchMaps(funcs []*FuncDef) {
 }
 
 func (g *codeGen) writeFunc(f *FuncDef) error {
+	// Use the function's original source file for //line directives if available.
+	if f.SourceFile != "" {
+		saved := g.sourceFile
+		g.sourceFile = f.SourceFile
+		defer func() { g.sourceFile = saved }()
+	}
+
 	// Check if this function has typed inference info.
 	fti := g.funcTypeInfo(f)
 
