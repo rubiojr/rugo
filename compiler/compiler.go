@@ -491,6 +491,8 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 						}
 						st.Namespace = ns
 						resolved = append(resolved, st)
+					case *ExprStmt:
+						resolved = append(resolved, st)
 					}
 				}
 			}
@@ -589,6 +591,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 
 		// Include use/import statements and function definitions from required files.
 		// Functions/assignments already namespaced by a deeper require are passed through.
+		// Expression statements (e.g. web.get route registrations) are also included.
 		for _, rs := range reqProg.Statements {
 			switch st := rs.(type) {
 			case *UseStmt:
@@ -621,6 +624,8 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				}
 				// Top-level assignments (constants) from required files
 				st.Namespace = ns
+				resolved = append(resolved, st)
+			case *ExprStmt:
 				resolved = append(resolved, st)
 			}
 		}

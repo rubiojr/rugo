@@ -1,0 +1,116 @@
+# RATS: Web routes registered in required modules should work
+use "test"
+
+rats "required module top-level web.get route serves"
+  test.run("mkdir -p " + test.tmpdir() + "/webmod")
+  mod = <<~MOD
+    use "web"
+    use "json"
+
+    web.get "/test", "handler"
+    def handler(req)
+      return web.json({"ok" => true})
+    end
+
+    def start()
+      port = web.free_port()
+      spawn web.listen(port)
+      return port
+    end
+  MOD
+  test.write_file(test.tmpdir() + "/webmod/main.rugo", mod)
+  main = <<~MAIN
+    require "webmod"
+    use "http"
+    use "conv"
+    import "time"
+
+    port = webmod.start()
+    time.sleep_ms(300)
+    resp = http.get("http://localhost:" + conv.to_s(port) + "/test")
+    puts resp.status_code
+  MAIN
+  test.write_file(test.tmpdir() + "/main.rugo", main)
+  result = test.run("rugo run " + test.tmpdir() + "/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "200")
+end
+
+rats "required module route handler in dispatch map"
+  test.run("mkdir -p " + test.tmpdir() + "/webmod")
+  mod = <<~MOD
+    use "web"
+
+    web.get "/ping", "ping_handler"
+    def ping_handler(req)
+      return web.text("pong")
+    end
+
+    def serve()
+      port = web.free_port()
+      spawn web.listen(port)
+      return port
+    end
+  MOD
+  test.write_file(test.tmpdir() + "/webmod/main.rugo", mod)
+  main = <<~MAIN
+    require "webmod"
+    use "http"
+    use "conv"
+    import "time"
+
+    port = webmod.serve()
+    time.sleep_ms(300)
+    resp = http.get("http://localhost:" + conv.to_s(port) + "/ping")
+    puts resp.body
+  MAIN
+  test.write_file(test.tmpdir() + "/main.rugo", main)
+  result = test.run("rugo run " + test.tmpdir() + "/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "pong")
+end
+
+rats "required module with multiple routes"
+  test.run("mkdir -p " + test.tmpdir() + "/api")
+  mod = <<~MOD
+    use "web"
+    use "json"
+
+    web.get "/a", "route_a"
+    web.get "/b", "route_b"
+
+    def route_a(req)
+      return web.text("a")
+    end
+
+    def route_b(req)
+      return web.text("b")
+    end
+
+    def start()
+      port = web.free_port()
+      spawn web.listen(port)
+      return port
+    end
+  MOD
+  test.write_file(test.tmpdir() + "/api/main.rugo", mod)
+  main = <<~MAIN
+    require "api"
+    use "http"
+    use "conv"
+    import "time"
+
+    port = api.start()
+    time.sleep_ms(300)
+    base = "http://localhost:" + conv.to_s(port)
+    a = http.get(base + "/a")
+    b = http.get(base + "/b")
+    puts a.body
+    puts b.body
+  MAIN
+  test.write_file(test.tmpdir() + "/main.rugo", main)
+  result = test.run("rugo run " + test.tmpdir() + "/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "a")
+  test.assert_eq(result["lines"][1], "b")
+end

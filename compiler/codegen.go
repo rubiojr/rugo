@@ -560,13 +560,20 @@ func (g *codeGen) writeDispatchMaps(funcs []*FuncDef, handlers map[string]bool) 
 		g.writef("var rugo_%s_dispatch = map[string]func(interface{}) interface{}{\n", m.Name)
 		g.indent++
 		for _, f := range funcs {
-			if f.Namespace != "" || len(f.Params) != 1 {
+			if len(f.Params) != 1 {
 				continue
 			}
 			if resolved != nil && !resolved[f.Name] {
 				continue
 			}
-			g.writef("%q: rugofn_%s,\n", f.Name, f.Name)
+			// Use un-namespaced name as dispatch key, full Go name as value
+			var goName string
+			if f.Namespace != "" {
+				goName = fmt.Sprintf("rugons_%s_%s", f.Namespace, f.Name)
+			} else {
+				goName = fmt.Sprintf("rugofn_%s", f.Name)
+			}
+			g.writef("%q: %s,\n", f.Name, goName)
 		}
 		g.indent--
 		g.writeln("}")
