@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Idiomatic Rugo</title>
+    <meta name="description" content="A short guide to writing clean, expressive Rugo code">
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+     
+ 
+
+:root {
+    --bg:      #121215;
+    --surface: #18181c;
+    --fg:      #d4ccc8;
+    --muted:   #706a68;
+    --accent:  #d45555;
+    --link:    #e87878;
+    --border:  #252528;
+    --code-bg: #0e0e11;
+    --green:   #8aca6a;
+    --orange:  #e8a468;
+    --red:     #d45555;
+    --purple:  #c49adf;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+    font-size: 17px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                 Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--bg);
+    color: var(--fg);
+    margin: 0;
+    line-height: 1.7;
+}
+
+a { color: var(--link); }
+
+ 
+
+.prose h2 {
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 3rem 0 0.8rem;
+    padding-top: 0.5rem;
+    color: var(--fg);
+}
+
+.prose h3 {
+    font-size: 1.18rem;
+    font-weight: 600;
+    margin: 2.2rem 0 0.5rem;
+    color: var(--fg);
+}
+
+.prose p {
+    margin: 0 0 1.15rem;
+    font-size: 1.05rem;
+    line-height: 1.8;
+}
+
+.prose a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(89, 194, 255, 0.2);
+    transition: border-color 0.2s;
+}
+
+.prose a:hover { border-bottom-color: var(--link); }
+
+.prose strong {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
+.prose em { color: var(--muted); }
+
+ 
+
+.prose code {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em;
+}
+
+.prose :not(pre) > code {
+    background: var(--code-bg);
+    color: var(--orange);
+    padding: 0.15em 0.45em;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+}
+
+.prose pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    line-height: 1.6;
+    font-size: 0.92rem;
+}
+
+.prose pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--fg);
+}
+
+ 
+
+.prose blockquote {
+    margin: 1.5rem 0;
+    padding: 0.8rem 1.3rem;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    background: var(--surface);
+    color: var(--muted);
+    font-style: italic;
+}
+
+.prose blockquote p { margin-bottom: 0.5rem; }
+.prose blockquote p:last-child { margin-bottom: 0; }
+
+ 
+
+.prose ul, .prose ol {
+    padding-left: 1.5rem;
+    margin: 0 0 1.15rem;
+}
+
+.prose li {
+    margin-bottom: 0.4rem;
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+.prose li::marker { color: var(--accent); }
+
+ 
+
+.prose hr {
+    border: none;
+    height: 1px;
+    background: var(--border);
+    max-width: 100px;
+    margin: 3rem auto;
+}
+
+ 
+
+.prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+}
+
+.prose table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    border-bottom: 2px solid var(--border);
+    color: var(--accent);
+}
+
+.prose table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+ 
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+::selection { background: rgba(212, 85, 85, 0.2); }
+
+ 
+
+.hljs { background: transparent; color: var(--fg); }
+.hljs-keyword,
+.hljs-literal,
+.hljs-built_in      { color: var(--accent); }      
+.hljs-string,
+.hljs-regexp         { color: var(--green); }       
+.hljs-number         { color: var(--purple); }      
+.hljs-title,
+.hljs-function       { color: #6eb3f7; }            
+.hljs-variable,
+.hljs-attr           { color: var(--orange); }      
+.hljs-symbol         { color: var(--orange); }
+.hljs-comment        { color: var(--muted); font-style: italic; }
+.hljs-meta,
+.hljs-meta .hljs-keyword { color: var(--muted); }
+.hljs-class .hljs-title  { color: #e8a468; }
+.hljs-params         { color: var(--fg); }
+.hljs-subst          { color: var(--fg); }
+.hljs-type           { color: var(--purple); }
+
+
+     
+
+    .hero {
+        text-align: center;
+        padding: 4rem 2rem 3rem;
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    .hero-logo {
+        width: 180px;
+        height: 180px;
+        margin-bottom: 1rem;
+        filter: drop-shadow(0 4px 20px rgba(212, 60, 60, 0.15));
+        animation: logo-float 5s ease-in-out infinite;
+    }
+
+    @keyframes logo-float {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-6px); }
+    }
+
+    .mascot-name {
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--muted);
+        margin: -0.5rem 0 1.2rem;
+        letter-spacing: 0.03em;
+        opacity: 0.6;
+        transition: opacity 0.3s ease;
+    }
+
+    .hero-logo:hover + .mascot-name {
+        opacity: 1;
+    }
+
+    .hero h1 {
+        font-size: 3.6rem;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        margin: 0 0 0.5rem;
+        border: none;
+        line-height: 1.1;
+        color: var(--fg);
+    }
+
+    .rugo-glow {
+        color: #e83a3a;
+        position: relative;
+        display: inline-block;
+        text-shadow:
+            0 0 10px rgba(232, 58, 58, 0.3),
+            0 0 40px rgba(232, 58, 58, 0.12),
+            0 0 80px rgba(232, 58, 58, 0.06);
+        animation: rugo-pulse 4s ease-in-out infinite;
+    }
+
+    .rugo-glow::after {
+        content: '';
+        position: absolute;
+        bottom: -4px;
+        left: 5%;
+        right: 5%;
+        height: 3px;
+        background: linear-gradient(90deg,
+            transparent,
+            #e83a3a 20%,
+            #f06060 50%,
+            #e83a3a 80%,
+            transparent);
+        border-radius: 2px;
+        opacity: 0.6;
+        animation: rugo-line 4s ease-in-out infinite;
+    }
+
+    @keyframes rugo-pulse {
+        0%, 100% { text-shadow: 0 0 10px rgba(232, 58, 58, 0.3), 0 0 40px rgba(232, 58, 58, 0.12); }
+        50% { text-shadow: 0 0 15px rgba(232, 58, 58, 0.45), 0 0 60px rgba(232, 58, 58, 0.18); }
+    }
+
+    @keyframes rugo-line {
+        0%, 100% { opacity: 0.4; transform: scaleX(0.9); }
+        50% { opacity: 0.7; transform: scaleX(1); }
+    }
+
+    .hero .tagline {
+        font-size: 1.15rem;
+        color: var(--muted);
+        font-style: italic;
+        margin-bottom: 0.5rem;
+    }
+
+    .hero .catchphrase {
+        font-size: 0.92rem;
+        font-weight: 600;
+        margin-bottom: 2rem;
+        letter-spacing: 0.03em;
+        background: linear-gradient(90deg, #d45555, #e8a468, #6eb3f7, #8aca6a, #d45555);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: shimmer 6s linear infinite;
+    }
+
+    @keyframes shimmer {
+        0% { background-position: 0% center; }
+        100% { background-position: 200% center; }
+    }
+
+    .hero .traits {
+        display: flex;
+        justify-content: center;
+        gap: 2rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+        color: var(--muted);
+        letter-spacing: 0.02em;
+    }
+
+    .hero .traits span {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .hero .traits .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+    }
+
+    .hero .traits .dot.ruby {
+        background: #d45555;
+        box-shadow: 0 0 6px rgba(212, 85, 85, 0.4);
+        animation: dot-glow-ruby 3s ease-in-out infinite;
+    }
+
+    .hero .traits .dot.go {
+        background: #6eb3f7;
+        box-shadow: 0 0 6px rgba(110, 179, 247, 0.4);
+        animation: dot-glow-go 3s ease-in-out 0.5s infinite;
+    }
+
+    .hero .traits .dot.bash {
+        background: #8aca6a;
+        box-shadow: 0 0 6px rgba(138, 202, 106, 0.4);
+        animation: dot-glow-bash 3s ease-in-out 1s infinite;
+    }
+
+    @keyframes dot-glow-ruby {
+        0%, 100% { box-shadow: 0 0 4px rgba(212, 85, 85, 0.3); }
+        50% { box-shadow: 0 0 10px rgba(212, 85, 85, 0.7); }
+    }
+
+    @keyframes dot-glow-go {
+        0%, 100% { box-shadow: 0 0 4px rgba(110, 179, 247, 0.3); }
+        50% { box-shadow: 0 0 10px rgba(110, 179, 247, 0.7); }
+    }
+
+    @keyframes dot-glow-bash {
+        0%, 100% { box-shadow: 0 0 4px rgba(138, 202, 106, 0.3); }
+        50% { box-shadow: 0 0 10px rgba(138, 202, 106, 0.7); }
+    }
+
+    .hero .intro {
+        max-width: 540px;
+        margin: 2rem auto 0;
+        font-size: 1.05rem;
+        line-height: 1.75;
+        color: var(--fg);
+        text-align: left;
+    }
+
+     
+
+    .chapters-section {
+        max-width: 720px;
+        margin: 2rem auto 4rem;
+        padding: 0 2rem;
+    }
+
+    .chapters-section h2 {
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        margin-bottom: 1.2rem;
+    }
+
+    .chapter-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 0.8rem;
+    }
+
+    .chapter-card {
+        display: block;
+        padding: 1.3rem 1.5rem;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        text-decoration: none;
+        color: var(--fg);
+        position: relative;
+        overflow: hidden;
+        transition: transform 0.15s ease, border-color 0.2s ease,
+                    background 0.2s ease;
+    }
+
+    .chapter-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 60%;
+        height: 100%;
+        background: linear-gradient(90deg,
+            transparent,
+            rgba(212, 85, 85, 0.04),
+            transparent);
+        transition: left 0.5s ease;
+    }
+
+    .chapter-card:hover::before {
+        left: 120%;
+    }
+
+    .chapter-card:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent);
+        background: var(--surface);
+        box-shadow: 0 4px 20px rgba(212, 85, 85, 0.06);
+    }
+
+    .chapter-card .num {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--accent);
+        margin-bottom: 0.25rem;
+    }
+
+    .chapter-card .title {
+        font-size: 1.08rem;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+    }
+
+    .chapter-card .desc {
+        font-size: 0.88rem;
+        color: var(--muted);
+        line-height: 1.5;
+    }
+
+    .footer {
+        text-align: center;
+        padding: 2rem;
+        font-size: 0.85rem;
+        color: var(--muted);
+        font-style: italic;
+        opacity: 0.6;
+    }
+
+    @media (max-width: 600px) {
+        .hero { padding: 3rem 1.5rem 2rem; }
+        .hero h1 { font-size: 2.6rem; }
+        .chapter-grid { grid-template-columns: 1fr; }
+        .chapters-section { padding: 0 1.5rem; }
+    }
+    </style>
+</head>
+<body>
+    <div class="hero">
+        <img src="goro.svg" alt="Goro, the Rugo dragon" class="hero-logo" title="Meet Goro 🐉">
+        <p class="mascot-name">This is Goro</p>
+        <h1>Idiomatic <span class="rugo-glow">Rugo</span></h1>
+        <p class="tagline">A short guide to writing clean, expressive Rugo code</p>
+        <p class="catchphrase">It's a Rugo-dabba-doo time! 🦴</p>
+        <div class="traits">
+            <span><span class="dot ruby"></span> Ruby's elegance</span>
+            <span><span class="dot go"></span> Go's speed</span>
+            <span><span class="dot bash"></span> Bash's street smarts</span>
+        </div>
+        <div class="intro">
+            <p>Rugo is a small language with a big personality. It borrows Ruby's elegance, Go's
+            compilation speed, and Bash's street smarts — then welds them together into
+            something that feels natural for scripting, tooling, and quick prototypes that
+            compile to native binaries.</p>
+            <p>This book isn't a tutorial. It's a collection of idioms — the patterns that
+            experienced Rugo programmers reach for instinctively.</p>
+        </div>
+    </div>
+
+    <div class="chapters-section">
+        <h2>Chapters</h2>
+        <div class="chapter-grid">
+            
+            <a href="01-expressive-basics.html" class="chapter-card">
+                <div class="num">Chapter 1</div>
+                <div class="title">Expressive Basics</div>
+                <div class="desc">Good Rugo code reads almost like prose. The language gives you several tools to keep things clean and expressive — use them.</div>
+            </a>
+            
+            <a href="02-collections-with-character.html" class="chapter-card">
+                <div class="num">Chapter 2</div>
+                <div class="title">Collections with Character</div>
+                <div class="desc">Rugo&#39;s hashes and arrays are more than data containers — they&#39;re the building blocks for objects, configurations, and APIs. Understanding their idioms is essential to writing good Rugo.</div>
+            </a>
+            
+            <a href="03-functions-and-lambdas.html" class="chapter-card">
+                <div class="num">Chapter 3</div>
+                <div class="title">Functions and Lambdas</div>
+                <div class="desc">Rugo has two kinds of callable things: named functions (`def`) and anonymous lambdas (`fn`). Both are first-class, but they serve different roles.</div>
+            </a>
+            
+            <a href="04-graceful-failure.html" class="chapter-card">
+                <div class="num">Chapter 4</div>
+                <div class="title">Graceful Failure</div>
+                <div class="desc">Error handling in Rugo is built around one construct: `try/or`. It comes in three levels of control, from casual to comprehensive. Pick the right level for each situation.</div>
+            </a>
+            
+            <a href="05-shell-power.html" class="chapter-card">
+                <div class="num">Chapter 5</div>
+                <div class="title">Shell Power</div>
+                <div class="desc">Rugo isn&#39;t just a programming language — it&#39;s also a shell. Unknown identifiers at the top level run as shell commands automatically. This dual nature is one of Rugo&#39;s defining features.</div>
+            </a>
+            
+            <a href="06-concurrent-thinking.html" class="chapter-card">
+                <div class="num">Chapter 6</div>
+                <div class="title">Concurrent Thinking</div>
+                <div class="desc">Rugo makes concurrency approachable with two primitives: `spawn` for individual tasks and `parallel` for fan-out work. Both compile to Go goroutines under the hood.</div>
+            </a>
+            
+            <a href="07-structuring-your-code.html" class="chapter-card">
+                <div class="num">Chapter 7</div>
+                <div class="title">Structuring Your Code</div>
+                <div class="desc">As scripts grow, Rugo gives you three tools for organization: structs for data types, modules for code reuse, and the Go bridge for accessing Go&#39;s standard library.</div>
+            </a>
+            
+            <a href="08-patterns-in-the-wild.html" class="chapter-card">
+                <div class="num">Chapter 8</div>
+                <div class="title">Patterns in the Wild</div>
+                <div class="desc">This final chapter showcases patterns drawn from real Rugo libraries and projects. These are the idioms that emerge when you put all the pieces together.</div>
+            </a>
+            
+        </div>
+    </div>
+
+    <div class="footer">
+        All code examples in this book are tested and produce the output shown.
+    </div>
+</body>
+</html>

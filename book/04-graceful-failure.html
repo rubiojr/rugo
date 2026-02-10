@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Graceful Failure — Idiomatic Rugo</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+     
+ 
+
+:root {
+    --bg:      #121215;
+    --surface: #18181c;
+    --fg:      #d4ccc8;
+    --muted:   #706a68;
+    --accent:  #d45555;
+    --link:    #e87878;
+    --border:  #252528;
+    --code-bg: #0e0e11;
+    --green:   #8aca6a;
+    --orange:  #e8a468;
+    --red:     #d45555;
+    --purple:  #c49adf;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+    font-size: 17px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                 Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--bg);
+    color: var(--fg);
+    margin: 0;
+    line-height: 1.7;
+}
+
+a { color: var(--link); }
+
+ 
+
+.prose h2 {
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 3rem 0 0.8rem;
+    padding-top: 0.5rem;
+    color: var(--fg);
+}
+
+.prose h3 {
+    font-size: 1.18rem;
+    font-weight: 600;
+    margin: 2.2rem 0 0.5rem;
+    color: var(--fg);
+}
+
+.prose p {
+    margin: 0 0 1.15rem;
+    font-size: 1.05rem;
+    line-height: 1.8;
+}
+
+.prose a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(89, 194, 255, 0.2);
+    transition: border-color 0.2s;
+}
+
+.prose a:hover { border-bottom-color: var(--link); }
+
+.prose strong {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
+.prose em { color: var(--muted); }
+
+ 
+
+.prose code {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em;
+}
+
+.prose :not(pre) > code {
+    background: var(--code-bg);
+    color: var(--orange);
+    padding: 0.15em 0.45em;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+}
+
+.prose pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    line-height: 1.6;
+    font-size: 0.92rem;
+}
+
+.prose pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--fg);
+}
+
+ 
+
+.prose blockquote {
+    margin: 1.5rem 0;
+    padding: 0.8rem 1.3rem;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    background: var(--surface);
+    color: var(--muted);
+    font-style: italic;
+}
+
+.prose blockquote p { margin-bottom: 0.5rem; }
+.prose blockquote p:last-child { margin-bottom: 0; }
+
+ 
+
+.prose ul, .prose ol {
+    padding-left: 1.5rem;
+    margin: 0 0 1.15rem;
+}
+
+.prose li {
+    margin-bottom: 0.4rem;
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+.prose li::marker { color: var(--accent); }
+
+ 
+
+.prose hr {
+    border: none;
+    height: 1px;
+    background: var(--border);
+    max-width: 100px;
+    margin: 3rem auto;
+}
+
+ 
+
+.prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+}
+
+.prose table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    border-bottom: 2px solid var(--border);
+    color: var(--accent);
+}
+
+.prose table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+ 
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+::selection { background: rgba(212, 85, 85, 0.2); }
+
+ 
+
+.hljs { background: transparent; color: var(--fg); }
+.hljs-keyword,
+.hljs-literal,
+.hljs-built_in      { color: var(--accent); }      
+.hljs-string,
+.hljs-regexp         { color: var(--green); }       
+.hljs-number         { color: var(--purple); }      
+.hljs-title,
+.hljs-function       { color: #6eb3f7; }            
+.hljs-variable,
+.hljs-attr           { color: var(--orange); }      
+.hljs-symbol         { color: var(--orange); }
+.hljs-comment        { color: var(--muted); font-style: italic; }
+.hljs-meta,
+.hljs-meta .hljs-keyword { color: var(--muted); }
+.hljs-class .hljs-title  { color: #e8a468; }
+.hljs-params         { color: var(--fg); }
+.hljs-subst          { color: var(--fg); }
+.hljs-type           { color: var(--purple); }
+
+
+     
+
+    .page {
+        display: flex;
+        min-height: 100vh;
+    }
+
+     
+
+    .sidebar {
+        width: 280px;
+        flex-shrink: 0;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        padding: 1.5rem 0;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+    }
+
+    .sidebar .brand {
+        padding: 0.5rem 1.5rem 1.2rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--fg);
+        text-decoration: none;
+        display: block;
+        letter-spacing: -0.02em;
+    }
+
+    .sidebar .brand:hover { color: var(--accent); }
+
+    .sidebar nav a {
+        display: block;
+        padding: 0.45rem 1.5rem;
+        font-size: 0.88rem;
+        color: var(--muted);
+        text-decoration: none;
+        line-height: 1.5;
+        transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .sidebar nav a:hover {
+        color: var(--fg);
+        background: rgba(255,255,255,0.03);
+    }
+
+    .sidebar nav a.active {
+        color: var(--accent);
+        font-weight: 600;
+        background: rgba(212, 85, 85, 0.08);
+        border-right: 2px solid var(--accent);
+    }
+
+    .sidebar nav a .ch-n {
+        display: inline-block;
+        width: 1.6em;
+        color: var(--muted);
+        opacity: 0.5;
+        font-size: 0.82em;
+        font-weight: 500;
+    }
+
+     
+
+    .main {
+        flex: 1;
+        min-width: 0;
+        padding: 3rem 3.5rem 5rem;
+        max-width: 52rem;
+    }
+
+    .chapter-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        margin-bottom: 0.4rem;
+    }
+
+    .main > h1:first-of-type {
+        font-size: 2.4rem;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        margin: 0 0 0.5rem;
+        line-height: 1.15;
+    }
+
+    .chapter-desc {
+        font-size: 1.08rem;
+        color: var(--muted);
+        margin-bottom: 2.5rem;
+        line-height: 1.6;
+    }
+
+     
+
+    .chapter-nav {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-top: 4rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border);
+    }
+
+    .chapter-nav a {
+        display: block;
+        padding: 0.8rem 1.2rem;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        text-decoration: none;
+        color: var(--fg);
+        font-size: 0.9rem;
+        transition: border-color 0.2s ease, background 0.2s ease;
+        max-width: 45%;
+    }
+
+    .chapter-nav a:hover {
+        border-color: var(--accent);
+        background: var(--surface);
+    }
+
+    .chapter-nav .label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-bottom: 0.2rem;
+    }
+
+    .chapter-nav .ch-title {
+        font-weight: 600;
+    }
+
+    .chapter-nav .next { margin-left: auto; text-align: right; }
+
+     
+
+    .menu-toggle {
+        display: none;
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 100;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.5rem 0.7rem;
+        color: var(--fg);
+        font-size: 1.1rem;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    @media (max-width: 800px) {
+        .menu-toggle { display: block; }
+        .sidebar {
+            position: fixed;
+            z-index: 90;
+            left: -300px;
+            top: 0;
+            transition: left 0.25s ease;
+        }
+        .sidebar.open { left: 0; }
+        .main { padding: 2rem 1.5rem 4rem; }
+        .main > h1:first-of-type { font-size: 1.9rem; }
+        .chapter-nav { flex-direction: column; }
+        .chapter-nav a { max-width: 100%; }
+    }
+    </style>
+</head>
+<body>
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu">☰</button>
+
+    <div class="page">
+        <aside class="sidebar">
+            <a href="index.html" class="brand">Idiomatic Rugo</a>
+            <nav>
+                
+                <a href="01-expressive-basics.html">
+                    <span class="ch-n">1.</span> Expressive Basics
+                </a>
+                
+                <a href="02-collections-with-character.html">
+                    <span class="ch-n">2.</span> Collections with Character
+                </a>
+                
+                <a href="03-functions-and-lambdas.html">
+                    <span class="ch-n">3.</span> Functions and Lambdas
+                </a>
+                
+                <a href="04-graceful-failure.html" class="active">
+                    <span class="ch-n">4.</span> Graceful Failure
+                </a>
+                
+                <a href="05-shell-power.html">
+                    <span class="ch-n">5.</span> Shell Power
+                </a>
+                
+                <a href="06-concurrent-thinking.html">
+                    <span class="ch-n">6.</span> Concurrent Thinking
+                </a>
+                
+                <a href="07-structuring-your-code.html">
+                    <span class="ch-n">7.</span> Structuring Your Code
+                </a>
+                
+                <a href="08-patterns-in-the-wild.html">
+                    <span class="ch-n">8.</span> Patterns in the Wild
+                </a>
+                
+            </nav>
+        </aside>
+
+        <div class="main">
+            <div class="chapter-label">Chapter 4</div>
+            <h1>Graceful Failure</h1>
+            <p class="chapter-desc">Error handling in Rugo is built around one construct: `try/or`. It comes in three levels of control, from casual to comprehensive. Pick the right level for each situation.</p>
+
+            <article class="prose">
+                <p>Error handling in Rugo is built around one construct: <code>try/or</code>. It comes in
+three levels of control, from casual to comprehensive. Pick the right level for
+each situation.</p>
+<h2 id="level-1-silent-recovery">Level 1: Silent Recovery</h2>
+<p>Bare <code>try</code> catches errors and returns <code>nil</code>. Use it when you genuinely don't
+care about the failure.</p>
+<pre><code class="language-ruby">use &quot;conv&quot;
+
+result = try `nonexistent_command_xyz_42 2&gt;/dev/null`
+puts &quot;result: #{conv.to_s(result)}&quot;
+puts &quot;script continues&quot;
+</code></pre>
+<pre><code>result: &lt;nil&gt;
+script continues
+</code></pre>
+<p>The script keeps running. No panic, no crash. The result is simply <code>nil</code>, which
+you can check with <code>if result == nil</code> if needed.</p>
+<p><strong>When to use:</strong> Fire-and-forget operations, optional features, cleanup tasks
+where failure is acceptable.</p>
+<h2 id="level-2-default-value">Level 2: Default Value</h2>
+<p>Add <code>or DEFAULT</code> to provide a fallback. This is the most common form — use it
+liberally.</p>
+<pre><code class="language-ruby">use &quot;conv&quot;
+
+hostname = try `hostname` or &quot;localhost&quot;
+puts &quot;host: #{hostname}&quot;
+
+port = try conv.to_i(&quot;not_a_number&quot;) or 8080
+puts &quot;port: #{port}&quot;
+</code></pre>
+<pre><code>host: &lt;your-hostname&gt;
+port: 8080
+</code></pre>
+<p>This is Rugo's answer to null coalescing. One line, clear intent, no ceremony.</p>
+<p><strong>When to use:</strong> Configuration defaults, parsing with fallbacks, any operation
+where you have a sensible alternative.</p>
+<h2 id="level-3-error-handler-block">Level 3: Error Handler Block</h2>
+<p>When you need to inspect the error or run recovery logic, use the block form.
+The error message is bound to the variable after <code>or</code>.</p>
+<pre><code class="language-ruby">data = try `cat /nonexistent/config.json` or err
+  puts &quot;warning: #{err}&quot;
+  &quot;{}&quot;
+end
+puts &quot;config: #{data}&quot;
+</code></pre>
+<pre><code>warning: shell command failed (exit 1): cat /nonexistent/config.json
+config: {}
+</code></pre>
+<p>The last expression in the block becomes the result. This lets you log the error
+<em>and</em> provide a fallback in the same construct.</p>
+<p><strong>When to use:</strong> When you need logging, metrics, conditional recovery, or when
+the error message matters.</p>
+<h2 id="raising-errors">Raising Errors</h2>
+<p>Use <code>raise</code> to signal errors from your own functions. Callers catch them with
+<code>try/or</code> — it's the same mechanism all the way through.</p>
+<pre><code class="language-ruby">def divide(a, b)
+  if b == 0
+    raise &quot;division by zero&quot;
+  end
+  return a / b
+end
+
+result = try divide(10, 0) or &quot;cannot divide&quot;
+puts result
+
+result = try divide(10, 2) or &quot;cannot divide&quot;
+puts result
+</code></pre>
+<pre><code>cannot divide
+5
+</code></pre>
+<p>This creates a clean contract: functions <code>raise</code> when they can't fulfill their
+purpose, callers decide how to handle it. No exception hierarchies, no checked
+vs unchecked — just strings and <code>try/or</code>.</p>
+<h2 id="the-idiom-always-have-a-plan">The Idiom: Always Have a Plan</h2>
+<p>Idiomatic Rugo code doesn't let errors propagate silently and doesn't panic
+unnecessarily. The pattern is:</p>
+<ol>
+<li><strong>Can fail, don't care →</strong> <code>try expr</code></li>
+<li><strong>Can fail, have a default →</strong> <code>try expr or default</code></li>
+<li><strong>Can fail, need to react →</strong> <code>try expr or err ... end</code></li>
+</ol>
+<p>When you're writing a library, <code>raise</code> with clear messages. When you're writing
+an application, <code>try/or</code> at the boundaries. This keeps the error handling close
+to where decisions are made.</p>
+
+            </article>
+
+            <div class="chapter-nav">
+                
+                <a href="03-functions-and-lambdas.html" class="prev">
+                    <div class="label">← Previous</div>
+                    <div class="ch-title">Functions and Lambdas</div>
+                </a>
+                
+                
+                <a href="05-shell-power.html" class="next">
+                    <div class="label">Next →</div>
+                    <div class="ch-title">Shell Power</div>
+                </a>
+                
+            </div>
+        </div>
+    </div>
+
+    <script>
+    
+    document.querySelectorAll('.sidebar nav a').forEach(a => {
+        a.addEventListener('click', () => {
+            document.querySelector('.sidebar').classList.remove('open');
+        });
+    });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/ruby.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</body>
+</html>

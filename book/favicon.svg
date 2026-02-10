@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Head -->
+  <ellipse cx="32" cy="32" rx="26" ry="24" fill="#e04040"/>
+  <!-- Snout -->
+  <ellipse cx="32" cy="40" rx="15" ry="10" fill="#e85858"/>
+  <!-- Horns -->
+  <path d="M12,18 Q8,4 16,13" fill="#c03030"/>
+  <path d="M52,18 Q56,4 48,13" fill="#c03030"/>
+  <!-- Spikes -->
+  <polygon points="28,10 32,0 36,10" fill="#f0a050"/>
+  <polygon points="24,14 27,6 31,14" fill="#f0a050" opacity="0.8"/>
+  <!-- Eyes -->
+  <circle cx="22" cy="27" r="7.5" fill="white"/>
+  <circle cx="42" cy="27" r="7.5" fill="white"/>
+  <circle cx="24" cy="28" r="3.8" fill="#2a1510"/>
+  <circle cx="44" cy="28" r="3.8" fill="#2a1510"/>
+  <circle cx="22" cy="26" r="1.8" fill="white"/>
+  <circle cx="42" cy="26" r="1.8" fill="white"/>
+  <!-- Nostrils -->
+  <ellipse cx="27" cy="38" rx="2" ry="1.8" fill="#a03030"/>
+  <ellipse cx="37" cy="38" rx="2" ry="1.8" fill="#a03030"/>
+  <!-- Grin + fangs -->
+  <path d="M22,44 Q32,52 42,44" fill="none" stroke="#8a2020" stroke-width="1.8" stroke-linecap="round"/>
+  <polygon points="25,44 27,48 29,44" fill="white" opacity="0.9"/>
+  <polygon points="35,44 37,48 39,44" fill="white" opacity="0.9"/>
+  <!-- Blush -->
+  <ellipse cx="14" cy="36" rx="4" ry="2.5" fill="#ff6060" opacity="0.2"/>
+  <ellipse cx="50" cy="36" rx="4" ry="2.5" fill="#ff6060" opacity="0.2"/>
+</svg>

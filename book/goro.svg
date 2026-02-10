@@ -1,0 +1,142 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 390">
+  <defs>
+    <linearGradient id="body-g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e04848"/>
+      <stop offset="100%" stop-color="#b83030"/>
+    </linearGradient>
+    <linearGradient id="belly-g" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f0a870"/>
+      <stop offset="100%" stop-color="#e89050"/>
+    </linearGradient>
+    <linearGradient id="wing-g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#c03838"/>
+      <stop offset="100%" stop-color="#882020"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Tail — curly dragon tail (wagging) -->
+  <g>
+    <animateTransform attributeName="transform" type="rotate"
+      values="0 90 300;-8 90 300;0 90 300;6 90 300;0 90 300"
+      dur="1.5s" repeatCount="indefinite"/>
+    <path d="M115,310 Q70,330 60,300 Q55,270 80,270 Q65,245 85,250 Q75,225 100,240"
+          fill="none" stroke="url(#body-g)" stroke-width="14" stroke-linecap="round"/>
+    <!-- Tail spade -->
+    <path d="M58,298 L45,280 L65,290 L55,270 L72,285" fill="#c03030"/>
+  </g>
+
+  <!-- Wings — small cute bat wings (flapping) -->
+  <g transform="translate(130, 230)">
+    <animateTransform attributeName="transform" type="rotate"
+      values="0 15 0;-10 15 0;0 15 0" dur="2s" repeatCount="indefinite" additive="sum"/>
+    <path d="M0,0 Q-40,-60 -25,-80 Q-10,-65 -5,-75 Q5,-55 10,-65 Q15,-45 20,-50 Q20,-25 15,0"
+          fill="url(#wing-g)" opacity="0.85"/>
+  </g>
+  <g transform="translate(270, 225)">
+    <animateTransform attributeName="transform" type="rotate"
+      values="0 -15 0;10 -15 0;0 -15 0" dur="2s" repeatCount="indefinite" additive="sum"/>
+    <path d="M0,0 Q40,-55 25,-75 Q10,-60 5,-70 Q-5,-50 -10,-60 Q-15,-40 -20,-45 Q-18,-20 -15,0"
+          fill="url(#wing-g)" opacity="0.85"/>
+  </g>
+
+  <!-- Body — round dragon body -->
+  <ellipse cx="200" cy="295" rx="80" ry="68" fill="url(#body-g)"/>
+  <!-- Belly plate -->
+  <ellipse cx="200" cy="308" rx="48" ry="42" fill="url(#belly-g)"/>
+  <!-- Belly lines -->
+  <path d="M172,295 Q200,290 228,295" fill="none" stroke="#d08040" stroke-width="1" opacity="0.4"/>
+  <path d="M168,308 Q200,303 232,308" fill="none" stroke="#d08040" stroke-width="1" opacity="0.4"/>
+  <path d="M172,321 Q200,316 228,321" fill="none" stroke="#d08040" stroke-width="1" opacity="0.4"/>
+
+  <!-- Legs — stubby -->
+  <ellipse cx="160" cy="362" rx="22" ry="14" fill="#c03838"/>
+  <ellipse cx="240" cy="362" rx="22" ry="14" fill="#c03838"/>
+  <rect x="147" y="332" width="26" height="35" rx="13" fill="#d44040"/>
+  <rect x="227" y="332" width="26" height="35" rx="13" fill="#d44040"/>
+  <!-- Tiny claws -->
+  <circle cx="152" cy="366" r="4" fill="#a02828"/>
+  <circle cx="160" cy="369" r="4" fill="#a02828"/>
+  <circle cx="168" cy="366" r="4" fill="#a02828"/>
+  <circle cx="232" cy="366" r="4" fill="#a02828"/>
+  <circle cx="240" cy="369" r="4" fill="#a02828"/>
+  <circle cx="248" cy="366" r="4" fill="#a02828"/>
+
+  <!-- Arms — tiny T-rex arms holding nothing -->
+  <g transform="translate(138, 270) rotate(20)">
+    <rect x="0" y="0" width="12" height="22" rx="6" fill="#d44040"/>
+    <circle cx="3" cy="24" r="3" fill="#a02828"/>
+    <circle cx="9" cy="25" r="3" fill="#a02828"/>
+  </g>
+  <g transform="translate(258, 268) rotate(-20)">
+    <rect x="0" y="0" width="12" height="22" rx="6" fill="#d44040"/>
+    <circle cx="3" cy="24" r="3" fill="#a02828"/>
+    <circle cx="9" cy="25" r="3" fill="#a02828"/>
+  </g>
+
+  <!-- Head — BIG round chibi dragon head -->
+  <ellipse cx="200" cy="170" rx="100" ry="90" fill="#e04040"/>
+
+  <!-- Horns -->
+  <path d="M130,115 Q120,70 140,95" fill="#c03030" stroke="#a02020" stroke-width="1"/>
+  <path d="M270,115 Q280,70 260,95" fill="#c03030" stroke="#a02020" stroke-width="1"/>
+
+  <!-- Snout — lighter bump -->
+  <ellipse cx="200" cy="200" rx="55" ry="38" fill="#e85858"/>
+
+  <!-- Nostrils — with little smoke puffs -->
+  <ellipse cx="182" cy="195" rx="6" ry="5" fill="#a03030"/>
+  <ellipse cx="218" cy="195" rx="6" ry="5" fill="#a03030"/>
+  <!-- Smoke wisps (drifting up) -->
+  <circle cx="175" cy="185" r="4" fill="#888" opacity="0">
+    <animate attributeName="cy" values="185;165;145" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.2;0" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="3;5;7" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="170" cy="178" r="3" fill="#888" opacity="0">
+    <animate attributeName="cy" values="178;155;135" dur="3.5s" begin="0.8s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.15;0" dur="3.5s" begin="0.8s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;6" dur="3.5s" begin="0.8s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="225" cy="185" r="4" fill="#888" opacity="0">
+    <animate attributeName="cy" values="185;165;145" dur="3.2s" begin="0.3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.2;0" dur="3.2s" begin="0.3s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="3;5;7" dur="3.2s" begin="0.3s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="230" cy="178" r="3" fill="#888" opacity="0">
+    <animate attributeName="cy" values="178;155;135" dur="3.8s" begin="1.2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;0.15;0" dur="3.8s" begin="1.2s" repeatCount="indefinite"/>
+    <animate attributeName="r" values="2;4;6" dur="3.8s" begin="1.2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Eyes — big friendly gopher-style -->
+  <circle cx="170" cy="155" r="26" fill="white" stroke="#c03030" stroke-width="1.5"/>
+  <circle cx="230" cy="155" r="26" fill="white" stroke="#c03030" stroke-width="1.5"/>
+  <!-- Pupils (blinking) -->
+  <ellipse cx="177" cy="158" rx="13" ry="13" fill="#2a1510">
+    <animate attributeName="ry" values="13;13;1;13;13" keyTimes="0;0.42;0.46;0.50;1" dur="3.5s" repeatCount="indefinite"/>
+  </ellipse>
+  <ellipse cx="237" cy="158" rx="13" ry="13" fill="#2a1510">
+    <animate attributeName="ry" values="13;13;1;13;13" keyTimes="0;0.42;0.46;0.50;1" dur="3.5s" repeatCount="indefinite"/>
+  </ellipse>
+  <!-- Sparkle -->
+  <circle cx="171" cy="151" r="5.5" fill="white"/>
+  <circle cx="231" cy="151" r="5.5" fill="white"/>
+  <circle cx="180" cy="162" r="2.5" fill="white" opacity="0.5"/>
+  <circle cx="240" cy="162" r="2.5" fill="white" opacity="0.5"/>
+
+  <!-- Mouth — big happy grin showing tiny fangs -->
+  <path d="M165,215 Q200,240 235,215" fill="none" stroke="#8a2020" stroke-width="3" stroke-linecap="round"/>
+  <!-- Fangs -->
+  <polygon points="175,216 179,225 183,216" fill="white" opacity="0.9"/>
+  <polygon points="217,216 221,225 225,216" fill="white" opacity="0.9"/>
+
+  <!-- Dorsal spikes — down the head -->
+  <polygon points="190,85 200,58 210,85" fill="#f0a050"/>
+  <polygon points="182,98 190,75 198,98" fill="#f0a050" opacity="0.9"/>
+  <polygon points="176,112 182,92 190,112" fill="#f0a050" opacity="0.8"/>
+
+  <!-- Cheek blush -->
+  <ellipse cx="140" cy="185" rx="14" ry="8" fill="#ff6060" opacity="0.2"/>
+  <ellipse cx="260" cy="185" rx="14" ry="8" fill="#ff6060" opacity="0.2"/>
+
+</svg>

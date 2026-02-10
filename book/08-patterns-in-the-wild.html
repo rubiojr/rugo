@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patterns in the Wild — Idiomatic Rugo</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+     
+ 
+
+:root {
+    --bg:      #121215;
+    --surface: #18181c;
+    --fg:      #d4ccc8;
+    --muted:   #706a68;
+    --accent:  #d45555;
+    --link:    #e87878;
+    --border:  #252528;
+    --code-bg: #0e0e11;
+    --green:   #8aca6a;
+    --orange:  #e8a468;
+    --red:     #d45555;
+    --purple:  #c49adf;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+    font-size: 17px;
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+                 Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: var(--bg);
+    color: var(--fg);
+    margin: 0;
+    line-height: 1.7;
+}
+
+a { color: var(--link); }
+
+ 
+
+.prose h2 {
+    font-size: 1.55rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    margin: 3rem 0 0.8rem;
+    padding-top: 0.5rem;
+    color: var(--fg);
+}
+
+.prose h3 {
+    font-size: 1.18rem;
+    font-weight: 600;
+    margin: 2.2rem 0 0.5rem;
+    color: var(--fg);
+}
+
+.prose p {
+    margin: 0 0 1.15rem;
+    font-size: 1.05rem;
+    line-height: 1.8;
+}
+
+.prose a {
+    color: var(--link);
+    text-decoration: none;
+    border-bottom: 1px solid rgba(89, 194, 255, 0.2);
+    transition: border-color 0.2s;
+}
+
+.prose a:hover { border-bottom-color: var(--link); }
+
+.prose strong {
+    color: #e0e0e0;
+    font-weight: 600;
+}
+
+.prose em { color: var(--muted); }
+
+ 
+
+.prose code {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em;
+}
+
+.prose :not(pre) > code {
+    background: var(--code-bg);
+    color: var(--orange);
+    padding: 0.15em 0.45em;
+    border-radius: 5px;
+    border: 1px solid var(--border);
+}
+
+.prose pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.2rem 1.4rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+    line-height: 1.6;
+    font-size: 0.92rem;
+}
+
+.prose pre code {
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--fg);
+}
+
+ 
+
+.prose blockquote {
+    margin: 1.5rem 0;
+    padding: 0.8rem 1.3rem;
+    border-left: 3px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    background: var(--surface);
+    color: var(--muted);
+    font-style: italic;
+}
+
+.prose blockquote p { margin-bottom: 0.5rem; }
+.prose blockquote p:last-child { margin-bottom: 0; }
+
+ 
+
+.prose ul, .prose ol {
+    padding-left: 1.5rem;
+    margin: 0 0 1.15rem;
+}
+
+.prose li {
+    margin-bottom: 0.4rem;
+    font-size: 1.05rem;
+    line-height: 1.7;
+}
+
+.prose li::marker { color: var(--accent); }
+
+ 
+
+.prose hr {
+    border: none;
+    height: 1px;
+    background: var(--border);
+    max-width: 100px;
+    margin: 3rem auto;
+}
+
+ 
+
+.prose table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+}
+
+.prose table th {
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.9rem;
+    padding: 8px 14px;
+    border-bottom: 2px solid var(--border);
+    color: var(--accent);
+}
+
+.prose table td {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+}
+
+ 
+
+::-webkit-scrollbar { width: 7px; height: 7px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+::selection { background: rgba(212, 85, 85, 0.2); }
+
+ 
+
+.hljs { background: transparent; color: var(--fg); }
+.hljs-keyword,
+.hljs-literal,
+.hljs-built_in      { color: var(--accent); }      
+.hljs-string,
+.hljs-regexp         { color: var(--green); }       
+.hljs-number         { color: var(--purple); }      
+.hljs-title,
+.hljs-function       { color: #6eb3f7; }            
+.hljs-variable,
+.hljs-attr           { color: var(--orange); }      
+.hljs-symbol         { color: var(--orange); }
+.hljs-comment        { color: var(--muted); font-style: italic; }
+.hljs-meta,
+.hljs-meta .hljs-keyword { color: var(--muted); }
+.hljs-class .hljs-title  { color: #e8a468; }
+.hljs-params         { color: var(--fg); }
+.hljs-subst          { color: var(--fg); }
+.hljs-type           { color: var(--purple); }
+
+
+     
+
+    .page {
+        display: flex;
+        min-height: 100vh;
+    }
+
+     
+
+    .sidebar {
+        width: 280px;
+        flex-shrink: 0;
+        background: var(--surface);
+        border-right: 1px solid var(--border);
+        padding: 1.5rem 0;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        overflow-y: auto;
+    }
+
+    .sidebar .brand {
+        padding: 0.5rem 1.5rem 1.2rem;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--fg);
+        text-decoration: none;
+        display: block;
+        letter-spacing: -0.02em;
+    }
+
+    .sidebar .brand:hover { color: var(--accent); }
+
+    .sidebar nav a {
+        display: block;
+        padding: 0.45rem 1.5rem;
+        font-size: 0.88rem;
+        color: var(--muted);
+        text-decoration: none;
+        line-height: 1.5;
+        transition: color 0.15s ease, background 0.15s ease;
+    }
+
+    .sidebar nav a:hover {
+        color: var(--fg);
+        background: rgba(255,255,255,0.03);
+    }
+
+    .sidebar nav a.active {
+        color: var(--accent);
+        font-weight: 600;
+        background: rgba(212, 85, 85, 0.08);
+        border-right: 2px solid var(--accent);
+    }
+
+    .sidebar nav a .ch-n {
+        display: inline-block;
+        width: 1.6em;
+        color: var(--muted);
+        opacity: 0.5;
+        font-size: 0.82em;
+        font-weight: 500;
+    }
+
+     
+
+    .main {
+        flex: 1;
+        min-width: 0;
+        padding: 3rem 3.5rem 5rem;
+        max-width: 52rem;
+    }
+
+    .chapter-label {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--accent);
+        margin-bottom: 0.4rem;
+    }
+
+    .main > h1:first-of-type {
+        font-size: 2.4rem;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        margin: 0 0 0.5rem;
+        line-height: 1.15;
+    }
+
+    .chapter-desc {
+        font-size: 1.08rem;
+        color: var(--muted);
+        margin-bottom: 2.5rem;
+        line-height: 1.6;
+    }
+
+     
+
+    .chapter-nav {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        margin-top: 4rem;
+        padding-top: 2rem;
+        border-top: 1px solid var(--border);
+    }
+
+    .chapter-nav a {
+        display: block;
+        padding: 0.8rem 1.2rem;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        text-decoration: none;
+        color: var(--fg);
+        font-size: 0.9rem;
+        transition: border-color 0.2s ease, background 0.2s ease;
+        max-width: 45%;
+    }
+
+    .chapter-nav a:hover {
+        border-color: var(--accent);
+        background: var(--surface);
+    }
+
+    .chapter-nav .label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--muted);
+        margin-bottom: 0.2rem;
+    }
+
+    .chapter-nav .ch-title {
+        font-weight: 600;
+    }
+
+    .chapter-nav .next { margin-left: auto; text-align: right; }
+
+     
+
+    .menu-toggle {
+        display: none;
+        position: fixed;
+        top: 1rem;
+        left: 1rem;
+        z-index: 100;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0.5rem 0.7rem;
+        color: var(--fg);
+        font-size: 1.1rem;
+        cursor: pointer;
+        line-height: 1;
+    }
+
+    @media (max-width: 800px) {
+        .menu-toggle { display: block; }
+        .sidebar {
+            position: fixed;
+            z-index: 90;
+            left: -300px;
+            top: 0;
+            transition: left 0.25s ease;
+        }
+        .sidebar.open { left: 0; }
+        .main { padding: 2rem 1.5rem 4rem; }
+        .main > h1:first-of-type { font-size: 1.9rem; }
+        .chapter-nav { flex-direction: column; }
+        .chapter-nav a { max-width: 100%; }
+    }
+    </style>
+</head>
+<body>
+    <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu">☰</button>
+
+    <div class="page">
+        <aside class="sidebar">
+            <a href="index.html" class="brand">Idiomatic Rugo</a>
+            <nav>
+                
+                <a href="01-expressive-basics.html">
+                    <span class="ch-n">1.</span> Expressive Basics
+                </a>
+                
+                <a href="02-collections-with-character.html">
+                    <span class="ch-n">2.</span> Collections with Character
+                </a>
+                
+                <a href="03-functions-and-lambdas.html">
+                    <span class="ch-n">3.</span> Functions and Lambdas
+                </a>
+                
+                <a href="04-graceful-failure.html">
+                    <span class="ch-n">4.</span> Graceful Failure
+                </a>
+                
+                <a href="05-shell-power.html">
+                    <span class="ch-n">5.</span> Shell Power
+                </a>
+                
+                <a href="06-concurrent-thinking.html">
+                    <span class="ch-n">6.</span> Concurrent Thinking
+                </a>
+                
+                <a href="07-structuring-your-code.html">
+                    <span class="ch-n">7.</span> Structuring Your Code
+                </a>
+                
+                <a href="08-patterns-in-the-wild.html" class="active">
+                    <span class="ch-n">8.</span> Patterns in the Wild
+                </a>
+                
+            </nav>
+        </aside>
+
+        <div class="main">
+            <div class="chapter-label">Chapter 8</div>
+            <h1>Patterns in the Wild</h1>
+            <p class="chapter-desc">This final chapter showcases patterns drawn from real Rugo libraries and projects. These are the idioms that emerge when you put all the pieces together.</p>
+
+            <article class="prose">
+                <p>This final chapter showcases patterns drawn from real Rugo libraries and
+projects. These are the idioms that emerge when you put all the pieces together.</p>
+<h2 id="the-collection-wrapper">The Collection Wrapper</h2>
+<p>One of the most reusable patterns in Rugo: wrap an array in a hash with
+iterator methods. This is exactly how the Rugh GitHub client exposes API results.</p>
+<pre><code class="language-ruby"># A reusable collection wrapper — idiomatic Rugo pattern
+
+def wrap(items)
+  col = {items: items, length: len(items)}
+
+  col[&quot;each&quot;] = fn(callback)
+    for item in items
+      callback(item)
+    end
+  end
+
+  col[&quot;map&quot;] = fn(callback)
+    result = []
+    for item in items
+      result = append(result, callback(item))
+    end
+    return wrap(result)
+  end
+
+  col[&quot;select&quot;] = fn(callback)
+    result = []
+    for item in items
+      if callback(item)
+        result = append(result, item)
+      end
+    end
+    return wrap(result)
+  end
+
+  return col
+end
+
+names = wrap([&quot;Alice&quot;, &quot;Bob&quot;, &quot;Charlie&quot;, &quot;Dave&quot;])
+puts &quot;Count: #{names.length}&quot;
+
+names.each(fn(name)
+  puts(&quot;Hello, #{name}!&quot;)
+end)
+
+short = names.select(fn(n) len(n) &lt;= 4 end)
+puts &quot;Short names: #{short.length}&quot;
+short.each(fn(n) puts(n) end)
+</code></pre>
+<pre><code>Count: 4
+Hello, Alice!
+Hello, Bob!
+Hello, Charlie!
+Hello, Dave!
+Short names: 2
+Bob
+Dave
+</code></pre>
+<p>The key insight: <code>select</code> returns a new wrapped collection, so you can chain
+operations. <code>map</code> does the same. This is the Rugo equivalent of Ruby's
+<code>Enumerable</code> — built from nothing but hashes and lambdas.</p>
+<h2 id="the-builder-pattern">The Builder Pattern</h2>
+<p>Method chaining works naturally when each method returns <code>self</code> (or rather,
+the hash). This pattern is great for constructing complex objects step by step.</p>
+<pre><code class="language-ruby">use &quot;str&quot;
+
+def query_builder(table)
+  q = {
+    __table__: table,
+    __conditions__: [],
+    __order__: nil,
+    __limit__: nil
+  }
+
+  q[&quot;where&quot;] = fn(condition)
+    q.__conditions__ = append(q.__conditions__, condition)
+    return q
+  end
+
+  q[&quot;order_by&quot;] = fn(field)
+    q.__order__ = field
+    return q
+  end
+
+  q[&quot;limit&quot;] = fn(n)
+    q.__limit__ = n
+    return q
+  end
+
+  q[&quot;to_sql&quot;] = fn()
+    sql = &quot;SELECT * FROM &quot; + q.__table__
+    if len(q.__conditions__) &gt; 0
+      sql += &quot; WHERE &quot; + str.join(q.__conditions__, &quot; AND &quot;)
+    end
+    if q.__order__ != nil
+      sql += &quot; ORDER BY &quot; + q.__order__
+    end
+    if q.__limit__ != nil
+      sql += &quot; LIMIT &quot; + q.__limit__
+    end
+    return sql
+  end
+
+  return q
+end
+
+sql = query_builder(&quot;users&quot;).where(&quot;age &gt;= 18&quot;).where(&quot;active = 1&quot;).order_by(&quot;name&quot;).limit(&quot;10&quot;).to_sql()
+puts sql
+</code></pre>
+<pre><code>SELECT * FROM users WHERE age &gt;= 18 AND active = 1 ORDER BY name LIMIT 10
+</code></pre>
+<p>Each method mutates the hash and returns it, enabling the fluid interface.
+The Gummy ORM uses this same pattern for its query building.</p>
+<h2 id="inline-tests">Inline Tests</h2>
+<p>Rugo borrows from Rust: you can embed tests right next to your code. <code>rugo run</code>
+ignores them; <code>rugo rats</code> executes them. Keep your tests close to what they
+test.</p>
+<pre><code class="language-ruby">use &quot;test&quot;
+
+def add(a, b)
+  return a + b
+end
+
+def factorial(n)
+  if n &lt;= 1
+    return 1
+  end
+  return n * factorial(n - 1)
+end
+
+puts add(2, 3)
+puts factorial(5)
+
+rats &quot;add works correctly&quot;
+  test.assert_eq(add(1, 2), 3)
+  test.assert_eq(add(-1, 1), 0)
+  test.assert_eq(add(0, 0), 0)
+end
+
+rats &quot;factorial computes correctly&quot;
+  test.assert_eq(factorial(0), 1)
+  test.assert_eq(factorial(1), 1)
+  test.assert_eq(factorial(5), 120)
+end
+</code></pre>
+<p>Running normally:</p>
+<pre><code>5
+120
+</code></pre>
+<p>Running tests with <code>rugo rats</code>:</p>
+<pre><code>ok 1 - add works correctly
+ok 2 - factorial computes correctly
+2 tests, 2 passed, 0 failed, 0 skipped
+</code></pre>
+<p>This is incredibly useful for library code. The tests document the expected
+behavior and catch regressions — right there in the same file.</p>
+<h2 id="lessons-from-real-libraries">Lessons from Real Libraries</h2>
+<p>After studying Gummy (an ORM) and Rugh (a GitHub API client), some patterns
+emerge as the Rugo way:</p>
+<h3 id="the-attach-pattern">The Attach Pattern</h3>
+<p>Libraries build domain objects by attaching methods to a central hash. Each
+domain module calls <code>attach(client)</code> to inject its functions:</p>
+<pre><code class="language-ruby"># From the Rugh GitHub client:
+# user.attach(gh)
+# repo.attach(gh)
+# issue.attach(gh)
+</code></pre>
+<p>This gives you a clean API (<code>gh.repos()</code>, <code>gh.issues()</code>) while keeping the
+implementation modular.</p>
+<h3 id="smart-records">Smart Records</h3>
+<p>Database rows and API responses aren't dumb data — they come with actions.
+Insert a record, get back an object that can <code>.save()</code> and <code>.delete()</code> itself:</p>
+<pre><code class="language-ruby"># From Gummy ORM:
+# alice = Users.insert({name: &quot;Alice&quot;, age: 30})
+# alice.name = &quot;Alicia&quot;
+# alice.save()              # persists the change
+# alice.delete()            # removes from database
+</code></pre>
+<p>The trick is attaching closures at creation time that close over the connection
+and table name.</p>
+<h3 id="convention-for-internal-state">Convention for Internal State</h3>
+<p>Use double underscores for internal fields that shouldn't be part of the public API:</p>
+<pre><code class="language-ruby">model = {}
+model[&quot;__conn__&quot;] = conn        # internal: database connection
+model[&quot;__table__&quot;] = name       # internal: table name
+model[&quot;insert&quot;] = fn(attrs)     # public: insert a record
+  # ...
+end
+</code></pre>
+<p>This isn't enforced by the language — it's a convention. But it clearly
+separates interface from implementation.</p>
+<hr>
+<h2 id="the-rugo-philosophy">The Rugo Philosophy</h2>
+<p>After eight chapters, the philosophy boils down to a few principles:</p>
+<ol>
+<li>
+<p><strong>Start simple.</strong> Hashes before structs. Functions before classes.
+Graduate to more structure only when you need it.</p>
+</li>
+<li>
+<p><strong>Be explicit about failure.</strong> Use <code>try/or</code> at the right level.
+Don't let errors propagate silently, and don't panic unnecessarily.</p>
+</li>
+<li>
+<p><strong>Compose small pieces.</strong> Lambdas, closures, and hashes combine into
+surprisingly powerful patterns without complex abstractions.</p>
+</li>
+<li>
+<p><strong>Use the shell.</strong> Don't rewrite <code>curl</code> or <code>grep</code> in Rugo. Shell out
+for what the shell does best, then process results in Rugo.</p>
+</li>
+<li>
+<p><strong>Test where you code.</strong> Inline <code>rats</code> blocks keep tests and
+implementation together. Use them.</p>
+</li>
+</ol>
+<p>Rugo doesn't try to be everything. It's a sharp tool for a specific job:
+scripts and tools that need more structure than Bash but less ceremony than Go.
+Write it clean, keep it simple, ship a binary.</p>
+
+            </article>
+
+            <div class="chapter-nav">
+                
+                <a href="07-structuring-your-code.html" class="prev">
+                    <div class="label">← Previous</div>
+                    <div class="ch-title">Structuring Your Code</div>
+                </a>
+                
+                
+            </div>
+        </div>
+    </div>
+
+    <script>
+    
+    document.querySelectorAll('.sidebar nav a').forEach(a => {
+        a.addEventListener('click', () => {
+            document.querySelector('.sidebar').classList.remove('open');
+        });
+    });
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/ruby.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</body>
+</html>
