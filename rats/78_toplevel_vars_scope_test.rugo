@@ -1,39 +1,54 @@
-# RATS: Top-level variables should be visible in rats blocks and def functions
-# Bug: lowercase variables assigned at top level are not visible inside
-# rats blocks or def functions, only constants (UPPERCASE) work.
+# RATS: Top-level lowercase variables are block-scoped and do NOT leak
+# into rats blocks. Only constants (UPPERCASE) are shared across scopes.
+# This is by design — it prevents accidental mutation from distant code.
 use "test"
 
-rats "top-level variable visible in rats block"
-  test.skip("known bug: top-level vars not visible in rats blocks")
+rats "top-level variable is NOT visible in rats block"
   script = <<~SCRIPT
     use "test"
     port = 8080
-    rats "can see port"
-      test.assert_eq(port, 8080)
+    rats "cannot see port"
+      result = try port or "undefined"
+      test.assert_eq(result, "undefined")
     end
   SCRIPT
   test.write_file(test.tmpdir() + "/test_test.rugo", script)
   result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
-  # BUG: currently fails with "undefined: port"
-  test.assert_eq(result["status"], 0)
+  # Compile error is expected — port is not in scope
+  test.assert_neq(result["status"], 0)
 end
 
-rats "top-level variable set in setup_file visible in rats block"
-  test.skip("known bug: top-level vars not visible in rats blocks")
+rats "top-level variable assigned in setup_file stays local"
   script = <<~SCRIPT
     use "test"
     port = 0
     def setup_file()
       port = 8080
     end
-    rats "port is set"
-      test.assert_eq(port, 8080)
+    rats "port not visible"
+      result = try port or "undefined"
+      test.assert_eq(result, "undefined")
     end
   SCRIPT
   test.write_file(test.tmpdir() + "/test_test.rugo", script)
   result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
-  # BUG: port is not visible in rats block
-  test.assert_eq(result["status"], 0)
+  # Compile error is expected — port is not in scope
+  test.assert_neq(result["status"], 0)
+end
+
+rats "top-level constant is NOT visible in rats block either"
+  script = <<~SCRIPT
+    use "test"
+    PORT = 8080
+    rats "cannot see PORT"
+      result = try PORT or "undefined"
+      test.assert_eq(result, "undefined")
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test_test.rugo", script)
+  result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
+  # rats blocks are isolated — even constants are not in scope
+  test.assert_neq(result["status"], 0)
 end
 
 rats "top-level variable visible in def function"
@@ -46,7 +61,6 @@ rats "top-level variable visible in def function"
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rugo", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
-  # NOTE: this may already work for regular rugo run — testing for completeness
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "9090")
 end

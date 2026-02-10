@@ -175,6 +175,28 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 				}
 			}
 		}
+		// Check test bodies for references to top-level variables.
+		// rats blocks are emitted as separate Go functions and cannot
+		// access top-level variables — report a clear error early.
+		for _, t := range tests {
+			localAssigns := make(map[string]bool)
+			for _, s := range t.Body {
+				if a, ok := s.(*AssignStmt); ok {
+					localAssigns[a.Target] = true
+				}
+			}
+			refs := collectIdents(t.Body)
+			for name := range refs {
+				if !topVarNames[name] || localAssigns[name] {
+					continue
+				}
+				hint := "use an environment variable to share state with rats blocks"
+				if name[0] >= 'a' && name[0] <= 'z' {
+					hint = "variables are block-scoped; use a constant (UPPERCASE) or an environment variable instead"
+				}
+				return "", fmt.Errorf("%s:%d: '%s' is not available inside rats blocks (%s)", g.sourceFile, t.SourceLine, name, hint)
+			}
+		}
 	}
 
 	// Detect spawn/parallel/bench usage to gate runtime emission and imports
@@ -1872,6 +1894,24 @@ func collectIdentsFromExpr(e Expr, names map[string]bool) {
 	case *FnExpr:
 		for _, b := range ex.Body {
 			collectIdentsFromStmt(b, names)
+		}
+	case *StringLiteral:
+		if hasInterpolation(ex.Value) {
+			_, exprStrs := processInterpolation(ex.Value)
+			for _, exprStr := range exprStrs {
+				p := &parser.Parser{}
+				ast, err := p.Parse("<ident-scan>", []byte(exprStr+"\n"))
+				if err != nil {
+					continue
+				}
+				prog, err := walk(p, ast)
+				if err != nil {
+					continue
+				}
+				for _, s := range prog.Statements {
+					collectIdentsFromStmt(s, names)
+				}
+			}
 		}
 	}
 }

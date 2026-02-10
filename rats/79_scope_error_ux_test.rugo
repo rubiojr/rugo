@@ -1,0 +1,46 @@
+# RATS: Error messages for scoping violations should be user-friendly
+use "test"
+
+rats "variable in rats block shows scoping hint"
+  script = <<~SCRIPT
+    use "test"
+    port = 8080
+    rats "see port"
+      test.assert_eq(port, 8080)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test_test.rugo", script)
+  result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "not available inside rats blocks")
+  test.assert_contains(result["output"], "use a constant")
+end
+
+rats "constant in rats block shows scoping hint"
+  script = <<~SCRIPT
+    use "test"
+    PORT = 8080
+    rats "see PORT"
+      test.assert_eq(PORT, 8080)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test_test.rugo", script)
+  result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "not available inside rats blocks")
+  test.assert_contains(result["output"], "environment variable")
+end
+
+rats "variable in def shows clean error"
+  script = <<~SCRIPT
+    name = "Rugo"
+    def greet()
+      puts name
+    end
+    greet()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  # This one actually works via handlerVars promotion, so should pass
+  test.assert_eq(result["status"], 0)
+end

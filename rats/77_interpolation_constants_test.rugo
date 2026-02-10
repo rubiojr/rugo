@@ -4,7 +4,6 @@
 use "test"
 
 rats "string interpolation with constant in def function"
-  test.skip("known bug: interpolation with constants undefined in def scope")
   result = test.run("rugo run rats/fixtures/interp_const_in_def.rugo")
   # BUG: currently fails with "undefined: VERSION"
   test.assert_eq(result["status"], 0)
@@ -24,7 +23,6 @@ rats "constant concatenation in def function works"
 end
 
 rats "multiple constants interpolated in def function"
-  test.skip("known bug: interpolation with constants undefined in def scope")
   result = test.run("rugo run rats/fixtures/interp_multi_const_def.rugo")
   # BUG: same issue — interpolation with constants inside def
   test.assert_eq(result["status"], 0)
