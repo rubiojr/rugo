@@ -220,6 +220,14 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 				}
 				return "", nil, fmt.Errorf("line %d: `or` without `try` — did you mean `try %s`?", origLine, trimmed)
 			}
+			// Detect misspelled keywords/builtins
+			if closest := closestKeywordOrBuiltin(firstToken); closest != "" {
+				origLine := i + 1
+				if tryLineMap != nil && i < len(tryLineMap) {
+					origLine = tryLineMap[i]
+				}
+				return "", nil, fmt.Errorf("line %d: unknown keyword `%s` — did you mean `%s`?", origLine, firstToken, closest)
+			}
 		}
 		result = append(result, processed)
 
@@ -364,6 +372,44 @@ func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string
 
 	// Otherwise it's a shell command — the whole line is the command
 	return indent + `__shell__("` + shellEscape(trimmed) + `")`
+}
+
+// closestKeywordOrBuiltin returns the closest keyword or builtin to s
+// if within edit distance ≤ 2, or "" if none. For short words (≤ 5 chars),
+// the first character must match to avoid false positives (e.g. "date" → "rats").
+// For very short words (≤ 4 chars), only distance 1 is allowed to prevent
+// false positives like "ping" → "print".
+func closestKeywordOrBuiltin(s string) string {
+	if len(s) < 3 {
+		return ""
+	}
+	best := ""
+	bestDist := 3
+	check := func(kw string) {
+		if len(kw) < 3 {
+			return
+		}
+		// For short words, require first character match to reduce false positives.
+		if (len(s) <= 5 || len(kw) <= 5) && s[0] != kw[0] {
+			return
+		}
+		maxDist := 2
+		if min(len(s), len(kw)) <= 4 {
+			maxDist = 1
+		}
+		d := levenshtein(s, kw)
+		if d > 0 && d <= maxDist && d < bestDist {
+			bestDist = d
+			best = kw
+		}
+	}
+	for kw := range rugoKeywords {
+		check(kw)
+	}
+	for kw := range rugoBuiltins {
+		check(kw)
+	}
+	return best
 }
 
 // hasOrphanOr detects ` or ` used as a Rugo fallback keyword in a line
