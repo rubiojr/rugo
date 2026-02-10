@@ -107,7 +107,7 @@ puts greet.greet("world")
 puts math.double(21)   # 42
 ```
 
-Each name in the `with` list loads `<name>.rg` from the directory. The filename becomes the namespace. This works with both local directories and remote repositories.
+Each name in the `with` list loads `<name>.rg` from the directory root, or from `lib/<name>.rg` as a fallback. The filename becomes the namespace. This works with both local directories and remote repositories.
 
 ### Remote Modules
 

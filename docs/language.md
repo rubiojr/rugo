@@ -635,7 +635,7 @@ client.connect()
 require "github.com/user/rugo-utils@v1.0.0" with client, helpers
 ```
 
-Each name loads `<name>.rg` from the directory or repository root, using the filename as the namespace.
+Each name loads `<name>.rg` from the directory or repository root (falling back to `lib/<name>.rg`), using the filename as the namespace.
 
 Remote git repositories can also be required as a single module:
 

@@ -56,14 +56,15 @@ gh = client.from_env()
 issues = issue.list(gh, "rubiojr", "rugo")
 ```
 
-Each name in the `with` list loads `<name>.rg` from the repository root.
+Each name in the `with` list loads `<name>.rg` from the repository root
+(or `lib/<name>.rg` as a fallback).
 The filename becomes the namespace — `client.rg` becomes the `client`
 namespace, `issue.rg` becomes `issue`, etc.
 
 ### How `with` Works
 
 1. The repo is fetched once (same caching rules as regular requires)
-2. Each named `.rg` file is loaded from the repo root
+2. Each named `.rg` file is loaded from the repo root (or `lib/` fallback)
 3. Each file gets its own namespace (the filename without `.rg`)
 4. No entry point (`main.rg`) is needed
 

@@ -151,6 +151,7 @@ issue.list(gh, "owner", "repo")
 ```
 
 Each name loads `<name>.rg` from the directory or repo root as its own namespace.
+If not found at the root, `lib/<name>.rg` is checked as a fallback.
 
 For remote modules, without `with`, the repo's entry point (`main.rg`, `<repo-name>.rg`, or the
 sole `.rg` file) is loaded. With `with`, the entry point is bypassed and each
