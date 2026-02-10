@@ -1,0 +1,26 @@
+# Array and hash utilities
+import "slices"
+import "maps"
+use "conv"
+
+# slices
+fruits = ["cherry", "apple", "banana"]
+puts slices.contains(fruits, "apple")     # true
+puts conv.to_s(slices.index(fruits, "banana"))  # 2
+puts slices.reverse(fruits)               # reversed
+
+nums = [1, 1, 2, 2, 3, 3, 1]
+puts slices.compact(nums)                 # consecutive dupes removed
+
+# maps
+config = {host: "localhost", port: "8080", debug: "true"}
+puts maps.keys(config)     # sorted keys
+puts maps.values(config)   # values in key order
+
+copy = maps.clone(config)
+copy.host = "0.0.0.0"
+puts config.host           # localhost (original unchanged)
+puts copy.host             # 0.0.0.0
+
+puts maps.equal({a: 1}, {a: 1})  # true
+puts maps.equal({a: 1}, {b: 1})  # false

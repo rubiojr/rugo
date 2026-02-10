@@ -71,6 +71,15 @@ puts str_go.to_upper("hello")   # HELLO
 | `sort` | strings (sorts a string array), ints (sorts an int array) |
 | `os` | getenv, setenv, read_file, write_file, mkdir_all, remove, remove_all, getwd |
 | `time` | now_unix, now_nano, sleep |
+| `encoding/json` | marshal, unmarshal, marshal_indent |
+| `encoding/base64` | encode, decode, url_encode, url_decode |
+| `encoding/hex` | encode, decode |
+| `crypto/sha256` | sum256 |
+| `crypto/md5` | sum |
+| `net/url` | parse, path_escape, path_unescape, query_escape, query_unescape |
+| `unicode` | is_letter, is_digit, is_space, is_upper, is_lower, is_punct, to_upper, to_lower |
+| `slices` | contains, index, reverse, compact |
+| `maps` | keys, values, clone, equal |
 
 ### Error Handling
 

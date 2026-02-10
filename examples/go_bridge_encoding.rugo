@@ -1,0 +1,19 @@
+# Base64 and hex encoding
+import "encoding/base64"
+import "encoding/hex"
+
+message = "Hello, Rugo!"
+
+# Base64
+b64 = base64.encode(message)
+puts "Base64: " + b64
+puts "Decoded: " + base64.decode(b64)
+
+# URL-safe base64
+url_b64 = base64.url_encode(message)
+puts "URL Base64: " + url_b64
+
+# Hex
+h = hex.encode(message)
+puts "Hex: " + h
+puts "Decoded: " + hex.decode(h)

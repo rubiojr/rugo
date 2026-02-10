@@ -1,5 +1,7 @@
 package gobridge
 
+import "fmt"
+
 func init() {
 	Register(&Package{
 		Path: "path/filepath",
@@ -13,10 +15,17 @@ func init() {
 			"join":       {GoName: "Join", Params: []GoType{GoStringSlice}, Returns: []GoType{GoString}, Variadic: true, Doc: "Joins path elements into a single path."},
 			"match":      {GoName: "Match", Params: []GoType{GoString, GoString}, Returns: []GoType{GoBool, GoError}, Doc: "Reports whether name matches the shell pattern."},
 			"rel":        {GoName: "Rel", Params: []GoType{GoString, GoString}, Returns: []GoType{GoString, GoError}, Doc: "Returns a relative path from basepath to targpath."},
-			"split":      {GoName: "Split", Params: []GoType{GoString}, Returns: []GoType{GoString, GoString}, Doc: "Splits path into directory and file components."},
 			"to_slash":   {GoName: "ToSlash", Params: []GoType{GoString}, Returns: []GoType{GoString}, Doc: "Replaces OS path separators with slashes."},
 			"from_slash": {GoName: "FromSlash", Params: []GoType{GoString}, Returns: []GoType{GoString}, Doc: "Replaces slashes with OS path separators."},
 			"abs":        {GoName: "Abs", Params: []GoType{GoString}, Returns: []GoType{GoString, GoError}, Doc: "Returns an absolute representation of path."},
+			"split": {
+				GoName: "Split", Params: []GoType{GoString}, Returns: []GoType{GoString, GoString},
+				Doc: "Splits path into directory and file components.",
+				Codegen: func(pkgBase string, args []string, _ string) string {
+					return fmt.Sprintf("func() interface{} { _d, _f := %s.Split(%s); return interface{}([]interface{}{interface{}(_d), interface{}(_f)}) }()",
+						pkgBase, TypeConvToGo(args[0], GoString))
+				},
+			},
 		},
 	})
 }

@@ -1,0 +1,77 @@
+# RATS: Test Go bridge — encoding/base64 package
+use "test"
+
+rats "base64.encode and decode"
+  script = <<~SCRIPT
+    import "encoding/base64"
+    encoded = base64.encode("Hello, Rugo!")
+    puts encoded
+    puts base64.decode(encoded)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "SGVsbG8sIFJ1Z28h")
+  test.assert_contains(result["output"], "Hello, Rugo!")
+end
+
+rats "base64.url_encode and url_decode"
+  script = <<~SCRIPT
+    import "encoding/base64"
+    encoded = base64.url_encode("hello world+test")
+    puts encoded
+    puts base64.url_decode(encoded)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello world+test")
+end
+
+rats "base64.decode error"
+  script = <<~SCRIPT
+    import "encoding/base64"
+    base64.decode("!!!not-valid!!!")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "base64.decode")
+end
+
+rats "base64 empty string"
+  script = <<~SCRIPT
+    import "encoding/base64"
+    puts base64.encode("")
+    puts base64.decode("")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+end
+
+rats "base64 round-trip"
+  script = <<~SCRIPT
+    import "encoding/base64"
+    original = "The quick brown fox jumps over the lazy dog"
+    puts base64.decode(base64.encode(original))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "The quick brown fox jumps over the lazy dog")
+end
+
+rats "base64 special characters"
+  script = <<~SCRIPT
+    import "encoding/base64"
+    original = "hello+world/test=foo"
+    encoded = base64.encode(original)
+    decoded = base64.decode(encoded)
+    puts decoded
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello+world/test=foo")
+end

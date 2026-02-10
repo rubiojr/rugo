@@ -1,0 +1,61 @@
+# RATS: Test Go bridge — encoding/hex package
+use "test"
+
+rats "hex.encode and decode"
+  script = <<~SCRIPT
+    import "encoding/hex"
+    encoded = hex.encode("Hello!")
+    puts encoded
+    puts hex.decode(encoded)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "48656c6c6f21")
+  test.assert_contains(result["output"], "Hello!")
+end
+
+rats "hex.encode known value"
+  script = <<~SCRIPT
+    import "encoding/hex"
+    puts hex.encode("abc")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "616263")
+end
+
+rats "hex.decode error"
+  script = <<~SCRIPT
+    import "encoding/hex"
+    hex.decode("xyz")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "hex.decode")
+end
+
+rats "hex empty string"
+  script = <<~SCRIPT
+    import "encoding/hex"
+    puts hex.encode("")
+    puts hex.decode("")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+end
+
+rats "hex round-trip"
+  script = <<~SCRIPT
+    import "encoding/hex"
+    original = "Rugo is great!"
+    puts hex.decode(hex.encode(original))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "Rugo is great!")
+end

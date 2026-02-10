@@ -23,6 +23,21 @@ const (
 	GoError       // error (panics on non-nil, invisible to Rugo)
 )
 
+// RuntimeHelper describes a Go helper function emitted into the generated code.
+// Multiple functions can share a helper via the same Key — it will only be emitted once.
+type RuntimeHelper struct {
+	// Key is a unique identifier for dedup (e.g. "rugo_json_prepare").
+	Key string
+	// Code is the full Go source for the helper function(s), including trailing newline.
+	Code string
+}
+
+// CodegenFunc is the signature for custom code generation callbacks.
+// pkgBase is the resolved Go package name (respects aliases).
+// args are the raw Go expressions for each argument.
+// rugoName is the user-visible function name for error messages (e.g. "json.marshal").
+type CodegenFunc func(pkgBase string, args []string, rugoName string) string
+
 // GoFuncSig describes the signature of a Go stdlib function for bridging.
 type GoFuncSig struct {
 	// GoName is the PascalCase Go function name (e.g. "Contains").
@@ -37,6 +52,12 @@ type GoFuncSig struct {
 	Variadic bool
 	// Doc is the documentation string shown by `rugo doc`.
 	Doc string
+	// Codegen, when set, overrides the default code generation for this function.
+	// The bridge file owns its own codegen logic instead of codegen.go.
+	Codegen CodegenFunc
+	// RuntimeHelpers lists Go helper functions this bridge function needs.
+	// Helpers are deduped by Key and emitted once into the generated code.
+	RuntimeHelpers []RuntimeHelper
 }
 
 // Package holds the registry of bridgeable functions for a Go package.
@@ -47,6 +68,12 @@ type Package struct {
 	Funcs map[string]GoFuncSig
 	// Doc is the package-level documentation shown by `rugo doc`.
 	Doc string
+	// NoGoImport, when true, suppresses Go import emission for this package.
+	// Used for packages implemented entirely via runtime helpers (e.g. slices, maps).
+	NoGoImport bool
+	// ExtraImports lists additional Go import paths needed by runtime helpers.
+	// These are emitted alongside the package's own import (e.g. maps needs "sort").
+	ExtraImports []string
 }
 
 // registry maps Go package paths to their bridge definitions.
@@ -192,4 +219,29 @@ func GoTypeName(t GoType) string {
 	default:
 		return "any"
 	}
+}
+
+// PanicOnErr returns the Go code snippet to panic with a bridge error message.
+// Used by Codegen callbacks: `if _err != nil { <panicOnErr> }`.
+func PanicOnErr(rugoName string) string {
+	return `panic(rugo_bridge_err("` + rugoName + `", _err))`
+}
+
+// AllRuntimeHelpers returns deduplicated runtime helpers from all functions in a package.
+func AllRuntimeHelpers(pkg string) []RuntimeHelper {
+	funcs := PackageFuncs(pkg)
+	if funcs == nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var helpers []RuntimeHelper
+	for _, sig := range funcs {
+		for _, h := range sig.RuntimeHelpers {
+			if !seen[h.Key] {
+				seen[h.Key] = true
+				helpers = append(helpers, h)
+			}
+		}
+	}
+	return helpers
 }

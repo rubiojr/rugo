@@ -1,0 +1,14 @@
+# JSON encoding and decoding
+import "encoding/json"
+
+# Marshal a hash to JSON
+data = {name: "Rugo", version: 1, features: ["structs", "gobridge"]}
+text = json.marshal(data)
+puts text
+
+# Pretty-print
+puts json.marshal_indent(data, "", "  ")
+
+# Unmarshal JSON back to a hash
+parsed = json.unmarshal(text)
+puts parsed.name

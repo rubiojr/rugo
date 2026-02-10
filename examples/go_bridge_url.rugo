@@ -1,0 +1,16 @@
+# URL parsing and manipulation
+import "net/url"
+
+u = url.parse("https://api.example.com:8080/v2/users?page=1&limit=10#results")
+puts "Scheme:   " + u.scheme
+puts "Host:     " + u.host
+puts "Hostname: " + u.hostname
+puts "Port:     " + u.port
+puts "Path:     " + u.path
+puts "Query:    " + u.query
+puts "Fragment: " + u.fragment
+
+# Escape/unescape query parameters
+escaped = url.query_escape("key=hello world&foo=bar")
+puts "Escaped:   " + escaped
+puts "Unescaped: " + url.query_unescape(escaped)

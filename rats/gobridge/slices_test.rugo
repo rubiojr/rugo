@@ -1,0 +1,121 @@
+# RATS: Test Go bridge — slices package
+use "test"
+
+rats "slices.contains with strings"
+  script = <<~SCRIPT
+    import "slices"
+    arr = ["apple", "banana", "cherry"]
+    puts slices.contains(arr, "banana")
+    puts slices.contains(arr, "xyz")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "slices.contains with ints"
+  script = <<~SCRIPT
+    import "slices"
+    arr = [1, 2, 3, 4, 5]
+    puts slices.contains(arr, 3)
+    puts slices.contains(arr, 99)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "slices.index"
+  script = <<~SCRIPT
+    import "slices"
+    use "conv"
+    arr = ["apple", "banana", "cherry"]
+    puts conv.to_s(slices.index(arr, "cherry"))
+    puts conv.to_s(slices.index(arr, "nope"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "2")
+  test.assert_contains(result["output"], "-1")
+end
+
+rats "slices.reverse"
+  script = <<~SCRIPT
+    import "slices"
+    use "conv"
+    reversed = slices.reverse([1, 2, 3])
+    puts conv.to_s(reversed[0])
+    puts conv.to_s(reversed[1])
+    puts conv.to_s(reversed[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+  test.assert_contains(result["output"], "2")
+  test.assert_contains(result["output"], "1")
+end
+
+rats "slices.reverse does not modify original"
+  script = <<~SCRIPT
+    import "slices"
+    use "conv"
+    original = [1, 2, 3]
+    reversed = slices.reverse(original)
+    puts conv.to_s(original[0])
+    puts conv.to_s(reversed[0])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1")
+  test.assert_contains(result["output"], "3")
+end
+
+rats "slices.compact"
+  script = <<~SCRIPT
+    import "slices"
+    use "conv"
+    compacted = slices.compact([1, 1, 2, 2, 3, 1, 1])
+    puts conv.to_s(len(compacted))
+    puts conv.to_s(compacted[0])
+    puts conv.to_s(compacted[1])
+    puts conv.to_s(compacted[2])
+    puts conv.to_s(compacted[3])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "4")
+end
+
+rats "slices.compact strings"
+  script = <<~SCRIPT
+    import "slices"
+    use "conv"
+    compacted = slices.compact(["a", "a", "b", "c", "c"])
+    puts conv.to_s(len(compacted))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+end
+
+rats "slices.reverse empty array"
+  script = <<~SCRIPT
+    import "slices"
+    use "conv"
+    reversed = slices.reverse([])
+    puts conv.to_s(len(reversed))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "0")
+end

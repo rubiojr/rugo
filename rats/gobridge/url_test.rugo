@@ -1,0 +1,126 @@
+# RATS: Test Go bridge — net/url package
+use "test"
+
+rats "url.parse full URL"
+  script = <<~SCRIPT
+    import "net/url"
+    u = url.parse("https://user@example.com:8080/path?q=hello#section")
+    puts u.scheme
+    puts u.host
+    puts u.hostname
+    puts u.port
+    puts u.path
+    puts u.query
+    puts u.fragment
+    puts u.user
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "https")
+  test.assert_contains(result["output"], "example.com:8080")
+  test.assert_contains(result["output"], "example.com")
+  test.assert_contains(result["output"], "8080")
+  test.assert_contains(result["output"], "/path")
+  test.assert_contains(result["output"], "q=hello")
+  test.assert_contains(result["output"], "section")
+  test.assert_contains(result["output"], "user")
+end
+
+rats "url.parse without port"
+  script = <<~SCRIPT
+    import "net/url"
+    u = url.parse("https://example.com/path")
+    puts u.scheme
+    puts u.hostname
+    puts u.port
+    puts u.path
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "https")
+  test.assert_contains(result["output"], "example.com")
+  test.assert_contains(result["output"], "/path")
+end
+
+rats "url.parse relative URL"
+  script = <<~SCRIPT
+    import "net/url"
+    u = url.parse("/api/v2/users?page=1")
+    puts u.path
+    puts u.query
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "/api/v2/users")
+  test.assert_contains(result["output"], "page=1")
+end
+
+rats "url.parse raw field"
+  script = <<~SCRIPT
+    import "net/url"
+    u = url.parse("https://example.com/path")
+    puts u.raw
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "https://example.com/path")
+end
+
+rats "url.query_escape and query_unescape"
+  script = <<~SCRIPT
+    import "net/url"
+    escaped = url.query_escape("hello world&foo=bar")
+    puts escaped
+    puts url.query_unescape(escaped)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello+world")
+  test.assert_contains(result["output"], "hello world&foo=bar")
+end
+
+rats "url.path_escape and path_unescape"
+  script = <<~SCRIPT
+    import "net/url"
+    escaped = url.path_escape("my/path segment")
+    puts escaped
+    puts url.path_unescape(escaped)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "my%2Fpath%20segment")
+  test.assert_contains(result["output"], "my/path segment")
+end
+
+rats "url.query_unescape error"
+  script = <<~SCRIPT
+    import "net/url"
+    url.query_unescape("%ZZ")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "url.query_unescape")
+end
+
+rats "url.parse with alias"
+  script = <<~SCRIPT
+    import "net/url" as u
+    parsed = u.parse("https://example.com:443/test")
+    puts parsed.scheme
+    puts parsed.hostname
+    puts parsed.port
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test_alias.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test_alias.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "https")
+  test.assert_contains(result["output"], "example.com")
+  test.assert_contains(result["output"], "443")
+end

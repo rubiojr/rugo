@@ -205,7 +205,18 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		}
 	}
 	// Emit Go imports for Go bridge packages (import)
+	// Packages with NoGoImport are skipped (runtime-only helpers)
 	for _, pkg := range sortedGoBridgeImports(g.goImports) {
+		if bp := gobridge.GetPackage(pkg); bp != nil && bp.NoGoImport {
+			// Emit extra imports needed by runtime helpers (e.g. maps needs sort)
+			for _, extra := range bp.ExtraImports {
+				if !emittedImports[extra] {
+					g.writef("\"%s\"\n", extra)
+					emittedImports[extra] = true
+				}
+			}
+			continue
+		}
 		alias := g.goImports[pkg]
 		if alias == "" && emittedImports[pkg] {
 			continue // already imported without alias
@@ -1820,6 +1831,11 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 		pkgBase = alias
 	}
 
+	// Custom codegen callback — bridge file owns its own logic
+	if sig.Codegen != nil {
+		return sig.Codegen(pkgBase, argExprs, rugoName)
+	}
+
 	// Build converted args
 	var convertedArgs []string
 	for i, arg := range argExprs {
@@ -1842,74 +1858,21 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 	}
 
 	// Handle special method-chain calls (e.g. time.Now().Unix())
+	// Note: base64/time method-chains now handled by Codegen callbacks.
+	// This is a generic fallback for future method-chain packages.
 	if strings.Contains(sig.GoName, ".") {
 		call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(convertedArgs, ", "))
 		if len(sig.Returns) == 0 {
 			return call
 		}
-		// time methods return int64; convert to int for Rugo
 		if sig.Returns[0] == gobridge.GoInt {
 			return fmt.Sprintf("interface{}(int(%s))", call)
 		}
 		return gobridge.TypeWrapReturn(call, sig.Returns[0])
 	}
 
-	// Handle time.Sleep special case: convert ms → Duration
-	if pkg == "time" && sig.GoName == "Sleep" {
-		return fmt.Sprintf("func() interface{} { %s.Sleep(time.Duration(%s) * time.Millisecond); return nil }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoInt))
-	}
-
 	// Error panic format with Rugo function name
-	// Use rugo_bridge_err to strip Go function prefix from error messages
 	panicFmt := fmt.Sprintf(`panic(rugo_bridge_err("%s", _err))`, rugoName)
-
-	// Handle os.ReadFile special: returns []byte, convert to string
-	if pkg == "os" && sig.GoName == "ReadFile" {
-		return fmt.Sprintf("func() interface{} { _v, _err := %s.ReadFile(%s); if _err != nil { %s }; return interface{}(string(_v)) }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), panicFmt)
-	}
-
-	// Handle os.WriteFile special: data as []byte, perm as os.FileMode
-	if pkg == "os" && sig.GoName == "WriteFile" {
-		return fmt.Sprintf("func() interface{} { _err := %s.WriteFile(%s, []byte(%s), os.FileMode(%s)); if _err != nil { %s }; return nil }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoString), gobridge.TypeConvToGo(argExprs[2], gobridge.GoInt), panicFmt)
-	}
-
-	// Handle os.MkdirAll special: perm as os.FileMode
-	if pkg == "os" && sig.GoName == "MkdirAll" {
-		return fmt.Sprintf("func() interface{} { _err := %s.MkdirAll(%s, os.FileMode(%s)); if _err != nil { %s }; return nil }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt), panicFmt)
-	}
-
-	// Handle strconv.FormatInt (needs int64 first arg)
-	if pkg == "strconv" && sig.GoName == "FormatInt" {
-		return fmt.Sprintf("interface{}(%s.FormatInt(int64(%s), %s))",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoInt), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt))
-	}
-
-	// Handle strconv.ParseInt (returns int64, convert to int)
-	if pkg == "strconv" && sig.GoName == "ParseInt" {
-		return fmt.Sprintf("func() interface{} { _v, _err := %s.ParseInt(%s, %s, %s); if _err != nil { %s }; return interface{}(int(_v)) }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString), gobridge.TypeConvToGo(argExprs[1], gobridge.GoInt), gobridge.TypeConvToGo(argExprs[2], gobridge.GoInt), panicFmt)
-	}
-
-	// Handle sort.Strings/Ints — mutates in place, special bridge
-	if pkg == "sort" && sig.GoName == "Strings" {
-		return fmt.Sprintf("func() interface{} { _s := rugo_go_to_string_slice(%s); %s.Strings(_s); return rugo_go_from_string_slice(_s) }()", argExprs[0], pkgBase)
-	}
-	if pkg == "sort" && sig.GoName == "Ints" {
-		return fmt.Sprintf("func() interface{} { _s := rugo_go_to_int_slice(%s); %s.Ints(_s); return rugo_go_from_int_slice(_s) }()", argExprs[0], pkgBase)
-	}
-	if pkg == "sort" && sig.GoName == "StringsAreSorted" {
-		return fmt.Sprintf("interface{}(%s.StringsAreSorted(rugo_go_to_string_slice(%s)))", pkgBase, argExprs[0])
-	}
-
-	// Handle filepath.Split (returns dir, file — both strings)
-	if pkg == "path/filepath" && sig.GoName == "Split" {
-		return fmt.Sprintf("func() interface{} { _d, _f := %s.Split(%s); return interface{}([]interface{}{interface{}(_d), interface{}(_f)}) }()",
-			pkgBase, gobridge.TypeConvToGo(argExprs[0], gobridge.GoString))
-	}
 
 	call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(convertedArgs, ", "))
 
@@ -1944,66 +1907,19 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 }
 
 // writeGoBridgeRuntime emits helper functions needed by Go bridge calls.
+// Helpers are declared by bridge files via RuntimeHelpers on GoFuncSig,
+// deduplicated by key, and emitted once.
 func (g *codeGen) writeGoBridgeRuntime() {
-	needsStringSlice := false
-	needsIntSlice := false
-
-	for pkg := range g.goImports {
-		funcs := gobridge.PackageFuncs(pkg)
-		if funcs == nil {
-			continue
-		}
-		for _, sig := range funcs {
-			for _, p := range sig.Params {
-				if p == gobridge.GoStringSlice {
-					needsStringSlice = true
-				}
-			}
-			for _, r := range sig.Returns {
-				if r == gobridge.GoStringSlice {
-					needsStringSlice = true
-				}
-			}
-		}
-		if pkg == "sort" {
-			needsIntSlice = true
-		}
-	}
-
 	g.sb.WriteString("\n// --- Go Bridge Helpers ---\n\n")
-	if needsStringSlice {
-		g.sb.WriteString(`func rugo_go_to_string_slice(v interface{}) []string {
-	arr, ok := v.([]interface{})
-	if !ok { panic(fmt.Sprintf("expected array, got %T", v)) }
-	r := make([]string, len(arr))
-	for i, s := range arr { r[i] = rugo_to_string(s) }
-	return r
-}
 
-func rugo_go_from_string_slice(v []string) interface{} {
-	r := make([]interface{}, len(v))
-	for i, s := range v { r[i] = interface{}(s) }
-	return interface{}(r)
-}
-
-`)
-	}
-	if needsIntSlice {
-		g.sb.WriteString(`func rugo_go_to_int_slice(v interface{}) []int {
-	arr, ok := v.([]interface{})
-	if !ok { panic(fmt.Sprintf("expected array, got %T", v)) }
-	r := make([]int, len(arr))
-	for i, s := range arr { r[i] = rugo_to_int(s) }
-	return r
-}
-
-func rugo_go_from_int_slice(v []int) interface{} {
-	r := make([]interface{}, len(v))
-	for i, s := range v { r[i] = interface{}(s) }
-	return interface{}(r)
-}
-
-`)
+	emitted := map[string]bool{}
+	for pkg := range g.goImports {
+		for _, h := range gobridge.AllRuntimeHelpers(pkg) {
+			if !emitted[h.Key] {
+				emitted[h.Key] = true
+				g.sb.WriteString(h.Code)
+			}
+		}
 	}
 }
 

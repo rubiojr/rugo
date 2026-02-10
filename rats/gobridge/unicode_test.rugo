@@ -1,0 +1,115 @@
+# RATS: Test Go bridge — unicode package
+use "test"
+
+rats "unicode.is_letter"
+  script = <<~SCRIPT
+    import "unicode"
+    puts unicode.is_letter("A")
+    puts unicode.is_letter("5")
+    puts unicode.is_letter(" ")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "unicode.is_digit"
+  script = <<~SCRIPT
+    import "unicode"
+    puts unicode.is_digit("9")
+    puts unicode.is_digit("a")
+    puts unicode.is_digit(" ")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "unicode.is_space"
+  script = <<~SCRIPT
+    import "unicode"
+    puts unicode.is_space(" ")
+    puts unicode.is_space("a")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "unicode.is_upper and is_lower"
+  script = <<~SCRIPT
+    import "unicode"
+    puts unicode.is_upper("A")
+    puts unicode.is_upper("a")
+    puts unicode.is_lower("a")
+    puts unicode.is_lower("A")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "unicode.is_punct"
+  script = <<~SCRIPT
+    import "unicode"
+    puts unicode.is_punct("!")
+    puts unicode.is_punct("a")
+    puts unicode.is_punct(".")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "unicode.to_upper and to_lower"
+  script = <<~SCRIPT
+    import "unicode"
+    puts unicode.to_upper("a")
+    puts unicode.to_upper("z")
+    puts unicode.to_lower("A")
+    puts unicode.to_lower("Z")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "A")
+  test.assert_contains(result["output"], "Z")
+  test.assert_contains(result["output"], "a")
+  test.assert_contains(result["output"], "z")
+end
+
+rats "unicode empty string"
+  script = <<~SCRIPT
+    import "unicode"
+    puts unicode.is_letter("")
+    puts unicode.to_upper("")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "false")
+end
+
+rats "unicode first char only"
+  script = <<~SCRIPT
+    import "unicode"
+    puts unicode.is_letter("abc")
+    puts unicode.is_digit("3abc")
+    puts unicode.to_upper("abc")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "A")
+end

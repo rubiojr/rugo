@@ -1,0 +1,151 @@
+# RATS: Test Go bridge — encoding/json package
+use "test"
+
+rats "json.marshal hash"
+  script = <<~SCRIPT
+    import "encoding/json"
+    data = {name: "Rugo", version: 1}
+    puts json.marshal(data)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "\"name\"")
+  test.assert_contains(result["output"], "\"Rugo\"")
+  test.assert_contains(result["output"], "\"version\"")
+end
+
+rats "json.marshal string"
+  script = <<~SCRIPT
+    import "encoding/json"
+    puts json.marshal("hello")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "\"hello\"")
+end
+
+rats "json.marshal array"
+  script = <<~SCRIPT
+    import "encoding/json"
+    puts json.marshal([1, 2, 3])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[1,2,3]")
+end
+
+rats "json.unmarshal object"
+  script = <<~SCRIPT
+    import "encoding/json"
+    parsed = json.unmarshal("{\"name\":\"Rugo\",\"version\":1}")
+    puts parsed.name
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "Rugo")
+end
+
+rats "json.unmarshal array"
+  script = <<~SCRIPT
+    import "encoding/json"
+    use "conv"
+    parsed = json.unmarshal("[1,2,3]")
+    puts conv.to_s(len(parsed))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+end
+
+rats "json.unmarshal nested"
+  script = <<~SCRIPT
+    import "encoding/json"
+    parsed = json.unmarshal("{\"user\":{\"name\":\"Alice\"}}")
+    puts parsed.user.name
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "Alice")
+end
+
+rats "json round-trip"
+  script = <<~SCRIPT
+    import "encoding/json"
+    data = {greeting: "hello", count: 42}
+    text = json.marshal(data)
+    parsed = json.unmarshal(text)
+    puts parsed.greeting
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello")
+end
+
+rats "json.unmarshal error"
+  script = <<~SCRIPT
+    import "encoding/json"
+    json.unmarshal("not json")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "json.unmarshal")
+end
+
+rats "json.marshal_indent"
+  script = <<~SCRIPT
+    import "encoding/json"
+    data = {name: "Rugo"}
+    puts json.marshal_indent(data, "", "  ")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "\"name\"")
+  test.assert_contains(result["output"], "\"Rugo\"")
+end
+
+rats "json.marshal nil"
+  script = <<~SCRIPT
+    import "encoding/json"
+    puts json.marshal(nil)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "null")
+end
+
+rats "json.marshal boolean"
+  script = <<~SCRIPT
+    import "encoding/json"
+    puts json.marshal(true)
+    puts json.marshal(false)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "json.unmarshal boolean and null"
+  script = <<~SCRIPT
+    import "encoding/json"
+    puts json.unmarshal("true")
+    puts json.unmarshal("false")
+    puts json.unmarshal("null")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end

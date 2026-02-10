@@ -64,10 +64,88 @@ puts go_os.getenv("APP")    # rugo
 | `strconv` | atoi, itoa, format_float, parse_float, format_bool, parse_bool |
 | `math` | abs, ceil, floor, round, sqrt, pow, log, max, min, sin, cos, tan |
 | `path/filepath` | join, base, dir, ext, clean, is_abs, rel, split |
-| `regexp` | match_string, must_compile, compile |
 | `sort` | strings, ints |
 | `os` | getenv, setenv, read_file, write_file, mkdir_all, remove, getwd |
 | `time` | now_unix, now_nano, sleep |
+| `encoding/json` | marshal, unmarshal, marshal_indent |
+| `encoding/base64` | encode, decode, url_encode, url_decode |
+| `encoding/hex` | encode, decode |
+| `crypto/sha256` | sum256 |
+| `crypto/md5` | sum |
+| `net/url` | parse, path_escape, path_unescape, query_escape, query_unescape |
+| `unicode` | is_letter, is_digit, is_space, is_upper, is_lower, is_punct, to_upper, to_lower |
+| `slices` | contains, index, reverse, compact |
+| `maps` | keys, values, clone, equal |
+
+## JSON
+
+```ruby
+import "encoding/json"
+
+data = {name: "Rugo", version: 1}
+text = json.marshal(data)
+puts text                        # {"name":"Rugo","version":1}
+
+parsed = json.unmarshal(text)
+puts parsed.name                 # Rugo
+
+puts json.marshal_indent(data, "", "  ")  # pretty-printed
+```
+
+## Encoding (Base64 & Hex)
+
+```ruby
+import "encoding/base64"
+import "encoding/hex"
+
+b64 = base64.encode("Hello!")
+puts base64.decode(b64)          # Hello!
+
+h = hex.encode("Hello!")
+puts hex.decode(h)               # Hello!
+```
+
+## Hashing
+
+```ruby
+import "crypto/sha256"
+import "crypto/md5"
+
+puts sha256.sum256("hello")      # hex-encoded SHA-256
+puts md5.sum("hello")            # hex-encoded MD5
+```
+
+## URL Parsing
+
+```ruby
+import "net/url"
+
+u = url.parse("https://example.com:8080/path?q=hello#top")
+puts u.scheme     # https
+puts u.hostname   # example.com
+puts u.port       # 8080
+puts u.path       # /path
+puts u.query      # q=hello
+puts u.fragment   # top
+
+escaped = url.query_escape("hello world")
+puts url.query_unescape(escaped)   # hello world
+```
+
+## Collections (Slices & Maps)
+
+```ruby
+import "slices"
+import "maps"
+
+puts slices.contains(["a", "b", "c"], "b")  # true
+puts slices.reverse([1, 2, 3])               # [3, 2, 1]
+
+h = {name: "Rugo", lang: "go"}
+puts maps.keys(h)                # [lang, name]
+copy = maps.clone(h)
+puts maps.equal(h, copy)         # true
+```
 
 ## `use` vs `import`
 
