@@ -234,6 +234,19 @@ Lambdas compile to Go variadic anonymous functions: `func(_args ...interface{}) 
 
 When a variable holding a lambda is called, the codegen emits a runtime type assertion: `variable.(func(...interface{}) interface{})(args...)`. Calling a non-function variable produces a friendly compile error: `cannot call x — not a function`.
 
+Lambdas stored as hash values can be called via dot access, just like index access:
+
+```ruby
+ops = {
+  add: fn(a, b) a + b end,
+  mul: fn(a, b) a * b end
+}
+puts ops["add"](2, 3)   # 5 (index access)
+puts ops.add(2, 3)      # 5 (dot access)
+```
+
+At runtime, `rugo_dot_call` looks up the key in the hash, type-asserts the value to a callable lambda, and invokes it. If the key doesn't exist or the value isn't a function, a friendly error is produced.
+
 ### Error Handling
 
 Rugo provides three levels of error handling via `try/or`:

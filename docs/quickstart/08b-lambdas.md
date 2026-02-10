@@ -73,6 +73,33 @@ fns = [fn(x) x + 1 end, fn(x) x * 2 end]
 puts fns[0](10)   # 11
 ```
 
+## Calling Lambdas via Dot Access
+
+Lambdas stored in hashes can be called using dot syntax, just like index access:
+
+```ruby
+ops = {
+  add: fn(a, b) a + b end,
+  mul: fn(a, b) a * b end
+}
+puts ops["add"](2, 3)   # 5 (index access)
+puts ops.add(2, 3)      # 5 (dot access — same result)
+puts ops.mul(4, 5)      # 20
+```
+
+This enables an OOP-like pattern where hashes carry their own methods as closures:
+
+```ruby
+def make_record(name)
+  record = {name: name}
+  record["greet"] = fn() "Hello, " + record.name end
+  return record
+end
+
+alice = make_record("Alice")
+puts alice.greet()   # Hello, Alice
+```
+
 ## Composing Lambdas
 
 ```ruby

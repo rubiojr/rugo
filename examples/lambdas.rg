@@ -61,3 +61,23 @@ end
 inc = fn(x) x + 1 end
 double_then_inc = compose(inc, double)
 puts double_then_inc(5)  # 11
+
+# Calling lambdas via dot access on hashes
+# Both index and dot access work identically:
+ops = {
+  add: fn(a, b) a + b end,
+  mul: fn(a, b) a * b end
+}
+puts ops["add"](2, 3)  # 5
+puts ops.add(2, 3)     # 5
+puts ops.mul(4, 5)     # 20
+
+# Factory pattern: hashes with methods
+def make_record(name)
+  record = {name: name}
+  record["greet"] = fn() "Hello, " + record.name end
+  return record
+end
+
+r = make_record("Alice")
+puts r.greet()  # Hello, Alice

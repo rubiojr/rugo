@@ -51,5 +51,20 @@ for key, value in person
 end
 ```
 
+## Calling Lambdas via Dot Access
+
+Lambdas stored in hashes can be called with dot syntax:
+
+```ruby
+ops = {
+  add: fn(a, b) a + b end,
+  mul: fn(a, b) a * b end
+}
+puts ops.add(2, 3)   # 5
+puts ops.mul(4, 5)   # 20
+```
+
+See [Lambdas](08b-lambdas.md) for more on this pattern.
+
 ---
 Next: [Control Flow](06-control-flow.md)
