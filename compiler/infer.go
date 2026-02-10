@@ -110,6 +110,15 @@ func inferFunc(ti *TypeInfo, f *FuncDef) {
 	// Record variable types for this function scope.
 	ti.VarTypes[funcKey(f)] = scope.vars
 
+	// If a parameter was reassigned from a dynamic expression (e.g.
+	// s = str.trim(s)), its var type will have been widened to dynamic.
+	// Widen ParamTypes to match so the Go declaration uses interface{}.
+	for i, p := range f.Params {
+		if fti.ParamTypes[i].IsTyped() && scope.get(p) == TypeDynamic {
+			fti.ParamTypes[i] = TypeDynamic
+		}
+	}
+
 	// Infer return type from collected returns.
 	retType := TypeUnknown
 	for _, rt := range returnTypes {

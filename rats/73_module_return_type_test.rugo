@@ -1,0 +1,144 @@
+# RATS: Module function return values should be reassignable to the same variable
+# Bug 5135414: use module functions return interface{}, breaking chained operations
+# When a module function (e.g. str.trim) is called and the result assigned back
+# to the same parameter, the Go compiler rejects it because the return type is
+# interface{} but the parameter was inferred as string.
+
+use "test"
+
+# Core bug: reassigning a module call result to the same string variable
+rats "str.trim result reassigned to same variable"
+  script = <<~SCRIPT
+    use "str"
+    def process(s)
+      s = str.trim(s)
+      puts s
+    end
+    process("  hello  ")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+# Chained module calls on the same variable
+rats "chained module calls reassigned to same variable"
+  script = <<~SCRIPT
+    use "str"
+    def process(s)
+      s = str.trim(s)
+      s = str.replace(s, "a", "b")
+      puts s
+    end
+    process("  aaa  ")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "bbb")
+end
+
+# Multiple different module functions chained
+rats "multiple str module calls on same variable"
+  script = <<~SCRIPT
+    use "str"
+    def transform(s)
+      s = str.trim(s)
+      s = str.upper(s)
+      s = str.replace(s, "HELLO", "HI")
+      puts s
+    end
+    transform("  hello world  ")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HI WORLD")
+end
+
+# conv module: reassign conv result back to same variable
+rats "conv module result reassigned to same variable"
+  script = <<~SCRIPT
+    use "conv"
+    def process(x)
+      x = conv.to_s(x)
+      puts x
+    end
+    process(42)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+# Module call result assigned to same variable at top level (not in function)
+rats "module call reassigned to same variable at top level"
+  script = <<~SCRIPT
+    use "str"
+    s = "  hello  "
+    s = str.trim(s)
+    puts s
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+# Module call in a loop with reassignment
+rats "module call reassigned in a loop"
+  script = <<~SCRIPT
+    use "str"
+    words = ["  foo  ", "  bar  ", "  baz  "]
+    for w in words
+      w = str.trim(w)
+      puts w
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "foo")
+  test.assert_contains(result["output"], "bar")
+  test.assert_contains(result["output"], "baz")
+end
+
+# Multiple variables, only one reassigned from module call
+rats "module call to one variable does not affect others"
+  script = <<~SCRIPT
+    use "str"
+    def process(a, b)
+      a = str.upper(a)
+      puts a
+      puts b
+    end
+    process("hello", "world")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "HELLO")
+  test.assert_contains(result["output"], "world")
+end
+
+# Module result used in a conditional after reassignment
+rats "module result usable in conditional after reassignment"
+  script = <<~SCRIPT
+    use "str"
+    def check(s)
+      s = str.trim(s)
+      if str.starts_with(s, "hello")
+        puts "yes"
+      else
+        puts "no"
+      end
+    end
+    check("  hello world  ")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "yes")
+end
