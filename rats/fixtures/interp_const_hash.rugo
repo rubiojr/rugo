@@ -1,0 +1,2 @@
+CONFIG = {"host" => "localhost", "port" => 8080}
+puts "config: #{CONFIG}"

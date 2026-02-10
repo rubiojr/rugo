@@ -1,0 +1,3 @@
+MULTIPLIER = 10
+double = fn(x) x * MULTIPLIER end
+puts "result: #{double(5)}"

@@ -1,0 +1,4 @@
+LABEL = "item"
+for i in [1, 2, 3]
+  puts "#{LABEL}=#{i}"
+end

@@ -1,0 +1,8 @@
+NAME = "rugo"
+VERSION = "1.0"
+
+def info()
+  puts "#{NAME} v#{VERSION}"
+end
+
+info()

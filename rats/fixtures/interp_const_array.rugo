@@ -1,0 +1,2 @@
+COLORS = ["red", "green", "blue"]
+puts "colors: #{COLORS}"

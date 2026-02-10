@@ -1,0 +1,13 @@
+use "web"
+use "json"
+
+web.get "/api/test", "handler"
+def handler(req)
+  return web.json({"ok" => true})
+end
+
+def start()
+  port = web.free_port()
+  spawn web.listen(port)
+  return port
+end

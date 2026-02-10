@@ -1,0 +1,52 @@
+# RATS: Top-level variables should be visible in rats blocks and def functions
+# Bug: lowercase variables assigned at top level are not visible inside
+# rats blocks or def functions, only constants (UPPERCASE) work.
+use "test"
+
+rats "top-level variable visible in rats block"
+  test.skip("known bug: top-level vars not visible in rats blocks")
+  script = <<~SCRIPT
+    use "test"
+    port = 8080
+    rats "can see port"
+      test.assert_eq(port, 8080)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test_test.rugo", script)
+  result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
+  # BUG: currently fails with "undefined: port"
+  test.assert_eq(result["status"], 0)
+end
+
+rats "top-level variable set in setup_file visible in rats block"
+  test.skip("known bug: top-level vars not visible in rats blocks")
+  script = <<~SCRIPT
+    use "test"
+    port = 0
+    def setup_file()
+      port = 8080
+    end
+    rats "port is set"
+      test.assert_eq(port, 8080)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test_test.rugo", script)
+  result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
+  # BUG: port is not visible in rats block
+  test.assert_eq(result["status"], 0)
+end
+
+rats "top-level variable visible in def function"
+  script = <<~SCRIPT
+    port = 9090
+    def get_port()
+      return port
+    end
+    puts get_port()
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  # NOTE: this may already work for regular rugo run — testing for completeness
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "9090")
+end

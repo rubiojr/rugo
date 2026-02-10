@@ -1,0 +1,2 @@
+NUM = 100
+puts "count: #{NUM}"

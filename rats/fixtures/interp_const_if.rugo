@@ -1,0 +1,4 @@
+MODE = "debug"
+if MODE == "debug"
+  puts "mode: #{MODE}"
+end

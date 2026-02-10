@@ -1,0 +1,130 @@
+# RATS: String interpolation with constants should work in def functions
+# Bug: #{CONSTANT} inside def functions fails with "undefined" at compile time,
+# even though direct constant access works fine.
+use "test"
+
+rats "string interpolation with constant in def function"
+  test.skip("known bug: interpolation with constants undefined in def scope")
+  result = test.run("rugo run rats/fixtures/interp_const_in_def.rugo")
+  # BUG: currently fails with "undefined: VERSION"
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "version: 0.1.0")
+end
+
+rats "string interpolation with constant at top level works"
+  result = test.run("rugo run rats/fixtures/interp_const_toplevel.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "version: 0.1.0")
+end
+
+rats "constant concatenation in def function works"
+  result = test.run("rugo run rats/fixtures/interp_const_concat_def.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "version: 0.1.0")
+end
+
+rats "multiple constants interpolated in def function"
+  test.skip("known bug: interpolation with constants undefined in def scope")
+  result = test.run("rugo run rats/fixtures/interp_multi_const_def.rugo")
+  # BUG: same issue — interpolation with constants inside def
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "rugo v1.0")
+end
+
+# --- Type coverage for constant interpolation ---
+
+rats "integer constant in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_int.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "count: 100")
+end
+
+rats "float constant in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_float.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "pi: 3.14")
+end
+
+rats "boolean constant in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_bool.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "flag: true")
+end
+
+rats "nil constant in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_nil.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "val: <nil>")
+end
+
+# --- Scope coverage for constant interpolation ---
+
+rats "constant in for loop interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_for.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "item=1")
+  test.assert_eq(lines[1], "item=2")
+  test.assert_eq(lines[2], "item=3")
+end
+
+rats "constant in while loop interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_while.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "0/3")
+  test.assert_eq(lines[1], "1/3")
+  test.assert_eq(lines[2], "2/3")
+end
+
+rats "constant in if block interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_if.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "mode: debug")
+end
+
+rats "constant in lambda closure interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_lambda.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "result: 50")
+end
+
+# --- Composite types in interpolation ---
+
+rats "struct constant in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_struct.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "x=0, y=0")
+end
+
+rats "array constant in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_array.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "colors: [red green blue]")
+end
+
+rats "hash constant in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_hash.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "config: map[host:localhost port:8080]")
+end
+
+# --- Expression and pattern coverage ---
+
+rats "constant expression in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_expr.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "2 + 3 = 5")
+end
+
+rats "multiple interpolations of same constant"
+  result = test.run("rugo run rats/fixtures/interp_const_multi.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "test-test-test")
+end
+
+rats "empty string constant in interpolation"
+  result = test.run("rugo run rats/fixtures/interp_const_empty.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "val: ''")
+end

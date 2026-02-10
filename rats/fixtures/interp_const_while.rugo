@@ -1,0 +1,6 @@
+LIMIT = 3
+counter = 0
+while counter < LIMIT
+  puts "#{counter}/#{LIMIT}"
+  counter = counter + 1
+end

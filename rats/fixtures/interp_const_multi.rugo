@@ -1,0 +1,2 @@
+TAG = "test"
+puts "#{TAG}-#{TAG}-#{TAG}"

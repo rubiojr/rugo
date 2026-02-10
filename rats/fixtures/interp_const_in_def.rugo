@@ -1,0 +1,7 @@
+VERSION = "0.1.0"
+
+def show()
+  puts "version: #{VERSION}"
+end
+
+show()

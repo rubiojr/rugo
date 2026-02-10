@@ -1,0 +1,6 @@
+struct Point
+  x
+  y
+end
+ORIGIN = Point(0, 0)
+puts "x=#{ORIGIN.x}, y=#{ORIGIN.y}"
