@@ -160,10 +160,14 @@ while condition
 end
 
 for item in collection
-  # body
+  # body — item is value for arrays, key for hashes
 end
 
 for key, value in hash
+  # body
+end
+
+for index, value in array
   # body
 end
 ```
@@ -533,7 +537,7 @@ The code generator (`compiler/codegen.go`) traverses the typed AST and emits a s
 
 **Variable scoping**: The codegen maintains a scope stack. First assignment in a scope uses `:=`, subsequent assignments use `=`. Every assigned variable gets a `_ = varname` line to suppress Go's "declared but not used" errors.
 
-**`for..in` loops**: Compiled using `rugo_iterable()` which returns `[]rugo_kv` (key-value pairs) for uniform array/hash iteration. Arrays produce `{index, value}` pairs; hashes produce `{key, value}` pairs.
+**`for..in` loops**: The single-variable form (`for x in coll`) uses `rugo_iterable_default()` which returns values for arrays and keys for hashes (Python-style). The two-variable form (`for k, v in coll`) uses `rugo_iterable()` which returns `[]rugo_kv` (key-value pairs) for uniform array/hash iteration. Arrays produce `{index, value}` pairs; hashes produce `{key, value}` pairs.
 
 **Index assignment**: `arr[0] = x` and `hash["key"] = y` compile to `rugo_index_set(obj, idx, val)`, which type-switches on the target. Negative indices are supported for arrays (e.g., `arr[-1] = x` sets the last element).
 

@@ -1059,11 +1059,11 @@ func TestParseForInWithIndex(t *testing.T) {
 
 func TestGenForIn(t *testing.T) {
 	src := compileToGo(t, "for x in arr\nputs(x)\nend\n")
-	if !strings.Contains(src, "rugo_iterable") {
-		t.Error("for..in should generate rugo_iterable call")
+	if !strings.Contains(src, "rugo_iterable_default") {
+		t.Error("single-var for..in should generate rugo_iterable_default call")
 	}
-	if !strings.Contains(src, "rugo_for_kv.Val") {
-		t.Error("for..in should assign from rugo_for_kv.Val")
+	if !strings.Contains(src, "rugo_for_item") {
+		t.Error("single-var for..in should assign from rugo_for_item")
 	}
 }
 

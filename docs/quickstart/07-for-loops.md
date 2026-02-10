@@ -21,10 +21,19 @@ end
 
 ## Hash Iteration
 
-Two-variable form gives `key, value`:
+Single-variable form gives **keys**:
 
 ```ruby
 config = {"host" => "localhost", "port" => 3000}
+for k in config
+  puts k
+end
+# prints host, port
+```
+
+Two-variable form gives `key, value`:
+
+```ruby
 for k, v in config
   puts "#{k} = #{v}"
 end

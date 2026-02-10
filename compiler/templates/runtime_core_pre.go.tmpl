@@ -336,6 +336,20 @@ func rugo_iterable(v interface{}) []rugo_kv {
 	panic(fmt.Sprintf("cannot iterate over %T", v))
 }
 
+// rugo_iterable_default returns values for arrays and keys for hashes.
+// Used by single-variable for..in loops: `for x in collection`
+func rugo_iterable_default(v interface{}) []interface{} {
+	switch c := v.(type) {
+	case []interface{}:
+		return c
+	case map[interface{}]interface{}:
+		r := make([]interface{}, 0, len(c))
+		for k := range c { r = append(r, k) }
+		return r
+	}
+	panic(fmt.Sprintf("cannot iterate over %T", v))
+}
+
 func rugo_index_set(obj, idx, val interface{}) {
 	switch o := obj.(type) {
 	case []interface{}:

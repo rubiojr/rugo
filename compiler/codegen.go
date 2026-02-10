@@ -1017,13 +1017,12 @@ func (g *codeGen) writeFor(f *ForStmt) error {
 	iterVar := f.Var
 	idxVar := f.IndexVar
 
-	g.writef("for _, rugo_for_kv := range rugo_iterable(%s) {\n", coll)
-	g.indent++
-	g.pushScope()
-
 	// Declare the loop variable(s)
 	if idxVar != "" {
 		// Two-variable form: for key, val in hash / for idx, val in arr
+		g.writef("for _, rugo_for_kv := range rugo_iterable(%s) {\n", coll)
+		g.indent++
+		g.pushScope()
 		if iterVar == "_" {
 			g.writef("_ = rugo_for_kv.Key\n")
 		} else {
@@ -1039,8 +1038,11 @@ func (g *codeGen) writeFor(f *ForStmt) error {
 			g.declareVar(idxVar)
 		}
 	} else {
-		// Single-variable form: for val in arr
-		g.writef("%s := rugo_for_kv.Val\n", iterVar)
+		// Single-variable form: for val in arr / for key in hash
+		g.writef("for _, rugo_for_item := range rugo_iterable_default(%s) {\n", coll)
+		g.indent++
+		g.pushScope()
+		g.writef("%s := rugo_for_item\n", iterVar)
 		g.writef("_ = %s\n", iterVar)
 		g.declareVar(iterVar)
 	}

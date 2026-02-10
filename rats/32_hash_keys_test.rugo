@@ -126,16 +126,24 @@ end
 rats "for single var in hash iterates keys"
   script = <<~SCRIPT
     h = {"x" => 10, "y" => 20}
-    count = 0
+    keys = []
     for k in h
-      count += 1
+      keys = append(keys, k)
     end
-    puts(count)
+    puts(len(keys))
+    # Verify we got keys, not values
+    for k in h
+      puts(type_of(k))
+    end
   SCRIPT
   test.write_file(test.tmpdir() + "/test.rugo", script)
   result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
   test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "2")
+  lines = result["lines"]
+  test.assert_eq(lines[0], "2")
+  # Keys are strings, not integers
+  test.assert_eq(lines[1], "String")
+  test.assert_eq(lines[2], "String")
 end
 
 # ============================================================
