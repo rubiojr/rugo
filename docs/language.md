@@ -124,14 +124,17 @@ Different blocks create different scoping boundaries:
 | Block | Own scope? | Sees outer vars? | Vars leak out? |
 |-------|-----------|-------------------|----------------|
 | **Top-level** | Yes (root) | — | — |
-| **`def` function** | Yes | No (isolated) | No |
+| **`def` function** | Yes | Yes (read-only) | No |
 | **`fn` lambda** | Yes | Yes (captures outer) | No |
 | **`if/elsif/else`** | No (transparent) | Yes | Yes |
 | **`while` loop** | Yes | Yes (read + modify) | No |
 | **`for..in` loop** | Yes | Yes (read + modify) | No |
 | **`spawn` block** | Yes | Yes (shared) | No |
+| **`rats` block** | Yes | No (isolated) | No |
 
-**Functions are fully isolated** — they cannot read top-level variables. This is a key difference from lambdas, which capture the surrounding scope.
+**Functions can read top-level variables** but assigning inside a function creates a local shadow — the top-level value is not modified. Top-level variables referenced by `def` functions are promoted to package-level declarations so they are accessible. This is a key difference from lambdas, which capture the surrounding scope by reference.
+
+**`rats` blocks are fully isolated** — they cannot see any top-level variables or constants. Use environment variables to share state between setup hooks and test blocks.
 
 **`if` blocks are transparent** — they share the parent scope. Variables created inside an `if` block are accessible after the block ends.
 

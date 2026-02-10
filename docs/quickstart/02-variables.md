@@ -56,18 +56,30 @@ Different blocks have different scoping rules:
 
 ### Functions have their own scope
 
-Variables inside a function are local — they can't see top-level variables, and they don't leak out:
+Functions can **read** top-level variables and constants, but cannot modify them — assigning inside a function creates a local variable:
 
 ```ruby
 name = "Rugo"
 
 def greet()
-  name = "World"     # this is a separate variable
+  name = "World"     # this is a separate, local variable
   return name
 end
 
 puts greet()   # World
-puts name      # Rugo
+puts name      # Rugo (unchanged)
+```
+
+Top-level state like configuration hashes is accessible:
+
+```ruby
+config = {host: "localhost", port: 8080}
+
+def show_host()
+  puts config["host"]
+end
+
+show_host()   # localhost
 ```
 
 Function parameters are also local:
@@ -112,11 +124,9 @@ puts total  # 6
 
 count = 0
 while count < 3
-  last = count
   count += 1
 end
 puts count  # 3
-# puts last # compile error: undefined: last
 ```
 
 ### Lambdas capture the outer scope
@@ -154,6 +164,24 @@ end
 
 show()    # 99
 puts PI   # 3.14
+```
+
+### `rats` blocks are fully isolated
+
+Test blocks (`rats`) cannot see top-level variables or constants. Use environment variables to share state between `setup_file` and test blocks:
+
+```ruby
+import "os" as go_os
+use "test"
+
+def setup_file()
+  go_os.setenv("TEST_PORT", "8080")
+end
+
+rats "port is set"
+  port = go_os.getenv("TEST_PORT")
+  test.assert_eq(port, "8080")
+end
 ```
 
 ---
