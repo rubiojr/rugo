@@ -256,6 +256,13 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			blockStack = append(blockStack, "def")
 			defDepth++
 			// Register the function name so subsequent top-level lines see it.
+			if len(trimmed) < 5 || strings.TrimSpace(trimmed[4:]) == "" {
+				origLine := i + 1
+				if tryLineMap != nil && i < len(tryLineMap) {
+					origLine = tryLineMap[i]
+				}
+				return "", nil, fmt.Errorf("line %d: `def` requires a function name — e.g. `def my_function()`", origLine)
+			}
 			rest := strings.TrimSpace(trimmed[4:])
 			name, _ := scanFirstToken(rest)
 			if isIdent(name) {

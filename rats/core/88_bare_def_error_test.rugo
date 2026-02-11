@@ -1,0 +1,10 @@
+# Tests that a bare `def` without a function name produces a friendly error
+# instead of a raw Go panic (slice bounds out of range).
+
+use "test"
+
+rats "bare def gives friendly error"
+  result = test.run("rugo run rats/fixtures/bare_def.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "`def` requires a function name")
+end
