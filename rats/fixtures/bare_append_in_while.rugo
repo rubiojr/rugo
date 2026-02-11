@@ -1,0 +1,9 @@
+arr = []
+i = 0
+while i < 3
+  append arr, i * 10
+  i += 1
+end
+puts arr[0]
+puts arr[1]
+puts arr[2]

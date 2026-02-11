@@ -1,0 +1,295 @@
+# RATS: Bare append sugar — append arr, val → arr = append(arr, val)
+use "test"
+
+rats "bare append basic paren-free"
+  script = <<~SCRIPT
+    arr = [1, 2]
+    append arr, 3
+    puts(len(arr))
+    puts(arr[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "3")
+end
+
+rats "bare append with explicit parens"
+  script = <<~SCRIPT
+    arr = [1, 2]
+    append(arr, 3)
+    puts(len(arr))
+    puts(arr[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "3")
+end
+
+rats "bare append mixed parens and paren-free"
+  result = test.run("rugo run rats/fixtures/bare_append_with_parens.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "1")
+  test.assert_eq(lines[1], "2")
+  test.assert_eq(lines[2], "3")
+  test.assert_eq(lines[3], "4")
+end
+
+rats "bare append backward compat explicit assign"
+  result = test.run("rugo run rats/fixtures/bare_append_compat.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "3")
+end
+
+rats "bare append inside def"
+  result = test.run("rugo run rats/fixtures/bare_append_in_def.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "2")
+  test.assert_eq(lines[1], "4")
+  test.assert_eq(lines[2], "6")
+end
+
+rats "bare append inside lambda"
+  result = test.run("rugo run rats/fixtures/bare_append_in_lambda.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "10")
+  test.assert_eq(lines[1], "20")
+  test.assert_eq(lines[2], "30")
+end
+
+rats "bare append inside for loop"
+  script = <<~SCRIPT
+    arr = []
+    for i in [10, 20, 30]
+      append arr, i
+    end
+    puts(arr[0])
+    puts(arr[1])
+    puts(arr[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "10")
+  test.assert_eq(lines[1], "20")
+  test.assert_eq(lines[2], "30")
+end
+
+rats "bare append inside while loop"
+  result = test.run("rugo run rats/fixtures/bare_append_in_while.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "0")
+  test.assert_eq(lines[1], "10")
+  test.assert_eq(lines[2], "20")
+end
+
+rats "bare append inside if/elsif/else"
+  result = test.run("rugo run rats/fixtures/bare_append_in_if.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "big")
+  test.assert_eq(lines[1], "high")
+end
+
+rats "bare append with try/or"
+  result = test.run("rugo run rats/fixtures/bare_append_in_try.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "ok")
+  test.assert_eq(lines[1], "caught")
+  test.assert_eq(lines[2], "2")
+end
+
+rats "bare append inside spawn"
+  result = test.run("rugo run rats/fixtures/bare_append_in_spawn.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "10")
+  test.assert_eq(lines[1], "20")
+  test.assert_eq(lines[2], "30")
+end
+
+rats "bare append nested for inside def"
+  result = test.run("rugo run rats/fixtures/bare_append_nested.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "10")
+  test.assert_eq(lines[1], "20")
+  test.assert_eq(lines[2], "20")
+  test.assert_eq(lines[3], "40")
+  test.assert_eq(lines[4], "30")
+  test.assert_eq(lines[5], "60")
+end
+
+rats "bare append to multiple arrays"
+  result = test.run("rugo run rats/fixtures/bare_append_multiple_arrays.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "3")
+  test.assert_eq(lines[1], "3")
+  test.assert_eq(lines[2], "2")
+  test.assert_eq(lines[3], "4")
+  test.assert_eq(lines[4], "6")
+  test.assert_eq(lines[5], "1")
+  test.assert_eq(lines[6], "3")
+  test.assert_eq(lines[7], "5")
+end
+
+rats "bare append with expression values"
+  result = test.run("rugo run rats/fixtures/bare_append_expressions.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "5")
+  test.assert_eq(lines[1], "hello world")
+  test.assert_eq(lines[2], "3")
+end
+
+rats "bare append preserves insertion order"
+  result = test.run("rugo run rats/fixtures/bare_append_order.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "first")
+  test.assert_eq(lines[1], "second")
+  test.assert_eq(lines[2], "third")
+  test.assert_eq(lines[3], "fourth")
+  test.assert_eq(lines[4], "fifth")
+end
+
+rats "bare append with struct constructor"
+  result = test.run("rugo run rats/fixtures/bare_append_struct.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "apple")
+  test.assert_eq(lines[1], "banana")
+  test.assert_eq(lines[2], "cherry")
+end
+
+rats "bare append non-array still errors"
+  result = test.run("rugo run rats/fixtures/err_append_non_array.rugo")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "bare append inside def with lambda"
+  script = <<~SCRIPT
+    def process(items)
+      mapper = fn(x) x + 1 end
+      result = []
+      for item in items
+        append result, mapper(item)
+      end
+      return result
+    end
+    arr = process([10, 20, 30])
+    puts(arr[0])
+    puts(arr[1])
+    puts(arr[2])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "11")
+  test.assert_eq(lines[1], "21")
+  test.assert_eq(lines[2], "31")
+end
+
+rats "bare append with string interpolation"
+  script = <<~'SCRIPT'
+    arr = []
+    name = "world"
+    append arr, "hello #{name}"
+    puts(arr[0])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello world")
+end
+
+rats "bare append with hash value"
+  script = <<~SCRIPT
+    arr = []
+    append arr, {"key" => "val"}
+    puts(arr[0]["key"])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "val")
+end
+
+rats "bare append with nil value"
+  script = <<~SCRIPT
+    arr = []
+    append arr, nil
+    puts(len(arr))
+    puts(arr[0] == nil)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "1")
+  test.assert_eq(result["lines"][1], "true")
+end
+
+rats "bare append with boolean values"
+  script = <<~SCRIPT
+    arr = []
+    append arr, true
+    append arr, false
+    puts(arr[0])
+    puts(arr[1])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "true")
+  test.assert_eq(result["lines"][1], "false")
+end
+
+rats "bare append deeply nested blocks"
+  script = <<~SCRIPT
+    def process(items)
+      result = []
+      for item in items
+        if item > 0
+          i = 0
+          while i < item
+            append result, i
+            i += 1
+          end
+        end
+      end
+      return result
+    end
+    arr = process([2, 3])
+    puts(len(arr))
+    puts(arr[0])
+    puts(arr[1])
+    puts(arr[2])
+    puts(arr[3])
+    puts(arr[4])
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "5")
+  test.assert_eq(lines[1], "0")
+  test.assert_eq(lines[2], "1")
+  test.assert_eq(lines[3], "0")
+  test.assert_eq(lines[4], "1")
+  test.assert_eq(lines[5], "2")
+end

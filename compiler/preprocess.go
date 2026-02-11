@@ -289,7 +289,12 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			}
 		}
 	}
-	return strings.Join(result, "\n"), tryLineMap, nil
+	joined := strings.Join(result, "\n")
+
+	// Desugar bare append: append(x, ...) → x = append(x, ...)
+	joined = expandBareAppend(joined)
+
+	return joined, tryLineMap, nil
 }
 
 func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string]bool) string {
@@ -605,6 +610,20 @@ func isIdent(s string) bool {
 func isDottedIdent(s string) bool {
 	parts := strings.SplitN(s, ".", 2)
 	return len(parts) == 2 && isIdent(parts[0]) && isIdent(parts[1])
+}
+
+// isAssignTarget returns true if s is a valid assignment target: a plain
+// identifier (e.g. "arr"), or an identifier followed by index/field access
+// (e.g. "arr[0]", "h["key"]"). Literals like "42" return false.
+func isAssignTarget(s string) bool {
+	if isIdent(s) {
+		return true
+	}
+	// Check for identifier followed by index: ident[...]
+	if idx := strings.IndexByte(s, '['); idx > 0 {
+		return isIdent(s[:idx])
+	}
+	return false
 }
 
 // protectDottedIdent wraps bare dotted idents in parens to prevent the
@@ -1718,6 +1737,79 @@ func findCompoundOp(s string, op string) int {
 		}
 	}
 	return -1
+}
+
+// expandBareAppend desugars bare append statements.
+//
+//	append(x, val)  → x = append(x, val)
+//
+// Only rewrites when append( starts the line (after whitespace). Lines like
+// "y = append(x, val)" or "puts(append(x, val))" are left alone.
+func expandBareAppend(src string) string {
+	lines := strings.Split(src, "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "append(") {
+			result = append(result, line)
+			continue
+		}
+		indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+		// Extract the first argument from append(firstArg, rest...)
+		inner := trimmed[len("append("):]
+		firstArg := extractFirstArg(inner)
+		if firstArg == "" || !isAssignTarget(firstArg) {
+			result = append(result, line)
+			continue
+		}
+		result = append(result, indent+firstArg+" = "+trimmed)
+	}
+	return strings.Join(result, "\n")
+}
+
+// extractFirstArg returns the first argument from a comma-separated argument
+// list, respecting balanced parens, brackets, braces, and string boundaries.
+// Returns "" if no comma separator is found.
+func extractFirstArg(s string) string {
+	inDouble := false
+	inSingle := false
+	escaped := false
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
+			continue
+		}
+		if ch == '(' || ch == '[' || ch == '{' {
+			depth++
+		} else if ch == ')' || ch == ']' || ch == '}' {
+			if depth == 0 {
+				// Closing paren of append() with no comma — single arg, skip
+				return ""
+			}
+			depth--
+		}
+		if depth == 0 && ch == ',' {
+			return strings.TrimSpace(s[:i])
+		}
+	}
+	return ""
 }
 
 // expandBackticks converts `cmd` expressions to __capture__("cmd") calls.

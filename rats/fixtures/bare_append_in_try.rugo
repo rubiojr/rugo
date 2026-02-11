@@ -1,0 +1,19 @@
+arr = []
+
+result = try
+  "ok"
+or err
+  "fail"
+end
+append arr, result
+
+result2 = try
+  raise "boom"
+or err
+  "caught"
+end
+append arr, result2
+
+puts arr[0]
+puts arr[1]
+puts len(arr)

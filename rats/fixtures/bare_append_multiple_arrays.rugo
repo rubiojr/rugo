@@ -1,0 +1,19 @@
+evens = []
+odds = []
+
+for i in [1, 2, 3, 4, 5, 6]
+  if i % 2 == 0
+    append evens, i
+  else
+    append odds, i
+  end
+end
+
+puts len(evens)
+puts len(odds)
+puts evens[0]
+puts evens[1]
+puts evens[2]
+puts odds[0]
+puts odds[1]
+puts odds[2]

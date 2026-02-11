@@ -86,6 +86,12 @@ x += 1          # desugared to: x = x + 1
 arr[0] += 5     # desugared to: arr[0] = arr[0] + 5
 ```
 
+Bare `append` is also preprocessor sugar — the assignment is implicit:
+
+```ruby
+append fruits, "date"     # desugared to: fruits = append(fruits, "date")
+```
+
 ### Constants
 
 Identifiers starting with an uppercase letter are constants (Ruby convention). They can be assigned once but never reassigned — attempting to do so is a compile-time error.
@@ -388,6 +394,18 @@ x += 1        →  x = x + 1
 arr[0] -= 3   →  arr[0] = arr[0] - 3
 ```
 
+### Pass 1b: Bare Append Expansion
+
+Desugars bare `append` statements into explicit assignments. Only applies when
+`append(` starts the line and the first argument is a valid assignment target:
+
+```
+append(arr, val)  →  arr = append(arr, val)
+```
+
+This pass runs after paren-free call expansion, so `append arr, val` is first
+converted to `append(arr, val)`, then desugared to `arr = append(arr, val)`.
+
 ### Pass 2: Backtick Expansion
 
 Converts backtick expressions to capture calls:
@@ -677,7 +695,7 @@ These functions are always available without any `use` or `import`:
 | `puts(args...)` | Print args separated by spaces, followed by newline |
 | `print(args...)` | Print args separated by spaces, no trailing newline |
 | `len(v)` | Length of string, array, or hash |
-| `append(arr, val)` | Append value to array, returns new array |
+| `append(arr, val)` | Append value to array, returns new array. Can be used as a bare statement: `append arr, val` |
 | `raise(msg)` | Raise a runtime error with the given message |
 | `type_of(v)` | Returns the type name of a value as a string |
 | `exit(code?)` | Terminate the program with optional exit code (default: 0) |

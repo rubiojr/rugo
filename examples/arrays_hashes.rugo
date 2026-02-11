@@ -10,7 +10,7 @@ puts("First: " + fruits[0])
 puts("Last: " + fruits[2])
 
 # Array append
-fruits = append(fruits, "date")
+append fruits, "date"
 puts("After append: " + conv.to_s(len(fruits)))
 
 # Hashes (colon syntax — keys become strings)

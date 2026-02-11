@@ -9,8 +9,14 @@ puts len(fruits)      # 3
 ## Append
 
 ```ruby
-fruits = append(fruits, "date")
+append fruits, "date"
 puts len(fruits)      # 4
+```
+
+The explicit assignment form also works:
+
+```ruby
+fruits = append(fruits, "date")
 ```
 
 ## Index Assignment

@@ -1039,6 +1039,129 @@ func TestCompoundAssignCompilesToGo(t *testing.T) {
 
 // --- For..In Loop Tests ---
 
+// --- Bare Append Tests ---
+
+func TestBareAppendSimple(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{"bare-call", "append(arr, 1)", "arr = append(arr, 1)"},
+		{"with-string", `append(arr, "hello")`, `arr = append(arr, "hello")`},
+		{"multiword-var", "append(my_arr, 1)", "my_arr = append(my_arr, 1)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := expandBareAppend(tt.input)
+			if result != tt.expect {
+				t.Errorf("expandBareAppend(%q) = %q, want %q", tt.input, result, tt.expect)
+			}
+		})
+	}
+}
+
+func TestBareAppendPreservesIndent(t *testing.T) {
+	result := expandBareAppend("  append(arr, 1)")
+	if result != "  arr = append(arr, 1)" {
+		t.Errorf("expected indent preserved, got %q", result)
+	}
+}
+
+func TestBareAppendSkipsAssignment(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"explicit-assign", "arr = append(arr, 1)"},
+		{"different-target", "x = append(arr, 1)"},
+		{"in-expression", "puts(append(arr, 1))"},
+		{"return-append", "return append(arr, 1)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := expandBareAppend(tt.input)
+			if result != tt.input {
+				t.Errorf("expandBareAppend(%q) should not modify, got %q", tt.input, result)
+			}
+		})
+	}
+}
+
+func TestBareAppendWithNestedExpression(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{"func-call-value", "append(arr, len(other))", "arr = append(arr, len(other))"},
+		{"nested-parens", "append(arr, foo(1, 2))", "arr = append(arr, foo(1, 2))"},
+		{"array-literal", `append(arr, [1, 2])`, `arr = append(arr, [1, 2])`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := expandBareAppend(tt.input)
+			if result != tt.expect {
+				t.Errorf("expandBareAppend(%q) = %q, want %q", tt.input, result, tt.expect)
+			}
+		})
+	}
+}
+
+func TestBareAppendSingleArgSkipped(t *testing.T) {
+	// append with a single arg (no comma) should not be rewritten
+	input := "append(arr)"
+	result := expandBareAppend(input)
+	if result != input {
+		t.Errorf("single-arg append should not be rewritten, got %q", result)
+	}
+}
+
+func TestBareAppendNonIdentFirstArgSkipped(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"literal-int", "append(42, 5)"},
+		{"literal-string", `append("hello", 5)`},
+		{"func-call", "append(get_arr(), 5)"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := expandBareAppend(tt.input)
+			if result != tt.input {
+				t.Errorf("expandBareAppend(%q) should not modify, got %q", tt.input, result)
+			}
+		})
+	}
+}
+
+func TestBareAppendCompilesToGo(t *testing.T) {
+	src := "arr = []\nappend(arr, 1)\n"
+	cleaned, err := stripComments(src)
+	if err != nil {
+		t.Fatalf("stripComments error: %v", err)
+	}
+	userFuncs := scanFuncDefs(cleaned)
+	preprocessed, _, _ := preprocess(cleaned, userFuncs)
+	if !strings.Contains(preprocessed, "arr = append(arr, 1)") {
+		t.Errorf("preprocessor should desugar bare append, got:\n%s", preprocessed)
+	}
+}
+
+func TestBareAppendParenFreeCompilesToGo(t *testing.T) {
+	src := "arr = []\nappend arr, 1\n"
+	cleaned, err := stripComments(src)
+	if err != nil {
+		t.Fatalf("stripComments error: %v", err)
+	}
+	userFuncs := scanFuncDefs(cleaned)
+	preprocessed, _, _ := preprocess(cleaned, userFuncs)
+	if !strings.Contains(preprocessed, "arr = append(arr, 1)") {
+		t.Errorf("preprocessor should desugar paren-free bare append, got:\n%s", preprocessed)
+	}
+}
+
 func TestParseForIn(t *testing.T) {
 	src := "for x in arr\nputs(x)\nend\n"
 	p := &parser.Parser{}

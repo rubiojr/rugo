@@ -1,0 +1,10 @@
+arr = []
+append arr, "first"
+append arr, "second"
+append arr, "third"
+append arr, "fourth"
+append arr, "fifth"
+
+for item in arr
+  puts item
+end

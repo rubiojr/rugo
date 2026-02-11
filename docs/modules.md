@@ -99,7 +99,7 @@ Available without any import:
 | `puts(args...)` | Print with newline |
 | `print(args...)` | Print without newline |
 | `len(collection)` | Length of array, hash, or string |
-| `append(array, item)` | Append item, returns new array |
+| `append(array, item)` | Append item to array. Bare form: `append arr, item` |
 
 ## User Modules (`require`)
 
