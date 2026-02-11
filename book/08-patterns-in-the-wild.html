@@ -193,6 +193,26 @@ a { color: var(--link); }
 
  
 
+.github-link {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 100;
+    color: var(--muted);
+    transition: color 0.2s ease;
+    line-height: 1;
+}
+
+.github-link:hover { color: var(--fg); }
+
+.github-link svg {
+    width: 24px;
+    height: 24px;
+    fill: currentColor;
+}
+
+ 
+
 .hljs { background: transparent; color: var(--fg); }
 .hljs-keyword,
 .hljs-literal,
@@ -387,21 +407,11 @@ a { color: var(--link); }
         .chapter-nav { flex-direction: column; }
         .chapter-nav a { max-width: 100%; }
     }
-    .github-link {
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        z-index: 100;
-        color: var(--muted);
-        transition: color 0.2s;
-    }
-    .github-link:hover { color: var(--fg); }
-    .github-link svg { display: block; }
     </style>
 </head>
 <body>
-    <a href="https://github.com/rubiojr/rugo" class="github-link" title="View on GitHub" target="_blank" rel="noopener">
-        <svg height="24" width="24" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+    <a href="https://github.com/rubiojr/rugo" class="github-link" title="Rugo on GitHub" aria-label="Rugo on GitHub">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
     </a>
     <button class="menu-toggle" onclick="document.querySelector('.sidebar').classList.toggle('open')" aria-label="Toggle menu">☰</button>
 
@@ -453,64 +463,115 @@ a { color: var(--link); }
             <article class="prose">
                 <p>This final chapter showcases patterns drawn from real Rugo libraries and
 projects. These are the idioms that emerge when you put all the pieces together.</p>
-<h2 id="the-collection-wrapper">The Collection Wrapper</h2>
-<p>One of the most reusable patterns in Rugo: wrap an array in a hash with
-iterator methods. This is exactly how the Rugh GitHub client exposes API results.</p>
-<pre><code class="language-ruby"># A reusable collection wrapper — idiomatic Rugo pattern
+<h2 id="the-data-pipeline">The Data Pipeline</h2>
+<p>Collections in Rugo are first-class citizens. Arrays and hashes ship with
+built-in methods — <code>map</code>, <code>filter</code>, <code>reduce</code>, <code>find</code>, <code>sort_by</code>, <code>flat_map</code>,
+and more. No imports, no wrappers. Chain them into pipelines that read like
+a description of what you want.</p>
+<pre><code class="language-ruby">scores = [88, 45, 92, 73, 61, 95, 38, 84]
 
-def wrap(items)
-  col = {items: items, length: len(items)}
+passing = scores
+  .filter(fn(s) s &gt;= 60 end)
+  .sort_by(fn(s) -s end)
+  .map(fn(s) &quot;#{s}&quot; end)
+  .join(&quot;, &quot;)
 
-  col[&quot;each&quot;] = fn(callback)
-    for item in items
-      callback(item)
-    end
-  end
+puts &quot;Passing: #{passing}&quot;
+puts &quot;Top score: #{scores.max()}&quot;
+puts &quot;Average: #{scores.sum() / len(scores)}&quot;
+</code></pre>
+<pre><code>Passing: 95, 92, 88, 84, 73, 61
+Top score: 95
+Average: 72
+</code></pre>
+<p>Each method returns a new array, so the chain flows naturally. <code>filter</code> narrows,
+<code>sort_by</code> orders (negate for descending), <code>map</code> transforms, <code>join</code> collapses.
+This is the Rugo way: describe the transformation, not the loop.</p>
+<h3 id="querying-collections">Querying Collections</h3>
+<p>Real-world code often needs to ask questions about data — not just transform it.
+The search methods (<code>find</code>, <code>any</code>, <code>all</code>, <code>count</code>) handle this cleanly.</p>
+<pre><code class="language-ruby">logs = [
+  {level: &quot;error&quot;, msg: &quot;disk full&quot;},
+  {level: &quot;info&quot;, msg: &quot;started&quot;},
+  {level: &quot;error&quot;, msg: &quot;timeout&quot;},
+  {level: &quot;info&quot;, msg: &quot;connected&quot;},
+  {level: &quot;warn&quot;, msg: &quot;slow query&quot;}
+]
 
-  col[&quot;map&quot;] = fn(callback)
-    result = []
-    for item in items
-      result = append(result, callback(item))
-    end
-    return wrap(result)
-  end
-
-  col[&quot;select&quot;] = fn(callback)
-    result = []
-    for item in items
-      if callback(item)
-        result = append(result, item)
-      end
-    end
-    return wrap(result)
-  end
-
-  return col
-end
-
-names = wrap([&quot;Alice&quot;, &quot;Bob&quot;, &quot;Charlie&quot;, &quot;Dave&quot;])
-puts &quot;Count: #{names.length}&quot;
-
-names.each(fn(name)
-  puts(&quot;Hello, #{name}!&quot;)
+errors = logs.filter(fn(e) e.level == &quot;error&quot; end)
+puts &quot;#{len(errors)} errors found:&quot;
+errors.each(fn(e)
+  puts(&quot;  - #{e.msg}&quot;)
 end)
 
-short = names.select(fn(n) len(n) &lt;= 4 end)
-puts &quot;Short names: #{short.length}&quot;
-short.each(fn(n) puts(n) end)
+has_warnings = logs.any(fn(e) e.level == &quot;warn&quot; end)
+puts &quot;Warnings present: #{has_warnings}&quot;
 </code></pre>
-<pre><code>Count: 4
-Hello, Alice!
-Hello, Bob!
-Hello, Charlie!
-Hello, Dave!
-Short names: 2
-Bob
-Dave
+<pre><code>2 errors found:
+  - disk full
+  - timeout
+Warnings present: true
 </code></pre>
-<p>The key insight: <code>select</code> returns a new wrapped collection, so you can chain
-operations. <code>map</code> does the same. This is the Rugo equivalent of Ruby's
-<code>Enumerable</code> — built from nothing but hashes and lambdas.</p>
+<h3 id="flattening-nested-data">Flattening Nested Data</h3>
+<p>When your data has structure — teams with members, orders with line items —
+<code>flat_map</code> pulls the nested values into a single list.</p>
+<pre><code class="language-ruby">teams = [
+  {name: &quot;Alpha&quot;, members: [&quot;Alice&quot;, &quot;Bob&quot;]},
+  {name: &quot;Beta&quot;, members: [&quot;Carol&quot;, &quot;Dave&quot;, &quot;Eve&quot;]}
+]
+
+all_members = teams.flat_map(fn(t) t.members end)
+puts all_members
+puts &quot;Total people: #{len(all_members)}&quot;
+</code></pre>
+<pre><code>[Alice Bob Carol Dave Eve]
+Total people: 5
+</code></pre>
+<h3 id="hash-pipelines">Hash Pipelines</h3>
+<p>Hash methods work the same way, but lambdas receive <code>(key, value)</code> pairs.
+This is especially useful for configuration and environment processing.</p>
+<pre><code class="language-ruby">env = {
+  host: &quot;localhost&quot;,
+  port: &quot;5432&quot;,
+  db: &quot;myapp&quot;,
+  debug: &quot;true&quot;,
+  pool_size: &quot;10&quot;
+}
+
+conn = env
+  .filter(fn(k, v) k == &quot;host&quot; || k == &quot;port&quot; || k == &quot;db&quot; end)
+  .map(fn(k, v) &quot;#{k}=#{v}&quot; end)
+  .join(&quot; &quot;)
+
+puts conn
+</code></pre>
+<pre><code>host=localhost port=5432 db=myapp
+</code></pre>
+<h3 id="reduce-for-accumulation">Reduce for Accumulation</h3>
+<p>When no single method fits, <code>reduce</code> is your escape hatch. It accumulates
+a result across the collection — a counter, a hash, a running total.</p>
+<pre><code class="language-ruby">items = [&quot;apple&quot;, &quot;banana&quot;, &quot;apple&quot;, &quot;cherry&quot;, &quot;banana&quot;, &quot;apple&quot;]
+
+freq = items.reduce({}, fn(acc, item)
+  if acc[item] == nil
+    acc[item] = 0
+  end
+  acc[item] += 1
+  return acc
+end)
+
+most = items.uniq().sort_by(fn(item) -freq[item] end)
+most.each(fn(item)
+  puts(&quot;#{item}: #{freq[item]}&quot;)
+end)
+</code></pre>
+<pre><code>apple: 3
+banana: 2
+cherry: 1
+</code></pre>
+<p>The rule of thumb: reach for <code>filter</code>, <code>map</code>, and <code>find</code> first. Pull out
+<code>reduce</code> when you need to build something that isn't just a filtered or
+transformed version of the input.</p>
 <h2 id="the-builder-pattern">The Builder Pattern</h2>
 <p>Method chaining works naturally when each method returns <code>self</code> (or rather,
 the hash). This pattern is great for constructing complex objects step by step.</p>
@@ -654,8 +715,8 @@ Graduate to more structure only when you need it.</p>
 Don't let errors propagate silently, and don't panic unnecessarily.</p>
 </li>
 <li>
-<p><strong>Compose small pieces.</strong> Lambdas, closures, and hashes combine into
-surprisingly powerful patterns without complex abstractions.</p>
+<p><strong>Compose small pieces.</strong> Collection methods, lambdas, and closures combine
+into surprisingly powerful patterns without complex abstractions.</p>
 </li>
 <li>
 <p><strong>Use the shell.</strong> Don't rewrite <code>curl</code> or <code>grep</code> in Rugo. Shell out
