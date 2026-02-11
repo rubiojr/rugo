@@ -10,7 +10,7 @@ rats "linter detects verbose append"
     puts(len(arr))
   SCRIPT
   test.write_file(test.tmpdir() + "/target.rugo", script)
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "arr = append(arr, 1)")
   test.assert_contains(result["output"], "suggestion: append arr, 1")
@@ -25,7 +25,7 @@ rats "linter ignores bare append"
     puts(len(arr))
   SCRIPT
   test.write_file(test.tmpdir() + "/target.rugo", script)
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "No issues found.")
 end
@@ -37,7 +37,7 @@ rats "linter ignores cross-variable append"
     puts(len(other))
   SCRIPT
   test.write_file(test.tmpdir() + "/target.rugo", script)
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "No issues found.")
 end
@@ -54,7 +54,7 @@ rats "linter detects inside def"
     puts(collect([1, 2, 3]))
   SCRIPT
   test.write_file(test.tmpdir() + "/target.rugo", script)
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "result = append(result, item)")
   test.assert_contains(result["output"], "suggestion: append result, item")
@@ -69,7 +69,7 @@ rats "linter fix rewrites verbose append"
   SCRIPT
   target = test.tmpdir() + "/target.rugo"
   test.write_file(target, script)
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append --fix " + target)
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append --fix " + target)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "fixed:")
   test.assert_contains(result["output"], "2 issue(s) fixed.")
@@ -90,10 +90,10 @@ rats "linter fix is idempotent"
   test.write_file(target, script)
 
   # First fix
-  test.run("rugo run tools/linter/linter.rugo -- smart-append --fix " + target)
+  test.run("rugo run tools/linter/main.rugo -- smart-append --fix " + target)
 
   # Second pass should find nothing
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append " + target)
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append " + target)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "No issues found.")
 end
@@ -111,7 +111,7 @@ rats "linter fix preserves indentation"
   SCRIPT
   target = test.tmpdir() + "/target.rugo"
   test.write_file(target, script)
-  test.run("rugo run tools/linter/linter.rugo -- smart-append --fix " + target)
+  test.run("rugo run tools/linter/main.rugo -- smart-append --fix " + target)
 
   # Verify fixed file still runs
   result = test.run("rugo run " + target)
@@ -130,13 +130,13 @@ rats "linter handles multiple files"
   SCRIPT
   test.write_file(test.tmpdir() + "/a.rugo", script1)
   test.write_file(test.tmpdir() + "/b.rugo", script2)
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append " + test.tmpdir() + "/a.rugo " + test.tmpdir() + "/b.rugo")
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append " + test.tmpdir() + "/a.rugo " + test.tmpdir() + "/b.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "2 issue(s) found.")
 end
 
 rats "linter no args shows usage"
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append")
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append")
   test.assert_neq(result["status"], 0)
 end
 
@@ -149,7 +149,7 @@ rats "linter detects inside for loop"
     puts(len(items))
   SCRIPT
   test.write_file(test.tmpdir() + "/target.rugo", script)
-  result = test.run("rugo run tools/linter/linter.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
+  result = test.run("rugo run tools/linter/main.rugo -- smart-append " + test.tmpdir() + "/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "items = append(items, x)")
   test.assert_contains(result["output"], "1 issue(s) found.")
@@ -163,7 +163,7 @@ rats "linter fix with complex value expression"
   SCRIPT
   target = test.tmpdir() + "/target.rugo"
   test.write_file(target, script)
-  test.run("rugo run tools/linter/linter.rugo -- smart-append --fix " + target)
+  test.run("rugo run tools/linter/main.rugo -- smart-append --fix " + target)
 
   result = test.run("rugo run " + target)
   test.assert_eq(result["status"], 0)
@@ -177,13 +177,13 @@ rats "linter all command runs all linters"
     puts(len(arr))
   SCRIPT
   test.write_file(test.tmpdir() + "/target.rugo", script)
-  result = test.run("rugo run tools/linter/linter.rugo -- all " + test.tmpdir() + "/target.rugo")
+  result = test.run("rugo run tools/linter/main.rugo -- all " + test.tmpdir() + "/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "[smart-append]")
   test.assert_contains(result["output"], "1 issue(s) found.")
 end
 
 rats "linter unknown command shows error"
-  result = test.run("rugo run tools/linter/linter.rugo -- badcmd file.rugo")
+  result = test.run("rugo run tools/linter/main.rugo -- badcmd file.rugo")
   test.assert_neq(result["status"], 0)
 end

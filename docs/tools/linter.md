@@ -5,7 +5,13 @@ A modular linter for Rugo source files, built in Rugo using the `ast` module. Ea
 ## Usage
 
 ```
-rugo run tools/linter/linter.rugo -- <command> [--fix] <file(s)>
+rugo run tools/linter/main.rugo -- <command> [--fix] <file(s)>
+```
+
+Or, after installing with `rugo tool install`:
+
+```
+rugo linter <command> [--fix] <file(s)>
 ```
 
 ### Commands
@@ -26,7 +32,7 @@ rugo run tools/linter/linter.rugo -- <command> [--fix] <file(s)>
 Scan a file for issues:
 
 ```
-$ rugo run tools/linter/linter.rugo -- smart-append examples/spawn.rugo
+$ rugo run tools/linter/main.rugo -- smart-append examples/spawn.rugo
 [smart-append] examples/spawn.rugo:35: tasks = append(tasks, t)
   suggestion: append tasks, t
 1 issue(s) found.
@@ -35,7 +41,7 @@ $ rugo run tools/linter/linter.rugo -- smart-append examples/spawn.rugo
 Run all linters across multiple files:
 
 ```
-$ rugo run tools/linter/linter.rugo -- all examples/spawn.rugo examples/lambdas.rugo
+$ rugo run tools/linter/main.rugo -- all examples/spawn.rugo examples/lambdas.rugo
 [smart-append] examples/spawn.rugo:35: tasks = append(tasks, t)
   suggestion: append tasks, t
 [smart-append] examples/lambdas.rugo:30: result = append(result, f(item))
@@ -46,7 +52,7 @@ $ rugo run tools/linter/linter.rugo -- all examples/spawn.rugo examples/lambdas.
 Auto-fix in place:
 
 ```
-$ rugo run tools/linter/linter.rugo -- smart-append --fix examples/spawn.rugo
+$ rugo run tools/linter/main.rugo -- smart-append --fix examples/spawn.rugo
 [smart-append] examples/spawn.rugo:35: fixed: tasks = append(tasks, t) → append tasks, t
 1 issue(s) fixed.
 ```

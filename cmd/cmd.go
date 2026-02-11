@@ -33,12 +33,17 @@ func Execute(version string) {
 		Version:                version,
 		UseShortOptionHandling: true,
 		// Allow `rugo script.rugo` as shorthand for `rugo run script.rugo`
+		// Also dispatch to installed tools: `rugo linter` → `~/.rugo/tools/rugo-linter`
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			if cmd.NArg() > 0 {
 				arg := cmd.Args().First()
 				if compiler.IsRugoFile(arg) || isRugoScript(arg) {
 					comp := &compiler.Compiler{}
 					return comp.Run(arg, cmd.Args().Tail()...)
+				}
+				// Check if it's an installed tool
+				if err := execTool(arg, cmd.Args().Tail()); err == nil {
+					return nil // execTool replaces the process
 				}
 			}
 			return cli.DefaultShowRootCommandHelp(cmd)
@@ -149,7 +154,36 @@ func Execute(version string) {
 					},
 				},
 			},
+			{
+				Name:  "tool",
+				Usage: "Manage Rugo CLI tool extensions",
+				Commands: []*cli.Command{
+					{
+						Name:            "install",
+						Usage:           "Build and install a tool from a local path, remote module, or 'core'",
+						ArgsUsage:       "<path | remote-module | core>",
+						SkipFlagParsing: true,
+						Action:          toolInstallAction,
+					},
+					{
+						Name:   "list",
+						Usage:  "List installed tools",
+						Action: toolListAction,
+					},
+					{
+						Name:      "remove",
+						Usage:     "Remove an installed tool",
+						ArgsUsage: "<name>",
+						Action:    toolRemoveAction,
+					},
+				},
+			},
 		},
+	}
+
+	// Inject installed tools as top-level commands so they appear in help.
+	for _, tc := range installedToolCommands() {
+		cmd.Commands = append(cmd.Commands, tc)
 	}
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
@@ -463,13 +497,13 @@ func docOutput(text string) {
 // ANSI color codes (Monokai-inspired)
 const (
 	ansiReset     = "\033[0m"
-	ansiMagenta   = "\033[35m"    // keywords: def, struct, module, package
-	ansiGreen     = "\033[32m"    // function/type names
-	ansiYellow    = "\033[33m"    // parameters
-	ansiCyan      = "\033[36m"    // return types
-	ansiDim       = "\033[2m"     // doc text
-	ansiBoldBlue  = "\033[1;34m"  // file headers
-	ansiBoldWhite = "\033[1;37m"  // section titles
+	ansiMagenta   = "\033[35m"   // keywords: def, struct, module, package
+	ansiGreen     = "\033[32m"   // function/type names
+	ansiYellow    = "\033[33m"   // parameters
+	ansiCyan      = "\033[36m"   // return types
+	ansiDim       = "\033[2m"    // doc text
+	ansiBoldBlue  = "\033[1;34m" // file headers
+	ansiBoldWhite = "\033[1;37m" // section titles
 )
 
 // docColorize applies syntax-aware coloring to doc output.

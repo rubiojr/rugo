@@ -32,7 +32,7 @@ for i in [1, 2, 3]
   t = spawn
     conv.to_s(i * 10)
   end
-  tasks = append(tasks, t)
+  append tasks, t
 end
 for i, t in tasks
   puts "task #{conv.to_s(i)}: " + t.value

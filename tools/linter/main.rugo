@@ -1,4 +1,4 @@
-# Rugo Linter
+# tool: Lint Rugo source files for idiomatic patterns
 #
 # Modular linter for Rugo source files. Each lint rule lives in linters/.
 # To add a new linter: create linters/foo.rugo with lint(path) and fix(path, warnings),

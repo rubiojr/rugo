@@ -1,0 +1,126 @@
+# RATS: rugo tool command — install, list, remove, dispatch
+# Uses RUGO_TOOLS_DIR for isolation from the user's real tool installs.
+use "test"
+use "os"
+
+# Helper: run a command with an isolated tools directory.
+def trun(tooldir, cmd)
+  return test.run("RUGO_TOOLS_DIR=" + tooldir + " " + cmd)
+end
+
+rats "tool install local"
+  tooldir = test.tmpdir() + "/tools"
+  result = trun(tooldir, "rugo tool install ./tools/linter")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "installed linter")
+end
+
+rats "tool list shows installed"
+  tooldir = test.tmpdir() + "/tools"
+  trun(tooldir, "rugo tool install ./tools/linter")
+  result = trun(tooldir, "rugo tool list")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "linter")
+end
+
+rats "tool list shows description"
+  tooldir = test.tmpdir() + "/tools"
+  trun(tooldir, "rugo tool install ./tools/linter")
+  result = trun(tooldir, "rugo tool list")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "Lint Rugo source files")
+end
+
+rats "tool list empty"
+  tooldir = test.tmpdir() + "/tools"
+  result = trun(tooldir, "rugo tool list")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No tools installed")
+end
+
+rats "tool remove installed"
+  tooldir = test.tmpdir() + "/tools"
+  trun(tooldir, "rugo tool install ./tools/linter")
+  result = trun(tooldir, "rugo tool remove linter")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "removed linter")
+  # Verify gone
+  result2 = trun(tooldir, "rugo tool list")
+  test.assert_contains(result2["output"], "No tools installed")
+end
+
+rats "tool remove cleans desc file"
+  tooldir = test.tmpdir() + "/tools"
+  trun(tooldir, "rugo tool install ./tools/linter")
+  trun(tooldir, "rugo tool remove linter")
+  test.assert_eq(os.file_exists(tooldir + "/rugo-linter.desc"), false)
+end
+
+rats "tool remove not installed"
+  tooldir = test.tmpdir() + "/tools"
+  result = trun(tooldir, "rugo tool remove nonexistent")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "tool dispatch to installed"
+  tooldir = test.tmpdir() + "/tools"
+  trun(tooldir, "rugo tool install ./tools/linter")
+  script = <<~SCRIPT
+    arr = []
+    arr = append(arr, 1)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = trun(tooldir, "rugo linter smart-append " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[smart-append]")
+end
+
+rats "tool dispatch unknown shows help"
+  tooldir = test.tmpdir() + "/tools"
+  result = trun(tooldir, "rugo nonexistent-tool-xyz")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "rugo")
+end
+
+rats "tool install no args shows usage"
+  tooldir = test.tmpdir() + "/tools"
+  result = trun(tooldir, "rugo tool install")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "tool install bad path"
+  tooldir = test.tmpdir() + "/tools"
+  result = trun(tooldir, "rugo tool install /nonexistent/path")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "tool install overwrites existing"
+  tooldir = test.tmpdir() + "/tools"
+  trun(tooldir, "rugo tool install ./tools/linter")
+  result = trun(tooldir, "rugo tool install ./tools/linter")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "installed linter")
+end
+
+rats "tool dispatch passes args correctly"
+  tooldir = test.tmpdir() + "/tools"
+  trun(tooldir, "rugo tool install ./tools/linter")
+  script = <<~SCRIPT
+    arr = []
+    arr = append(arr, 1)
+    puts(len(arr))
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  result = trun(tooldir, "rugo linter smart-append --fix " + target)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "fixed:")
+end
+
+rats "tool dispatch passes exit code"
+  tooldir = test.tmpdir() + "/tools"
+  trun(tooldir, "rugo tool install ./tools/linter")
+  result = trun(tooldir, "rugo linter")
+  # No args → linter shows usage and exits 1
+  test.assert_neq(result["status"], 0)
+end
