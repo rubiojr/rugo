@@ -33,6 +33,10 @@ go build → native binary
 
 The compiler is orchestrated by `compiler.Compiler`, which chains these stages together. The `run`, `build`, and `emit` CLI subcommands each exercise different parts of this pipeline.
 
+### Build Cache
+
+During compilation, Rugo creates a temporary directory under `~/.cache/rugo/build/` to hold the generated Go source and `go.mod` before invoking `go build`. Each build gets its own uniquely-named subdirectory (`rugo-*`), which is automatically removed after compilation completes.
+
 ## Language Design
 
 ### Type System
