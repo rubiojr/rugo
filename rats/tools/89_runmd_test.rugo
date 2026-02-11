@@ -1,0 +1,77 @@
+# RATS: runmd tool — verify ruby code blocks in markdown compile as Rugo
+use "test"
+
+rats "runmd all snippets pass"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/all_ok.md")
+  test.assert_eq(result.status, 0)
+  test.assert_contains(result.output, "2 snippet(s), 2 passed, 0 failed")
+end
+
+rats "runmd detects build failure"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/build_fail.md")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "FAIL")
+  test.assert_contains(result.output, "1 failed")
+end
+
+rats "runmd detects syntax error (bare def)"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/bare_def.md")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "FAIL")
+end
+
+rats "runmd mixed pass and fail"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/mixed.md")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "3 snippet(s), 2 passed, 1 failed")
+end
+
+rats "runmd no ruby blocks exits cleanly"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/no_ruby.md")
+  test.assert_eq(result.status, 0)
+  test.assert_contains(result.output, "0 snippet(s)")
+end
+
+rats "runmd no args shows usage"
+  result = test.run("rugo run tools/runmd/main.rugo")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "usage:")
+end
+
+rats "runmd missing file reports error"
+  result = test.run("rugo run tools/runmd/main.rugo -- /nonexistent/file.md")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "file not found")
+end
+
+rats "runmd multiple files"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/all_ok.md rats/fixtures/runmd/all_ok.md")
+  test.assert_eq(result.status, 0)
+  test.assert_contains(result.output, "4 snippet(s), 4 passed, 0 failed")
+end
+
+rats "runmd multiple files with failure"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/all_ok.md rats/fixtures/runmd/build_fail.md")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "3 snippet(s), 2 passed, 1 failed")
+end
+
+rats "runmd reports correct line numbers"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/all_ok.md")
+  test.assert_contains(result.output, "all_ok.md:4:")
+  test.assert_contains(result.output, "all_ok.md:10:")
+end
+
+rats "runmd inline snippet passes"
+  test.write_file(test.tmpdir() + "/inline.md", "# Test\n\n```ruby\nputs 42\n```\n")
+  result = test.run("rugo run tools/runmd/main.rugo -- " + test.tmpdir() + "/inline.md")
+  test.assert_eq(result.status, 0)
+  test.assert_contains(result.output, "1 snippet(s), 1 passed")
+end
+
+rats "runmd inline snippet fails"
+  test.write_file(test.tmpdir() + "/bad.md", "# Test\n\n```ruby\ndef\n```\n")
+  result = test.run("rugo run tools/runmd/main.rugo -- " + test.tmpdir() + "/bad.md")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "FAIL")
+end

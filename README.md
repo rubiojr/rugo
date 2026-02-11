@@ -58,6 +58,7 @@ end
 
 greet("World")
 
+def
 scores = [90, 85, 72]
 for score in scores
   if score >= 90

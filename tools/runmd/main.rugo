@@ -1,0 +1,120 @@
+# tool: Verify Rugo code blocks in markdown files compile correctly
+#
+# Parses markdown files for ```ruby code blocks and tries to build
+# each one with `rugo build`. Every ruby block is expected to be valid Rugo.
+#
+# Usage:
+#   rugo runmd <file.md> [file2.md ...]
+#
+# Exit code 0 if all snippets compile, 1 if any fail.
+
+use "cli"
+use "os"
+use "str"
+use "test"
+import "os" as go_os
+
+TmpName = "runmd_check.rugo"
+
+cli.name "rugo-runmd"
+cli.about "Verify ruby code blocks in markdown files compile as valid Rugo"
+cli.parse()
+
+args = cli.args()
+if len(args) == 0
+  puts "usage: rugo runmd <file.md> [file2.md ...]"
+  os.exit 1
+end
+
+failures = 0
+total = 0
+passed = 0
+tmp_dir = os.exec("mktemp -d")
+tmp_file = "#{tmp_dir}/#{TmpName}"
+tmp_bin = "#{tmp_file}.bin"
+
+# Extract ```ruby code blocks from markdown content.
+# Returns an array of hashes with "code" and "line" keys.
+def extract_ruby_blocks(content)
+  lines = str.split(content, "\n")
+  blocks = []
+  in_block = false
+  block_lines = []
+  block_start = 0
+
+  for i, line in lines
+    trimmed = str.trim(line)
+    if in_block == false
+      if trimmed == "```ruby"
+        in_block = true
+        block_lines = []
+        block_start = i + 2
+      end
+    else
+      if trimmed == "```"
+        in_block = false
+        code = str.join(block_lines, "\n")
+        blocks = append(blocks, {code: code, line: block_start})
+      else
+        block_lines = append(block_lines, line)
+      end
+    end
+  end
+
+  return blocks
+end
+
+# Strip temp file paths from rugo build error output.
+def clean_output(raw)
+  marker = TmpName + ":"
+  lines = str.split(raw, "\n")
+  cleaned = []
+  for line in lines
+    idx = str.index(line, marker)
+    if idx >= 0
+      rest_start = idx + len(marker)
+      cleaned = append(cleaned, str.trim(line[rest_start, len(line) - rest_start]))
+    else
+      cleaned = append(cleaned, line)
+    end
+  end
+  return str.join(cleaned, "\n")
+end
+
+for file in args
+  if os.file_exists(file) == false
+    puts "error: file not found: #{file}"
+    failures += 1
+    next
+  end
+
+  content = go_os.read_file(file)
+  blocks = extract_ruby_blocks(content)
+
+  for block in blocks
+    total += 1
+    go_os.write_file(tmp_file, block.code, 420) # 0644
+
+    result = test.run("rugo build #{tmp_file} -o #{tmp_bin}")
+    if result.status == 0
+      passed += 1
+      puts "#{file}:#{block.line}: ok"
+    else
+      failures += 1
+      puts "#{file}:#{block.line}: FAIL"
+      output = clean_output(result.output)
+      if output != ""
+        puts "  #{output}"
+      end
+    end
+  end
+end
+
+go_os.remove_all(tmp_dir)
+
+puts ""
+puts "#{total} snippet(s), #{passed} passed, #{failures} failed"
+
+if failures > 0
+  os.exit 1
+end
