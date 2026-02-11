@@ -19,11 +19,17 @@ func FormatFile(fd *FileDoc) string {
 	}
 
 	for _, s := range fd.Structs {
+		if s.Doc == "" {
+			continue
+		}
 		formatStruct(&sb, s)
 		sb.WriteString("\n")
 	}
 
 	for _, f := range fd.Funcs {
+		if f.Doc == "" {
+			continue
+		}
 		formatFunc(&sb, f)
 		sb.WriteString("\n")
 	}

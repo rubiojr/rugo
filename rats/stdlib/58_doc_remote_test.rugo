@@ -141,10 +141,10 @@ rats "rugo doc remote missing symbol fails"
   test.assert_neq(result["status"], 0)
 end
 
-rats "rugo doc remote undocumented functions show without doc"
+rats "rugo doc remote undocumented functions are hidden"
   tmpdir = test.tmpdir()
   port = test.run("cat /tmp/rats_doc_remote/port")["output"]
   result = test.run("NO_COLOR=1 RUGO_MODULE_DIR=" + tmpdir + "/modules rugo doc localhost:" + port + "/testuser/docmod@v1.0.0")
   test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "def undocumented")
+  test.assert_false(str.contains(result["output"], "def undocumented"))
 end
