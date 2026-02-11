@@ -1,0 +1,126 @@
+# Rugo Linter
+#
+# A simple linter for Rugo source files, built with the ast module.
+# Checks for common non-idiomatic patterns.
+#
+# Usage: rugo run examples/apps/linter/linter.rugo -- <file.rugo> [file2.rugo ...]
+
+use "ast"
+use "cli"
+use "conv"
+use "os"
+use "str"
+
+# Lint a single file and return an array of warning hashes.
+def lint_file(path)
+  warnings = []
+
+  prog = try ast.parse_file(path) or e
+    raise "could not parse #{path}"
+  end
+
+  lines = str.split(prog["raw_source"], "\n")
+
+  for stmt in prog["statements"]
+    if stmt["type"] == "def"
+      warnings = check_def(warnings, stmt, lines, path)
+    end
+
+    if stmt["type"] == "test"
+      warnings = check_test(warnings, stmt, path)
+    end
+  end
+
+  return warnings
+end
+
+# Check a function definition for issues.
+def check_def(warnings, stmt, lines, path)
+  # empty-def: function with no body
+  if len(stmt["body"]) == 0
+    warnings = append(warnings, warning(path, stmt["line"], "empty-def", "function '" + stmt["name"] + "' has no body"))
+  end
+
+  # missing-doc: no doc comment above the def
+  line = stmt["line"]
+  if line >= 2
+    above = str.trim(lines[line - 2])
+    if str.index(above, "#") != 0
+      warnings = append(warnings, warning(path, stmt["line"], "missing-doc", "function '" + stmt["name"] + "' has no doc comment"))
+    end
+  end
+
+  # unreachable-code: statements after return
+  warnings = check_unreachable(warnings, stmt["body"], path)
+
+  return warnings
+end
+
+# Check a test block for issues.
+def check_test(warnings, stmt, path)
+  if len(stmt["body"]) == 0
+    warnings = append(warnings, warning(path, stmt["line"], "empty-test", "test '" + stmt["name"] + "' has no body"))
+  end
+
+  return warnings
+end
+
+# Check a body for unreachable code after return.
+def check_unreachable(warnings, body, path)
+  found_return = false
+
+  for stmt in body
+    if found_return
+      warnings = append(warnings, warning(path, stmt["line"], "unreachable-code", "code after return is unreachable"))
+      return warnings
+    end
+    if stmt["type"] == "return"
+      found_return = true
+    end
+  end
+
+  return warnings
+end
+
+# Build a warning hash.
+def warning(path, line, rule, message)
+  return {path: path, line: line, rule: rule, message: message}
+end
+
+# Format a warning for display.
+def format_warning(w)
+  return w["path"] + ":" + conv.to_s(w["line"]) + ": [" + w["rule"] + "] " + w["message"]
+end
+
+# Main
+cli.name("rugo-lint")
+cli.about("Lint Rugo source files for common issues")
+cli.parse()
+files = cli.args()
+
+if len(files) == 0
+  puts("Usage: rugo run linter.rugo -- <file.rugo> [file2.rugo ...]")
+  os.exit(1)
+end
+
+total = 0
+for file in files
+  if os.file_exists(file) == false
+    puts("error: file not found: " + file)
+    os.exit(1)
+  end
+
+  empty = []
+  warnings = try lint_file(file) or e
+    puts("error: " + e)
+    empty
+  end
+  for w in warnings
+    puts(format_warning(w))
+  end
+  total = total + len(warnings)
+end
+
+if total == 0
+  puts("No issues found.")
+end

@@ -26,6 +26,9 @@ type FuncDef struct {
 	// Args lists the expected typed arguments. The wrapper will convert
 	// interface{} args to these types before calling the implementation.
 	Args []ArgType
+	// ArgNames provides display names for arguments in documentation.
+	// When empty, generic names (arg0, arg1, ...) are used.
+	ArgNames []string
 	// Variadic, when true, passes remaining args beyond Args as ...interface{}.
 	// The implementation function should accept extra ...interface{} as its last parameter.
 	Variadic bool
@@ -48,6 +51,10 @@ type Module struct {
 	// "github.com/gosimple/slug v1.15.0". Only needed for external modules
 	// that depend on third-party Go packages.
 	GoDeps []string
+	// GoReplace lists replace directives for go.mod. Each entry should be
+	// "module => path" or "module version => path", e.g.
+	// "github.com/rubiojr/rugo => /path/to/local/rugo".
+	GoReplace []string
 	// Runtime is the Go source for the struct type and its methods (from embedded runtime.go).
 	Runtime string
 	// DispatchEntry, when set, names the module function that triggers dispatch.
@@ -126,6 +133,25 @@ func CollectGoDeps(moduleNames []string) []string {
 	}
 	sort.Strings(deps)
 	return deps
+}
+
+// CollectGoReplace returns all GoReplace directives from the named modules (deduped).
+func CollectGoReplace(moduleNames []string) []string {
+	seen := make(map[string]bool)
+	var replaces []string
+	for _, name := range moduleNames {
+		m, ok := registry[name]
+		if !ok {
+			continue
+		}
+		for _, r := range m.GoReplace {
+			if !seen[r] {
+				seen[r] = true
+				replaces = append(replaces, r)
+			}
+		}
+	}
+	return replaces
 }
 
 // CleanRuntime strips //go:build directives, the package declaration, and

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/rubiojr/rugo/cmd"
+	_ "github.com/rubiojr/rugo/modules/ast"
 	_ "github.com/rubiojr/rugo/modules/bench"
 	_ "github.com/rubiojr/rugo/modules/cli"
 	_ "github.com/rubiojr/rugo/modules/color"

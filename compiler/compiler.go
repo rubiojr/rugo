@@ -155,6 +155,12 @@ func goModContent(prog *Program) string {
 		}
 		goMod += ")\n"
 	}
+	if replaces := modules.CollectGoReplace(modNames); len(replaces) > 0 {
+		goMod += "\n"
+		for _, r := range replaces {
+			goMod += "replace " + r + "\n"
+		}
+	}
 	return goMod
 }
 

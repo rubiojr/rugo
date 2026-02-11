@@ -132,7 +132,7 @@ func FormatModule(m *modules.Module) string {
 		sb.WriteString("\n")
 		if f.Doc != "" {
 			sb.WriteString("    ")
-			sb.WriteString(f.Doc)
+			sb.WriteString(strings.ReplaceAll(f.Doc, "\n", "\n    "))
 			sb.WriteString("\n")
 		}
 	}
@@ -240,7 +240,11 @@ func formatFunc(sb *strings.Builder, f FuncDoc) {
 func formatModuleFuncSig(modName string, f modules.FuncDef) string {
 	var params []string
 	for i, a := range f.Args {
-		params = append(params, fmt.Sprintf("arg%d", i))
+		if i < len(f.ArgNames) {
+			params = append(params, f.ArgNames[i])
+		} else {
+			params = append(params, fmt.Sprintf("arg%d", i))
+		}
 		_ = a
 	}
 	if f.Variadic {

@@ -1,0 +1,97 @@
+use "test"
+use "ast"
+
+rats "ast: parse_source returns program hash"
+  prog = ast.parse_source("x = 1\n", "test.rugo")
+  test.assert_eq(prog["source_file"], "test.rugo")
+  test.assert_eq(len(prog["statements"]), 1)
+  test.assert_eq(prog["statements"][0]["type"], "assign")
+  test.assert_eq(prog["statements"][0]["target"], "x")
+end
+
+rats "ast: parse_source returns def with params and position"
+  prog = ast.parse_source("def add(a, b)\n  return a + b\nend\n", "test.rugo")
+  stmt = prog["statements"][0]
+  test.assert_eq(stmt["type"], "def")
+  test.assert_eq(stmt["name"], "add")
+  test.assert_eq(len(stmt["params"]), 2)
+  test.assert_eq(stmt["params"][0], "a")
+  test.assert_eq(stmt["params"][1], "b")
+  test.assert_eq(stmt["line"], 1)
+  test.assert_eq(stmt["end_line"], 3)
+end
+
+rats "ast: parse_source returns body statements"
+  prog = ast.parse_source("def foo()\n  x = 1\n  return x\nend\n", "test.rugo")
+  body = prog["statements"][0]["body"]
+  test.assert_eq(len(body), 2)
+  test.assert_eq(body[0]["type"], "assign")
+  test.assert_eq(body[1]["type"], "return")
+end
+
+rats "ast: parse_source preserves raw_source"
+  src = "# hello\ndef greet()\n  puts(1)\nend\n"
+  prog = ast.parse_source(src, "test.rugo")
+  test.assert_contains(prog["raw_source"], "# hello")
+end
+
+rats "ast: parse_source returns struct info"
+  src = "struct Dog\n  name\n  breed\nend\n"
+  prog = ast.parse_source(src, "test.rugo")
+  test.assert_eq(len(prog["structs"]), 1)
+  test.assert_eq(prog["structs"][0]["name"], "Dog")
+  test.assert_eq(prog["structs"][0]["fields"][0], "name")
+  test.assert_eq(prog["structs"][0]["fields"][1], "breed")
+end
+
+rats "ast: source_lines extracts block lines"
+  src = "x = 1\ndef foo()\n  puts(1)\nend\ny = 2\n"
+  prog = ast.parse_source(src, "test.rugo")
+  stmt = nil
+  for s in prog["statements"]
+    if s["type"] == "def"
+      stmt = s
+    end
+  end
+  lines = ast.source_lines(prog, stmt)
+  test.assert_eq(len(lines), 3)
+  test.assert_contains(lines[0], "def foo()")
+  test.assert_contains(lines[2], "end")
+end
+
+rats "ast: parse_source returns use statement"
+  prog = ast.parse_source("use \"http\"\n", "test.rugo")
+  test.assert_eq(prog["statements"][0]["type"], "use")
+  test.assert_eq(prog["statements"][0]["module"], "http")
+end
+
+rats "ast: parse_source returns expression info"
+  prog = ast.parse_source("puts(42)\n", "test.rugo")
+  stmt = prog["statements"][0]
+  test.assert_eq(stmt["type"], "expr")
+  test.assert_eq(stmt["expr"]["type"], "call")
+end
+
+rats "ast: parse_file works on real file"
+  prog = ast.parse_file("examples/hello.rugo")
+  test.assert_eq(prog["source_file"], "examples/hello.rugo")
+  test.assert_true(len(prog["statements"]) > 0)
+end
+
+rats "ast: parse_file returns error for missing file"
+  msg = ""
+  result = try ast.parse_file("nonexistent.rugo") or e
+    msg = e
+    nil
+  end
+  test.assert_contains(msg, "nonexistent.rugo")
+end
+
+rats "ast: parse_source returns error for invalid syntax"
+  msg = ""
+  result = try ast.parse_source("if\nend\n", "bad.rugo") or e
+    msg = e
+    nil
+  end
+  test.assert_contains(msg, "bad.rugo")
+end

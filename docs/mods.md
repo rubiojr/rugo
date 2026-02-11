@@ -7,6 +7,7 @@ directory under `modules/` and self-registers at startup via Go's `init()`.
 
 | Module | Functions | Description |
 |--------|-----------|-------------|
+| `ast`  | `parse_file`, `parse_source`, `source_lines` | Parse and inspect Rugo source files |
 | `os`   | `exec`, `exit` | Shell execution and process control |
 | `http` | `get`, `post`, `put`, `patch`, `delete` | HTTP client |
 | `conv` | `to_i`, `to_f`, `to_s` | Type conversions |
@@ -14,6 +15,53 @@ directory under `modules/` and self-registers at startup via Go's `init()`.
 | `color` | `red`, `green`, `yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`, `bg_*`, `bold`, `dim`, `underline` | ANSI terminal colors and styles |
 | `json` | `parse`, `encode` | JSON parsing and encoding |
 | `sqlite` | `open`, `exec`, `query`, `query_row`, `query_val`, `close` | SQLite database access |
+
+### ast — Parse and Inspect Rugo Source
+
+The `ast` module exposes the Rugo compiler API to Rugo scripts. It parses source files into hash-based ASTs for building linters, refactoring tools, and code analysis.
+
+```ruby
+use "ast"
+
+prog = ast.parse_file("lib.rugo")
+# Or parse a string:
+# prog = ast.parse_source("def foo()\nend\n", "lib.rugo")
+
+# Program hash keys: "source_file", "raw_source", "statements", "structs"
+for stmt in prog["statements"]
+  if stmt["type"] == "def"
+    puts(stmt["name"] + " at line " + conv.to_s(stmt["line"]))
+    lines = ast.source_lines(prog, stmt)
+    puts("  " + conv.to_s(len(lines)) + " lines of source")
+  end
+end
+```
+
+**Functions:**
+
+| Function | Description |
+|----------|-------------|
+| `ast.parse_file(path)` | Parse a `.rugo` file → program hash |
+| `ast.parse_source(source, name)` | Parse a source string → program hash |
+| `ast.source_lines(prog, stmt)` | Extract raw source lines for a statement |
+
+**Statement types:** Each statement is a hash with `"type"`, `"line"`, `"end_line"`, and type-specific fields:
+
+| Type | Fields |
+|------|--------|
+| `"def"` | `"name"`, `"params"` (array), `"body"` (array) |
+| `"test"` | `"name"`, `"body"` |
+| `"bench"` | `"name"`, `"body"` |
+| `"if"` | `"body"`, `"elsif"`, `"else_body"` |
+| `"while"` | `"body"` |
+| `"for"` | `"var"`, `"index_var"` (optional), `"body"` |
+| `"assign"` | `"target"` |
+| `"return"` | — |
+| `"break"` / `"next"` | — |
+| `"expr"` | `"expr"` (expression hash) |
+| `"use"` | `"module"` |
+| `"require"` | `"path"`, `"alias"` (optional), `"with"` (optional) |
+| `"import"` | `"package"`, `"alias"` (optional) |
 
 ### Usage in Rugo
 
