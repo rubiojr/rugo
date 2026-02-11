@@ -32,6 +32,7 @@ type Expr interface {
 type Program struct {
 	Statements []Statement
 	SourceFile string // display path of the source file
+	RawSource  string // original source before preprocessing (for comment access)
 }
 
 func (p *Program) node() {}

@@ -86,6 +86,23 @@ for _, s := range prog.Statements {
 }
 ```
 
+### Raw Source Access
+
+The `Program.RawSource` field contains the original source before preprocessing (comment stripping, sugar expansion). Use it to correlate comments with AST nodes by line number:
+
+```go
+prog, _ := c.ParseFile("lib.rugo")
+lines := strings.Split(prog.RawSource, "\n")
+for _, s := range prog.Statements {
+    if fn, ok := s.(*compiler.FuncDef); ok {
+        // Check the line above for a doc comment
+        if fn.StmtLine() >= 2 && strings.HasPrefix(strings.TrimSpace(lines[fn.StmtLine()-2]), "#") {
+            fmt.Printf("def %s has a doc comment\n", fn.Name)
+        }
+    }
+}
+```
+
 ### Type Inference
 
 ```go

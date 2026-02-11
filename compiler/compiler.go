@@ -285,6 +285,9 @@ func (c *Compiler) ParseSource(source, name string) (*Program, error) {
 }
 
 func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
+	// Preserve raw source before preprocessing destroys comments.
+	rawSource := source
+
 	// Expand heredocs before comment stripping (bodies may contain #).
 	cleaned, err := expandHeredocs(source)
 	if err != nil {
@@ -339,6 +342,7 @@ func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 	}
 
 	prog.SourceFile = displayName
+	prog.RawSource = rawSource
 	return prog, nil
 }
 
