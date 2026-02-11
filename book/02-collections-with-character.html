@@ -546,7 +546,7 @@ puts &quot;Count: #{counter.get()}&quot;
 <pre><code>Count: 2
 </code></pre>
 <p>The closures capture the <code>c</code> hash by reference, so mutations through <code>.increment()</code>
-persist. This is how real Rugo libraries like Gummy (an ORM) and Rugh (a GitHub
+persist. This is how real Rugo libraries like <a href="https://github.com/rubiojr/gummy">Gummy</a> (an ORM) and <a href="https://github.com/rubiojr/rugh">Rugh</a> (a GitHub
 client) build their APIs — every &quot;object&quot; is a hash with lambda methods.</p>
 <h2 id="array-idioms">Array Idioms</h2>
 <p>Rugo arrays support negative indexing and slicing — use them.</p>
