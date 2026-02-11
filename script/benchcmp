@@ -1,0 +1,284 @@
+#!/usr/bin/env rugo
+
+# Compare compiler and runtime benchmarks between two versions.
+#
+# Usage:
+#   script/benchcmp 0.13.0 0.15.0
+
+use "cli"
+use "str"
+use "conv"
+use "fmt"
+use "os"
+import "os" as go_os
+import "strings"
+import "strconv"
+import "path/filepath"
+
+cli.name("benchcmp")
+cli.about("Compare compiler and runtime benchmarks between two versions")
+cli.parse()
+args = cli.args()
+
+if len(args) != 2
+  puts "usage: benchcmp <old_version> <new_version>"
+  puts "  e.g. benchcmp 0.13.0 0.15.0"
+  os.exit(1)
+end
+
+old_ver_arg = args[0]
+new_ver_arg = args[1]
+
+# Normalize version: add "v" prefix if missing
+def normalize_ver(v)
+  if !strings.has_prefix(v, "v")
+    return "v" + v
+  end
+  return v
+end
+
+old_ver_arg = normalize_ver(old_ver_arg)
+new_ver_arg = normalize_ver(new_ver_arg)
+
+# Parse a value string like "39780" (ns) into ns as float
+def parse_ns(val_str)
+  return strconv.parse_float(str.trim(val_str), 64)
+end
+
+# Parse compiler benchmark file: average ns/op, B/op, allocs per benchmark name
+def parse_compiler(path)
+  content = go_os.read_file(path)
+  sums = {}
+  counts = {}
+  b_sums = {}
+  a_sums = {}
+
+  for line in str.split(content, "\n")
+    if !strings.has_prefix(line, "Benchmark")
+      next
+    end
+
+    fields = strings.fields(line)
+    if len(fields) < 5
+      next
+    end
+
+    # fields: [Name-N, runs, ns, "ns/op", bytes, "B/op", allocs, "allocs/op"]
+    raw_name = fields[0]
+    # Strip the -N suffix (e.g. -16)
+    dash_idx = strings.last_index(raw_name, "-")
+    if dash_idx < 0
+      next
+    end
+    name = raw_name[0, dash_idx]
+
+    ns = parse_ns(fields[2])
+    bytes_val = parse_ns(fields[4])
+    allocs = parse_ns(fields[6])
+
+    if sums[name] == nil
+      sums[name] = 0.0
+      counts[name] = 0
+      b_sums[name] = 0.0
+      a_sums[name] = 0.0
+    end
+
+    sums[name] = sums[name] + ns
+    counts[name] = counts[name] + 1
+    b_sums[name] = b_sums[name] + bytes_val
+    a_sums[name] = a_sums[name] + allocs
+  end
+
+  results = {}
+  for name, total in sums
+    c = counts[name]
+    results[name] = {
+      "ns" => total / conv.to_f(c),
+      "bytes" => b_sums[name] / conv.to_f(c),
+      "allocs" => a_sums[name] / conv.to_f(c)
+    }
+  end
+
+  return results
+end
+
+# Convert a unit+value string like "23.5 µs/op" to nanoseconds
+def to_ns(val_str, unit)
+  v = strconv.parse_float(val_str, 64)
+  if unit == "ns/op"
+    return v
+  end
+  if unit == "µs/op"
+    return v * 1000.0
+  end
+  if unit == "ms/op"
+    return v * 1000000.0
+  end
+  if unit == "s/op"
+    return v * 1000000000.0
+  end
+  return v
+end
+
+# Parse rugo benchmark file: ns value per benchmark name
+def parse_rugo(path)
+  content = go_os.read_file(path)
+  results = {}
+
+  for line in str.split(content, "\n")
+    if !strings.has_prefix(line, "  ")
+      next
+    end
+    trimmed = str.trim(line)
+    if trimmed == ""
+      next
+    end
+
+    # Find the value+unit before the (runs) part
+    # Format: "name                    VALUE UNIT (N runs)"
+    paren_idx = strings.last_index(trimmed, "(")
+    if paren_idx < 0
+      next
+    end
+
+    before_paren = str.trim(trimmed[0, paren_idx])
+    # Split from the right: last two tokens are VALUE and UNIT
+    parts = strings.fields(before_paren)
+    if len(parts) < 3
+      next
+    end
+
+    unit = parts[-1]
+    val_str = parts[-2]
+    # Everything before is the name
+    name_parts = []
+    i = 0
+    while i < len(parts) - 2
+      name_parts = append(name_parts, parts[i])
+      i += 1
+    end
+    name = str.join(name_parts, " ")
+
+    ns = to_ns(val_str, unit)
+    results[name] = {"ns" => ns, "bytes" => 0.0, "allocs" => 0.0}
+  end
+
+  return results
+end
+
+# Format nanoseconds for display
+def fmt_ns(ns)
+  if ns >= 1000000000.0
+    return fmt.sprintf("%.1f s/op", ns / 1000000000.0)
+  end
+  if ns >= 1000000.0
+    return fmt.sprintf("%.1f ms/op", ns / 1000000.0)
+  end
+  if ns >= 1000.0
+    return fmt.sprintf("%.1f µs/op", ns / 1000.0)
+  end
+  return fmt.sprintf("%.1f ns/op", ns)
+end
+
+def fmt_delta(pct)
+  if pct >= 0.0
+    return fmt.sprintf("+%.1f%%", pct)
+  end
+  return fmt.sprintf("%.1f%%", pct)
+end
+
+# Extract version from path like "bench/history/v0.13.0-compiler.txt"
+def version_from(path)
+  base = filepath.base(path)
+  base = strings.trim_suffix(base, "-compiler.txt")
+  base = strings.trim_suffix(base, "-rugo.txt")
+  return base
+end
+
+def print_comparison(old_bench, new_bench, old_ver, new_ver, compiler)
+  if compiler
+    fmt.printf("  %-38s %12s %12s %8s  %10s  %10s\n", "Benchmark", old_ver, new_ver, "Δ", "B/op Δ", "allocs Δ")
+    puts str.replace(fmt.sprintf("  %100s", ""), " ", "-")
+  else
+    fmt.printf("  %-44s %14s %14s %8s\n", "Benchmark", old_ver, new_ver, "Δ")
+    puts str.replace(fmt.sprintf("  %84s", ""), " ", "-")
+  end
+
+  for name, old_data in old_bench
+    if new_bench[name] == nil
+      next
+    end
+    new_data = new_bench[name]
+    old_ns = old_data["ns"]
+    new_ns = new_data["ns"]
+    pct = ((new_ns - old_ns) / old_ns) * 100.0
+    delta = fmt_delta(pct)
+
+    if compiler
+      b_delta = new_data["bytes"] - old_data["bytes"]
+      a_delta = new_data["allocs"] - old_data["allocs"]
+      short = name
+      if strings.has_prefix(name, "Benchmark")
+        short = name[9, len(name)]
+      end
+      fmt.printf("  %-38s %12s %12s %8s  %+8.0f B  %+8.0f\n", short, fmt_ns(old_ns), fmt_ns(new_ns), delta, b_delta, a_delta)
+    else
+      fmt.printf("  %-44s %14s %14s %8s\n", name, fmt_ns(old_ns), fmt_ns(new_ns), delta)
+    end
+  end
+
+  for name, _ in old_bench
+    if new_bench[name] == nil
+      puts "  [removed] #{name}"
+    end
+  end
+
+  for name, _ in new_bench
+    if old_bench[name] == nil
+      puts "  [new]     #{name}"
+    end
+  end
+end
+
+# Build file paths from version args
+types = [["compiler", "-compiler.txt"], ["runtime", "-rugo.txt"]]
+
+for pair in types
+  label = pair[0]
+  suffix = pair[1]
+  old_path = filepath.join("bench", "history", old_ver_arg + suffix)
+  new_path = filepath.join("bench", "history", new_ver_arg + suffix)
+
+  old_exists = os.file_exists(old_path)
+  new_exists = os.file_exists(new_path)
+
+  if !old_exists && !new_exists
+    next
+  end
+
+  if !old_exists
+    puts "warning: #{old_path} not found, skipping #{label} comparison"
+    puts ""
+    next
+  end
+
+  if !new_exists
+    puts "warning: #{new_path} not found, skipping #{label} comparison"
+    puts ""
+    next
+  end
+
+  is_comp = label == "compiler"
+  if is_comp
+    old_bench = parse_compiler(old_path)
+    new_bench = parse_compiler(new_path)
+  else
+    old_bench = parse_rugo(old_path)
+    new_bench = parse_rugo(new_path)
+  end
+
+  puts "=== #{str.upper(label[0, 1])}#{label[1, len(label)]}: #{old_ver_arg} → #{new_ver_arg} ==="
+  puts ""
+  print_comparison(old_bench, new_bench, old_ver_arg, new_ver_arg, is_comp)
+  puts ""
+end
