@@ -1,5 +1,6 @@
 # RATS: Test rugo doc command
 use "test"
+use "str"
 
 # Test: rugo doc with no args lists all modules
 rats "rugo doc lists all modules and packages"
@@ -264,4 +265,64 @@ rats "rugo doc local directory missing symbol fails"
   test.write_file(tmpdir + "/mymod/mymod.rugo", "def foo()\nend\n")
   result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/mymod nope")
   test.assert_neq(result["status"], 0)
+end
+
+# Test: undocumented functions are hidden from file listing
+rats "rugo doc hides undocumented functions"
+  tmpdir = test.tmpdir()
+  test.write_file(tmpdir + "/lib.rugo", "# Documented.\ndef public()\nend\n\ndef _private()\nend\n\ndef also_undocumented()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/lib.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "def public")
+  test.assert_contains(result["output"], "Documented.")
+  test.assert_false(str.contains(result["output"], "_private"))
+  test.assert_false(str.contains(result["output"], "also_undocumented"))
+end
+
+# Test: undocumented structs are hidden from file listing
+rats "rugo doc hides undocumented structs"
+  tmpdir = test.tmpdir()
+  test.write_file(tmpdir + "/lib.rugo", "# A good struct.\nstruct Visible\n  x\nend\n\nstruct Hidden\n  y\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/lib.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "struct Visible")
+  test.assert_contains(result["output"], "A good struct.")
+  test.assert_false(str.contains(result["output"], "Hidden"))
+end
+
+# Test: undocumented functions can still be looked up directly
+rats "rugo doc symbol lookup works for undocumented function"
+  tmpdir = test.tmpdir()
+  test.write_file(tmpdir + "/lib.rugo", "def secret(x)\n  x + 1\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/lib.rugo secret")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "def secret(x)")
+end
+
+# Test: rugo doc on project tree finds files in subdirectories
+rats "rugo doc recursive finds subdirectory files"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p " + tmpdir + "/proj/lib")
+  test.write_file(tmpdir + "/proj/proj.rugo", "# My project.\n\n# Entry point.\ndef main()\nend\n")
+  test.write_file(tmpdir + "/proj/lib/helpers.rugo", "# A helper function.\ndef helper()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/proj")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "My project.")
+  test.assert_contains(result["output"], "def main")
+  test.assert_contains(result["output"], "def helper")
+  test.assert_contains(result["output"], "A helper function.")
+  test.assert_contains(result["output"], "proj.rugo:")
+  test.assert_contains(result["output"], "lib/helpers.rugo:")
+end
+
+# Test: rugo doc on project tree excludes test files
+rats "rugo doc recursive excludes test files"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p " + tmpdir + "/proj/rats")
+  test.write_file(tmpdir + "/proj/proj.rugo", "# My project.\n\n# Public API.\ndef api()\nend\n")
+  test.write_file(tmpdir + "/proj/rats/proj_test.rugo", "# Test function.\ndef test_api()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/proj")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "def api")
+  test.assert_false(str.contains(result["output"], "test_api"))
 end

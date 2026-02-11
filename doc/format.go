@@ -10,6 +10,8 @@ import (
 )
 
 // FormatFile formats a FileDoc for terminal display.
+// When items have Source set (from recursive extraction), they are grouped
+// by source file with headers.
 func FormatFile(fd *FileDoc) string {
 	var sb strings.Builder
 
@@ -18,23 +20,84 @@ func FormatFile(fd *FileDoc) string {
 		sb.WriteString("\n\n")
 	}
 
-	for _, s := range fd.Structs {
-		if s.Doc == "" {
-			continue
+	// Check if any items have source info for grouping
+	hasSource := false
+	for _, f := range fd.Funcs {
+		if f.Source != "" && f.Doc != "" {
+			hasSource = true
+			break
 		}
-		formatStruct(&sb, s)
-		sb.WriteString("\n")
+	}
+	if !hasSource {
+		for _, s := range fd.Structs {
+			if s.Source != "" && s.Doc != "" {
+				hasSource = true
+				break
+			}
+		}
 	}
 
-	for _, f := range fd.Funcs {
-		if f.Doc == "" {
-			continue
+	if !hasSource {
+		// Single-file mode: flat list
+		for _, s := range fd.Structs {
+			if s.Doc == "" {
+				continue
+			}
+			formatStruct(&sb, s)
+			sb.WriteString("\n")
 		}
-		formatFunc(&sb, f)
-		sb.WriteString("\n")
+		for _, f := range fd.Funcs {
+			if f.Doc == "" {
+				continue
+			}
+			formatFunc(&sb, f)
+			sb.WriteString("\n")
+		}
+	} else {
+		// Multi-file mode: group by source
+		sources := sourceOrder(fd)
+		for _, src := range sources {
+			sb.WriteString(src + ":\n\n")
+			for _, s := range fd.Structs {
+				if s.Source != src || s.Doc == "" {
+					continue
+				}
+				sb.WriteString("  ")
+				formatStruct(&sb, s)
+				sb.WriteString("\n")
+			}
+			for _, f := range fd.Funcs {
+				if f.Source != src || f.Doc == "" {
+					continue
+				}
+				sb.WriteString("  ")
+				formatFunc(&sb, f)
+				sb.WriteString("\n")
+			}
+		}
 	}
 
 	return strings.TrimRight(sb.String(), "\n") + "\n"
+}
+
+// sourceOrder returns the unique source paths in stable order,
+// preserving the order they first appear in funcs/structs.
+func sourceOrder(fd *FileDoc) []string {
+	seen := make(map[string]bool)
+	var order []string
+	for _, s := range fd.Structs {
+		if s.Source != "" && s.Doc != "" && !seen[s.Source] {
+			seen[s.Source] = true
+			order = append(order, s.Source)
+		}
+	}
+	for _, f := range fd.Funcs {
+		if f.Source != "" && f.Doc != "" && !seen[f.Source] {
+			seen[f.Source] = true
+			order = append(order, f.Source)
+		}
+	}
+	return order
 }
 
 // FormatSymbol formats a single symbol lookup result.

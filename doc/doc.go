@@ -25,7 +25,8 @@ type FuncDoc struct {
 	Name   string   // e.g. "factorial" or "Dog.bark"
 	Params []string // parameter names
 	Doc    string
-	Line   int // 1-based line number of the def
+	Line   int    // 1-based line number of the def
+	Source string // relative path of the source file (set by recursive extraction)
 }
 
 // StructDoc describes a documented struct.
@@ -33,7 +34,8 @@ type StructDoc struct {
 	Name   string
 	Fields []string
 	Doc    string
-	Line   int // 1-based line number of the struct keyword
+	Line   int    // 1-based line number of the struct keyword
+	Source string // relative path of the source file (set by recursive extraction)
 }
 
 // ExtractFile reads a Rugo file and extracts all documentation.
@@ -88,6 +90,81 @@ func ExtractDir(dir, entryFile string) (*FileDoc, error) {
 	}
 
 	return result, nil
+}
+
+// ExtractDirRecursive walks a directory tree and aggregates documentation
+// from all non-test Rugo files. Test files (*_test.rugo) are excluded.
+// The entry file's doc becomes the top-level doc.
+func ExtractDirRecursive(dir, entryFile string) (*FileDoc, error) {
+	result := &FileDoc{Path: dir}
+
+	processedEntry := false
+	if entryFile != "" {
+		fd, err := ExtractFile(entryFile)
+		if err == nil {
+			result.Doc = fd.Doc
+			rel, _ := filepath.Rel(dir, entryFile)
+			tagSource(fd, rel)
+			result.Funcs = append(result.Funcs, fd.Funcs...)
+			result.Structs = append(result.Structs, fd.Structs...)
+			processedEntry = true
+		}
+	}
+
+	entryAbs := ""
+	if entryFile != "" {
+		entryAbs, _ = filepath.Abs(entryFile)
+	}
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return nil
+		}
+		if info.IsDir() {
+			return nil
+		}
+		if !isRugoFile(info.Name()) {
+			return nil
+		}
+		if isTestFile(info.Name()) {
+			return nil
+		}
+		if processedEntry {
+			abs, _ := filepath.Abs(path)
+			if abs == entryAbs {
+				return nil
+			}
+		}
+		fd, err := ExtractFile(path)
+		if err != nil {
+			return nil
+		}
+		rel, _ := filepath.Rel(dir, path)
+		tagSource(fd, rel)
+		result.Funcs = append(result.Funcs, fd.Funcs...)
+		result.Structs = append(result.Structs, fd.Structs...)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
+// tagSource sets the Source field on all funcs and structs in a FileDoc.
+func tagSource(fd *FileDoc, source string) {
+	for i := range fd.Funcs {
+		fd.Funcs[i].Source = source
+	}
+	for i := range fd.Structs {
+		fd.Structs[i].Source = source
+	}
+}
+
+// isTestFile returns true if the filename is a Rugo test file.
+func isTestFile(name string) bool {
+	return strings.HasSuffix(name, "_test.rugo") || strings.HasSuffix(name, "_test.rg")
 }
 
 // Extract parses raw Rugo source and returns structured documentation.

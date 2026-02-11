@@ -430,14 +430,16 @@ func docRemote(target, symbol string) error {
 }
 
 // docLocalDir prints documentation for a local directory module.
-// It finds the entry point Rugo file and aggregates docs from all Rugo files.
+// It finds the entry point Rugo file and recursively aggregates docs
+// from all non-test Rugo files in the tree.
 func docLocalDir(dir, symbol string) error {
 	entryPath, err := compiler.FindLocalEntryPoint(dir)
 	if err != nil {
-		return fmt.Errorf("reading %s: %w", dir, err)
+		// No entry point found — still try recursive extraction without one
+		entryPath = ""
 	}
 
-	fd, err := rugodoc.ExtractDir(dir, entryPath)
+	fd, err := rugodoc.ExtractDirRecursive(dir, entryPath)
 	if err != nil {
 		return fmt.Errorf("reading %s: %w", dir, err)
 	}
