@@ -1,14 +1,60 @@
 package compiler
 
-// walkExpressions traverses the entire AST and calls fn on every Expr node.
+// WalkExprs traverses the entire AST and calls fn on every Expr node.
 // Returns true as soon as fn returns true for any expression.
-func walkExpressions(prog *Program, fn func(Expr) bool) bool {
+func WalkExprs(prog *Program, fn func(Expr) bool) bool {
 	for _, s := range prog.Statements {
 		if walkStmtExprs(s, fn) {
 			return true
 		}
 	}
 	return false
+}
+
+// WalkStmts traverses all statements in a Program, calling fn for each.
+// Recurses into block bodies (FuncDef, TestDef, BenchDef, IfStmt, WhileStmt, ForStmt).
+func WalkStmts(prog *Program, fn func(Statement)) {
+	for _, s := range prog.Statements {
+		walkStmtRecursive(s, fn)
+	}
+}
+
+func walkStmtRecursive(s Statement, fn func(Statement)) {
+	fn(s)
+	switch st := s.(type) {
+	case *FuncDef:
+		for _, child := range st.Body {
+			walkStmtRecursive(child, fn)
+		}
+	case *TestDef:
+		for _, child := range st.Body {
+			walkStmtRecursive(child, fn)
+		}
+	case *BenchDef:
+		for _, child := range st.Body {
+			walkStmtRecursive(child, fn)
+		}
+	case *IfStmt:
+		for _, child := range st.Body {
+			walkStmtRecursive(child, fn)
+		}
+		for _, clause := range st.ElsifClauses {
+			for _, child := range clause.Body {
+				walkStmtRecursive(child, fn)
+			}
+		}
+		for _, child := range st.ElseBody {
+			walkStmtRecursive(child, fn)
+		}
+	case *WhileStmt:
+		for _, child := range st.Body {
+			walkStmtRecursive(child, fn)
+		}
+	case *ForStmt:
+		for _, child := range st.Body {
+			walkStmtRecursive(child, fn)
+		}
+	}
 }
 
 func walkStmtExprs(s Statement, fn func(Expr) bool) bool {

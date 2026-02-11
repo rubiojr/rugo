@@ -268,9 +268,25 @@ func (c *Compiler) parseFile(filename, displayName string) (*Program, error) {
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", displayName, err)
 	}
+	return c.parseSource(c.sourcePrefix+string(src), displayName)
+}
 
+// ParseFile reads a Rugo source file and parses it into a Program AST
+// without compiling to Go. Useful for tooling such as linters, formatters,
+// and refactoring tools that need AST access without full compilation.
+func (c *Compiler) ParseFile(filename string) (*Program, error) {
+	return c.parseFile(filename, filename)
+}
+
+// ParseSource parses raw Rugo source code into a Program AST without
+// compiling to Go. The name parameter is used for error messages.
+func (c *Compiler) ParseSource(source, name string) (*Program, error) {
+	return c.parseSource(source, name)
+}
+
+func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 	// Expand heredocs before comment stripping (bodies may contain #).
-	cleaned, err := expandHeredocs(c.sourcePrefix + string(src))
+	cleaned, err := expandHeredocs(source)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}

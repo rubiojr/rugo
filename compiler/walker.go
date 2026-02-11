@@ -60,6 +60,17 @@ func (w *walker) firstTokenLine(ast []int32) int {
 	return 0
 }
 
+// lastTokenLine returns the original source line from the last terminal token
+// found by reverse-traversing the AST slice.
+func (w *walker) lastTokenLine(ast []int32) int {
+	for i := len(ast) - 1; i >= 0; i-- {
+		if ast[i] >= 0 {
+			return w.tokenLine(ast[i])
+		}
+	}
+	return 0
+}
+
 // readNonTerminal reads a non-terminal header (-sym, count) and returns the symbol and sub-slice.
 func (w *walker) readNonTerminal(ast []int32) (parser.Symbol, []int32, []int32) {
 	if len(ast) < 2 || ast[0] >= 0 {
@@ -194,6 +205,49 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 			s.SourceLine = line
 		case *DotAssignStmt:
 			s.SourceLine = line
+		}
+	}
+	// Set end line for block statements from the "end" token
+	endLine := w.lastTokenLine(children)
+	if endLine > 0 {
+		switch s := stmt.(type) {
+		case *FuncDef:
+			s.EndLine = endLine
+		case *TestDef:
+			s.EndLine = endLine
+		case *BenchDef:
+			s.EndLine = endLine
+		case *IfStmt:
+			s.EndLine = endLine
+		case *WhileStmt:
+			s.EndLine = endLine
+		case *ForStmt:
+			s.EndLine = endLine
+		}
+	}
+	// Non-block statements: EndLine = SourceLine
+	if stmt.StmtEndLine() == 0 && line > 0 {
+		switch s := stmt.(type) {
+		case *UseStmt:
+			s.EndLine = line
+		case *ImportStmt:
+			s.EndLine = line
+		case *RequireStmt:
+			s.EndLine = line
+		case *BreakStmt:
+			s.EndLine = line
+		case *NextStmt:
+			s.EndLine = line
+		case *ReturnStmt:
+			s.EndLine = line
+		case *ExprStmt:
+			s.EndLine = line
+		case *AssignStmt:
+			s.EndLine = line
+		case *IndexAssignStmt:
+			s.EndLine = line
+		case *DotAssignStmt:
+			s.EndLine = line
 		}
 	}
 	return stmt, rest, nil

@@ -10,14 +10,17 @@ type Statement interface {
 	Node
 	stmt()
 	StmtLine() int
+	StmtEndLine() int
 }
 
 // BaseStmt provides common fields for all statements.
 type BaseStmt struct {
-	SourceLine int // line number in the original source
+	SourceLine int // start line in the original source
+	EndLine    int // end line in the original source (0 if unknown)
 }
 
-func (b BaseStmt) StmtLine() int { return b.SourceLine }
+func (b BaseStmt) StmtLine() int    { return b.SourceLine }
+func (b BaseStmt) StmtEndLine() int { return b.EndLine }
 
 // Expr is the interface for expression nodes.
 type Expr interface {

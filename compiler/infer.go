@@ -2,10 +2,10 @@ package compiler
 
 import "fmt"
 
-// infer runs type inference on a parsed program, returning type annotations
+// Infer runs type inference on a parsed program, returning type annotations
 // for expressions and function signatures. The inference is conservative:
 // anything that can't be proven typed remains TypeDynamic (interface{}).
-func infer(prog *Program) *TypeInfo {
+func Infer(prog *Program) *TypeInfo {
 	ti := &TypeInfo{
 		ExprTypes: make(map[Expr]RugoType),
 		FuncTypes: make(map[string]*FuncTypeInfo),

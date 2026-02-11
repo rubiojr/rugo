@@ -49,7 +49,7 @@ type codeGen struct {
 // generate produces Go source code from a Program AST.
 func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
 	// Run type inference before code generation.
-	ti := infer(prog)
+	ti := Infer(prog)
 
 	g := &codeGen{
 		declared:    make(map[string]bool),
@@ -2087,7 +2087,7 @@ func importedModuleNames(imports map[string]bool) []string {
 
 // astUsesSpawn checks if any SpawnExpr exists in the AST.
 func astUsesSpawn(prog *Program) bool {
-	return walkExpressions(prog, func(e Expr) bool {
+	return WalkExprs(prog, func(e Expr) bool {
 		_, ok := e.(*SpawnExpr)
 		return ok
 	})
@@ -2095,7 +2095,7 @@ func astUsesSpawn(prog *Program) bool {
 
 // astUsesTaskMethods checks if any DotExpr uses .value, .done, or .wait on a non-module target.
 func astUsesTaskMethods(prog *Program) bool {
-	return walkExpressions(prog, func(e Expr) bool {
+	return WalkExprs(prog, func(e Expr) bool {
 		dot, ok := e.(*DotExpr)
 		if !ok || !taskMethodNames[dot.Field] {
 			return false
@@ -2113,7 +2113,7 @@ var taskMethodNames = map[string]bool{"value": true, "done": true, "wait": true}
 
 // astUsesParallel checks if any ParallelExpr exists in the AST.
 func astUsesParallel(prog *Program) bool {
-	return walkExpressions(prog, func(e Expr) bool {
+	return WalkExprs(prog, func(e Expr) bool {
 		_, ok := e.(*ParallelExpr)
 		return ok
 	})

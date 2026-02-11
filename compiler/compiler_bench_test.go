@@ -108,7 +108,7 @@ func BenchmarkInfer(b *testing.B) {
 	}
 	b.ResetTimer()
 	for b.Loop() {
-		infer(result.Program)
+		Infer(result.Program)
 	}
 }
 
@@ -121,6 +121,6 @@ func BenchmarkInferControlFlow(b *testing.B) {
 	}
 	b.ResetTimer()
 	for b.Loop() {
-		infer(result.Program)
+		Infer(result.Program)
 	}
 }
