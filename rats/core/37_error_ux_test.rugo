@@ -315,3 +315,12 @@ rats "rats without name explains the fix"
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "requires a name")
 end
+
+# --- Bug 850dd4a: Nested quotes inside string interpolation ---
+
+rats "nested quotes in interpolation gives clear error"
+  result = test.run("rugo run rats/fixtures/err_nested_quotes_interpolation.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "nested double quotes inside string interpolation")
+  test.assert_contains(result["output"], "use a variable instead")
+end

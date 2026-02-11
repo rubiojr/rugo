@@ -711,6 +711,11 @@ func firstParseError(err error) error {
 			}
 		}
 
+		// Check for nested quotes inside string interpolation
+		if hint := detectNestedQuotesInInterpolation(e.Pos.Filename, e.Pos.Line); hint != "" {
+			msg = fmt.Sprintf("%s: %s", e.Pos, hint)
+		}
+
 		if snippet := sourceSnippet(e.Pos.Filename, snippetLine, snippetCol); snippet != "" {
 			msg += "\n" + snippet
 		}
@@ -1011,6 +1016,57 @@ func isStatementExpectedSet(raw string) bool {
 // isEndExpectedSet returns true when the expected set indicates a missing "end" keyword.
 func isEndExpectedSet(raw string) bool {
 	return strings.Contains(raw, `"end"`)
+}
+
+// detectNestedQuotesInInterpolation checks whether the source line at the
+// given position contains double-quoted strings nested inside #{} string
+// interpolation — a pattern the parser cannot handle (e.g. "#{h["foo"]}").
+func detectNestedQuotesInInterpolation(filename string, line int) string {
+	if filename == "" || line <= 0 {
+		return ""
+	}
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return ""
+	}
+	lines := strings.Split(string(data), "\n")
+	if line > len(lines) {
+		return ""
+	}
+	src := lines[line-1]
+
+	// Scan for #{...} that contains a double quote.
+	// We look for the pattern: inside a double-quoted string, there is #{
+	// and between #{ and the matching } there is another ".
+	inString := false
+	for i := 0; i < len(src); i++ {
+		ch := src[i]
+		if ch == '\\' && inString {
+			i++ // skip escaped char
+			continue
+		}
+		if ch == '"' {
+			inString = !inString
+			continue
+		}
+		if inString && i+1 < len(src) && ch == '#' && src[i+1] == '{' {
+			// Inside a string, found #{ — scan for nested " before }
+			depth := 1
+			j := i + 2
+			for j < len(src) && depth > 0 {
+				if src[j] == '{' {
+					depth++
+				} else if src[j] == '}' {
+					depth--
+				} else if src[j] == '"' {
+					return `nested double quotes inside string interpolation are not supported — use a variable instead: x = h["key"]; "#{x}"`
+				}
+				j++
+			}
+			i = j - 1
+		}
+	}
+	return ""
 }
 
 // findBlockMissingName checks if the error is caused by a "rats" or "bench"

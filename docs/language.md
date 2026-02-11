@@ -350,6 +350,17 @@ puts "1 + 2 = #{1 + 2}"
 
 The preprocessor handles the `#{...}` extraction, and the codegen compiles interpolated strings to `fmt.Sprintf` calls. Interpolated expressions are fully parsed through the Rugo parser to support arbitrary expressions.
 
+**Limitation:** Nested double quotes inside interpolation are not supported. Use a variable instead:
+
+```ruby
+# This will NOT work:
+# puts "#{h["foo"]}"
+
+# Use a variable instead:
+x = h["foo"]
+puts "#{x}"
+```
+
 ### Raw Strings
 
 Single-quoted strings are raw literals where no escape processing or interpolation happens (like Ruby's single-quoted strings):

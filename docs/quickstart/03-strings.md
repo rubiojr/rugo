@@ -14,6 +14,9 @@ x = 10
 puts "#{x} squared is #{x * x}"
 ```
 
+> **Note:** Nested double quotes inside interpolation are not supported.
+> Use a variable instead: `x = h["key"]; puts "#{x}"`
+
 ## Raw Strings
 
 Single-quoted strings are raw — no escape processing and no interpolation:
