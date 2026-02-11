@@ -4,7 +4,7 @@
 # Models are defined with hash columns and return smart records
 # that can save and delete themselves.
 
-require "github.com/rubiojr/gummy" with db
+require "github.com/rubiojr/gummy@v0.1.0" with db
 
 conn = db.open(":memory:")
 
@@ -31,12 +31,10 @@ puts "Updated: #{alice.name} (#{alice.age})"
 
 # --- Query ---
 
-user = Users.find(1)
+user = Users.get(1)
 puts "Found: #{user.name}"
 
-for u in Users.all()
-  puts "  #{u.name} <#{u.email}>"
-end
+Users.for_each(fn(u) puts "#{u.name} <#{u.email}>" end)
 
 adults = Users.where({"age >=" => 18})
 puts "Adults: #{len(adults)}"

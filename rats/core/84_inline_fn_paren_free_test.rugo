@@ -1,0 +1,69 @@
+use "test"
+
+# Paren-free builtin calls inside inline fn bodies
+
+rats "fn inline: paren-free puts in each"
+  result = []
+  nums = [1, 2, 3]
+  nums.each(fn(x) result = append(result, x) end)
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 1)
+  test.assert_eq(result[1], 2)
+  test.assert_eq(result[2], 3)
+end
+
+rats "fn inline: paren-free puts with interpolation"
+  result = []
+  names = ["Alice", "Bob"]
+  names.each(fn(n) result = append(result, "hello #{n}") end)
+  test.assert_eq(result[0], "hello Alice")
+  test.assert_eq(result[1], "hello Bob")
+end
+
+rats "fn inline: paren-free print"
+  printer = fn(x) print x end
+  # just verify it doesn't error — print returns nil
+  test.assert_eq(printer("ok"), nil)
+end
+
+rats "fn inline: paren-free puts in assigned lambda"
+  printer = fn(x) puts x end
+  test.assert_eq(printer("works"), nil)
+end
+
+rats "fn inline: nested inline fn with paren-free calls"
+  result = []
+  data = [[1, 2], [3, 4]]
+  data.each(fn(row) row.each(fn(x) result = append(result, x) end) end)
+  test.assert_eq(len(result), 4)
+  test.assert_eq(result[0], 1)
+  test.assert_eq(result[1], 2)
+  test.assert_eq(result[2], 3)
+  test.assert_eq(result[3], 4)
+end
+
+rats "fn inline: paren-free puts in hash lambda"
+  ops = {show: fn(x) puts x end}
+  test.assert_eq(ops.show("hash-fn"), nil)
+end
+
+rats "fn inline: paren-free user function in inline fn"
+  double = fn(x) x * 2 end
+  nums = [1, 2, 3]
+  result = nums.map(fn(x) double(x) end)
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 2)
+  test.assert_eq(result[1], 4)
+  test.assert_eq(result[2], 6)
+end
+
+rats "fn inline: expression body unchanged"
+  double = fn(x) x * 2 end
+  test.assert_eq(double(5), 10)
+end
+
+rats "fn inline: lambda in array unchanged"
+  fns = [fn(x) x + 1 end, fn(x) x * 2 end]
+  test.assert_eq(fns[0](10), 11)
+  test.assert_eq(fns[1](10), 20)
+end

@@ -125,6 +125,9 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// Expand single-line spawn forms into block form.
 	src, tryLineMap = expandSpawnSugar(src, tryLineMap)
 
+	// Expand inline fn bodies so paren-free calls inside them get preprocessed.
+	src, tryLineMap = expandInlineFn(src, tryLineMap)
+
 	lines := strings.Split(src, "\n")
 	var result []string
 
@@ -175,9 +178,22 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 		}
 
 		// Track fn (lambda) parameters: `fn(a, b)`
-		if firstToken == "fn" || (isIdent(firstToken) && strings.Contains(trimmed, "= fn(")) {
-			if lp := strings.Index(trimmed, "fn("); lp != -1 {
-				start := lp + 3
+		// Look for fn( anywhere on the line (it may appear in arrays, hashes,
+		// function args, etc.) and track all parameter names found.
+		if strings.Contains(trimmed, "fn(") {
+			searchFrom := 0
+			for {
+				lp := strings.Index(trimmed[searchFrom:], "fn(")
+				if lp < 0 {
+					break
+				}
+				absLP := searchFrom + lp
+				// Ensure "fn" is not part of a larger identifier
+				if absLP > 0 && (isAlphaNum(trimmed[absLP-1]) || trimmed[absLP-1] == '_') {
+					searchFrom = absLP + 3
+					continue
+				}
+				start := absLP + 3
 				if rp := strings.Index(trimmed[start:], ")"); rp != -1 {
 					params := trimmed[start : start+rp]
 					for _, p := range strings.Split(params, ",") {
@@ -186,6 +202,9 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 							knownVars[p] = true
 						}
 					}
+					searchFrom = start + rp + 1
+				} else {
+					break
 				}
 			}
 		}
@@ -1225,6 +1244,280 @@ func expandSpawnSugar(src string, lineMap []int) (string, []int) {
 		newMap = append(newMap, origLine)
 	}
 	return strings.Join(result, "\n"), newMap
+}
+
+// expandInlineFn expands single-line fn bodies into multi-line form so that
+// paren-free calls inside them get preprocessed correctly.
+// Example: `arr.each(fn(x) puts x end)` → multi-line with `puts x` on its own line.
+// Iterates until no more inline fn bodies remain (handles nested inline fn).
+func expandInlineFn(src string, lineMap []int) (string, []int) {
+	for {
+		lines := strings.Split(src, "\n")
+		var result []string
+		var newMap []int
+		changed := false
+		for i, line := range lines {
+			origLine := lineMap[i]
+			expanded := expandInlineFnLine(line)
+			if expanded != line {
+				changed = true
+				for _, el := range strings.Split(expanded, "\n") {
+					result = append(result, el)
+					newMap = append(newMap, origLine)
+				}
+			} else {
+				result = append(result, line)
+				newMap = append(newMap, origLine)
+			}
+		}
+		src = strings.Join(result, "\n")
+		lineMap = newMap
+		if !changed {
+			break
+		}
+	}
+	return src, lineMap
+}
+
+// blockOpenerKeywords are keywords that open a block requiring `end`.
+var blockOpenerKeywords = map[string]bool{
+	"def": true, "if": true, "while": true, "for": true,
+	"try": true, "spawn": true, "parallel": true, "fn": true,
+	"rats": true, "bench": true, "struct": true,
+}
+
+// expandInlineFnLine expands inline fn bodies in a single line.
+// It finds `fn(PARAMS) BODY end` where BODY is non-empty and expands to:
+//
+//	fn(PARAMS)\n  BODY\nend
+//
+// The function handles strings, nested parens/brackets, and nested block keywords.
+func expandInlineFnLine(line string) string {
+	// Quick check: does the line contain "fn(" at all?
+	if !strings.Contains(line, "fn(") {
+		return line
+	}
+
+	// Work through the line, finding inline fn patterns and expanding them.
+	// We rebuild the line, replacing each inline fn with its multi-line form.
+	var buf strings.Builder
+	pos := 0
+	changed := false
+
+	for pos < len(line) {
+		// Find next "fn(" not inside a string
+		fnIdx := findFnOpen(line, pos)
+		if fnIdx < 0 {
+			buf.WriteString(line[pos:])
+			break
+		}
+
+		// Write everything before the fn(
+		buf.WriteString(line[pos:fnIdx])
+
+		// Find matching ) for the params
+		paramStart := fnIdx + 3 // skip "fn("
+		paramEnd := findMatchingClose(line, paramStart-1, '(', ')')
+		if paramEnd < 0 {
+			// No matching ) — leave unchanged
+			buf.WriteString(line[fnIdx:])
+			pos = len(line)
+			break
+		}
+
+		params := line[paramStart:paramEnd]
+		afterParams := paramEnd + 1 // position after )
+
+		// Check if there's a body before `end` on the same line
+		bodyAndRest := line[afterParams:]
+		bodyTrimmed := strings.TrimLeft(bodyAndRest, " \t")
+		if bodyTrimmed == "" || strings.HasPrefix(bodyTrimmed, "\n") {
+			// Already multi-line fn — leave unchanged
+			buf.WriteString(line[fnIdx : paramEnd+1])
+			pos = paramEnd + 1
+			continue
+		}
+
+		// Find the matching `end` for this fn, tracking nested blocks
+		endIdx := findMatchingEnd(line, afterParams)
+		if endIdx < 0 {
+			// No matching end found — leave unchanged
+			buf.WriteString(line[fnIdx : paramEnd+1])
+			pos = paramEnd + 1
+			continue
+		}
+
+		body := strings.TrimSpace(line[afterParams:endIdx])
+		if body == "" {
+			// Empty body — leave as-is
+			buf.WriteString(line[fnIdx : endIdx+3]) // include "end"
+			pos = endIdx + 3
+			continue
+		}
+
+		// Expand: fn(PARAMS)\n  BODY\nend
+		buf.WriteString("fn(" + params + ")\n  " + body + "\nend")
+		pos = endIdx + 3 // skip past "end"
+		changed = true
+	}
+
+	if !changed {
+		return line
+	}
+	return buf.String()
+}
+
+// findFnOpen finds the next "fn(" in line starting from pos that is not inside a string.
+func findFnOpen(line string, pos int) int {
+	inDouble := false
+	inSingle := false
+	escaped := false
+	for i := pos; i < len(line); i++ {
+		ch := line[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
+			continue
+		}
+		if i+3 <= len(line) && line[i:i+3] == "fn(" {
+			// Make sure "fn" is not part of a larger identifier
+			if i > 0 && (isAlphaNum(line[i-1]) || line[i-1] == '_') {
+				continue
+			}
+			return i
+		}
+	}
+	return -1
+}
+
+// findMatchingClose finds the position of the matching closing bracket
+// starting from an open bracket at position openPos.
+// Returns the position of the closing bracket, or -1 if not found.
+func findMatchingClose(line string, openPos int, open, close byte) int {
+	depth := 0
+	inDouble := false
+	inSingle := false
+	escaped := false
+	for i := openPos; i < len(line); i++ {
+		ch := line[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
+			continue
+		}
+		if ch == open {
+			depth++
+		} else if ch == close {
+			depth--
+			if depth == 0 {
+				return i
+			}
+		}
+	}
+	return -1
+}
+
+// findMatchingEnd finds the position of the `end` keyword that matches
+// the fn block, starting from startPos (after the fn params close paren).
+// Tracks nested block keywords to find the correct matching end.
+// Returns the start position of the matching "end", or -1.
+func findMatchingEnd(line string, startPos int) int {
+	depth := 1 // we're inside the fn block
+	inDouble := false
+	inSingle := false
+	escaped := false
+	i := startPos
+
+	for i < len(line) {
+		ch := line[i]
+		if escaped {
+			escaped = false
+			i++
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			i++
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			i++
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			i++
+			continue
+		}
+		if inDouble || inSingle {
+			i++
+			continue
+		}
+
+		// Check for word boundaries: extract the current word
+		if isAlpha(ch) || ch == '_' {
+			wordStart := i
+			for i < len(line) && (isAlphaNum(line[i]) || line[i] == '_') {
+				i++
+			}
+			word := line[wordStart:i]
+
+			// Check word boundary: must not be preceded by alphanumeric/_
+			preceded := wordStart > 0 && (isAlphaNum(line[wordStart-1]) || line[wordStart-1] == '_')
+			if preceded {
+				continue
+			}
+
+			if word == "end" {
+				depth--
+				if depth == 0 {
+					return wordStart
+				}
+			} else if blockOpenerKeywords[word] {
+				depth++
+			}
+			continue
+		}
+		i++
+	}
+	return -1
+}
+
+func isAlpha(ch byte) bool {
+	return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z')
+}
+
+func isAlphaNum(ch byte) bool {
+	return isAlpha(ch) || (ch >= '0' && ch <= '9')
 }
 
 // isInsideString reports whether position pos in line falls inside a string literal.
