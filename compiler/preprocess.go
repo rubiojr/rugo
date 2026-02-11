@@ -318,6 +318,12 @@ func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string
 	// If first token is not an identifier, check for dotted ident (module.func paren-free call)
 	if !isIdent(firstToken) {
 		if isDottedIdent(firstToken) {
+			parts := strings.SplitN(firstToken, ".", 2)
+			// If the object part is a known variable, this is field access (e.g. u.name),
+			// not a paren-free namespace call — leave it alone.
+			if knownVars[parts[0]] {
+				return line
+			}
 			rt := strings.TrimSpace(rest)
 			if rt == "" {
 				// Bare dotted ident: `cli.run` → `cli.run()`

@@ -1,0 +1,60 @@
+# RATS: dot-access in .map() and .sort_by() callbacks
+# Regression tests for bug where u.name inside .map()/.sort_by()
+# callbacks was interpreted as a method call instead of hash field access.
+use "test"
+
+# ============================================================
+# A. map with dot-access on hash fields
+# ============================================================
+
+rats "map callback supports dot-access on hash fields"
+  arr = [{name: "Alice"}, {name: "Bob"}]
+  names = arr.map(fn(u) u.name end)
+  test.assert_eq(names[0], "Alice")
+  test.assert_eq(names[1], "Bob")
+end
+
+rats "map callback supports dot-access on nested hash fields"
+  arr = [{user: {name: "Alice"}}, {user: {name: "Bob"}}]
+  names = arr.map(fn(u) u.user.name end)
+  test.assert_eq(names[0], "Alice")
+  test.assert_eq(names[1], "Bob")
+end
+
+rats "map callback dot-access works with multiple hash fields"
+  people = [{name: "Alice", age: 30}, {name: "Bob", age: 25}]
+  ages = people.map(fn(p) p.age end)
+  test.assert_eq(ages[0], 30)
+  test.assert_eq(ages[1], 25)
+end
+
+# ============================================================
+# B. sort_by with dot-access on hash fields
+# ============================================================
+
+rats "sort_by callback supports dot-access on hash fields"
+  arr = [{name: "Charlie"}, {name: "Alice"}, {name: "Bob"}]
+  sorted = arr.sort_by(fn(u) u.name end)
+  test.assert_eq(sorted[0].name, "Alice")
+  test.assert_eq(sorted[1].name, "Bob")
+  test.assert_eq(sorted[2].name, "Charlie")
+end
+
+rats "sort_by callback supports dot-access on numeric hash fields"
+  people = [{name: "Alice", age: 30}, {name: "Bob", age: 20}, {name: "Charlie", age: 25}]
+  sorted = people.sort_by(fn(p) p.age end)
+  test.assert_eq(sorted[0].name, "Bob")
+  test.assert_eq(sorted[1].name, "Charlie")
+  test.assert_eq(sorted[2].name, "Alice")
+end
+
+# ============================================================
+# C. chained operations with dot-access
+# ============================================================
+
+rats "filter then map with dot-access works"
+  people = [{name: "Alice", age: 30}, {name: "Bob", age: 17}, {name: "Charlie", age: 25}]
+  adults = people.filter(fn(p) p.age >= 18 end).map(fn(p) p.name end)
+  test.assert_eq(adults[0], "Alice")
+  test.assert_eq(adults[1], "Charlie")
+end

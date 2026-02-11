@@ -34,8 +34,6 @@ puts "Updated: #{alice.name} (#{alice.age})"
 user = Users.get(1)
 puts "Found: #{user.name}"
 
-Users.for_each(fn(u) puts "#{u.name} <#{u.email}>" end)
-
 adults = Users.where({"age >=" => 18})
 puts "Adults: #{len(adults)}"
 
@@ -44,8 +42,8 @@ puts "First match: #{user.name}"
 
 # --- Aggregates ---
 
-puts "Total users: #{Users.count(nil)}"
-over_25 = Users.count({"age >=" => 25})
+puts "Total users: #{Users.tally}"
+over_25 = Users.tally({"age >=" => 25})
 puts "Users 25+: #{over_25}"
 
 names = Users.pluck("name")
@@ -57,7 +55,7 @@ end
 
 # --- Lambda iterators ---
 
-Users.each(fn(u)
+Users.for_each(fn(u)
   puts "  #{u.name} is #{u.age} years old"
 end)
 
@@ -70,21 +68,21 @@ conn.tx(fn()
   Users.insert({name: "Charlie", email: "charlie@example.com", age: 40})
   Users.insert({name: "Diana", email: "diana@example.com", age: 35})
 end)
-puts "After transaction: #{Users.count(nil)} users"
+puts "After transaction: #{Users.tally} users"
 
 # --- Bulk operations ---
 
 Users.insert({name: "Kid1", email: "k1@example.com", age: 10})
 Users.insert({name: "Kid2", email: "k2@example.com", age: 12})
-puts "Before destroy: #{Users.count(nil)} users"
+puts "Before destroy: #{Users.tally} users"
 Users.destroy({"age <" => 18})
-puts "After destroy: #{Users.count(nil)} users"
+puts "After destroy: #{Users.tally} users"
 
 # --- Record delete ---
 
 charlie = Users.first({name: "Charlie"})
 charlie.delete()
-puts "After delete: #{Users.count(nil)} users"
+puts "After delete: #{Users.tally} users"
 
 # --- Error handling ---
 
