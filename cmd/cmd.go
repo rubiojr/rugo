@@ -457,26 +457,130 @@ func docLocalDir(dir, symbol string) error {
 	return nil
 }
 
-// docOutput prints text through bat if available, otherwise plain stdout.
+// docOutput prints documentation with optional ANSI color for signatures.
 func docOutput(text string) {
 	if os.Getenv("NO_COLOR") != "" {
 		fmt.Print(text)
 		return
 	}
+	fmt.Print(docColorize(text))
+}
 
-	batPath, err := exec.LookPath("bat")
-	if err != nil {
-		fmt.Print(text)
-		return
+// ANSI color codes (Monokai-inspired)
+const (
+	ansiReset     = "\033[0m"
+	ansiMagenta   = "\033[35m"    // keywords: def, struct, module, package
+	ansiGreen     = "\033[32m"    // function/type names
+	ansiYellow    = "\033[33m"    // parameters
+	ansiCyan      = "\033[36m"    // return types
+	ansiDim       = "\033[2m"     // doc text
+	ansiBoldBlue  = "\033[1;34m"  // file headers
+	ansiBoldWhite = "\033[1;37m"  // section titles
+)
+
+// docColorize applies syntax-aware coloring to doc output.
+func docColorize(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+
+		switch {
+		case strings.HasPrefix(trimmed, "def "):
+			lines[i] = indent + colorizeSignature(trimmed, "def")
+		case strings.HasPrefix(trimmed, "struct "):
+			lines[i] = indent + colorizeSignature(trimmed, "struct")
+		case strings.HasPrefix(trimmed, "module "):
+			lines[i] = indent + colorizeSignature(trimmed, "module")
+		case strings.HasPrefix(trimmed, "package "):
+			lines[i] = indent + colorizeSignature(trimmed, "package")
+		case isDottedCall(trimmed):
+			lines[i] = indent + colorizeDottedCall(trimmed)
+		case strings.HasSuffix(trimmed, ".rugo:") || strings.HasSuffix(trimmed, ".rg:"):
+			lines[i] = indent + ansiBoldBlue + trimmed + ansiReset
+		case strings.HasPrefix(trimmed, "Modules (") || strings.HasPrefix(trimmed, "Bridge packages ("):
+			lines[i] = indent + ansiBoldWhite + trimmed + ansiReset
+		case len(indent) >= 4 && trimmed != "" && !isSignatureLine(trimmed):
+			lines[i] = indent + ansiDim + trimmed + ansiReset
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+// colorizeSignature highlights a def/struct/module/package line with
+// keyword in magenta, name in green, and params in yellow.
+func colorizeSignature(line, keyword string) string {
+	rest := strings.TrimPrefix(line, keyword+" ")
+
+	// Split name from params
+	if parenIdx := strings.Index(rest, "("); parenIdx >= 0 {
+		name := rest[:parenIdx]
+		closeIdx := strings.LastIndex(rest, ")")
+		if closeIdx > parenIdx {
+			params := rest[parenIdx+1 : closeIdx]
+			after := rest[closeIdx+1:]
+			return ansiMagenta + keyword + ansiReset + " " +
+				ansiGreen + name + ansiReset +
+				"(" + ansiYellow + params + ansiReset + ")" + after
+		}
 	}
 
-	cmd := exec.Command(batPath, "--language=ruby", "--style=plain", "--paging=never")
-	cmd.Stdin = strings.NewReader(text)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		fmt.Print(text)
+	// No params — check for struct fields: struct Name { x, y }
+	if braceIdx := strings.Index(rest, " {"); braceIdx >= 0 {
+		name := rest[:braceIdx]
+		fields := rest[braceIdx:]
+		return ansiMagenta + keyword + ansiReset + " " +
+			ansiGreen + name + ansiReset +
+			ansiDim + fields + ansiReset
 	}
+
+	// Bare name
+	return ansiMagenta + keyword + ansiReset + " " + ansiGreen + rest + ansiReset
+}
+
+func isSignatureLine(s string) bool {
+	return strings.HasPrefix(s, "def ") ||
+		strings.HasPrefix(s, "struct ") ||
+		strings.HasPrefix(s, "module ") ||
+		strings.HasPrefix(s, "package ")
+}
+
+// isDottedCall matches "ns.func(...)" patterns (module/bridge function signatures).
+func isDottedCall(s string) bool {
+	dotIdx := strings.Index(s, ".")
+	if dotIdx <= 0 {
+		return false
+	}
+	parenIdx := strings.Index(s, "(")
+	return parenIdx > dotIdx
+}
+
+// colorizeDottedCall highlights "ns.func(args) -> ret" lines.
+func colorizeDottedCall(s string) string {
+	dotIdx := strings.Index(s, ".")
+	parenIdx := strings.Index(s, "(")
+	closeIdx := strings.LastIndex(s, ")")
+	if dotIdx <= 0 || parenIdx <= dotIdx || closeIdx < parenIdx {
+		return s
+	}
+
+	ns := s[:dotIdx]
+	name := s[dotIdx+1 : parenIdx]
+	params := s[parenIdx+1 : closeIdx]
+	after := s[closeIdx+1:]
+
+	result := ansiGreen + ns + ansiReset + "." +
+		ansiGreen + name + ansiReset +
+		"(" + ansiYellow + params + ansiReset + ")"
+
+	// Colorize return type: " -> type"
+	if strings.HasPrefix(after, " -> ") {
+		ret := strings.TrimPrefix(after, " -> ")
+		result += ansiDim + " -> " + ansiReset + ansiCyan + ret + ansiReset
+	} else {
+		result += after
+	}
+	return result
 }
 
 func benchAction(ctx context.Context, cmd *cli.Command) error {
