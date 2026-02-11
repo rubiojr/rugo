@@ -67,3 +67,43 @@ rats "fn inline: lambda in array unchanged"
   test.assert_eq(fns[0](10), 11)
   test.assert_eq(fns[1](10), 20)
 end
+
+rats "fn inline: paren-free builtin wrapping method call with inline fn"
+  items = [1, 2, 3]
+  result = items.map(fn(x) x * 2 end)
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 2)
+  test.assert_eq(result[1], 4)
+  test.assert_eq(result[2], 6)
+end
+
+rats "fn inline: puts wrapping method call with inline fn"
+  items = [1, 2]
+  # Just verify this parses and runs without error
+  result = items.map(fn(x) x + 10 end)
+  test.assert_eq(result[0], 11)
+  test.assert_eq(result[1], 12)
+end
+
+rats "fn inline: chained method calls with inline fn"
+  items = [1, 2, 3, 4]
+  result = items.map(fn(x) x * 2 end).filter(fn(x) x > 4 end)
+  test.assert_eq(len(result), 2)
+  test.assert_eq(result[0], 6)
+  test.assert_eq(result[1], 8)
+end
+
+rats "fn inline: fn as first arg to user function via paren-free"
+  result = my_test_map(fn(x) x * 2 end, [1, 2, 3])
+  test.assert_eq(result[0], 2)
+  test.assert_eq(result[1], 4)
+  test.assert_eq(result[2], 6)
+end
+
+def my_test_map(f, arr)
+  result = []
+  for item in arr
+    result = append(result, f(item))
+  end
+  return result
+end

@@ -1298,11 +1298,19 @@ var blockOpenerKeywords = map[string]bool{
 //	fn(PARAMS)\n  BODY\nend
 //
 // The function handles strings, nested parens/brackets, and nested block keywords.
+// Before expanding, if the line is a paren-free builtin call (e.g. `puts expr`),
+// the outer call is wrapped with parens first to prevent the expansion from
+// breaking the paren-free rewrite.
 func expandInlineFnLine(line string) string {
 	// Quick check: does the line contain "fn(" at all?
 	if !strings.Contains(line, "fn(") {
 		return line
 	}
+
+	// Pre-wrap paren-free builtin calls before expanding inline fn.
+	// This prevents the expansion from splitting a line like
+	// `puts items.map(fn(x) x * 2 end)` into broken fragments.
+	line = wrapParenFreeBeforeFnExpand(line)
 
 	// Work through the line, finding inline fn patterns and expanding them.
 	// We rebuild the line, replacing each inline fn with its multi-line form.
@@ -1371,6 +1379,39 @@ func expandInlineFnLine(line string) string {
 		return line
 	}
 	return buf.String()
+}
+
+// wrapParenFreeBeforeFnExpand wraps paren-free builtin calls with explicit parens
+// so that subsequent inline fn expansion doesn't produce broken lines.
+// For example: `puts items.map(fn(x) x * 2 end)` → `puts(items.map(fn(x) x * 2 end))`
+func wrapParenFreeBeforeFnExpand(line string) string {
+	trimmed := strings.TrimSpace(line)
+	if trimmed == "" {
+		return line
+	}
+	indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+	firstToken, rest := scanFirstToken(trimmed)
+	if firstToken == "" || !isIdent(firstToken) {
+		return line
+	}
+	// Only wrap if the first token is a known builtin
+	if !rugoBuiltins[firstToken] {
+		return line
+	}
+	restTrimmed := strings.TrimSpace(rest)
+	if restTrimmed == "" {
+		return line
+	}
+	// Already has parens: `puts(...)` — leave alone
+	if restTrimmed[0] == '(' {
+		return line
+	}
+	// Assignment or operator — leave alone
+	if restTrimmed[0] == '=' && (len(restTrimmed) < 2 || restTrimmed[1] != '=') {
+		return line
+	}
+	// Wrap: `puts expr` → `puts(expr)`
+	return indent + firstToken + "(" + restTrimmed + ")"
 }
 
 // findFnOpen finds the next "fn(" in line starting from pos that is not inside a string.
