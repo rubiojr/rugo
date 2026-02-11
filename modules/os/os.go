@@ -17,6 +17,8 @@ func init() {
 		Funcs: []modules.FuncDef{
 			{Name: "exec", Args: []modules.ArgType{modules.String}, Doc: "Execute a shell command and return its output."},
 			{Name: "exit", Args: []modules.ArgType{modules.Int}, Doc: "Exit the program with the given status code."},
+			{Name: "file_exists", Args: []modules.ArgType{modules.String}, Doc: "Return true if the file or directory exists."},
+			{Name: "is_dir", Args: []modules.ArgType{modules.String}, Doc: "Return true if the path exists and is a directory."},
 		},
 		Runtime: modules.CleanRuntime(runtime),
 	})

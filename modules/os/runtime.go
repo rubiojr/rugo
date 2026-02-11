@@ -25,3 +25,13 @@ func (*OS) Exit(code int) interface{} {
 	os.Exit(code)
 	return nil
 }
+
+func (*OS) FileExists(path string) interface{} {
+	_, err := os.Stat(path)
+	return !os.IsNotExist(err)
+}
+
+func (*OS) IsDir(path string) interface{} {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
+}
