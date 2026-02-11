@@ -79,7 +79,7 @@ rats "fn: lambda with string interpolation"
 end
 
 rats "fn: lambda compiles to native binary"
-  tdir = test.tmpdir
+  tdir = test.tmpdir()
   result = test.run("rugo build rats/fixtures/fn_basic.rugo -o #{tdir}/fn_bin && #{tdir}/fn_bin")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "10")
