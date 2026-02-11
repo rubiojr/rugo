@@ -26,28 +26,28 @@ Generated Go:   Direct Go stdlib call — no wrapper struct, no runtime
 
 | File | Role |
 |------|------|
-| `compiler/gobridge/gobridge.go` | Exported types (`GoType`, `GoFuncSig`, `Package`), registry API, conversion helpers |
-| `compiler/gobridge/strings.go` | strings package mappings (self-registers via `init()`) |
-| `compiler/gobridge/strconv.go` | strconv package mappings |
-| `compiler/gobridge/math.go` | math package mappings |
-| `compiler/gobridge/rand.go` | math/rand/v2 package mappings |
-| `compiler/gobridge/filepath.go` | path/filepath package mappings |
-| `compiler/gobridge/sort.go` | sort package mappings |
-| `compiler/gobridge/os.go` | os package mappings |
-| `compiler/gobridge/time.go` | time package mappings |
-| `compiler/gobridge/json.go` | encoding/json package mappings |
-| `compiler/gobridge/base64.go` | encoding/base64 package mappings |
-| `compiler/gobridge/hex.go` | encoding/hex package mappings |
-| `compiler/gobridge/crypto.go` | crypto/sha256 + crypto/md5 package mappings |
-| `compiler/gobridge/url.go` | net/url package mappings |
-| `compiler/gobridge/unicode.go` | unicode package mappings |
-| `compiler/gobridge/slices.go` | slices package mappings (runtime helpers) |
-| `compiler/gobridge/maps.go` | maps package mappings (runtime helpers) |
+| `gobridge/gobridge.go` | Exported types (`GoType`, `GoFuncSig`, `Package`), registry API, conversion helpers |
+| `gobridge/strings.go` | strings package mappings (self-registers via `init()`) |
+| `gobridge/strconv.go` | strconv package mappings |
+| `gobridge/math.go` | math package mappings |
+| `gobridge/rand.go` | math/rand/v2 package mappings |
+| `gobridge/filepath.go` | path/filepath package mappings |
+| `gobridge/sort.go` | sort package mappings |
+| `gobridge/os.go` | os package mappings |
+| `gobridge/time.go` | time package mappings |
+| `gobridge/json.go` | encoding/json package mappings |
+| `gobridge/base64.go` | encoding/base64 package mappings |
+| `gobridge/hex.go` | encoding/hex package mappings |
+| `gobridge/crypto.go` | crypto/sha256 + crypto/md5 package mappings |
+| `gobridge/url.go` | net/url package mappings |
+| `gobridge/unicode.go` | unicode package mappings |
+| `gobridge/slices.go` | slices package mappings (runtime helpers) |
+| `gobridge/maps.go` | maps package mappings (runtime helpers) |
 | `compiler/compiler.go` | `resolveRequires()` — validates + deduplicates `import` statements |
 | `compiler/codegen.go` | `generateGoBridgeCall()` — emits Go code with type conversions |
-| `compiler/nodes.go` | `ImportStmt` AST node (Package + Alias fields) |
-| `compiler/walker.go` | `walkImportStmt()` — walks parse tree into `ImportStmt` |
-| `compiler/preprocess.go` | `import` keyword registered to avoid shell fallback |
+| `ast/nodes.go` | `ImportStmt` AST node (Package + Alias fields) |
+| `ast/walker.go` | `walkImportStmt()` — walks parse tree into `ImportStmt` |
+| `ast/preprocess.go` | `import` keyword registered to avoid shell fallback |
 | `parser/rugo.ebnf` | Grammar: `ImportStmt = "import" str_lit ["as" ident] .` |
 
 ### How it differs from `use` (Rugo stdlib)
@@ -57,7 +57,7 @@ Generated Go:   Direct Go stdlib call — no wrapper struct, no runtime
 | **Mechanism** | Hand-crafted Go structs with method receivers, embedded as runtime strings | Static registry lookup → direct Go function calls |
 | **Type safety** | Module defines `FuncDef.Args` → codegen wraps each arg | Registry defines `GoFuncSig.Params` → codegen converts each arg |
 | **Generated code** | `rugo_mod_func(arg1, arg2)` wrapper | `strings.ToUpper(rugo_to_string(arg))` direct call |
-| **Adding functions** | Write Go struct + methods in `runtime.go`, register in module | Add entry to mapping file in `compiler/gobridge/` |
+| **Adding functions** | Write Go struct + methods in `runtime.go`, register in module | Add entry to mapping file in `gobridge/` |
 
 ## Type System
 
@@ -119,9 +119,9 @@ every function must be registered.
 
 ## Adding a New Go Package
 
-### 1. Create a mapping file in `compiler/gobridge/`
+### 1. Create a mapping file in `gobridge/`
 
-Create `compiler/gobridge/newpkg.go` — it self-registers via `init()`:
+Create `gobridge/newpkg.go` — it self-registers via `init()`:
 
 ```go
 package gobridge

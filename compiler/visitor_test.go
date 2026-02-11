@@ -1,16 +1,17 @@
 package compiler
 
 import (
+	"github.com/rubiojr/rugo/ast"
 	"testing"
 
 	"github.com/rubiojr/rugo/modules"
 )
 
 func TestWalkExpressionsFindsSpawn(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&AssignStmt{Target: "t", Value: &SpawnExpr{
-				Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.AssignStmt{Target: "t", Value: &ast.SpawnExpr{
+				Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 			}},
 		},
 	}
@@ -23,10 +24,10 @@ func TestWalkExpressionsFindsSpawn(t *testing.T) {
 }
 
 func TestWalkExpressionsFindsParallel(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &ParallelExpr{
-				Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.ParallelExpr{
+				Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 			}},
 		},
 	}
@@ -39,10 +40,10 @@ func TestWalkExpressionsFindsParallel(t *testing.T) {
 }
 
 func TestWalkExpressionsFindsTaskMethods(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &DotExpr{
-				Object: &IdentExpr{Name: "task"},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.DotExpr{
+				Object: &ast.IdentExpr{Name: "task"},
 				Field:  "value",
 			}},
 		},
@@ -57,10 +58,10 @@ func TestWalkExpressionsTaskMethodOnModuleIgnored(t *testing.T) {
 	modules.Register(&modules.Module{Name: "visitortest"})
 
 	// .value on a known module should not count as a task method
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &DotExpr{
-				Object: &IdentExpr{Name: "visitortest"},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.DotExpr{
+				Object: &ast.IdentExpr{Name: "visitortest"},
 				Field:  "value",
 			}},
 		},
@@ -71,13 +72,13 @@ func TestWalkExpressionsTaskMethodOnModuleIgnored(t *testing.T) {
 }
 
 func TestWalkExpressionsNestedSpawnInIf(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&IfStmt{
-				Condition: &BoolLiteral{Value: true},
-				Body: []Statement{
-					&AssignStmt{Target: "t", Value: &SpawnExpr{
-						Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.IfStmt{
+				Condition: &ast.BoolLiteral{Value: true},
+				Body: []ast.Statement{
+					&ast.AssignStmt{Target: "t", Value: &ast.SpawnExpr{
+						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 					}},
 				},
 			},
@@ -89,14 +90,14 @@ func TestWalkExpressionsNestedSpawnInIf(t *testing.T) {
 }
 
 func TestWalkExpressionsNestedInFor(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ForStmt{
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ForStmt{
 				Var:        "x",
-				Collection: &ArrayLiteral{Elements: []Expr{&IntLiteral{Value: "1"}}},
-				Body: []Statement{
-					&ExprStmt{Expression: &ParallelExpr{
-						Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+				Collection: &ast.ArrayLiteral{Elements: []ast.Expr{&ast.IntLiteral{Value: "1"}}},
+				Body: []ast.Statement{
+					&ast.ExprStmt{Expression: &ast.ParallelExpr{
+						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 					}},
 				},
 			},
@@ -108,13 +109,13 @@ func TestWalkExpressionsNestedInFor(t *testing.T) {
 }
 
 func TestWalkExpressionsNestedInFuncDef(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&FuncDef{
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.FuncDef{
 				Name: "foo",
-				Body: []Statement{
-					&ReturnStmt{Value: &SpawnExpr{
-						Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "42"}}},
+				Body: []ast.Statement{
+					&ast.ReturnStmt{Value: &ast.SpawnExpr{
+						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "42"}}},
 					}},
 				},
 			},
@@ -126,13 +127,13 @@ func TestWalkExpressionsNestedInFuncDef(t *testing.T) {
 }
 
 func TestWalkExpressionsNestedInTry(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &TryExpr{
-				Expr:   &SpawnExpr{Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}}},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.TryExpr{
+				Expr:   &ast.SpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
 				ErrVar: "e",
-				Handler: []Statement{
-					&ExprStmt{Expression: &NilLiteral{}},
+				Handler: []ast.Statement{
+					&ast.ExprStmt{Expression: &ast.NilLiteral{}},
 				},
 			}},
 		},
@@ -143,7 +144,7 @@ func TestWalkExpressionsNestedInTry(t *testing.T) {
 }
 
 func TestWalkExpressionsEmptyProgram(t *testing.T) {
-	prog := &Program{}
+	prog := &ast.Program{}
 	if astUsesSpawn(prog) {
 		t.Error("expected astUsesSpawn to be false on empty program")
 	}
@@ -156,13 +157,13 @@ func TestWalkExpressionsEmptyProgram(t *testing.T) {
 }
 
 func TestWalkExpressionsNestedInWhile(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&WhileStmt{
-				Condition: &BoolLiteral{Value: true},
-				Body: []Statement{
-					&ExprStmt{Expression: &DotExpr{
-						Object: &IdentExpr{Name: "t"},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.WhileStmt{
+				Condition: &ast.BoolLiteral{Value: true},
+				Body: []ast.Statement{
+					&ast.ExprStmt{Expression: &ast.DotExpr{
+						Object: &ast.IdentExpr{Name: "t"},
 						Field:  "done",
 					}},
 				},
@@ -175,17 +176,17 @@ func TestWalkExpressionsNestedInWhile(t *testing.T) {
 }
 
 func TestWalkExpressionsInElsifClause(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&IfStmt{
-				Condition: &BoolLiteral{Value: false},
-				Body:      []Statement{},
-				ElsifClauses: []ElsifClause{
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.IfStmt{
+				Condition: &ast.BoolLiteral{Value: false},
+				Body:      []ast.Statement{},
+				ElsifClauses: []ast.ElsifClause{
 					{
-						Condition: &BoolLiteral{Value: true},
-						Body: []Statement{
-							&ExprStmt{Expression: &SpawnExpr{
-								Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+						Condition: &ast.BoolLiteral{Value: true},
+						Body: []ast.Statement{
+							&ast.ExprStmt{Expression: &ast.SpawnExpr{
+								Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 							}},
 						},
 					},
@@ -199,14 +200,14 @@ func TestWalkExpressionsInElsifClause(t *testing.T) {
 }
 
 func TestWalkExpressionsInElseBody(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&IfStmt{
-				Condition: &BoolLiteral{Value: false},
-				Body:      []Statement{},
-				ElseBody: []Statement{
-					&ExprStmt{Expression: &ParallelExpr{
-						Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.IfStmt{
+				Condition: &ast.BoolLiteral{Value: false},
+				Body:      []ast.Statement{},
+				ElseBody: []ast.Statement{
+					&ast.ExprStmt{Expression: &ast.ParallelExpr{
+						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 					}},
 				},
 			},
@@ -218,13 +219,13 @@ func TestWalkExpressionsInElseBody(t *testing.T) {
 }
 
 func TestWalkExpressionsInTestDef(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&TestDef{
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.TestDef{
 				Name: "test spawn",
-				Body: []Statement{
-					&ExprStmt{Expression: &SpawnExpr{
-						Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+				Body: []ast.Statement{
+					&ast.ExprStmt{Expression: &ast.SpawnExpr{
+						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 					}},
 				},
 			},
@@ -236,13 +237,13 @@ func TestWalkExpressionsInTestDef(t *testing.T) {
 }
 
 func TestWalkExpressionsInIndexAssign(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&IndexAssignStmt{
-				Object: &IdentExpr{Name: "arr"},
-				Index:  &IntLiteral{Value: "0"},
-				Value: &SpawnExpr{
-					Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.IndexAssignStmt{
+				Object: &ast.IdentExpr{Name: "arr"},
+				Index:  &ast.IntLiteral{Value: "0"},
+				Value: &ast.SpawnExpr{
+					Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 				},
 			},
 		},
@@ -253,12 +254,12 @@ func TestWalkExpressionsInIndexAssign(t *testing.T) {
 }
 
 func TestWalkExpressionsInBinaryExpr(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &BinaryExpr{
-				Left:  &IntLiteral{Value: "1"},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.BinaryExpr{
+				Left:  &ast.IntLiteral{Value: "1"},
 				Op:    "+",
-				Right: &DotExpr{Object: &IdentExpr{Name: "t"}, Field: "wait"},
+				Right: &ast.DotExpr{Object: &ast.IdentExpr{Name: "t"}, Field: "wait"},
 			}},
 		},
 	}
@@ -268,12 +269,12 @@ func TestWalkExpressionsInBinaryExpr(t *testing.T) {
 }
 
 func TestWalkExpressionsInCallArgs(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &CallExpr{
-				Func: &IdentExpr{Name: "puts"},
-				Args: []Expr{
-					&DotExpr{Object: &IdentExpr{Name: "t"}, Field: "value"},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.CallExpr{
+				Func: &ast.IdentExpr{Name: "puts"},
+				Args: []ast.Expr{
+					&ast.DotExpr{Object: &ast.IdentExpr{Name: "t"}, Field: "value"},
 				},
 			}},
 		},
@@ -284,11 +285,11 @@ func TestWalkExpressionsInCallArgs(t *testing.T) {
 }
 
 func TestWalkExpressionsInArrayLiteral(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &ArrayLiteral{
-				Elements: []Expr{
-					&SpawnExpr{Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}}},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.ArrayLiteral{
+				Elements: []ast.Expr{
+					&ast.SpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
 				},
 			}},
 		},
@@ -299,13 +300,13 @@ func TestWalkExpressionsInArrayLiteral(t *testing.T) {
 }
 
 func TestWalkExpressionsInHashLiteral(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &HashLiteral{
-				Pairs: []HashPair{
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.HashLiteral{
+				Pairs: []ast.HashPair{
 					{
-						Key:   &StringLiteral{Value: "key"},
-						Value: &SpawnExpr{Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}}},
+						Key:   &ast.StringLiteral{Value: "key"},
+						Value: &ast.SpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
 					},
 				},
 			}},
@@ -317,12 +318,12 @@ func TestWalkExpressionsInHashLiteral(t *testing.T) {
 }
 
 func TestWalkExpressionsSpawnInsideParallel(t *testing.T) {
-	prog := &Program{
-		Statements: []Statement{
-			&ExprStmt{Expression: &ParallelExpr{
-				Body: []Statement{
-					&ExprStmt{Expression: &SpawnExpr{
-						Body: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
+	prog := &ast.Program{
+		Statements: []ast.Statement{
+			&ast.ExprStmt{Expression: &ast.ParallelExpr{
+				Body: []ast.Statement{
+					&ast.ExprStmt{Expression: &ast.SpawnExpr{
+						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 					}},
 				},
 			}},

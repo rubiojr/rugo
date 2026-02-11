@@ -1,23 +1,27 @@
 package compiler
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/rubiojr/rugo/ast"
+)
 
 // Infer runs type inference on a parsed program, returning type annotations
 // for expressions and function signatures. The inference is conservative:
 // anything that can't be proven typed remains TypeDynamic (interface{}).
-func Infer(prog *Program) *TypeInfo {
+func Infer(prog *ast.Program) *TypeInfo {
 	ti := &TypeInfo{
-		ExprTypes: make(map[Expr]RugoType),
+		ExprTypes: make(map[ast.Expr]RugoType),
 		FuncTypes: make(map[string]*FuncTypeInfo),
 		VarTypes:  make(map[string]map[string]RugoType),
 	}
 
 	// Collect all function definitions.
-	var funcs []*FuncDef
-	var topStmts []Statement
+	var funcs []*ast.FuncDef
+	var topStmts []ast.Statement
 	for _, s := range prog.Statements {
 		switch st := s.(type) {
-		case *FuncDef:
+		case *ast.FuncDef:
 			funcs = append(funcs, st)
 			ti.FuncTypes[funcKey(st)] = &FuncTypeInfo{
 				ParamTypes: make([]RugoType, len(st.Params)),
@@ -54,7 +58,7 @@ func Infer(prog *Program) *TypeInfo {
 }
 
 // funcKey returns the inference key for a function definition.
-func funcKey(f *FuncDef) string {
+func funcKey(f *ast.FuncDef) string {
 	if f.Namespace != "" {
 		return f.Namespace + "." + f.Name
 	}
@@ -91,7 +95,7 @@ func (s *typeScope) set(name string, t RugoType) {
 }
 
 // inferFunc infers types for a single function.
-func inferFunc(ti *TypeInfo, f *FuncDef) {
+func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 	fti := ti.FuncTypes[funcKey(f)]
 	scope := newTypeScope(nil)
 
@@ -141,16 +145,16 @@ func inferFunc(ti *TypeInfo, f *FuncDef) {
 }
 
 // inferStmt infers types within a statement, updating the scope.
-func inferStmt(ti *TypeInfo, scope *typeScope, s Statement) {
+func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 	switch st := s.(type) {
-	case *AssignStmt:
+	case *ast.AssignStmt:
 		t := inferExpr(ti, scope, st.Value)
 		scope.set(st.Target, t)
 
-	case *ExprStmt:
+	case *ast.ExprStmt:
 		inferExpr(ti, scope, st.Expression)
 
-	case *IfStmt:
+	case *ast.IfStmt:
 		inferExpr(ti, scope, st.Condition)
 		ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
 		for _, s := range st.Body {
@@ -167,10 +171,10 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s Statement) {
 			inferStmt(ti, scope, s)
 		}
 
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		inferExpr(ti, scope, st.Condition)
 		ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
-		// Infer body twice: same rationale as ForStmt — the first pass
+		// Infer body twice: same rationale as ast.ForStmt — the first pass
 		// may widen variable types that affect expression types.
 		for pass := 0; pass < 2; pass++ {
 			for _, s := range st.Body {
@@ -178,7 +182,7 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s Statement) {
 			}
 		}
 
-	case *ForStmt:
+	case *ast.ForStmt:
 		inferExpr(ti, scope, st.Collection)
 		// For loop vars are dynamic (collection element type unknown).
 		scope.set(st.Var, TypeDynamic)
@@ -194,28 +198,28 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s Statement) {
 			}
 		}
 
-	case *ReturnStmt:
+	case *ast.ReturnStmt:
 		if st.Value != nil {
 			inferExpr(ti, scope, st.Value)
 		}
 
-	case *IndexAssignStmt:
+	case *ast.IndexAssignStmt:
 		inferExpr(ti, scope, st.Object)
 		inferExpr(ti, scope, st.Index)
 		inferExpr(ti, scope, st.Value)
 
-	case *DotAssignStmt:
+	case *ast.DotAssignStmt:
 		inferExpr(ti, scope, st.Object)
 		inferExpr(ti, scope, st.Value)
 
-	case *BenchDef:
+	case *ast.BenchDef:
 		blockScope := newTypeScope(scope)
 		for _, s := range st.Body {
 			inferStmt(ti, blockScope, s)
 		}
 		ti.VarTypes[fmt.Sprintf("__bench_%p", st)] = blockScope.vars
 
-	case *TestDef:
+	case *ast.TestDef:
 		blockScope := newTypeScope(scope)
 		for _, s := range st.Body {
 			inferStmt(ti, blockScope, s)
@@ -225,16 +229,16 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s Statement) {
 }
 
 // collectReturns gathers return types from a statement tree.
-func collectReturns(ti *TypeInfo, scope *typeScope, s Statement, out *[]RugoType) {
+func collectReturns(ti *TypeInfo, scope *typeScope, s ast.Statement, out *[]RugoType) {
 	switch st := s.(type) {
-	case *ReturnStmt:
+	case *ast.ReturnStmt:
 		if st.Value != nil {
 			t := inferExpr(ti, scope, st.Value)
 			*out = append(*out, t)
 		} else {
 			*out = append(*out, TypeNil)
 		}
-	case *IfStmt:
+	case *ast.IfStmt:
 		for _, s := range st.Body {
 			collectReturns(ti, scope, s, out)
 		}
@@ -246,11 +250,11 @@ func collectReturns(ti *TypeInfo, scope *typeScope, s Statement, out *[]RugoType
 		for _, s := range st.ElseBody {
 			collectReturns(ti, scope, s, out)
 		}
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		for _, s := range st.Body {
 			collectReturns(ti, scope, s, out)
 		}
-	case *ForStmt:
+	case *ast.ForStmt:
 		for _, s := range st.Body {
 			collectReturns(ti, scope, s, out)
 		}
@@ -258,73 +262,73 @@ func collectReturns(ti *TypeInfo, scope *typeScope, s Statement, out *[]RugoType
 }
 
 // inferExpr infers and records the type of an expression.
-func inferExpr(ti *TypeInfo, scope *typeScope, e Expr) RugoType {
+func inferExpr(ti *TypeInfo, scope *typeScope, e ast.Expr) RugoType {
 	t := inferExprInner(ti, scope, e)
 	ti.ExprTypes[e] = t
 	return t
 }
 
-func inferExprInner(ti *TypeInfo, scope *typeScope, e Expr) RugoType {
+func inferExprInner(ti *TypeInfo, scope *typeScope, e ast.Expr) RugoType {
 	switch ex := e.(type) {
-	case *IntLiteral:
+	case *ast.IntLiteral:
 		return TypeInt
-	case *FloatLiteral:
+	case *ast.FloatLiteral:
 		return TypeFloat
-	case *StringLiteral:
+	case *ast.StringLiteral:
 		return TypeString
-	case *BoolLiteral:
+	case *ast.BoolLiteral:
 		return TypeBool
-	case *NilLiteral:
+	case *ast.NilLiteral:
 		return TypeNil
 
-	case *IdentExpr:
+	case *ast.IdentExpr:
 		return scope.get(ex.Name)
 
-	case *BinaryExpr:
+	case *ast.BinaryExpr:
 		left := inferExpr(ti, scope, ex.Left)
 		right := inferExpr(ti, scope, ex.Right)
 		return inferBinaryOp(ex.Op, left, right)
 
-	case *UnaryExpr:
+	case *ast.UnaryExpr:
 		operand := inferExpr(ti, scope, ex.Operand)
 		return inferUnaryOp(ex.Op, operand)
 
-	case *CallExpr:
+	case *ast.CallExpr:
 		return inferCall(ti, scope, ex)
 
-	case *ArrayLiteral:
+	case *ast.ArrayLiteral:
 		for _, elem := range ex.Elements {
 			inferExpr(ti, scope, elem)
 		}
 		return TypeArray
 
-	case *HashLiteral:
+	case *ast.HashLiteral:
 		for _, pair := range ex.Pairs {
 			inferExpr(ti, scope, pair.Key)
 			inferExpr(ti, scope, pair.Value)
 		}
 		return TypeHash
 
-	case *IndexExpr:
+	case *ast.IndexExpr:
 		inferExpr(ti, scope, ex.Object)
 		inferExpr(ti, scope, ex.Index)
 		return TypeDynamic // element type unknown
 
-	case *SliceExpr:
+	case *ast.SliceExpr:
 		inferExpr(ti, scope, ex.Object)
 		inferExpr(ti, scope, ex.Start)
 		inferExpr(ti, scope, ex.Length)
 		return TypeDynamic
 
-	case *DotExpr:
+	case *ast.DotExpr:
 		inferExpr(ti, scope, ex.Object)
 		return TypeDynamic
 
-	case *TryExpr:
+	case *ast.TryExpr:
 		inferExpr(ti, scope, ex.Expr)
 		return TypeDynamic
 
-	case *SpawnExpr:
+	case *ast.SpawnExpr:
 		// Walk the spawn body so expressions inside get typed.
 		// Spawn shares the parent scope via Go closure.
 		for _, s := range ex.Body {
@@ -332,7 +336,7 @@ func inferExprInner(ti *TypeInfo, scope *typeScope, e Expr) RugoType {
 		}
 		return TypeDynamic
 
-	case *ParallelExpr:
+	case *ast.ParallelExpr:
 		// Walk the parallel body so expressions inside get typed.
 		for _, s := range ex.Body {
 			inferStmt(ti, scope, s)
@@ -462,7 +466,7 @@ func inferUnaryOp(op string, operand RugoType) RugoType {
 
 // inferCall infers the return type of a function call and propagates
 // argument types to function parameter inference.
-func inferCall(ti *TypeInfo, scope *typeScope, e *CallExpr) RugoType {
+func inferCall(ti *TypeInfo, scope *typeScope, e *ast.CallExpr) RugoType {
 	// Infer argument types.
 	argTypes := make([]RugoType, len(e.Args))
 	for i, arg := range e.Args {
@@ -470,7 +474,7 @@ func inferCall(ti *TypeInfo, scope *typeScope, e *CallExpr) RugoType {
 	}
 
 	// Check if this is a call to a user-defined function.
-	if ident, ok := e.Func.(*IdentExpr); ok {
+	if ident, ok := e.Func.(*ast.IdentExpr); ok {
 		// Built-in functions return dynamic.
 		switch ident.Name {
 		case "puts", "print", "__shell__", "__capture__", "__pipe_shell__":
@@ -494,8 +498,8 @@ func inferCall(ti *TypeInfo, scope *typeScope, e *CallExpr) RugoType {
 	}
 
 	// Namespace function call.
-	if dot, ok := e.Func.(*DotExpr); ok {
-		if ns, ok := dot.Object.(*IdentExpr); ok {
+	if dot, ok := e.Func.(*ast.DotExpr); ok {
+		if ns, ok := dot.Object.(*ast.IdentExpr); ok {
 			key := ns.Name + "." + dot.Field
 			if fti, ok := ti.FuncTypes[key]; ok {
 				for i, at := range argTypes {

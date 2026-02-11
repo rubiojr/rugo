@@ -1,4 +1,4 @@
-package compiler
+package ast
 
 // Node is the interface for all AST nodes.
 type Node interface {

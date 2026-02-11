@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rubiojr/rugo/compiler"
+	"github.com/rubiojr/rugo/ast"
 )
 
 // FileDoc holds all extracted documentation for a single Rugo file.
@@ -180,7 +180,7 @@ func Extract(src, path string) *FileDoc {
 	fd.Doc = extractFileDoc(lines)
 
 	// Parse with compiler to get AST + struct info
-	c := &compiler.Compiler{}
+	c := &ast.Compiler{}
 	prog, err := c.ParseSource(src, path)
 	if err != nil {
 		// Parse failed — fall back to text-based extraction for functions
@@ -201,7 +201,7 @@ func Extract(src, path string) *FileDoc {
 
 	// Extract function docs from AST
 	for _, s := range prog.Statements {
-		fn, ok := s.(*compiler.FuncDef)
+		fn, ok := s.(*ast.FuncDef)
 		if !ok {
 			continue
 		}
@@ -277,7 +277,7 @@ func extractFuncsFromLines(fd *FileDoc, lines []string) {
 // funcDocFromRawLine extracts the function name, params, and source line from
 // the raw source, preserving method names like "Dog.bark" that the preprocessor
 // rewrites. Falls back to searching by name if line mapping is off (e.g. heredocs).
-func funcDocFromRawLine(lines []string, fn *compiler.FuncDef) (name string, params []string, line int) {
+func funcDocFromRawLine(lines []string, fn *ast.FuncDef) (name string, params []string, line int) {
 	line = fn.StmtLine()
 	if line >= 1 && line <= len(lines) {
 		rawLine := strings.TrimSpace(lines[line-1])

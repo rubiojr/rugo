@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/rubiojr/rugo/compiler/gobridge"
+	"github.com/rubiojr/rugo/gobridge"
 	"github.com/rubiojr/rugo/modules"
 )
 

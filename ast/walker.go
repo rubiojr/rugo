@@ -1,4 +1,4 @@
-package compiler
+package ast
 
 import (
 	"fmt"
@@ -16,14 +16,14 @@ type walker struct {
 }
 
 // walk converts a flat AST into a typed Program.
-func walk(p *parser.Parser, ast []int32) (*Program, error) {
+func Walk(p *parser.Parser, ast []int32) (*Program, error) {
 	w := &walker{p: p, ast: ast}
 	return w.walkProgram()
 }
 
 // walkWithLineMap converts a flat AST into a typed Program, applying a line map
 // from preprocessed lines back to original source lines.
-func walkWithLineMap(p *parser.Parser, ast []int32, lineMap []int) (*Program, error) {
+func WalkWithLineMap(p *parser.Parser, ast []int32, lineMap []int) (*Program, error) {
 	w := &walker{p: p, ast: ast, lineMap: lineMap}
 	return w.walkProgram()
 }

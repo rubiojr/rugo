@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/rubiojr/rugo/ast"
 	"strings"
 	"testing"
 
@@ -10,9 +11,9 @@ import (
 )
 
 // Helper to parse and walk a rugo source string into a typed AST.
-func parseAndWalk(t *testing.T, src string) *Program {
+func parseAndWalk(t *testing.T, src string) *ast.Program {
 	t.Helper()
-	cleaned, err := stripComments(src)
+	cleaned, err := ast.StripComments(src)
 	if err != nil {
 		t.Fatalf("stripComments error: %v", err)
 	}
@@ -20,11 +21,11 @@ func parseAndWalk(t *testing.T, src string) *Program {
 		cleaned += "\n"
 	}
 	p := &parser.Parser{}
-	ast, err := p.Parse("test.rugo", []byte(cleaned))
+	flatAST, err := p.Parse("test.rugo", []byte(cleaned))
 	if err != nil {
 		t.Fatalf("Parse error: %v", err)
 	}
-	prog, err := walk(p, ast)
+	prog, err := ast.Walk(p, flatAST)
 	if err != nil {
 		t.Fatalf("Walk error: %v", err)
 	}
@@ -36,16 +37,16 @@ func TestWalkAssignment(t *testing.T) {
 	if len(prog.Statements) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(prog.Statements))
 	}
-	assign, ok := prog.Statements[0].(*AssignStmt)
+	assign, ok := prog.Statements[0].(*ast.AssignStmt)
 	if !ok {
-		t.Fatalf("expected AssignStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.AssignStmt, got %T", prog.Statements[0])
 	}
 	if assign.Target != "x" {
 		t.Errorf("target = %q, want %q", assign.Target, "x")
 	}
-	lit, ok := assign.Value.(*IntLiteral)
+	lit, ok := assign.Value.(*ast.IntLiteral)
 	if !ok {
-		t.Fatalf("expected IntLiteral, got %T", assign.Value)
+		t.Fatalf("expected ast.IntLiteral, got %T", assign.Value)
 	}
 	if lit.Value != "42" {
 		t.Errorf("value = %q, want %q", lit.Value, "42")
@@ -54,13 +55,13 @@ func TestWalkAssignment(t *testing.T) {
 
 func TestWalkStringAssignment(t *testing.T) {
 	prog := parseAndWalk(t, `x = "hello"`)
-	assign, ok := prog.Statements[0].(*AssignStmt)
+	assign, ok := prog.Statements[0].(*ast.AssignStmt)
 	if !ok {
-		t.Fatalf("expected AssignStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.AssignStmt, got %T", prog.Statements[0])
 	}
-	lit, ok := assign.Value.(*StringLiteral)
+	lit, ok := assign.Value.(*ast.StringLiteral)
 	if !ok {
-		t.Fatalf("expected StringLiteral, got %T", assign.Value)
+		t.Fatalf("expected ast.StringLiteral, got %T", assign.Value)
 	}
 	if lit.Value != "hello" {
 		t.Errorf("value = %q, want %q", lit.Value, "hello")
@@ -69,10 +70,10 @@ func TestWalkStringAssignment(t *testing.T) {
 
 func TestWalkFloat(t *testing.T) {
 	prog := parseAndWalk(t, `x = 3.14`)
-	assign := prog.Statements[0].(*AssignStmt)
-	lit, ok := assign.Value.(*FloatLiteral)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	lit, ok := assign.Value.(*ast.FloatLiteral)
 	if !ok {
-		t.Fatalf("expected FloatLiteral, got %T", assign.Value)
+		t.Fatalf("expected ast.FloatLiteral, got %T", assign.Value)
 	}
 	if lit.Value != "3.14" {
 		t.Errorf("value = %q, want %q", lit.Value, "3.14")
@@ -81,10 +82,10 @@ func TestWalkFloat(t *testing.T) {
 
 func TestWalkBooleans(t *testing.T) {
 	prog := parseAndWalk(t, "x = true\ny = false")
-	assign1 := prog.Statements[0].(*AssignStmt)
-	assign2 := prog.Statements[1].(*AssignStmt)
-	b1 := assign1.Value.(*BoolLiteral)
-	b2 := assign2.Value.(*BoolLiteral)
+	assign1 := prog.Statements[0].(*ast.AssignStmt)
+	assign2 := prog.Statements[1].(*ast.AssignStmt)
+	b1 := assign1.Value.(*ast.BoolLiteral)
+	b2 := assign2.Value.(*ast.BoolLiteral)
 	if !b1.Value {
 		t.Error("expected true")
 	}
@@ -95,19 +96,19 @@ func TestWalkBooleans(t *testing.T) {
 
 func TestWalkNil(t *testing.T) {
 	prog := parseAndWalk(t, `x = nil`)
-	assign := prog.Statements[0].(*AssignStmt)
-	_, ok := assign.Value.(*NilLiteral)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	_, ok := assign.Value.(*ast.NilLiteral)
 	if !ok {
-		t.Fatalf("expected NilLiteral, got %T", assign.Value)
+		t.Fatalf("expected ast.NilLiteral, got %T", assign.Value)
 	}
 }
 
 func TestWalkBinaryExpr(t *testing.T) {
 	prog := parseAndWalk(t, `x = 1 + 2`)
-	assign := prog.Statements[0].(*AssignStmt)
-	bin, ok := assign.Value.(*BinaryExpr)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	bin, ok := assign.Value.(*ast.BinaryExpr)
 	if !ok {
-		t.Fatalf("expected BinaryExpr, got %T", assign.Value)
+		t.Fatalf("expected ast.BinaryExpr, got %T", assign.Value)
 	}
 	if bin.Op != "+" {
 		t.Errorf("op = %q, want %q", bin.Op, "+")
@@ -116,10 +117,10 @@ func TestWalkBinaryExpr(t *testing.T) {
 
 func TestWalkUnaryExpr(t *testing.T) {
 	prog := parseAndWalk(t, `x = -1`)
-	assign := prog.Statements[0].(*AssignStmt)
-	unary, ok := assign.Value.(*UnaryExpr)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	unary, ok := assign.Value.(*ast.UnaryExpr)
 	if !ok {
-		t.Fatalf("expected UnaryExpr, got %T", assign.Value)
+		t.Fatalf("expected ast.UnaryExpr, got %T", assign.Value)
 	}
 	if unary.Op != "-" {
 		t.Errorf("op = %q, want %q", unary.Op, "-")
@@ -128,10 +129,10 @@ func TestWalkUnaryExpr(t *testing.T) {
 
 func TestWalkNotExpr(t *testing.T) {
 	prog := parseAndWalk(t, `x = !true`)
-	assign := prog.Statements[0].(*AssignStmt)
-	unary, ok := assign.Value.(*UnaryExpr)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	unary, ok := assign.Value.(*ast.UnaryExpr)
 	if !ok {
-		t.Fatalf("expected UnaryExpr, got %T", assign.Value)
+		t.Fatalf("expected ast.UnaryExpr, got %T", assign.Value)
 	}
 	if unary.Op != "!" {
 		t.Errorf("op = %q, want %q", unary.Op, "!")
@@ -142,10 +143,10 @@ func TestWalkComparison(t *testing.T) {
 	ops := []string{"==", "!=", "<", ">", "<=", ">="}
 	for _, op := range ops {
 		prog := parseAndWalk(t, "x = 1 "+op+" 2")
-		assign := prog.Statements[0].(*AssignStmt)
-		bin, ok := assign.Value.(*BinaryExpr)
+		assign := prog.Statements[0].(*ast.AssignStmt)
+		bin, ok := assign.Value.(*ast.BinaryExpr)
 		if !ok {
-			t.Fatalf("[%s] expected BinaryExpr, got %T", op, assign.Value)
+			t.Fatalf("[%s] expected ast.BinaryExpr, got %T", op, assign.Value)
 		}
 		if bin.Op != op {
 			t.Errorf("op = %q, want %q", bin.Op, op)
@@ -155,17 +156,17 @@ func TestWalkComparison(t *testing.T) {
 
 func TestWalkFuncCall(t *testing.T) {
 	prog := parseAndWalk(t, `puts("hello", "world")`)
-	exprStmt, ok := prog.Statements[0].(*ExprStmt)
+	exprStmt, ok := prog.Statements[0].(*ast.ExprStmt)
 	if !ok {
-		t.Fatalf("expected ExprStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.ExprStmt, got %T", prog.Statements[0])
 	}
-	call, ok := exprStmt.Expression.(*CallExpr)
+	call, ok := exprStmt.Expression.(*ast.CallExpr)
 	if !ok {
-		t.Fatalf("expected CallExpr, got %T", exprStmt.Expression)
+		t.Fatalf("expected ast.CallExpr, got %T", exprStmt.Expression)
 	}
-	ident, ok := call.Func.(*IdentExpr)
+	ident, ok := call.Func.(*ast.IdentExpr)
 	if !ok {
-		t.Fatalf("expected IdentExpr, got %T", call.Func)
+		t.Fatalf("expected ast.IdentExpr, got %T", call.Func)
 	}
 	if ident.Name != "puts" {
 		t.Errorf("func name = %q, want %q", ident.Name, "puts")
@@ -177,9 +178,9 @@ func TestWalkFuncCall(t *testing.T) {
 
 func TestWalkFuncDef(t *testing.T) {
 	prog := parseAndWalk(t, "def greet(name)\nputs(name)\nend")
-	funcDef, ok := prog.Statements[0].(*FuncDef)
+	funcDef, ok := prog.Statements[0].(*ast.FuncDef)
 	if !ok {
-		t.Fatalf("expected FuncDef, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.FuncDef, got %T", prog.Statements[0])
 	}
 	if funcDef.Name != "greet" {
 		t.Errorf("name = %q, want %q", funcDef.Name, "greet")
@@ -194,7 +195,7 @@ func TestWalkFuncDef(t *testing.T) {
 
 func TestWalkFuncDefNoParams(t *testing.T) {
 	prog := parseAndWalk(t, "def hello()\nputs(\"hi\")\nend")
-	funcDef := prog.Statements[0].(*FuncDef)
+	funcDef := prog.Statements[0].(*ast.FuncDef)
 	if len(funcDef.Params) != 0 {
 		t.Errorf("params = %v, want []", funcDef.Params)
 	}
@@ -202,9 +203,9 @@ func TestWalkFuncDefNoParams(t *testing.T) {
 
 func TestWalkIfStmt(t *testing.T) {
 	prog := parseAndWalk(t, "if x == 1\nputs(\"one\")\nelsif x == 2\nputs(\"two\")\nelse\nputs(\"other\")\nend")
-	ifStmt, ok := prog.Statements[0].(*IfStmt)
+	ifStmt, ok := prog.Statements[0].(*ast.IfStmt)
 	if !ok {
-		t.Fatalf("expected IfStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.IfStmt, got %T", prog.Statements[0])
 	}
 	if len(ifStmt.ElsifClauses) != 1 {
 		t.Errorf("elsif clauses = %d, want 1", len(ifStmt.ElsifClauses))
@@ -216,9 +217,9 @@ func TestWalkIfStmt(t *testing.T) {
 
 func TestWalkWhileStmt(t *testing.T) {
 	prog := parseAndWalk(t, "while x > 0\nx = x - 1\nend")
-	whileStmt, ok := prog.Statements[0].(*WhileStmt)
+	whileStmt, ok := prog.Statements[0].(*ast.WhileStmt)
 	if !ok {
-		t.Fatalf("expected WhileStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.WhileStmt, got %T", prog.Statements[0])
 	}
 	if len(whileStmt.Body) != 1 {
 		t.Errorf("body length = %d, want 1", len(whileStmt.Body))
@@ -227,10 +228,10 @@ func TestWalkWhileStmt(t *testing.T) {
 
 func TestWalkReturnStmt(t *testing.T) {
 	prog := parseAndWalk(t, "def foo()\nreturn 42\nend")
-	funcDef := prog.Statements[0].(*FuncDef)
-	retStmt, ok := funcDef.Body[0].(*ReturnStmt)
+	funcDef := prog.Statements[0].(*ast.FuncDef)
+	retStmt, ok := funcDef.Body[0].(*ast.ReturnStmt)
 	if !ok {
-		t.Fatalf("expected ReturnStmt, got %T", funcDef.Body[0])
+		t.Fatalf("expected ast.ReturnStmt, got %T", funcDef.Body[0])
 	}
 	if retStmt.Value == nil {
 		t.Fatal("expected return value")
@@ -239,8 +240,8 @@ func TestWalkReturnStmt(t *testing.T) {
 
 func TestWalkBareReturn(t *testing.T) {
 	prog := parseAndWalk(t, "def foo()\nreturn\nend")
-	funcDef := prog.Statements[0].(*FuncDef)
-	retStmt := funcDef.Body[0].(*ReturnStmt)
+	funcDef := prog.Statements[0].(*ast.FuncDef)
+	retStmt := funcDef.Body[0].(*ast.ReturnStmt)
 	if retStmt.Value != nil {
 		t.Fatal("expected bare return (nil value)")
 	}
@@ -248,9 +249,9 @@ func TestWalkBareReturn(t *testing.T) {
 
 func TestWalkRequireStmt(t *testing.T) {
 	prog := parseAndWalk(t, `require "helpers"`)
-	req, ok := prog.Statements[0].(*RequireStmt)
+	req, ok := prog.Statements[0].(*ast.RequireStmt)
 	if !ok {
-		t.Fatalf("expected RequireStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.RequireStmt, got %T", prog.Statements[0])
 	}
 	if req.Path != "helpers" {
 		t.Errorf("path = %q, want %q", req.Path, "helpers")
@@ -259,10 +260,10 @@ func TestWalkRequireStmt(t *testing.T) {
 
 func TestWalkArrayLiteral(t *testing.T) {
 	prog := parseAndWalk(t, `x = [1, 2, 3]`)
-	assign := prog.Statements[0].(*AssignStmt)
-	arr, ok := assign.Value.(*ArrayLiteral)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	arr, ok := assign.Value.(*ast.ArrayLiteral)
 	if !ok {
-		t.Fatalf("expected ArrayLiteral, got %T", assign.Value)
+		t.Fatalf("expected ast.ArrayLiteral, got %T", assign.Value)
 	}
 	if len(arr.Elements) != 3 {
 		t.Errorf("elements = %d, want 3", len(arr.Elements))
@@ -271,8 +272,8 @@ func TestWalkArrayLiteral(t *testing.T) {
 
 func TestWalkEmptyArray(t *testing.T) {
 	prog := parseAndWalk(t, `x = []`)
-	assign := prog.Statements[0].(*AssignStmt)
-	arr := assign.Value.(*ArrayLiteral)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	arr := assign.Value.(*ast.ArrayLiteral)
 	if len(arr.Elements) != 0 {
 		t.Errorf("elements = %d, want 0", len(arr.Elements))
 	}
@@ -280,10 +281,10 @@ func TestWalkEmptyArray(t *testing.T) {
 
 func TestWalkHashLiteral(t *testing.T) {
 	prog := parseAndWalk(t, `x = {"a" => 1, "b" => 2}`)
-	assign := prog.Statements[0].(*AssignStmt)
-	hash, ok := assign.Value.(*HashLiteral)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	hash, ok := assign.Value.(*ast.HashLiteral)
 	if !ok {
-		t.Fatalf("expected HashLiteral, got %T", assign.Value)
+		t.Fatalf("expected ast.HashLiteral, got %T", assign.Value)
 	}
 	if len(hash.Pairs) != 2 {
 		t.Errorf("pairs = %d, want 2", len(hash.Pairs))
@@ -292,12 +293,12 @@ func TestWalkHashLiteral(t *testing.T) {
 
 func TestWalkIndexExpr(t *testing.T) {
 	prog := parseAndWalk(t, `x = arr[0]`)
-	assign := prog.Statements[0].(*AssignStmt)
-	idx, ok := assign.Value.(*IndexExpr)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	idx, ok := assign.Value.(*ast.IndexExpr)
 	if !ok {
-		t.Fatalf("expected IndexExpr, got %T", assign.Value)
+		t.Fatalf("expected ast.IndexExpr, got %T", assign.Value)
 	}
-	ident := idx.Object.(*IdentExpr)
+	ident := idx.Object.(*ast.IdentExpr)
 	if ident.Name != "arr" {
 		t.Errorf("object = %q, want %q", ident.Name, "arr")
 	}
@@ -305,17 +306,17 @@ func TestWalkIndexExpr(t *testing.T) {
 
 func TestWalkNestedExpr(t *testing.T) {
 	prog := parseAndWalk(t, `x = (1 + 2) * 3`)
-	assign := prog.Statements[0].(*AssignStmt)
-	mul, ok := assign.Value.(*BinaryExpr)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	mul, ok := assign.Value.(*ast.BinaryExpr)
 	if !ok {
-		t.Fatalf("expected BinaryExpr, got %T", assign.Value)
+		t.Fatalf("expected ast.BinaryExpr, got %T", assign.Value)
 	}
 	if mul.Op != "*" {
 		t.Errorf("outer op = %q, want %q", mul.Op, "*")
 	}
-	add, ok := mul.Left.(*BinaryExpr)
+	add, ok := mul.Left.(*ast.BinaryExpr)
 	if !ok {
-		t.Fatalf("expected inner BinaryExpr, got %T", mul.Left)
+		t.Fatalf("expected inner ast.BinaryExpr, got %T", mul.Left)
 	}
 	if add.Op != "+" {
 		t.Errorf("inner op = %q, want %q", add.Op, "+")
@@ -331,17 +332,17 @@ func TestWalkMultipleStatements(t *testing.T) {
 
 func TestWalkBooleanOps(t *testing.T) {
 	prog := parseAndWalk(t, `x = a && b || c`)
-	assign := prog.Statements[0].(*AssignStmt)
-	or, ok := assign.Value.(*BinaryExpr)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	or, ok := assign.Value.(*ast.BinaryExpr)
 	if !ok {
-		t.Fatalf("expected BinaryExpr (||), got %T", assign.Value)
+		t.Fatalf("expected ast.BinaryExpr (||), got %T", assign.Value)
 	}
 	if or.Op != "||" {
 		t.Errorf("outer op = %q, want ||", or.Op)
 	}
-	and, ok := or.Left.(*BinaryExpr)
+	and, ok := or.Left.(*ast.BinaryExpr)
 	if !ok {
-		t.Fatalf("expected BinaryExpr (&&), got %T", or.Left)
+		t.Fatalf("expected ast.BinaryExpr (&&), got %T", or.Left)
 	}
 	if and.Op != "&&" {
 		t.Errorf("inner op = %q, want &&", and.Op)
@@ -350,9 +351,9 @@ func TestWalkBooleanOps(t *testing.T) {
 
 func TestWalkRequireWithAlias(t *testing.T) {
 	prog := parseAndWalk(t, `require "helpers" as "h"`)
-	req, ok := prog.Statements[0].(*RequireStmt)
+	req, ok := prog.Statements[0].(*ast.RequireStmt)
 	if !ok {
-		t.Fatalf("expected RequireStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.RequireStmt, got %T", prog.Statements[0])
 	}
 	if req.Path != "helpers" {
 		t.Errorf("path = %q, want %q", req.Path, "helpers")
@@ -364,9 +365,9 @@ func TestWalkRequireWithAlias(t *testing.T) {
 
 func TestWalkRequireWithSingle(t *testing.T) {
 	prog := parseAndWalk(t, `require "github.com/user/repo" with client`)
-	req, ok := prog.Statements[0].(*RequireStmt)
+	req, ok := prog.Statements[0].(*ast.RequireStmt)
 	if !ok {
-		t.Fatalf("expected RequireStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.RequireStmt, got %T", prog.Statements[0])
 	}
 	if req.Path != "github.com/user/repo" {
 		t.Errorf("path = %q, want %q", req.Path, "github.com/user/repo")
@@ -381,9 +382,9 @@ func TestWalkRequireWithSingle(t *testing.T) {
 
 func TestWalkRequireWithMultiple(t *testing.T) {
 	prog := parseAndWalk(t, `require "github.com/user/repo" with client, issue, repo`)
-	req, ok := prog.Statements[0].(*RequireStmt)
+	req, ok := prog.Statements[0].(*ast.RequireStmt)
 	if !ok {
-		t.Fatalf("expected RequireStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.RequireStmt, got %T", prog.Statements[0])
 	}
 	if len(req.With) != 3 {
 		t.Fatalf("with = %v, want 3 items", req.With)
@@ -395,15 +396,15 @@ func TestWalkRequireWithMultiple(t *testing.T) {
 
 func TestWalkDotExpr(t *testing.T) {
 	prog := parseAndWalk(t, `x = ns.value`)
-	assign := prog.Statements[0].(*AssignStmt)
-	dot, ok := assign.Value.(*DotExpr)
+	assign := prog.Statements[0].(*ast.AssignStmt)
+	dot, ok := assign.Value.(*ast.DotExpr)
 	if !ok {
-		t.Fatalf("expected DotExpr, got %T", assign.Value)
+		t.Fatalf("expected ast.DotExpr, got %T", assign.Value)
 	}
 	if dot.Field != "value" {
 		t.Errorf("field = %q, want %q", dot.Field, "value")
 	}
-	ident := dot.Object.(*IdentExpr)
+	ident := dot.Object.(*ast.IdentExpr)
 	if ident.Name != "ns" {
 		t.Errorf("object = %q, want %q", ident.Name, "ns")
 	}
@@ -411,14 +412,14 @@ func TestWalkDotExpr(t *testing.T) {
 
 func TestWalkDotCall(t *testing.T) {
 	prog := parseAndWalk(t, `ns.func(1, 2)`)
-	exprStmt := prog.Statements[0].(*ExprStmt)
-	call, ok := exprStmt.Expression.(*CallExpr)
+	exprStmt := prog.Statements[0].(*ast.ExprStmt)
+	call, ok := exprStmt.Expression.(*ast.CallExpr)
 	if !ok {
-		t.Fatalf("expected CallExpr, got %T", exprStmt.Expression)
+		t.Fatalf("expected ast.CallExpr, got %T", exprStmt.Expression)
 	}
-	dot, ok := call.Func.(*DotExpr)
+	dot, ok := call.Func.(*ast.DotExpr)
 	if !ok {
-		t.Fatalf("expected DotExpr as call func, got %T", call.Func)
+		t.Fatalf("expected ast.DotExpr as call func, got %T", call.Func)
 	}
 	if dot.Field != "func" {
 		t.Errorf("field = %q, want %q", dot.Field, "func")
@@ -430,9 +431,9 @@ func TestWalkDotCall(t *testing.T) {
 
 func TestWalkUseStmt(t *testing.T) {
 	prog := parseAndWalk(t, `use "http"`)
-	use, ok := prog.Statements[0].(*UseStmt)
+	use, ok := prog.Statements[0].(*ast.UseStmt)
 	if !ok {
-		t.Fatalf("expected UseStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.UseStmt, got %T", prog.Statements[0])
 	}
 	if use.Module != "http" {
 		t.Errorf("module = %q, want %q", use.Module, "http")
@@ -443,14 +444,14 @@ func TestWalkTryExpr(t *testing.T) {
 	prog := parseAndWalk(t, `use "os"`+"\n"+`x = try os.exec("ls") or err`+"\n"+`"fallback"`+"\n"+`end`)
 	found := false
 	for _, s := range prog.Statements {
-		if assign, ok := s.(*AssignStmt); ok {
-			if _, ok := assign.Value.(*TryExpr); ok {
+		if assign, ok := s.(*ast.AssignStmt); ok {
+			if _, ok := assign.Value.(*ast.TryExpr); ok {
 				found = true
 			}
 		}
 	}
 	if !found {
-		t.Error("expected to find TryExpr in AST")
+		t.Error("expected to find ast.TryExpr in AST")
 	}
 }
 
@@ -459,9 +460,9 @@ func TestWalkForIn(t *testing.T) {
 	if len(prog.Statements) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(prog.Statements))
 	}
-	forStmt, ok := prog.Statements[0].(*ForStmt)
+	forStmt, ok := prog.Statements[0].(*ast.ForStmt)
 	if !ok {
-		t.Fatalf("expected ForStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.ForStmt, got %T", prog.Statements[0])
 	}
 	if forStmt.Var != "x" {
 		t.Errorf("expected Var='x', got %q", forStmt.Var)
@@ -473,7 +474,7 @@ func TestWalkForIn(t *testing.T) {
 
 func TestWalkForInWithIndex(t *testing.T) {
 	prog := parseAndWalk(t, "for i, x in arr\nputs(x)\nend\n")
-	forStmt := prog.Statements[0].(*ForStmt)
+	forStmt := prog.Statements[0].(*ast.ForStmt)
 	if forStmt.Var != "i" || forStmt.IndexVar != "x" {
 		t.Errorf("expected Var='i', IndexVar='x', got %q, %q", forStmt.Var, forStmt.IndexVar)
 	}
@@ -481,19 +482,19 @@ func TestWalkForInWithIndex(t *testing.T) {
 
 func TestWalkBreak(t *testing.T) {
 	prog := parseAndWalk(t, "while true\nbreak\nend\n")
-	whileStmt := prog.Statements[0].(*WhileStmt)
-	_, ok := whileStmt.Body[0].(*BreakStmt)
+	whileStmt := prog.Statements[0].(*ast.WhileStmt)
+	_, ok := whileStmt.Body[0].(*ast.BreakStmt)
 	if !ok {
-		t.Fatalf("expected BreakStmt, got %T", whileStmt.Body[0])
+		t.Fatalf("expected ast.BreakStmt, got %T", whileStmt.Body[0])
 	}
 }
 
 func TestWalkNext(t *testing.T) {
 	prog := parseAndWalk(t, "while true\nnext\nend\n")
-	whileStmt := prog.Statements[0].(*WhileStmt)
-	_, ok := whileStmt.Body[0].(*NextStmt)
+	whileStmt := prog.Statements[0].(*ast.WhileStmt)
+	_, ok := whileStmt.Body[0].(*ast.NextStmt)
 	if !ok {
-		t.Fatalf("expected NextStmt, got %T", whileStmt.Body[0])
+		t.Fatalf("expected ast.NextStmt, got %T", whileStmt.Body[0])
 	}
 }
 
@@ -502,11 +503,11 @@ func TestWalkIndexAssign(t *testing.T) {
 	if len(prog.Statements) != 1 {
 		t.Fatalf("expected 1 statement, got %d", len(prog.Statements))
 	}
-	ia, ok := prog.Statements[0].(*IndexAssignStmt)
+	ia, ok := prog.Statements[0].(*ast.IndexAssignStmt)
 	if !ok {
-		t.Fatalf("expected IndexAssignStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.IndexAssignStmt, got %T", prog.Statements[0])
 	}
-	obj, ok := ia.Object.(*IdentExpr)
+	obj, ok := ia.Object.(*ast.IdentExpr)
 	if !ok || obj.Name != "arr" {
 		t.Errorf("expected object 'arr', got %v", ia.Object)
 	}
@@ -514,9 +515,9 @@ func TestWalkIndexAssign(t *testing.T) {
 
 func TestWalkHashAssign(t *testing.T) {
 	prog := parseAndWalk(t, `h["key"] = "val"`+"\n")
-	_, ok := prog.Statements[0].(*IndexAssignStmt)
+	_, ok := prog.Statements[0].(*ast.IndexAssignStmt)
 	if !ok {
-		t.Fatalf("expected IndexAssignStmt, got %T", prog.Statements[0])
+		t.Fatalf("expected ast.IndexAssignStmt, got %T", prog.Statements[0])
 	}
 }
 
@@ -525,8 +526,8 @@ func TestWalkHashAssign(t *testing.T) {
 func TestWalkTestDef(t *testing.T) {
 	prog := parseAndWalk(t, "rats \"my test\"\n  puts(\"hello\")\nend\n")
 	require.Len(t, prog.Statements, 1)
-	td, ok := prog.Statements[0].(*TestDef)
-	require.True(t, ok, "expected *TestDef, got %T", prog.Statements[0])
+	td, ok := prog.Statements[0].(*ast.TestDef)
+	require.True(t, ok, "expected *ast.TestDef, got %T", prog.Statements[0])
 	assert.Equal(t, "my test", td.Name)
 	assert.NotEmpty(t, td.Body, "expected at least one body statement")
 }
@@ -534,19 +535,19 @@ func TestWalkTestDef(t *testing.T) {
 func TestWalkSpawnExpr(t *testing.T) {
 	prog := parseAndWalk(t, "x = spawn\n  1 + 2\nend\n")
 	require.Len(t, prog.Statements, 1)
-	assign, ok := prog.Statements[0].(*AssignStmt)
-	require.True(t, ok, "expected *AssignStmt, got %T", prog.Statements[0])
-	spawn, ok := assign.Value.(*SpawnExpr)
-	require.True(t, ok, "expected *SpawnExpr, got %T", assign.Value)
+	assign, ok := prog.Statements[0].(*ast.AssignStmt)
+	require.True(t, ok, "expected *ast.AssignStmt, got %T", prog.Statements[0])
+	spawn, ok := assign.Value.(*ast.SpawnExpr)
+	require.True(t, ok, "expected *ast.SpawnExpr, got %T", assign.Value)
 	assert.NotEmpty(t, spawn.Body, "expected at least one body statement")
 }
 
 func TestWalkParallelExpr(t *testing.T) {
 	prog := parseAndWalk(t, "x = parallel\n  1\n  2\nend\n")
 	require.Len(t, prog.Statements, 1)
-	assign, ok := prog.Statements[0].(*AssignStmt)
-	require.True(t, ok, "expected *AssignStmt, got %T", prog.Statements[0])
-	par, ok := assign.Value.(*ParallelExpr)
-	require.True(t, ok, "expected *ParallelExpr, got %T", assign.Value)
+	assign, ok := prog.Statements[0].(*ast.AssignStmt)
+	require.True(t, ok, "expected *ast.AssignStmt, got %T", prog.Statements[0])
+	par, ok := assign.Value.(*ast.ParallelExpr)
+	require.True(t, ok, "expected *ast.ParallelExpr, got %T", assign.Value)
 	assert.NotEmpty(t, par.Body, "expected at least one body statement")
 }

@@ -34,9 +34,9 @@ Know which stage you're modifying:
 
 | Stage | File(s) | Notes |
 |-------|---------|-------|
-| Preprocessor | `compiler/preprocess.go` | Runs before parsing. New keywords must be added here to avoid shell fallback. |
+| Preprocessor | `ast/preprocess.go` | Runs before parsing. New keywords must be added here to avoid shell fallback. |
 | Grammar | `parser/rugo.ebnf` | **Never** hand-edit `parser.go`. Regenerate with `egg`. |
-| Walker | `compiler/walker.go` | Transforms parse tree → AST nodes (`compiler/nodes.go`). |
+| Walker | `ast/walker.go` | Transforms parse tree → AST nodes (`ast/nodes.go`). |
 | Codegen | `compiler/codegen.go` | AST nodes → Go source. |
 
 Regenerate the parser after grammar changes:
@@ -60,12 +60,12 @@ Follow the existing pattern in `docs/mods.md`. Each module needs:
 
 ## Compiler API
 
-The compiler package exposes a public API for tooling (linters, formatters, refactoring tools) that need AST access without full compilation.
+The `ast` and `compiler` packages expose a public API for tooling (linters, formatters, refactoring tools) that need AST access without full compilation. AST types and parsing live in `ast/`, code generation and build orchestration live in `compiler/`.
 
 ### Parsing
 
 ```go
-c := &compiler.Compiler{}
+c := &ast.Compiler{}
 
 // Parse a file into an AST without compiling to Go.
 prog, err := c.ParseFile("script.rugo")
@@ -80,7 +80,7 @@ Every `Statement` node has `StmtLine()` (start line) and `StmtEndLine()` (end li
 
 ```go
 for _, s := range prog.Statements {
-    if fn, ok := s.(*compiler.FuncDef); ok {
+    if fn, ok := s.(*ast.FuncDef); ok {
         fmt.Printf("def %s: lines %d-%d\n", fn.Name, fn.StmtLine(), fn.StmtEndLine())
     }
 }
@@ -94,7 +94,7 @@ The `Program.RawSource` field contains the original source before preprocessing 
 prog, _ := c.ParseFile("lib.rugo")
 lines := strings.Split(prog.RawSource, "\n")
 for _, s := range prog.Statements {
-    if fn, ok := s.(*compiler.FuncDef); ok {
+    if fn, ok := s.(*ast.FuncDef); ok {
         // Check the line above for a doc comment
         if fn.StmtLine() >= 2 && strings.HasPrefix(strings.TrimSpace(lines[fn.StmtLine()-2]), "#") {
             fmt.Printf("def %s has a doc comment\n", fn.Name)
@@ -117,13 +117,13 @@ ti := compiler.Infer(prog)
 ```go
 // Walk all statements (including nested ones inside blocks).
 // Return false to skip children of the current statement.
-compiler.WalkStmts(prog, func(s compiler.Statement) bool {
+compiler.WalkStmts(prog, func(s ast.Statement) bool {
     // called for every statement in the tree
     return true // return false to skip children
 })
 
 // Walk all expressions. Returns true on first match.
-compiler.WalkExprs(prog, func(e compiler.Expr) bool {
-    _, isCall := e.(*compiler.CallExpr)
+compiler.WalkExprs(prog, func(e ast.Expr) bool {
+    _, isCall := e.(*ast.CallExpr)
     return isCall // stops on first call expression found
 })

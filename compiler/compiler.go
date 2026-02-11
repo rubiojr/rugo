@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/rubiojr/rugo/ast"
 	"bytes"
 	"errors"
 	"fmt"
@@ -9,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rubiojr/rugo/compiler/gobridge"
+	"github.com/rubiojr/rugo/gobridge"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/parser"
 	"github.com/rubiojr/rugo/remote"
@@ -50,7 +51,7 @@ type Compiler struct {
 // CompileResult holds the output of a compilation.
 type CompileResult struct {
 	GoSource   string
-	Program    *Program
+	Program    *ast.Program
 	SourceFile string // original source filename
 }
 
@@ -139,10 +140,10 @@ func (c *Compiler) discoverHelpers() string {
 
 // goModContent generates a go.mod with require lines for any external
 // dependencies declared by the imported modules.
-func goModContent(prog *Program) string {
+func goModContent(prog *ast.Program) string {
 	var modNames []string
 	for _, stmt := range prog.Statements {
-		if imp, ok := stmt.(*UseStmt); ok {
+		if imp, ok := stmt.(*ast.UseStmt); ok {
 			modNames = append(modNames, imp.Module)
 		}
 	}
@@ -171,10 +172,10 @@ func (c *Compiler) Run(filename string, extraArgs ...string) error {
 		return err
 	}
 
-	// Write to temp directory with go module
-	tmpDir, err := os.MkdirTemp("", "rugo-*")
+	// Write to build cache directory with go module
+	tmpDir, err := makeBuildDir()
 	if err != nil {
-		return fmt.Errorf("creating temp dir: %w", err)
+		return fmt.Errorf("creating build dir: %w", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -220,10 +221,10 @@ func (c *Compiler) Build(filename, output string) error {
 		return err
 	}
 
-	// Write to temp directory with a go module
-	tmpDir, err := os.MkdirTemp("", "rugo-*")
+	// Write to build cache directory with a go module
+	tmpDir, err := makeBuildDir()
 	if err != nil {
-		return fmt.Errorf("creating temp dir: %w", err)
+		return fmt.Errorf("creating build dir: %w", err)
 	}
 	defer os.RemoveAll(tmpDir)
 
@@ -269,7 +270,7 @@ func (c *Compiler) Emit(filename string) (string, error) {
 	return result.GoSource, nil
 }
 
-func (c *Compiler) parseFile(filename, displayName string) (*Program, error) {
+func (c *Compiler) parseFile(filename, displayName string) (*ast.Program, error) {
 	src, err := os.ReadFile(filename)
 	if err != nil {
 		return nil, fmt.Errorf("reading %s: %w", displayName, err)
@@ -277,46 +278,46 @@ func (c *Compiler) parseFile(filename, displayName string) (*Program, error) {
 	return c.parseSource(c.sourcePrefix+string(src), displayName)
 }
 
-// ParseFile reads a Rugo source file and parses it into a Program AST
+// ParseFile reads a Rugo source file and parses it into a ast.Program AST
 // without compiling to Go. Useful for tooling such as linters, formatters,
 // and refactoring tools that need AST access without full compilation.
-func (c *Compiler) ParseFile(filename string) (*Program, error) {
+func (c *Compiler) ParseFile(filename string) (*ast.Program, error) {
 	return c.parseFile(filename, filename)
 }
 
-// ParseSource parses raw Rugo source code into a Program AST without
+// ParseSource parses raw Rugo source code into a ast.Program AST without
 // compiling to Go. The name parameter is used for error messages.
-func (c *Compiler) ParseSource(source, name string) (*Program, error) {
+func (c *Compiler) ParseSource(source, name string) (*ast.Program, error) {
 	return c.parseSource(source, name)
 }
 
-func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
+func (c *Compiler) parseSource(source, displayName string) (*ast.Program, error) {
 	// Preserve raw source before preprocessing destroys comments.
 	rawSource := source
 
 	// Expand heredocs before comment stripping (bodies may contain #).
-	cleaned, heredocLineMap, err := expandHeredocs(source)
+	cleaned, heredocLineMap, err := ast.ExpandHeredocs(source)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
 
 	// Strip comments
-	cleaned, err = stripComments(cleaned)
+	cleaned, err = ast.StripComments(cleaned)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
 
 	// Expand struct definitions and method definitions before other preprocessing
 	var structLineMap []int
-	var structInfos []StructInfo
-	cleaned, structLineMap, structInfos = expandStructDefs(cleaned)
+	var structInfos []ast.StructInfo
+	cleaned, structLineMap, structInfos = ast.ExpandStructDefs(cleaned)
 
 	// Scan for user-defined function names (quick pass for def lines)
-	userFuncs := scanFuncDefs(cleaned)
+	userFuncs := ast.ScanFuncDefs(cleaned)
 
 	// preprocess: paren-free calls + shell fallback
 	var lineMap []int
-	cleaned, lineMap, err = preprocess(cleaned, userFuncs)
+	cleaned, lineMap, err = ast.Preprocess(cleaned, userFuncs)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
@@ -349,12 +350,12 @@ func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 	}
 
 	p := &parser.Parser{}
-	ast, err := p.Parse(displayName, []byte(cleaned))
+	flatAST, err := p.Parse(displayName, []byte(cleaned))
 	if err != nil {
 		return nil, firstParseError(err)
 	}
 
-	prog, err := walkWithLineMap(p, ast, lineMap)
+	prog, err := ast.WalkWithLineMap(p, flatAST, lineMap)
 	if err != nil {
 		return nil, fmt.Errorf("%s: internal compiler error: %w (please report this bug)", displayName, err)
 	}
@@ -365,17 +366,17 @@ func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 	return prog, nil
 }
 
-func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
+func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 	// Validate that import/require only appear at top level
 	if err := validateTopLevelOnly(prog.Statements, prog.SourceFile); err != nil {
 		return nil, err
 	}
 
-	var resolved []Statement
+	var resolved []ast.Statement
 
 	for _, s := range prog.Statements {
 		// Validate and deduplicate use statements (Rugo stdlib modules)
-		if use, ok := s.(*UseStmt); ok {
+		if use, ok := s.(*ast.UseStmt); ok {
 			if use.Module == "" {
 				return nil, fmt.Errorf("%s:%d: empty module name in use statement", prog.SourceFile, s.StmtLine())
 			}
@@ -393,7 +394,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		}
 
 		// Validate and deduplicate import statements (Go stdlib bridge)
-		if imp, ok := s.(*ImportStmt); ok {
+		if imp, ok := s.(*ast.ImportStmt); ok {
 			if imp.Package == "" {
 				return nil, fmt.Errorf("%s:%d: empty package name in import statement", prog.SourceFile, s.StmtLine())
 			}
@@ -415,7 +416,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 			continue
 		}
 
-		req, ok := s.(*RequireStmt)
+		req, ok := s.(*ast.RequireStmt)
 		if !ok {
 			resolved = append(resolved, s)
 			continue
@@ -506,15 +507,15 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 
 				for _, rs := range reqProg.Statements {
 					switch st := rs.(type) {
-					case *UseStmt:
+					case *ast.UseStmt:
 						c.imports[st.Module] = true
 						resolved = append(resolved, st)
-					case *ImportStmt:
+					case *ast.ImportStmt:
 						if _, exists := c.goImports[st.Package]; !exists {
 							c.goImports[st.Package] = st.Alias
 						}
 						resolved = append(resolved, st)
-					case *FuncDef:
+					case *ast.FuncDef:
 						if st.Namespace != "" {
 							resolved = append(resolved, st)
 							continue
@@ -526,14 +527,14 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 						c.nsFuncs[nsKey] = req.Path + "/" + modName
 						st.Namespace = ns
 						resolved = append(resolved, st)
-					case *AssignStmt:
+					case *ast.AssignStmt:
 						if st.Namespace != "" {
 							resolved = append(resolved, st)
 							continue
 						}
 						st.Namespace = ns
 						resolved = append(resolved, st)
-					case *ExprStmt:
+					case *ast.ExprStmt:
 						resolved = append(resolved, st)
 					}
 				}
@@ -636,15 +637,15 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 		// Expression statements (e.g. web.get route registrations) are also included.
 		for _, rs := range reqProg.Statements {
 			switch st := rs.(type) {
-			case *UseStmt:
+			case *ast.UseStmt:
 				c.imports[st.Module] = true
 				resolved = append(resolved, st)
-			case *ImportStmt:
+			case *ast.ImportStmt:
 				if _, exists := c.goImports[st.Package]; !exists {
 					c.goImports[st.Package] = st.Alias
 				}
 				resolved = append(resolved, st)
-			case *FuncDef:
+			case *ast.FuncDef:
 				if st.Namespace != "" {
 					// Already namespaced from a nested require — pass through
 					resolved = append(resolved, st)
@@ -659,7 +660,7 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				st.Namespace = ns
 				st.SourceFile = reqSourceFile
 				resolved = append(resolved, st)
-			case *AssignStmt:
+			case *ast.AssignStmt:
 				if st.Namespace != "" {
 					resolved = append(resolved, st)
 					continue
@@ -667,13 +668,13 @@ func (c *Compiler) resolveRequires(prog *Program) (*Program, error) {
 				// Top-level assignments (constants) from required files
 				st.Namespace = ns
 				resolved = append(resolved, st)
-			case *ExprStmt:
+			case *ast.ExprStmt:
 				resolved = append(resolved, st)
 			}
 		}
 	}
 
-	return &Program{Statements: resolved}, nil
+	return &ast.Program{Statements: resolved}, nil
 }
 
 // displayPath returns a relative path for use in error messages.
@@ -920,7 +921,7 @@ func simplifyExpectedSet(raw string) string {
 }
 
 // isGrammarSymbol returns true for internal parser non-terminal names
-// like HashLit, ArrayLit, ParallelExpr, etc. These are PascalCase
+// like HashLit, ArrayLit, ast.ParallelExpr, etc. These are PascalCase
 // identifiers that should not be shown to users.
 func isGrammarSymbol(s string) bool {
 	if len(s) == 0 {
@@ -1224,14 +1225,14 @@ func translateBuildError(stderr, sourceFile string) error {
 
 // validateTopLevelOnly walks statement trees and returns an error if
 // import or require statements appear inside function bodies or blocks.
-func validateTopLevelOnly(stmts []Statement, sourceFile string) error {
+func validateTopLevelOnly(stmts []ast.Statement, sourceFile string) error {
 	for _, s := range stmts {
 		switch st := s.(type) {
-		case *FuncDef:
+		case *ast.FuncDef:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
-		case *IfStmt:
+		case *ast.IfStmt:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
@@ -1243,15 +1244,15 @@ func validateTopLevelOnly(stmts []Statement, sourceFile string) error {
 			if err := rejectNestedImports(st.ElseBody, sourceFile); err != nil {
 				return err
 			}
-		case *WhileStmt:
+		case *ast.WhileStmt:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
-		case *ForStmt:
+		case *ast.ForStmt:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
-		case *TestDef:
+		case *ast.TestDef:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
@@ -1262,23 +1263,23 @@ func validateTopLevelOnly(stmts []Statement, sourceFile string) error {
 
 // rejectNestedImports checks a block body for use/import/require statements
 // and returns an error if any are found.
-func rejectNestedImports(stmts []Statement, sourceFile string) error {
+func rejectNestedImports(stmts []ast.Statement, sourceFile string) error {
 	for _, s := range stmts {
 		switch s.(type) {
-		case *UseStmt:
+		case *ast.UseStmt:
 			return fmt.Errorf("%s:%d: use statements must be at the top level", sourceFile, s.StmtLine())
-		case *ImportStmt:
+		case *ast.ImportStmt:
 			return fmt.Errorf("%s:%d: import statements must be at the top level", sourceFile, s.StmtLine())
-		case *RequireStmt:
+		case *ast.RequireStmt:
 			return fmt.Errorf("%s:%d: require statements must be at the top level", sourceFile, s.StmtLine())
 		}
 		// Recurse into nested blocks
 		switch st := s.(type) {
-		case *FuncDef:
+		case *ast.FuncDef:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
-		case *IfStmt:
+		case *ast.IfStmt:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
@@ -1290,17 +1291,31 @@ func rejectNestedImports(stmts []Statement, sourceFile string) error {
 			if err := rejectNestedImports(st.ElseBody, sourceFile); err != nil {
 				return err
 			}
-		case *WhileStmt:
+		case *ast.WhileStmt:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
-		case *ForStmt:
+		case *ast.ForStmt:
 			if err := rejectNestedImports(st.Body, sourceFile); err != nil {
 				return err
 			}
 		}
 	}
 	return nil
+}
+
+// makeBuildDir creates a temporary directory for compilation under
+// ~/.cache/rugo/build/. The caller must defer os.RemoveAll on the result.
+func makeBuildDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("cannot determine home directory: %w", err)
+	}
+	cacheDir := filepath.Join(home, ".cache", "rugo", "build")
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return "", fmt.Errorf("creating build cache dir: %w", err)
+	}
+	return os.MkdirTemp(cacheDir, "rugo-*")
 }
 
 // appendGoNoSumCheck adds GONOSUMCHECK=* to the environment if not already set,
@@ -1316,7 +1331,7 @@ func appendGoNoSumCheck(env []string) []string {
 }
 
 // goBridgeNamespace returns the Rugo namespace for a Go bridge import.
-func goBridgeNamespace(imp *ImportStmt) string {
+func goBridgeNamespace(imp *ast.ImportStmt) string {
 	if imp.Alias != "" {
 		return imp.Alias
 	}
@@ -1343,7 +1358,7 @@ func validateNamespace(name string) error {
 			return fmt.Errorf("contains invalid character %q", ch)
 		}
 	}
-	if rugoKeywords[name] {
+	if ast.RugoKeywords[name] {
 		return fmt.Errorf("%q is a reserved keyword", name)
 	}
 	return nil

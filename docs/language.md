@@ -383,7 +383,7 @@ Raw strings are parsed by a separate `raw_str_lit` lexer rule in the grammar and
 
 ## Preprocessor
 
-The preprocessor (`compiler/preprocess.go`) runs before parsing and performs line-level source transformations. It operates in multiple passes:
+The preprocessor (`ast/preprocess.go`) runs before parsing and performs line-level source transformations. It operates in multiple passes:
 
 ### Pass 1: Compound Assignment Expansion
 
@@ -504,7 +504,7 @@ The parser produces a flat `[]int32` array encoding the parse tree. Non-terminal
 
 ## AST
 
-The typed AST is defined in `compiler/nodes.go`. It uses Go interfaces with marker methods for type safety:
+The typed AST is defined in `ast/nodes.go`. It uses Go interfaces with marker methods for type safety:
 
 ```
 Node (interface)
@@ -550,7 +550,7 @@ Every statement node embeds `BaseStmt`, which carries a `SourceLine` field mappi
 
 ### AST Walker
 
-The walker (`compiler/walker.go`) transforms the parser's flat `[]int32` encoding into the typed AST. It reads the flat array sequentially, matching non-terminal symbols to construct the appropriate node types. The walker also applies the preprocessor's line map to set accurate source line numbers on each statement.
+The walker (`ast/walker.go`) transforms the parser's flat `[]int32` encoding into the typed AST. It reads the flat array sequentially, matching non-terminal symbols to construct the appropriate node types. The walker also applies the preprocessor's line map to set accurate source line numbers on each statement.
 
 ## Code Generation
 

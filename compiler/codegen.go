@@ -1,12 +1,13 @@
 package compiler
 
 import (
+	"github.com/rubiojr/rugo/ast"
 	_ "embed"
 	"fmt"
 	"sort"
 	"strings"
 
-	"github.com/rubiojr/rugo/compiler/gobridge"
+	"github.com/rubiojr/rugo/gobridge"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/parser"
 )
@@ -41,13 +42,13 @@ type codeGen struct {
 	handlerVars     map[string]bool   // top-level vars promoted to package-level for handler access
 	testMode        bool              // include rats blocks in output
 	typeInfo        *TypeInfo         // inferred type information (nil disables typed codegen)
-	currentFunc     *FuncDef          // current function being generated (for type lookups)
+	currentFunc     *ast.FuncDef          // current function being generated (for type lookups)
 	varTypeScope    string            // override scope key for varType lookups (test/bench blocks)
 	inSpawn         int               // nesting depth of spawn blocks (>0 means inside spawn)
 }
 
-// generate produces Go source code from a Program AST.
-func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
+// generate produces Go source code from a ast.Program AST.
+func generate(prog *ast.Program, sourceFile string, testMode bool) (string, error) {
 	// Run type inference before code generation.
 	ti := Infer(prog)
 
@@ -68,21 +69,21 @@ func generate(prog *Program, sourceFile string, testMode bool) (string, error) {
 	return g.generate(prog)
 }
 
-func (g *codeGen) generate(prog *Program) (string, error) {
+func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	// Collect imports and separate functions, tests, benchmarks, and top-level statements
-	var funcs []*FuncDef
-	var tests []*TestDef
-	var benches []*BenchDef
-	var topStmts []Statement
-	var nsVars []*AssignStmt // top-level assignments from require'd files (emitted as package-level vars)
-	var setupFunc *FuncDef
-	var teardownFunc *FuncDef
-	var setupFileFunc *FuncDef
-	var teardownFileFunc *FuncDef
+	var funcs []*ast.FuncDef
+	var tests []*ast.TestDef
+	var benches []*ast.BenchDef
+	var topStmts []ast.Statement
+	var nsVars []*ast.AssignStmt // top-level assignments from require'd files (emitted as package-level vars)
+	var setupFunc *ast.FuncDef
+	var teardownFunc *ast.FuncDef
+	var setupFileFunc *ast.FuncDef
+	var teardownFileFunc *ast.FuncDef
 	funcLines := make(map[string]int) // track first definition line per function
 	for _, s := range prog.Statements {
 		switch st := s.(type) {
-		case *FuncDef:
+		case *ast.FuncDef:
 			// Detect duplicate function definitions
 			key := st.Name
 			if st.Namespace != "" {
@@ -103,22 +104,22 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 				teardownFileFunc = st
 			}
 			funcs = append(funcs, st)
-		case *TestDef:
+		case *ast.TestDef:
 			if g.testMode {
 				tests = append(tests, st)
 			}
-		case *BenchDef:
+		case *ast.BenchDef:
 			benches = append(benches, st)
-		case *RequireStmt:
+		case *ast.RequireStmt:
 			continue
-		case *UseStmt:
+		case *ast.UseStmt:
 			g.imports[st.Module] = true
 			continue
-		case *ImportStmt:
+		case *ast.ImportStmt:
 			g.goImports[st.Package] = st.Alias
 			continue
 		default:
-			if assign, ok := s.(*AssignStmt); ok && assign.Namespace != "" {
+			if assign, ok := s.(*ast.AssignStmt); ok && assign.Namespace != "" {
 				nsVars = append(nsVars, assign)
 			} else {
 				topStmts = append(topStmts, s)
@@ -151,7 +152,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		// Collect top-level assignment targets
 		topVarNames := make(map[string]bool)
 		for _, s := range topStmts {
-			if a, ok := s.(*AssignStmt); ok && a.Namespace == "" {
+			if a, ok := s.(*ast.AssignStmt); ok && a.Namespace == "" {
 				topVarNames[a.Target] = true
 			}
 		}
@@ -164,7 +165,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 			// Collect variables assigned inside this function body
 			localAssigns := make(map[string]bool)
 			for _, s := range f.Body {
-				if a, ok := s.(*AssignStmt); ok {
+				if a, ok := s.(*ast.AssignStmt); ok {
 					localAssigns[a.Target] = true
 				}
 			}
@@ -181,7 +182,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 		for _, t := range tests {
 			localAssigns := make(map[string]bool)
 			for _, s := range t.Body {
-				if a, ok := s.(*AssignStmt); ok {
+				if a, ok := s.(*ast.AssignStmt); ok {
 					localAssigns[a.Target] = true
 				}
 			}
@@ -371,7 +372,7 @@ func (g *codeGen) generate(prog *Program) (string, error) {
 	return g.sb.String(), nil
 }
 
-func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, setup, teardown, setupFile, teardownFile *FuncDef) (string, error) {
+func (g *codeGen) generateTestHarness(tests []*ast.TestDef, topStmts []ast.Statement, setup, teardown, setupFile, teardownFile *ast.FuncDef) (string, error) {
 	// Emit each test as a function
 	for i, t := range tests {
 		funcName := fmt.Sprintf("rugo_test_%d", i)
@@ -465,7 +466,7 @@ func (g *codeGen) generateTestHarness(tests []*TestDef, topStmts []Statement, se
 	return g.sb.String(), nil
 }
 
-func (g *codeGen) generateBenchHarness(benches []*BenchDef, topStmts []Statement) (string, error) {
+func (g *codeGen) generateBenchHarness(benches []*ast.BenchDef, topStmts []ast.Statement) (string, error) {
 	// Emit each benchmark as a function
 	for i, b := range benches {
 		funcName := fmt.Sprintf("rugo_bench_%d", i)
@@ -545,7 +546,7 @@ func (g *codeGen) writeSpawnRuntime() {
 // Each map maps user-defined function names to their Go implementations.
 // When a module provides DispatchTransform, only functions matching transformed
 // handler names from the source are included. Otherwise all eligible functions are included.
-func (g *codeGen) writeDispatchMaps(funcs []*FuncDef, handlers map[string]bool) {
+func (g *codeGen) writeDispatchMaps(funcs []*ast.FuncDef, handlers map[string]bool) {
 	for _, name := range importedModuleNames(g.imports) {
 		m, ok := modules.Get(name)
 		if !ok || m.DispatchEntry == "" {
@@ -586,7 +587,7 @@ func (g *codeGen) writeDispatchMaps(funcs []*FuncDef, handlers map[string]bool) 
 // collectDispatchHandlers scans top-level statements for module method calls
 // that register handler functions (e.g. web.get("/", "handler"), cli.cmd("greet", "fn"))
 // and returns the set of handler function names referenced.
-func collectDispatchHandlers(stmts []Statement, imports map[string]bool) map[string]bool {
+func collectDispatchHandlers(stmts []ast.Statement, imports map[string]bool) map[string]bool {
 	handlers := make(map[string]bool)
 	// Collect module names that have dispatch entries
 	dispatchModules := make(map[string]bool)
@@ -604,11 +605,11 @@ func collectDispatchHandlers(stmts []Statement, imports map[string]bool) map[str
 	return handlers
 }
 
-func collectDispatchHandlersFromStmt(s Statement, dispatchModules map[string]bool, handlers map[string]bool) {
+func collectDispatchHandlersFromStmt(s ast.Statement, dispatchModules map[string]bool, handlers map[string]bool) {
 	switch st := s.(type) {
-	case *ExprStmt:
+	case *ast.ExprStmt:
 		collectDispatchHandlersFromExpr(st.Expression, dispatchModules, handlers)
-	case *IfStmt:
+	case *ast.IfStmt:
 		for _, b := range st.Body {
 			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
 		}
@@ -620,44 +621,44 @@ func collectDispatchHandlersFromStmt(s Statement, dispatchModules map[string]boo
 		for _, b := range st.ElseBody {
 			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
 		}
-	case *ForStmt:
+	case *ast.ForStmt:
 		for _, b := range st.Body {
 			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
 		}
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		for _, b := range st.Body {
 			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
 		}
-	case *FuncDef:
+	case *ast.FuncDef:
 		for _, b := range st.Body {
 			collectDispatchHandlersFromStmt(b, dispatchModules, handlers)
 		}
 	}
 }
 
-func collectDispatchHandlersFromExpr(e Expr, dispatchModules map[string]bool, handlers map[string]bool) {
-	call, ok := e.(*CallExpr)
+func collectDispatchHandlersFromExpr(e ast.Expr, dispatchModules map[string]bool, handlers map[string]bool) {
+	call, ok := e.(*ast.CallExpr)
 	if !ok {
 		return
 	}
 	// Check if this is a module.method() call on a dispatch module
-	dot, ok := call.Func.(*DotExpr)
+	dot, ok := call.Func.(*ast.DotExpr)
 	if !ok {
 		return
 	}
-	ident, ok := dot.Object.(*IdentExpr)
+	ident, ok := dot.Object.(*ast.IdentExpr)
 	if !ok || !dispatchModules[ident.Name] {
 		return
 	}
 	// Extract string literal arguments as potential handler names
 	for _, arg := range call.Args {
-		if str, ok := arg.(*StringLiteral); ok {
+		if str, ok := arg.(*ast.StringLiteral); ok {
 			handlers[str.Value] = true
 		}
 	}
 }
 
-func (g *codeGen) writeFunc(f *FuncDef) error {
+func (g *codeGen) writeFunc(f *ast.FuncDef) error {
 	// Use the function's original source file for //line directives if available.
 	if f.SourceFile != "" {
 		saved := g.sourceFile
@@ -703,7 +704,7 @@ func (g *codeGen) writeFunc(f *FuncDef) error {
 	for i, s := range f.Body {
 		// Implicit return: last expression in function body becomes the return value.
 		if i == len(f.Body)-1 {
-			if es, ok := s.(*ExprStmt); ok {
+			if es, ok := s.(*ast.ExprStmt); ok {
 				g.emitLineDirective(es.SourceLine)
 				expr, err := g.exprString(es.Expression)
 				if err != nil {
@@ -735,7 +736,7 @@ func (g *codeGen) writeFunc(f *FuncDef) error {
 }
 
 // funcTypeInfo returns the inferred type info for a function, or nil.
-func (g *codeGen) funcTypeInfo(f *FuncDef) *FuncTypeInfo {
+func (g *codeGen) funcTypeInfo(f *ast.FuncDef) *FuncTypeInfo {
 	if g.typeInfo == nil {
 		return nil
 	}
@@ -765,37 +766,37 @@ func (g *codeGen) emitLineDirective(line int) {
 	}
 }
 
-func (g *codeGen) writeStmt(s Statement) error {
+func (g *codeGen) writeStmt(s ast.Statement) error {
 	g.emitLineDirective(s.StmtLine())
 	var err error
 	switch st := s.(type) {
-	case *AssignStmt:
+	case *ast.AssignStmt:
 		err = g.writeAssign(st)
-	case *IndexAssignStmt:
+	case *ast.IndexAssignStmt:
 		err = g.writeIndexAssign(st)
-	case *DotAssignStmt:
+	case *ast.DotAssignStmt:
 		err = g.writeDotAssign(st)
-	case *ExprStmt:
+	case *ast.ExprStmt:
 		err = g.writeExprStmt(st)
-	case *IfStmt:
+	case *ast.IfStmt:
 		err = g.writeIf(st)
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		err = g.writeWhile(st)
-	case *ForStmt:
+	case *ast.ForStmt:
 		err = g.writeFor(st)
-	case *BreakStmt:
+	case *ast.BreakStmt:
 		g.writeln("break")
 		return nil
-	case *NextStmt:
+	case *ast.NextStmt:
 		g.writeln("continue")
 		return nil
-	case *ReturnStmt:
+	case *ast.ReturnStmt:
 		err = g.writeReturn(st)
-	case *FuncDef:
+	case *ast.FuncDef:
 		err = fmt.Errorf("nested function definitions not supported")
-	case *RequireStmt:
+	case *ast.RequireStmt:
 		return nil
-	case *ImportStmt:
+	case *ast.ImportStmt:
 		return nil
 	default:
 		err = fmt.Errorf("unknown statement type: %T", s)
@@ -807,7 +808,7 @@ func (g *codeGen) writeStmt(s Statement) error {
 }
 
 // stmtError wraps a codegen error with file:line context from the statement.
-func (g *codeGen) stmtError(s Statement, err error) error {
+func (g *codeGen) stmtError(s ast.Statement, err error) error {
 	line := s.StmtLine()
 	msg := err.Error()
 	// Strip existing "line N: " prefix if present
@@ -822,7 +823,7 @@ func (g *codeGen) stmtError(s Statement, err error) error {
 	return err
 }
 
-func (g *codeGen) writeAssign(a *AssignStmt) error {
+func (g *codeGen) writeAssign(a *ast.AssignStmt) error {
 	// Uppercase names are constants — reject reassignment
 	if origLine, ok := g.constantLine(a.Target); ok {
 		return fmt.Errorf("cannot reassign constant %s (first assigned at line %d)", a.Target, origLine)
@@ -861,7 +862,7 @@ func (g *codeGen) writeAssign(a *AssignStmt) error {
 	return nil
 }
 
-func (g *codeGen) writeIndexAssign(ia *IndexAssignStmt) error {
+func (g *codeGen) writeIndexAssign(ia *ast.IndexAssignStmt) error {
 	obj, err := g.exprString(ia.Object)
 	if err != nil {
 		return err
@@ -878,7 +879,7 @@ func (g *codeGen) writeIndexAssign(ia *IndexAssignStmt) error {
 	return nil
 }
 
-func (g *codeGen) writeDotAssign(da *DotAssignStmt) error {
+func (g *codeGen) writeDotAssign(da *ast.DotAssignStmt) error {
 	if da.Field == "__type__" {
 		return fmt.Errorf("cannot assign to .__type__ — use type_of() for type introspection")
 	}
@@ -894,7 +895,7 @@ func (g *codeGen) writeDotAssign(da *DotAssignStmt) error {
 	return nil
 }
 
-func (g *codeGen) writeExprStmt(e *ExprStmt) error {
+func (g *codeGen) writeExprStmt(e *ast.ExprStmt) error {
 	expr, err := g.exprString(e.Expression)
 	if err != nil {
 		return err
@@ -903,10 +904,10 @@ func (g *codeGen) writeExprStmt(e *ExprStmt) error {
 	return nil
 }
 
-func (g *codeGen) writeIf(i *IfStmt) error {
+func (g *codeGen) writeIf(i *ast.IfStmt) error {
 	// Pre-declare variables assigned in any branch so they're visible
 	// after the if block (Ruby-like scoping: if/else doesn't create a new scope).
-	var allBranches []Statement
+	var allBranches []ast.Statement
 	allBranches = append(allBranches, i.Body...)
 	for _, ec := range i.ElsifClauses {
 		allBranches = append(allBranches, ec.Body...)
@@ -966,19 +967,19 @@ func (g *codeGen) writeIf(i *IfStmt) error {
 
 // collectAssignTargets returns variable names assigned in a list of statements,
 // in order of first appearance. It recurses into nested if/else blocks.
-func collectAssignTargets(stmts []Statement) []string {
+func collectAssignTargets(stmts []ast.Statement) []string {
 	var names []string
 	seen := make(map[string]bool)
-	var collect func([]Statement)
-	collect = func(stmts []Statement) {
+	var collect func([]ast.Statement)
+	collect = func(stmts []ast.Statement) {
 		for _, s := range stmts {
 			switch st := s.(type) {
-			case *AssignStmt:
+			case *ast.AssignStmt:
 				if !seen[st.Target] {
 					names = append(names, st.Target)
 					seen[st.Target] = true
 				}
-			case *IfStmt:
+			case *ast.IfStmt:
 				collect(st.Body)
 				for _, clause := range st.ElsifClauses {
 					collect(clause.Body)
@@ -991,7 +992,7 @@ func collectAssignTargets(stmts []Statement) []string {
 	return names
 }
 
-func (g *codeGen) writeWhile(w *WhileStmt) error {
+func (g *codeGen) writeWhile(w *ast.WhileStmt) error {
 	cond, err := g.exprString(w.Condition)
 	if err != nil {
 		return err
@@ -1010,7 +1011,7 @@ func (g *codeGen) writeWhile(w *WhileStmt) error {
 	return nil
 }
 
-func (g *codeGen) writeFor(f *ForStmt) error {
+func (g *codeGen) writeFor(f *ast.ForStmt) error {
 	coll, err := g.exprString(f.Collection)
 	if err != nil {
 		return err
@@ -1060,7 +1061,7 @@ func (g *codeGen) writeFor(f *ForStmt) error {
 	return nil
 }
 
-func (g *codeGen) writeReturn(r *ReturnStmt) error {
+func (g *codeGen) writeReturn(r *ast.ReturnStmt) error {
 	// Inside a spawn block, return EXPR must assign to t.result and
 	// use a bare return (the goroutine closure has no return value).
 	if g.inSpawn > 0 {
@@ -1091,19 +1092,19 @@ func (g *codeGen) writeReturn(r *ReturnStmt) error {
 	return nil
 }
 
-func (g *codeGen) exprString(e Expr) (string, error) {
+func (g *codeGen) exprString(e ast.Expr) (string, error) {
 	switch ex := e.(type) {
-	case *IntLiteral:
+	case *ast.IntLiteral:
 		if g.exprIsTyped(e) {
 			return ex.Value, nil
 		}
 		return fmt.Sprintf("interface{}(%s)", ex.Value), nil
-	case *FloatLiteral:
+	case *ast.FloatLiteral:
 		if g.exprIsTyped(e) {
 			return ex.Value, nil
 		}
 		return fmt.Sprintf("interface{}(%s)", ex.Value), nil
-	case *BoolLiteral:
+	case *ast.BoolLiteral:
 		if g.exprIsTyped(e) {
 			if ex.Value {
 				return "true", nil
@@ -1114,9 +1115,9 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 			return "interface{}(true)", nil
 		}
 		return "interface{}(false)", nil
-	case *NilLiteral:
+	case *ast.NilLiteral:
 		return "interface{}(nil)", nil
-	case *StringLiteral:
+	case *ast.StringLiteral:
 		if ex.Raw {
 			escaped := goEscapeString(ex.Value)
 			if g.exprIsTyped(e) {
@@ -1125,7 +1126,7 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 			return fmt.Sprintf(`interface{}("%s")`, escaped), nil
 		}
 		return g.stringLiteral(ex.Value, g.exprIsTyped(e))
-	case *IdentExpr:
+	case *ast.IdentExpr:
 		// Bare function name without parens: treat as zero-arg call (Ruby semantics).
 		// Local variables shadow function names.
 		if !g.isDeclared(ex.Name) {
@@ -1150,29 +1151,29 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 			}
 		}
 		return ex.Name, nil
-	case *DotExpr:
+	case *ast.DotExpr:
 		return g.dotExpr(ex)
-	case *BinaryExpr:
+	case *ast.BinaryExpr:
 		return g.binaryExpr(ex)
-	case *UnaryExpr:
+	case *ast.UnaryExpr:
 		return g.unaryExpr(ex)
-	case *CallExpr:
+	case *ast.CallExpr:
 		return g.callExpr(ex)
-	case *IndexExpr:
+	case *ast.IndexExpr:
 		return g.indexExpr(ex)
-	case *SliceExpr:
+	case *ast.SliceExpr:
 		return g.sliceExpr(ex)
-	case *ArrayLiteral:
+	case *ast.ArrayLiteral:
 		return g.arrayLiteral(ex)
-	case *HashLiteral:
+	case *ast.HashLiteral:
 		return g.hashLiteral(ex)
-	case *TryExpr:
+	case *ast.TryExpr:
 		return g.tryExpr(ex)
-	case *SpawnExpr:
+	case *ast.SpawnExpr:
 		return g.spawnExpr(ex)
-	case *ParallelExpr:
+	case *ast.ParallelExpr:
 		return g.parallelExpr(ex)
-	case *FnExpr:
+	case *ast.FnExpr:
 		return g.fnExpr(ex)
 	default:
 		return "", fmt.Errorf("unknown expression type: %T", e)
@@ -1180,8 +1181,8 @@ func (g *codeGen) exprString(e Expr) (string, error) {
 }
 
 func (g *codeGen) stringLiteral(value string, typed bool) (string, error) {
-	if hasInterpolation(value) {
-		format, exprStrs := processInterpolation(value)
+	if ast.HasInterpolation(value) {
+		format, exprStrs := ast.ProcessInterpolation(value)
 		args := make([]string, len(exprStrs))
 		for i, exprStr := range exprStrs {
 			// Parse the interpolated expression through the rugo pipeline
@@ -1214,11 +1215,11 @@ func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, error) {
 	p := &parser.Parser{}
 	// Parse as a full program with just this expression
 	fullSrc := src
-	ast, err := p.Parse("<interpolation>", []byte(fullSrc))
+	flatAST, err := p.Parse("<interpolation>", []byte(fullSrc))
 	if err != nil {
 		return "", fmt.Errorf("parsing: %w", err)
 	}
-	prog, err := walk(p, ast)
+	prog, err := ast.Walk(p, flatAST)
 	if err != nil {
 		return "", fmt.Errorf("walking: %w", err)
 	}
@@ -1227,9 +1228,9 @@ func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, error) {
 	}
 	// Extract the expression from the statement
 	switch s := prog.Statements[0].(type) {
-	case *ExprStmt:
+	case *ast.ExprStmt:
 		return g.exprString(s.Expression)
-	case *AssignStmt:
+	case *ast.AssignStmt:
 		return g.exprString(s.Value)
 	default:
 		return "", fmt.Errorf("unexpected statement type in interpolation: %T", s)
@@ -1260,7 +1261,7 @@ func goEscapeString(s string) string {
 	return sb.String()
 }
 
-func (g *codeGen) binaryExpr(e *BinaryExpr) (string, error) {
+func (g *codeGen) binaryExpr(e *ast.BinaryExpr) (string, error) {
 	leftType := g.exprType(e.Left)
 	rightType := g.exprType(e.Right)
 
@@ -1374,7 +1375,7 @@ func (g *codeGen) binaryExpr(e *BinaryExpr) (string, error) {
 	}
 }
 
-func (g *codeGen) unaryExpr(e *UnaryExpr) (string, error) {
+func (g *codeGen) unaryExpr(e *ast.UnaryExpr) (string, error) {
 	operandType := g.exprType(e.Operand)
 	operand, err := g.exprString(e.Operand)
 	if err != nil {
@@ -1396,12 +1397,12 @@ func (g *codeGen) unaryExpr(e *UnaryExpr) (string, error) {
 	}
 }
 
-func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
+func (g *codeGen) dotExpr(e *ast.DotExpr) (string, error) {
 	if e.Field == "__type__" {
 		return "", fmt.Errorf("cannot access .__type__ directly — use type_of() instead")
 	}
 	// Rugo stdlib or namespace access without call
-	if ns, ok := e.Object.(*IdentExpr); ok {
+	if ns, ok := e.Object.(*ast.IdentExpr); ok {
 		nsName := ns.Name
 		// Local variables shadow namespaces for dot access
 		if !g.isDeclared(nsName) {
@@ -1435,7 +1436,7 @@ func (g *codeGen) dotExpr(e *DotExpr) (string, error) {
 	return fmt.Sprintf("rugo_dot_get(%s, %q)", obj, e.Field), nil
 }
 
-func (g *codeGen) callExpr(e *CallExpr) (string, error) {
+func (g *codeGen) callExpr(e *ast.CallExpr) (string, error) {
 	args := make([]string, len(e.Args))
 	for i, a := range e.Args {
 		s, err := g.exprString(a)
@@ -1447,8 +1448,8 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	argStr := strings.Join(args, ", ")
 
 	// Check for namespaced function calls: ns.func(args)
-	if dot, ok := e.Func.(*DotExpr); ok {
-		if ns, ok := dot.Object.(*IdentExpr); ok {
+	if dot, ok := e.Func.(*ast.DotExpr); ok {
+		if ns, ok := dot.Object.(*ast.IdentExpr); ok {
 			nsName := ns.Name
 			// Local variables shadow namespaces for dot calls
 			if !g.isDeclared(nsName) {
@@ -1493,7 +1494,7 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	}
 
 	// Check for built-in functions (globals)
-	if ident, ok := e.Func.(*IdentExpr); ok {
+	if ident, ok := e.Func.(*ast.IdentExpr); ok {
 		switch ident.Name {
 		case "puts":
 			return fmt.Sprintf("rugo_puts(%s)", g.boxedArgs(args, e.Args)), nil
@@ -1562,7 +1563,7 @@ func (g *codeGen) callExpr(e *CallExpr) (string, error) {
 	return fmt.Sprintf("%s.(%s)(%s)", funcExpr, "func(...interface{}) interface{}", argStr), nil
 }
 
-func (g *codeGen) indexExpr(e *IndexExpr) (string, error) {
+func (g *codeGen) indexExpr(e *ast.IndexExpr) (string, error) {
 	obj, err := g.exprString(e.Object)
 	if err != nil {
 		return "", err
@@ -1574,7 +1575,7 @@ func (g *codeGen) indexExpr(e *IndexExpr) (string, error) {
 	return fmt.Sprintf("rugo_index(%s, %s)", obj, idx), nil
 }
 
-func (g *codeGen) sliceExpr(e *SliceExpr) (string, error) {
+func (g *codeGen) sliceExpr(e *ast.SliceExpr) (string, error) {
 	obj, err := g.exprString(e.Object)
 	if err != nil {
 		return "", err
@@ -1590,7 +1591,7 @@ func (g *codeGen) sliceExpr(e *SliceExpr) (string, error) {
 	return fmt.Sprintf("rugo_slice(%s, %s, %s)", obj, start, length), nil
 }
 
-func (g *codeGen) arrayLiteral(e *ArrayLiteral) (string, error) {
+func (g *codeGen) arrayLiteral(e *ast.ArrayLiteral) (string, error) {
 	elems := make([]string, len(e.Elements))
 	for i, el := range e.Elements {
 		s, err := g.exprString(el)
@@ -1602,7 +1603,7 @@ func (g *codeGen) arrayLiteral(e *ArrayLiteral) (string, error) {
 	return fmt.Sprintf("interface{}([]interface{}{%s})", strings.Join(elems, ", ")), nil
 }
 
-func (g *codeGen) hashLiteral(e *HashLiteral) (string, error) {
+func (g *codeGen) hashLiteral(e *ast.HashLiteral) (string, error) {
 	pairs := make([]string, len(e.Pairs))
 	for i, p := range e.Pairs {
 		key, err := g.exprString(p.Key)
@@ -1618,7 +1619,7 @@ func (g *codeGen) hashLiteral(e *HashLiteral) (string, error) {
 	return fmt.Sprintf("interface{}(map[interface{}]interface{}{%s})", strings.Join(pairs, ", ")), nil
 }
 
-func (g *codeGen) tryExpr(e *TryExpr) (string, error) {
+func (g *codeGen) tryExpr(e *ast.TryExpr) (string, error) {
 	exprStr, err := g.exprString(e.Expr)
 	if err != nil {
 		return "", err
@@ -1634,7 +1635,7 @@ func (g *codeGen) tryExpr(e *TryExpr) (string, error) {
 			isLast := i == len(e.Handler)-1
 			if isLast {
 				// Last statement: if it's a bare expression, assign to r (return value)
-				if es, ok := s.(*ExprStmt); ok {
+				if es, ok := s.(*ast.ExprStmt); ok {
 					val, verr := g.exprString(es.Expression)
 					if verr != nil {
 						g.popScope()
@@ -1677,7 +1678,7 @@ func (g *codeGen) tryExpr(e *TryExpr) (string, error) {
 	return handlerBuf.String(), nil
 }
 
-func (g *codeGen) spawnExpr(e *SpawnExpr) (string, error) {
+func (g *codeGen) spawnExpr(e *ast.SpawnExpr) (string, error) {
 	// Generate the body code in a temporary buffer.
 	g.inSpawn++
 	bodyCode, cerr := g.captureOutput(func() error {
@@ -1686,7 +1687,7 @@ func (g *codeGen) spawnExpr(e *SpawnExpr) (string, error) {
 			isLast := i == len(e.Body)-1
 			if isLast {
 				// Last statement: if it's a bare expression, assign to t.result
-				if es, ok := s.(*ExprStmt); ok {
+				if es, ok := s.(*ast.ExprStmt); ok {
 					val, verr := g.exprString(es.Expression)
 					if verr != nil {
 						g.popScope()
@@ -1732,7 +1733,7 @@ func (g *codeGen) spawnExpr(e *SpawnExpr) (string, error) {
 	return buf.String(), nil
 }
 
-func (g *codeGen) fnExpr(e *FnExpr) (string, error) {
+func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 	// Emit: func(_args ...interface{}) interface{} { p1 := _args[0]; ...; body; return nil }
 	bodyCode, cerr := g.captureOutput(func() error {
 		g.pushScope()
@@ -1746,7 +1747,7 @@ func (g *codeGen) fnExpr(e *FnExpr) (string, error) {
 			isLast := i == len(e.Body)-1
 			if isLast {
 				// Last statement: if it's a bare expression, make it the return value
-				if es, ok := s.(*ExprStmt); ok {
+				if es, ok := s.(*ast.ExprStmt); ok {
 					g.emitLineDirective(es.StmtLine())
 					val, verr := g.exprString(es.Expression)
 					if verr != nil {
@@ -1800,7 +1801,7 @@ func (g *codeGen) fnExpr(e *FnExpr) (string, error) {
 	return buf.String(), nil
 }
 
-func (g *codeGen) parallelExpr(e *ParallelExpr) (string, error) {
+func (g *codeGen) parallelExpr(e *ast.ParallelExpr) (string, error) {
 	// Each statement becomes a goroutine; collect results in an ordered array.
 	n := len(e.Body)
 
@@ -1815,7 +1816,7 @@ func (g *codeGen) parallelExpr(e *ParallelExpr) (string, error) {
 	}
 	stmts := make([]stmtCode, n)
 	for i, s := range e.Body {
-		if es, ok := s.(*ExprStmt); ok {
+		if es, ok := s.(*ast.ExprStmt); ok {
 			code, err := g.exprString(es.Expression)
 			if err != nil {
 				return "", err
@@ -1909,7 +1910,7 @@ func (g *codeGen) captureOutput(fn func() error) (string, error) {
 }
 
 // collectIdents returns the set of identifier names referenced in statements.
-func collectIdents(stmts []Statement) map[string]bool {
+func collectIdents(stmts []ast.Statement) map[string]bool {
 	names := make(map[string]bool)
 	for _, s := range stmts {
 		collectIdentsFromStmt(s, names)
@@ -1917,20 +1918,20 @@ func collectIdents(stmts []Statement) map[string]bool {
 	return names
 }
 
-func collectIdentsFromStmt(s Statement, names map[string]bool) {
+func collectIdentsFromStmt(s ast.Statement, names map[string]bool) {
 	switch st := s.(type) {
-	case *AssignStmt:
+	case *ast.AssignStmt:
 		collectIdentsFromExpr(st.Value, names)
-	case *IndexAssignStmt:
+	case *ast.IndexAssignStmt:
 		collectIdentsFromExpr(st.Object, names)
 		collectIdentsFromExpr(st.Index, names)
 		collectIdentsFromExpr(st.Value, names)
-	case *DotAssignStmt:
+	case *ast.DotAssignStmt:
 		collectIdentsFromExpr(st.Object, names)
 		collectIdentsFromExpr(st.Value, names)
-	case *ExprStmt:
+	case *ast.ExprStmt:
 		collectIdentsFromExpr(st.Expression, names)
-	case *IfStmt:
+	case *ast.IfStmt:
 		collectIdentsFromExpr(st.Condition, names)
 		for _, b := range st.Body {
 			collectIdentsFromStmt(b, names)
@@ -1944,74 +1945,74 @@ func collectIdentsFromStmt(s Statement, names map[string]bool) {
 		for _, b := range st.ElseBody {
 			collectIdentsFromStmt(b, names)
 		}
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		collectIdentsFromExpr(st.Condition, names)
 		for _, b := range st.Body {
 			collectIdentsFromStmt(b, names)
 		}
-	case *ForStmt:
+	case *ast.ForStmt:
 		collectIdentsFromExpr(st.Collection, names)
 		for _, b := range st.Body {
 			collectIdentsFromStmt(b, names)
 		}
-	case *ReturnStmt:
+	case *ast.ReturnStmt:
 		if st.Value != nil {
 			collectIdentsFromExpr(st.Value, names)
 		}
 	}
 }
 
-func collectIdentsFromExpr(e Expr, names map[string]bool) {
+func collectIdentsFromExpr(e ast.Expr, names map[string]bool) {
 	switch ex := e.(type) {
-	case *IdentExpr:
+	case *ast.IdentExpr:
 		names[ex.Name] = true
-	case *BinaryExpr:
+	case *ast.BinaryExpr:
 		collectIdentsFromExpr(ex.Left, names)
 		collectIdentsFromExpr(ex.Right, names)
-	case *UnaryExpr:
+	case *ast.UnaryExpr:
 		collectIdentsFromExpr(ex.Operand, names)
-	case *CallExpr:
+	case *ast.CallExpr:
 		collectIdentsFromExpr(ex.Func, names)
 		for _, a := range ex.Args {
 			collectIdentsFromExpr(a, names)
 		}
-	case *IndexExpr:
+	case *ast.IndexExpr:
 		collectIdentsFromExpr(ex.Object, names)
 		collectIdentsFromExpr(ex.Index, names)
-	case *SliceExpr:
+	case *ast.SliceExpr:
 		collectIdentsFromExpr(ex.Object, names)
 		collectIdentsFromExpr(ex.Start, names)
 		collectIdentsFromExpr(ex.Length, names)
-	case *DotExpr:
+	case *ast.DotExpr:
 		collectIdentsFromExpr(ex.Object, names)
-	case *ArrayLiteral:
+	case *ast.ArrayLiteral:
 		for _, el := range ex.Elements {
 			collectIdentsFromExpr(el, names)
 		}
-	case *HashLiteral:
+	case *ast.HashLiteral:
 		for _, p := range ex.Pairs {
 			collectIdentsFromExpr(p.Key, names)
 			collectIdentsFromExpr(p.Value, names)
 		}
-	case *TryExpr:
+	case *ast.TryExpr:
 		collectIdentsFromExpr(ex.Expr, names)
 		for _, b := range ex.Handler {
 			collectIdentsFromStmt(b, names)
 		}
-	case *FnExpr:
+	case *ast.FnExpr:
 		for _, b := range ex.Body {
 			collectIdentsFromStmt(b, names)
 		}
-	case *StringLiteral:
-		if hasInterpolation(ex.Value) {
-			_, exprStrs := processInterpolation(ex.Value)
+	case *ast.StringLiteral:
+		if ast.HasInterpolation(ex.Value) {
+			_, exprStrs := ast.ProcessInterpolation(ex.Value)
 			for _, exprStr := range exprStrs {
 				p := &parser.Parser{}
-				ast, err := p.Parse("<ident-scan>", []byte(exprStr+"\n"))
+				flatAST, err := p.Parse("<ident-scan>", []byte(exprStr+"\n"))
 				if err != nil {
 					continue
 				}
-				prog, err := walk(p, ast)
+				prog, err := ast.Walk(p, flatAST)
 				if err != nil {
 					continue
 				}
@@ -2085,22 +2086,22 @@ func importedModuleNames(imports map[string]bool) []string {
 	return names
 }
 
-// astUsesSpawn checks if any SpawnExpr exists in the AST.
-func astUsesSpawn(prog *Program) bool {
-	return WalkExprs(prog, func(e Expr) bool {
-		_, ok := e.(*SpawnExpr)
+// astUsesSpawn checks if any ast.SpawnExpr exists in the AST.
+func astUsesSpawn(prog *ast.Program) bool {
+	return WalkExprs(prog, func(e ast.Expr) bool {
+		_, ok := e.(*ast.SpawnExpr)
 		return ok
 	})
 }
 
-// astUsesTaskMethods checks if any DotExpr uses .value, .done, or .wait on a non-module target.
-func astUsesTaskMethods(prog *Program) bool {
-	return WalkExprs(prog, func(e Expr) bool {
-		dot, ok := e.(*DotExpr)
+// astUsesTaskMethods checks if any ast.DotExpr uses .value, .done, or .wait on a non-module target.
+func astUsesTaskMethods(prog *ast.Program) bool {
+	return WalkExprs(prog, func(e ast.Expr) bool {
+		dot, ok := e.(*ast.DotExpr)
 		if !ok || !taskMethodNames[dot.Field] {
 			return false
 		}
-		if ident, ok := dot.Object.(*IdentExpr); ok {
+		if ident, ok := dot.Object.(*ast.IdentExpr); ok {
 			if modules.IsModule(ident.Name) {
 				return false
 			}
@@ -2111,10 +2112,10 @@ func astUsesTaskMethods(prog *Program) bool {
 
 var taskMethodNames = map[string]bool{"value": true, "done": true, "wait": true}
 
-// astUsesParallel checks if any ParallelExpr exists in the AST.
-func astUsesParallel(prog *Program) bool {
-	return WalkExprs(prog, func(e Expr) bool {
-		_, ok := e.(*ParallelExpr)
+// astUsesParallel checks if any ast.ParallelExpr exists in the AST.
+func astUsesParallel(prog *ast.Program) bool {
+	return WalkExprs(prog, func(e ast.Expr) bool {
+		_, ok := e.(*ast.ParallelExpr)
 		return ok
 	})
 }
@@ -2248,7 +2249,7 @@ func argCountError(name string, got, expected int) error {
 // --- Type inference helpers for codegen ---
 
 // exprType returns the inferred type of an expression.
-func (g *codeGen) exprType(e Expr) RugoType {
+func (g *codeGen) exprType(e ast.Expr) RugoType {
 	if g.typeInfo == nil {
 		return TypeDynamic
 	}
@@ -2256,7 +2257,7 @@ func (g *codeGen) exprType(e Expr) RugoType {
 }
 
 // exprIsTyped returns true if the expression has a resolved primitive type.
-func (g *codeGen) exprIsTyped(e Expr) bool {
+func (g *codeGen) exprIsTyped(e ast.Expr) bool {
 	return g.exprType(e).IsTyped()
 }
 
@@ -2282,7 +2283,7 @@ func (g *codeGen) varType(name string) RugoType {
 
 // condExpr wraps a condition string for use in if/while.
 // If the condition is typed bool, use it directly; otherwise wrap with rugo_to_bool.
-func (g *codeGen) condExpr(condStr string, condExpr Expr) string {
+func (g *codeGen) condExpr(condStr string, condExpr ast.Expr) string {
 	if g.exprType(condExpr) == TypeBool {
 		return condStr
 	}
@@ -2302,8 +2303,8 @@ func (g *codeGen) boxed(s string, t RugoType) string {
 // not an interface{}. Variables stored as interface{} (varType is dynamic) return false
 // even if the expression type is inferred as typed, because Go's type system won't
 // allow using raw operators on interface{} values.
-func (g *codeGen) goTyped(e Expr) bool {
-	if ident, ok := e.(*IdentExpr); ok {
+func (g *codeGen) goTyped(e ast.Expr) bool {
+	if ident, ok := e.(*ast.IdentExpr); ok {
 		return g.varType(ident.Name).IsTyped()
 	}
 	return g.exprType(e).IsTyped()
@@ -2318,7 +2319,7 @@ func (g *codeGen) ensureFloat(s string, t RugoType) string {
 }
 
 // boxedArgs returns comma-joined args, boxing typed values for runtime helpers.
-func (g *codeGen) boxedArgs(args []string, exprs []Expr) string {
+func (g *codeGen) boxedArgs(args []string, exprs []ast.Expr) string {
 	result := make([]string, len(args))
 	for i, a := range args {
 		result[i] = g.boxed(a, g.exprType(exprs[i]))
@@ -2328,7 +2329,7 @@ func (g *codeGen) boxedArgs(args []string, exprs []Expr) string {
 
 // typedCallArgs generates the argument list for a user-defined function call,
 // converting typed args to match the function's typed param signature.
-func (g *codeGen) typedCallArgs(funcName string, args []string, argExprs []Expr) string {
+func (g *codeGen) typedCallArgs(funcName string, args []string, argExprs []ast.Expr) string {
 	if g.typeInfo == nil {
 		return strings.Join(args, ", ")
 	}

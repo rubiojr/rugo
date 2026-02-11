@@ -1,4 +1,4 @@
-package compiler
+package ast
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"unicode"
 )
 
-var rugoKeywords = map[string]bool{
+var RugoKeywords = map[string]bool{
 	"if": true, "elsif": true, "else": true, "end": true,
 	"while": true, "for": true, "in": true, "def": true,
 	"return": true, "require": true, "break": true, "next": true,
@@ -26,7 +26,7 @@ var rugoBuiltins = map[string]bool{
 
 // stripComments removes # comments from source, respecting string boundaries.
 // Returns an error if an unterminated string literal is found.
-func stripComments(src string) (string, error) {
+func StripComments(src string) (string, error) {
 	var sb strings.Builder
 	inDouble := false
 	inSingle := false
@@ -100,13 +100,13 @@ func stripComments(src string) (string, error) {
 //
 // Returns the preprocessed source and a line map (preprocessed line 0-indexed
 // → original line 1-indexed). If lineMap is nil, the mapping is 1:1.
-func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
+func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// Rewrite hash colon syntax before other transformations:
 	//   {foo: "bar"}  →  {"foo" => "bar"}
-	src = expandHashColonSyntax(src)
+	src = ExpandHashColonSyntax(src)
 
 	// Desugar compound assignment operators before other transformations.
-	src = expandCompoundAssign(src)
+	src = ExpandCompoundAssign(src)
 
 	// Normalize "def name" (no parens) to "def name()" so the parser sees
 	// a consistent form. "def name(params)" is left unchanged.
@@ -120,7 +120,7 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 
 	// Expand single-line try forms into block form before line processing.
 	var tryLineMap []int
-	src, tryLineMap = expandTrySugar(src)
+	src, tryLineMap = ExpandTrySugar(src)
 
 	// Expand single-line spawn forms into block form.
 	src, tryLineMap = expandSpawnSugar(src, tryLineMap)
@@ -292,7 +292,7 @@ func preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	joined := strings.Join(result, "\n")
 
 	// Desugar bare append: append(x, ...) → x = append(x, ...)
-	joined = expandBareAppend(joined)
+	joined = ExpandBareAppend(joined)
 
 	return joined, tryLineMap, nil
 }
@@ -316,7 +316,7 @@ func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string
 	}
 
 	// Keywords — never touch
-	if rugoKeywords[firstToken] {
+	if RugoKeywords[firstToken] {
 		return line
 	}
 
@@ -433,7 +433,7 @@ func closestKeywordOrBuiltin(s string) string {
 			best = kw
 		}
 	}
-	for kw := range rugoKeywords {
+	for kw := range RugoKeywords {
 		check(kw)
 	}
 	for kw := range rugoBuiltins {
@@ -522,7 +522,7 @@ func expandDefParens(src string) string {
 //
 // Only bare identifiers followed by ": " are rewritten. String contents
 // are left untouched. The arrow syntax {expr => val} is unaffected.
-func expandHashColonSyntax(src string) string {
+func ExpandHashColonSyntax(src string) string {
 	var sb strings.Builder
 	sb.Grow(len(src))
 
@@ -676,7 +676,7 @@ func shellEscape(s string) string {
 
 // scanFuncDefs does a quick scan to find all `def name(` patterns
 // so the preprocessor knows which identifiers are user functions.
-func scanFuncDefs(src string) map[string]bool {
+func ScanFuncDefs(src string) map[string]bool {
 	funcs := make(map[string]bool)
 	lines := strings.Split(src, "\n")
 	for _, line := range lines {
@@ -717,7 +717,7 @@ func scanFuncDefs(src string) map[string]bool {
 // becomes:
 //
 //	def bark(self)
-func expandStructDefs(src string) (string, []int, []StructInfo) {
+func ExpandStructDefs(src string) (string, []int, []StructInfo) {
 	lines := strings.Split(src, "\n")
 	var result []string
 	var lineMap []int
@@ -842,7 +842,7 @@ func expandStructDefs(src string) (string, []int, []StructInfo) {
 
 // processInterpolation converts "Hello #{expr}" to format string + args.
 // Returns the format string and a list of expression strings.
-func processInterpolation(s string) (format string, exprs []string) {
+func ProcessInterpolation(s string) (format string, exprs []string) {
 	var fmt strings.Builder
 	i := 0
 	for i < len(s) {
@@ -871,7 +871,7 @@ func processInterpolation(s string) (format string, exprs []string) {
 }
 
 // hasInterpolation checks if a string contains #{} interpolation.
-func hasInterpolation(s string) bool {
+func HasInterpolation(s string) bool {
 	for i := 0; i+1 < len(s); i++ {
 		if s[i] == '#' && s[i+1] == '{' {
 			return true
@@ -1084,7 +1084,7 @@ func buildHeredocReplacement(h heredocOpener, bodyLines []string) string {
 //
 // The closing delimiter may be indented; leading whitespace is ignored when
 // matching. Body lines between the opener and closer are collected verbatim.
-func expandHeredocs(src string) (string, []int, error) {
+func ExpandHeredocs(src string) (string, []int, error) {
 	lines := strings.Split(src, "\n")
 	var result []string
 	var lineMap []int
@@ -1137,7 +1137,7 @@ func expandHeredocs(src string) (string, []int, error) {
 //	x = try EXPR ...    → x = try EXPR ... (same, in assignment context)
 //
 // Multi-line try blocks (try ... or ident ... end) are left untouched.
-func expandTrySugar(src string) (string, []int) {
+func ExpandTrySugar(src string) (string, []int) {
 	lines := strings.Split(src, "\n")
 	var result []string
 	var lineMap []int
@@ -1180,7 +1180,7 @@ func expandTrySugar(src string) (string, []int) {
 			// is the block form "try EXPR or ident\n BODY\n end", leave it untouched.
 			afterOr := strings.TrimSpace(rest[orIdx+2:])
 			afterOrTok, afterOrRest := scanFirstToken(afterOr)
-			if isIdent(afterOrTok) && !rugoKeywords[afterOrTok] && strings.TrimSpace(afterOrRest) == "" {
+			if isIdent(afterOrTok) && !RugoKeywords[afterOrTok] && strings.TrimSpace(afterOrRest) == "" {
 				// Split the expression onto its own line so preprocessLine can
 				// apply shell fallback to bare identifiers inside try.
 				expr := strings.TrimSpace(rest[:orIdx])
@@ -1665,7 +1665,7 @@ func findTopLevelOr(s string) int {
 //	arr[0] += y  → arr[0] = arr[0] + y
 //
 // Handles +=, -=, *=, /=, %=. Respects string boundaries.
-func expandCompoundAssign(src string) string {
+func ExpandCompoundAssign(src string) string {
 	ops := []string{"+=", "-=", "*=", "/=", "%="}
 	lines := strings.Split(src, "\n")
 	var result []string
@@ -1745,7 +1745,7 @@ func findCompoundOp(s string, op string) int {
 //
 // Only rewrites when append( starts the line (after whitespace). Lines like
 // "y = append(x, val)" or "puts(append(x, val))" are left alone.
-func expandBareAppend(src string) string {
+func ExpandBareAppend(src string) string {
 	lines := strings.Split(src, "\n")
 	var result []string
 	for _, line := range lines {
@@ -1894,7 +1894,7 @@ func expandPipeLine(line string, funcs map[string]bool) (string, error) {
 
 	// Don't expand pipes on keyword-prefixed lines
 	firstTok, _ := scanFirstToken(trimmed)
-	if rugoKeywords[firstTok] {
+	if RugoKeywords[firstTok] {
 		return line, nil
 	}
 
@@ -1941,7 +1941,7 @@ func expandPipeLine(line string, funcs map[string]bool) (string, error) {
 // the prefix and expression parts. Returns ("", fullLine) if no assignment found.
 func extractPipeAssignPrefix(trimmed string) (string, string) {
 	tok, rest := scanFirstToken(trimmed)
-	if tok == "" || rugoKeywords[tok] || !isIdent(tok) {
+	if tok == "" || RugoKeywords[tok] || !isIdent(tok) {
 		return "", trimmed
 	}
 	restTrimmed := strings.TrimSpace(rest)

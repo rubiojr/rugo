@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/rubiojr/rugo/ast"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,12 +45,12 @@ func TestStripComments(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := stripComments(tt.input)
+			result, err := ast.StripComments(tt.input)
 			if err != nil {
-				t.Fatalf("stripComments(%q) unexpected error: %v", tt.input, err)
+				t.Fatalf("ast.StripComments(%q) unexpected error: %v", tt.input, err)
 			}
 			if result != tt.expect {
-				t.Errorf("stripComments(%q) = %q, want %q", tt.input, result, tt.expect)
+				t.Errorf("ast.StripComments(%q) = %q, want %q", tt.input, result, tt.expect)
 			}
 		})
 	}
@@ -119,19 +120,19 @@ func TestExpandHeredocs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, _, err := expandHeredocs(tt.input)
+			result, _, err := ast.ExpandHeredocs(tt.input)
 			if err != nil {
 				t.Fatalf("expandHeredocs error: %v", err)
 			}
 			if result != tt.expect {
-				t.Errorf("expandHeredocs(%q)\n  got:  %q\n  want: %q", tt.input, result, tt.expect)
+				t.Errorf("ast.ExpandHeredocs(%q)\n  got:  %q\n  want: %q", tt.input, result, tt.expect)
 			}
 		})
 	}
 }
 
 func TestExpandHeredocsError(t *testing.T) {
-	_, _, err := expandHeredocs("x = <<TEXT\nHello\n")
+	_, _, err := ast.ExpandHeredocs("x = <<TEXT\nHello\n")
 	if err == nil {
 		t.Fatal("expected error for unterminated heredoc")
 	}
@@ -151,14 +152,14 @@ func TestHasInterpolation(t *testing.T) {
 		{"no interpolation #", false},
 	}
 	for _, tt := range tests {
-		if hasInterpolation(tt.input) != tt.expect {
-			t.Errorf("hasInterpolation(%q) = %v, want %v", tt.input, !tt.expect, tt.expect)
+		if ast.HasInterpolation(tt.input) != tt.expect {
+			t.Errorf("ast.HasInterpolation(%q) = %v, want %v", tt.input, !tt.expect, tt.expect)
 		}
 	}
 }
 
 func TestProcessInterpolation(t *testing.T) {
-	format, exprs := processInterpolation("Hello #{name}, age #{age}")
+	format, exprs := ast.ProcessInterpolation("Hello #{name}, age #{age}")
 	if format != "Hello %v, age %v" {
 		t.Errorf("format = %q, want %q", format, "Hello %v, age %v")
 	}
@@ -461,7 +462,7 @@ func TestRuntimeFunctions(t *testing.T) {
 	}
 }
 
-// --- Complex Program Tests ---
+// --- Complex ast.Program Tests ---
 
 func TestComplexProgram(t *testing.T) {
 	src := `
@@ -560,9 +561,9 @@ func TestPreprocessParenFreeBuiltin(t *testing.T) {
 		{`print "no newline"`, `print("no newline")`},
 	}
 	for _, tt := range tests {
-		result, _, _ := preprocess(tt.input, nil)
+		result, _, _ := ast.Preprocess(tt.input, nil)
 		if strings.TrimSpace(result) != tt.expect {
-			t.Errorf("preprocess(%q) = %q, want %q", tt.input, strings.TrimSpace(result), tt.expect)
+			t.Errorf("ast.Preprocess(%q) = %q, want %q", tt.input, strings.TrimSpace(result), tt.expect)
 		}
 	}
 }
@@ -570,8 +571,8 @@ func TestPreprocessParenFreeBuiltin(t *testing.T) {
 func TestPreprocessParenFreeUserFunc(t *testing.T) {
 	// Functions must be defined before paren-free calls are recognized at top level
 	src := "def greet(name)\nputs(name)\nend\ndef send(a, b)\nputs(a)\nend\ngreet \"World\"\nsend \"foo\", \"bar\""
-	allFuncs := scanFuncDefs(src)
-	result, _, _ := preprocess(src, allFuncs)
+	allFuncs := ast.ScanFuncDefs(src)
+	result, _, _ := ast.Preprocess(src, allFuncs)
 	lines := strings.Split(result, "\n")
 	// greet "World" is on line index 6 (after two def...end blocks)
 	if got := strings.TrimSpace(lines[6]); got != `greet("World")` {
@@ -597,9 +598,9 @@ func TestPreprocessShellFallbackSimple(t *testing.T) {
 		{`grep -r "TODO" .`, `__shell__("grep -r \"TODO\" .")`},
 	}
 	for _, tt := range tests {
-		result, _, _ := preprocess(tt.input, nil)
+		result, _, _ := ast.Preprocess(tt.input, nil)
 		if strings.TrimSpace(result) != tt.expect {
-			t.Errorf("preprocess(%q) = %q, want %q", tt.input, strings.TrimSpace(result), tt.expect)
+			t.Errorf("ast.Preprocess(%q) = %q, want %q", tt.input, strings.TrimSpace(result), tt.expect)
 		}
 	}
 }
@@ -611,9 +612,9 @@ func TestPreprocessLeavesAssignments(t *testing.T) {
 		`x = 1 + 2`,
 	}
 	for _, input := range tests {
-		result, _, _ := preprocess(input, nil)
+		result, _, _ := ast.Preprocess(input, nil)
 		if strings.TrimSpace(result) != input {
-			t.Errorf("preprocess(%q) = %q, should be unchanged", input, strings.TrimSpace(result))
+			t.Errorf("ast.Preprocess(%q) = %q, should be unchanged", input, strings.TrimSpace(result))
 		}
 	}
 }
@@ -628,9 +629,9 @@ func TestPreprocessLeavesKeywords(t *testing.T) {
 		`require "helpers"`,
 	}
 	for _, input := range tests {
-		result, _, _ := preprocess(input, nil)
+		result, _, _ := ast.Preprocess(input, nil)
 		if strings.TrimSpace(result) != input {
-			t.Errorf("preprocess(%q) = %q, should be unchanged", input, strings.TrimSpace(result))
+			t.Errorf("ast.Preprocess(%q) = %q, should be unchanged", input, strings.TrimSpace(result))
 		}
 	}
 }
@@ -642,25 +643,25 @@ func TestPreprocessLeavesParenCalls(t *testing.T) {
 		`x.bar()`,
 	}
 	for _, input := range tests {
-		result, _, _ := preprocess(input, nil)
+		result, _, _ := ast.Preprocess(input, nil)
 		if strings.TrimSpace(result) != input {
-			t.Errorf("preprocess(%q) = %q, should be unchanged", input, strings.TrimSpace(result))
+			t.Errorf("ast.Preprocess(%q) = %q, should be unchanged", input, strings.TrimSpace(result))
 		}
 	}
 }
 
 func TestPreprocessShellWithPipes(t *testing.T) {
 	input := `ls | grep foo`
-	result, _, _ := preprocess(input, nil)
+	result, _, _ := ast.Preprocess(input, nil)
 	expect := `__shell__("ls | grep foo")`
 	if strings.TrimSpace(result) != expect {
-		t.Errorf("preprocess(%q) = %q, want %q", input, strings.TrimSpace(result), expect)
+		t.Errorf("ast.Preprocess(%q) = %q, want %q", input, strings.TrimSpace(result), expect)
 	}
 }
 
 func TestPreprocessPreservesIndent(t *testing.T) {
 	input := `  ls -la`
-	result, _, _ := preprocess(input, nil)
+	result, _, _ := ast.Preprocess(input, nil)
 	if !strings.HasPrefix(result, "  ") {
 		t.Errorf("expected preserved indent in %q", result)
 	}
@@ -668,7 +669,7 @@ func TestPreprocessPreservesIndent(t *testing.T) {
 
 func TestScanFuncDefs(t *testing.T) {
 	src := "def greet(name)\nputs(name)\nend\ndef add(a, b)\nreturn a + b\nend\n"
-	funcs := scanFuncDefs(src)
+	funcs := ast.ScanFuncDefs(src)
 	if !funcs["greet"] {
 		t.Error("expected greet to be found")
 	}
@@ -684,8 +685,8 @@ func TestPreprocessPositionalResolution(t *testing.T) {
 	// Before def: identifier should be shell fallback
 	// After def: identifier should be paren-free function call
 	src := "ping google.com\ndef ping(s)\nputs(s)\nend\nping google.com"
-	allFuncs := scanFuncDefs(src)
-	result, _, _ := preprocess(src, allFuncs)
+	allFuncs := ast.ScanFuncDefs(src)
+	result, _, _ := ast.Preprocess(src, allFuncs)
 	lines := strings.Split(result, "\n")
 
 	// Line 0: before def → shell
@@ -701,8 +702,8 @@ func TestPreprocessPositionalResolution(t *testing.T) {
 func TestPreprocessForwardRefsInFuncBody(t *testing.T) {
 	// Inside a function body, forward references to later-defined functions should work
 	src := "def foo()\nbar()\nend\ndef bar()\nputs(\"hi\")\nend\nfoo()"
-	allFuncs := scanFuncDefs(src)
-	result, _, _ := preprocess(src, allFuncs)
+	allFuncs := ast.ScanFuncDefs(src)
+	result, _, _ := ast.Preprocess(src, allFuncs)
 	lines := strings.Split(result, "\n")
 
 	// Line 1 (inside foo): bar() already has parens, left alone
@@ -714,8 +715,8 @@ func TestPreprocessForwardRefsInFuncBody(t *testing.T) {
 func TestPreprocessForwardRefParenFreeInBody(t *testing.T) {
 	// Paren-free forward reference inside a function body
 	src := "def foo()\nbar \"hello\"\nend\ndef bar(s)\nputs(s)\nend"
-	allFuncs := scanFuncDefs(src)
-	result, _, _ := preprocess(src, allFuncs)
+	allFuncs := ast.ScanFuncDefs(src)
+	result, _, _ := ast.Preprocess(src, allFuncs)
 	lines := strings.Split(result, "\n")
 
 	// Line 1 (inside foo): bar "hello" → bar("hello") using allFuncs
@@ -727,8 +728,8 @@ func TestPreprocessForwardRefParenFreeInBody(t *testing.T) {
 func TestPreprocessNestedBlocksInDef(t *testing.T) {
 	// if/while inside def should not confuse block tracking
 	src := "def foo()\nif true\nputs(\"yes\")\nend\nend\nfoo()"
-	allFuncs := scanFuncDefs(src)
-	result, _, _ := preprocess(src, allFuncs)
+	allFuncs := ast.ScanFuncDefs(src)
+	result, _, _ := ast.Preprocess(src, allFuncs)
 	lines := strings.Split(result, "\n")
 
 	// Line 5: foo() after def...end — should be left alone (has parens)
@@ -740,8 +741,8 @@ func TestPreprocessNestedBlocksInDef(t *testing.T) {
 func TestPreprocessShellBeforeDefFuncAfter(t *testing.T) {
 	// echo is a common shell command; after def, it should call the function
 	src := "echo \"from shell\"\ndef echo(msg)\nputs(msg)\nend\necho \"from function\""
-	allFuncs := scanFuncDefs(src)
-	result, _, _ := preprocess(src, allFuncs)
+	allFuncs := ast.ScanFuncDefs(src)
+	result, _, _ := ast.Preprocess(src, allFuncs)
 	lines := strings.Split(result, "\n")
 
 	// Line 0: shell
@@ -823,12 +824,12 @@ func TestCompilerAliasedRequire(t *testing.T) {
 func TestPreprocessFullPipeline(t *testing.T) {
 	// Test that a full program with mixed shell/rugo preprocesses correctly
 	src := "x = 42\nputs \"hello\"\nls -la\nif x > 0\necho \"yes\"\nend\n"
-	cleaned, err := stripComments(src)
+	cleaned, err := ast.StripComments(src)
 	if err != nil {
 		t.Fatalf("stripComments error: %v", err)
 	}
-	userFuncs := scanFuncDefs(cleaned)
-	result, _, _ := preprocess(cleaned, userFuncs)
+	userFuncs := ast.ScanFuncDefs(cleaned)
+	result, _, _ := ast.Preprocess(cleaned, userFuncs)
 	lines := strings.Split(result, "\n")
 
 	expectations := map[int]string{
@@ -854,9 +855,9 @@ func TestPreprocessLeavesImport(t *testing.T) {
 		`use "conv"`,
 	}
 	for _, input := range tests {
-		result, _, _ := preprocess(input, nil)
+		result, _, _ := ast.Preprocess(input, nil)
 		if strings.TrimSpace(result) != input {
-			t.Errorf("preprocess(%q) = %q, should be unchanged", input, strings.TrimSpace(result))
+			t.Errorf("ast.Preprocess(%q) = %q, should be unchanged", input, strings.TrimSpace(result))
 		}
 	}
 }
@@ -903,7 +904,7 @@ func TestGenConditionalImports(t *testing.T) {
 func TestTrySugarLevel1(t *testing.T) {
 	// try EXPR → expands to try EXPR or _err nil end
 	src := `result = try os.exec("fail")` + "\n" + `puts(result)`
-	expanded, _ := expandTrySugar(`use "os"` + "\n" + src)
+	expanded, _ := ast.ExpandTrySugar(`use "os"` + "\n" + src)
 	if !strings.Contains(expanded, "or _err") {
 		t.Errorf("level 1 sugar should expand to 'or _err':\n%s", expanded)
 	}
@@ -912,7 +913,7 @@ func TestTrySugarLevel1(t *testing.T) {
 func TestTrySugarLevel2(t *testing.T) {
 	// try EXPR or DEFAULT → expands to try EXPR or _err DEFAULT end
 	src := `result = try os.exec("fail") or "fallback"` + "\n"
-	expanded, _ := expandTrySugar(src)
+	expanded, _ := ast.ExpandTrySugar(src)
 	if !strings.Contains(expanded, "or _err") || !strings.Contains(expanded, `"fallback"`) {
 		t.Errorf("level 2 sugar should expand with default:\n%s", expanded)
 	}
@@ -921,7 +922,7 @@ func TestTrySugarLevel2(t *testing.T) {
 func TestTrySugarLevel3Passthrough(t *testing.T) {
 	// Block form "try EXPR or ident\n...\nend" should NOT be expanded
 	src := "result = try os.exec(\"fail\") or err\n  nil\nend\n"
-	expanded, _ := expandTrySugar(src)
+	expanded, _ := ast.ExpandTrySugar(src)
 	if strings.Contains(expanded, "_err") {
 		t.Errorf("block form should not be expanded:\n%s", expanded)
 	}
@@ -982,16 +983,16 @@ func TestCompoundAssignSimple(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := expandCompoundAssign(tt.input)
+			result := ast.ExpandCompoundAssign(tt.input)
 			if result != tt.expect {
-				t.Errorf("expandCompoundAssign(%q) = %q, want %q", tt.input, result, tt.expect)
+				t.Errorf("ast.ExpandCompoundAssign(%q) = %q, want %q", tt.input, result, tt.expect)
 			}
 		})
 	}
 }
 
 func TestCompoundAssignPreservesIndent(t *testing.T) {
-	result := expandCompoundAssign("  x += 1")
+	result := ast.ExpandCompoundAssign("  x += 1")
 	if result != "  x = x + 1" {
 		t.Errorf("expected indent preserved, got %q", result)
 	}
@@ -1008,9 +1009,9 @@ func TestCompoundAssignWithIndex(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := expandCompoundAssign(tt.input)
+			result := ast.ExpandCompoundAssign(tt.input)
 			if result != tt.expect {
-				t.Errorf("expandCompoundAssign(%q) = %q, want %q", tt.input, result, tt.expect)
+				t.Errorf("ast.ExpandCompoundAssign(%q) = %q, want %q", tt.input, result, tt.expect)
 			}
 		})
 	}
@@ -1018,7 +1019,7 @@ func TestCompoundAssignWithIndex(t *testing.T) {
 
 func TestCompoundAssignInString(t *testing.T) {
 	input := `x = "a += b"`
-	result := expandCompoundAssign(input)
+	result := ast.ExpandCompoundAssign(input)
 	if result != input {
 		t.Errorf("should not modify string contents, got %q", result)
 	}
@@ -1026,12 +1027,12 @@ func TestCompoundAssignInString(t *testing.T) {
 
 func TestCompoundAssignCompilesToGo(t *testing.T) {
 	src := "x = 10\nx += 5\n"
-	cleaned, err := stripComments(src)
+	cleaned, err := ast.StripComments(src)
 	if err != nil {
 		t.Fatalf("stripComments error: %v", err)
 	}
-	userFuncs := scanFuncDefs(cleaned)
-	preprocessed, _, _ := preprocess(cleaned, userFuncs)
+	userFuncs := ast.ScanFuncDefs(cleaned)
+	preprocessed, _, _ := ast.Preprocess(cleaned, userFuncs)
 	if !strings.Contains(preprocessed, "x = x + 5") {
 		t.Errorf("preprocessor should desugar +=, got:\n%s", preprocessed)
 	}
@@ -1053,16 +1054,16 @@ func TestBareAppendSimple(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := expandBareAppend(tt.input)
+			result := ast.ExpandBareAppend(tt.input)
 			if result != tt.expect {
-				t.Errorf("expandBareAppend(%q) = %q, want %q", tt.input, result, tt.expect)
+				t.Errorf("ast.ExpandBareAppend(%q) = %q, want %q", tt.input, result, tt.expect)
 			}
 		})
 	}
 }
 
 func TestBareAppendPreservesIndent(t *testing.T) {
-	result := expandBareAppend("  append(arr, 1)")
+	result := ast.ExpandBareAppend("  append(arr, 1)")
 	if result != "  arr = append(arr, 1)" {
 		t.Errorf("expected indent preserved, got %q", result)
 	}
@@ -1080,9 +1081,9 @@ func TestBareAppendSkipsAssignment(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := expandBareAppend(tt.input)
+			result := ast.ExpandBareAppend(tt.input)
 			if result != tt.input {
-				t.Errorf("expandBareAppend(%q) should not modify, got %q", tt.input, result)
+				t.Errorf("ast.ExpandBareAppend(%q) should not modify, got %q", tt.input, result)
 			}
 		})
 	}
@@ -1100,9 +1101,9 @@ func TestBareAppendWithNestedExpression(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := expandBareAppend(tt.input)
+			result := ast.ExpandBareAppend(tt.input)
 			if result != tt.expect {
-				t.Errorf("expandBareAppend(%q) = %q, want %q", tt.input, result, tt.expect)
+				t.Errorf("ast.ExpandBareAppend(%q) = %q, want %q", tt.input, result, tt.expect)
 			}
 		})
 	}
@@ -1111,7 +1112,7 @@ func TestBareAppendWithNestedExpression(t *testing.T) {
 func TestBareAppendSingleArgSkipped(t *testing.T) {
 	// append with a single arg (no comma) should not be rewritten
 	input := "append(arr)"
-	result := expandBareAppend(input)
+	result := ast.ExpandBareAppend(input)
 	if result != input {
 		t.Errorf("single-arg append should not be rewritten, got %q", result)
 	}
@@ -1128,9 +1129,9 @@ func TestBareAppendNonIdentFirstArgSkipped(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := expandBareAppend(tt.input)
+			result := ast.ExpandBareAppend(tt.input)
 			if result != tt.input {
-				t.Errorf("expandBareAppend(%q) should not modify, got %q", tt.input, result)
+				t.Errorf("ast.ExpandBareAppend(%q) should not modify, got %q", tt.input, result)
 			}
 		})
 	}
@@ -1138,12 +1139,12 @@ func TestBareAppendNonIdentFirstArgSkipped(t *testing.T) {
 
 func TestBareAppendCompilesToGo(t *testing.T) {
 	src := "arr = []\nappend(arr, 1)\n"
-	cleaned, err := stripComments(src)
+	cleaned, err := ast.StripComments(src)
 	if err != nil {
 		t.Fatalf("stripComments error: %v", err)
 	}
-	userFuncs := scanFuncDefs(cleaned)
-	preprocessed, _, _ := preprocess(cleaned, userFuncs)
+	userFuncs := ast.ScanFuncDefs(cleaned)
+	preprocessed, _, _ := ast.Preprocess(cleaned, userFuncs)
 	if !strings.Contains(preprocessed, "arr = append(arr, 1)") {
 		t.Errorf("preprocessor should desugar bare append, got:\n%s", preprocessed)
 	}
@@ -1151,12 +1152,12 @@ func TestBareAppendCompilesToGo(t *testing.T) {
 
 func TestBareAppendParenFreeCompilesToGo(t *testing.T) {
 	src := "arr = []\nappend arr, 1\n"
-	cleaned, err := stripComments(src)
+	cleaned, err := ast.StripComments(src)
 	if err != nil {
 		t.Fatalf("stripComments error: %v", err)
 	}
-	userFuncs := scanFuncDefs(cleaned)
-	preprocessed, _, _ := preprocess(cleaned, userFuncs)
+	userFuncs := ast.ScanFuncDefs(cleaned)
+	preprocessed, _, _ := ast.Preprocess(cleaned, userFuncs)
 	if !strings.Contains(preprocessed, "arr = append(arr, 1)") {
 		t.Errorf("preprocessor should desugar paren-free bare append, got:\n%s", preprocessed)
 	}
@@ -1396,9 +1397,9 @@ func TestExpandHashColonSyntax(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := expandHashColonSyntax(tt.input)
+			got := ast.ExpandHashColonSyntax(tt.input)
 			if got != tt.expect {
-				t.Errorf("expandHashColonSyntax(%q) =\n  %q\nwant:\n  %q", tt.input, got, tt.expect)
+				t.Errorf("ast.ExpandHashColonSyntax(%q) =\n  %q\nwant:\n  %q", tt.input, got, tt.expect)
 			}
 		})
 	}

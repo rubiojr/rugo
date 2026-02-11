@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rubiojr/rugo/compiler"
+	"github.com/rubiojr/rugo/ast"
 )
 
 // --- ast module ---
@@ -12,7 +12,7 @@ import (
 type AST struct{}
 
 func (*AST) ParseFile(path string) interface{} {
-	c := &compiler.Compiler{}
+	c := &ast.Compiler{}
 	prog, err := c.ParseFile(path)
 	if err != nil {
 		panic(fmt.Sprintf("ast.parse_file: %v", err))
@@ -21,7 +21,7 @@ func (*AST) ParseFile(path string) interface{} {
 }
 
 func (*AST) ParseSource(source, name string) interface{} {
-	c := &compiler.Compiler{}
+	c := &ast.Compiler{}
 	prog, err := c.ParseSource(source, name)
 	if err != nil {
 		panic(fmt.Sprintf("ast.parse_source: %v", err))
@@ -65,7 +65,7 @@ func (*AST) SourceLines(prog, stmt interface{}) interface{} {
 	return result
 }
 
-func convertProgram(prog *compiler.Program) map[interface{}]interface{} {
+func convertProgram(prog *ast.Program) map[interface{}]interface{} {
 	stmts := make([]interface{}, len(prog.Statements))
 	for i, s := range prog.Statements {
 		stmts[i] = convertStmt(s)
@@ -92,14 +92,14 @@ func convertProgram(prog *compiler.Program) map[interface{}]interface{} {
 	}
 }
 
-func convertStmt(s compiler.Statement) map[interface{}]interface{} {
+func convertStmt(s ast.Statement) map[interface{}]interface{} {
 	m := map[interface{}]interface{}{
 		"line":     s.StmtLine(),
 		"end_line": s.StmtEndLine(),
 	}
 
 	switch st := s.(type) {
-	case *compiler.FuncDef:
+	case *ast.FuncDef:
 		m["type"] = "def"
 		m["name"] = st.Name
 		params := make([]interface{}, len(st.Params))
@@ -109,17 +109,17 @@ func convertStmt(s compiler.Statement) map[interface{}]interface{} {
 		m["params"] = params
 		m["body"] = convertBody(st.Body)
 
-	case *compiler.TestDef:
+	case *ast.TestDef:
 		m["type"] = "test"
 		m["name"] = st.Name
 		m["body"] = convertBody(st.Body)
 
-	case *compiler.BenchDef:
+	case *ast.BenchDef:
 		m["type"] = "bench"
 		m["name"] = st.Name
 		m["body"] = convertBody(st.Body)
 
-	case *compiler.IfStmt:
+	case *ast.IfStmt:
 		m["type"] = "if"
 		m["body"] = convertBody(st.Body)
 		elsifs := make([]interface{}, len(st.ElsifClauses))
@@ -131,11 +131,11 @@ func convertStmt(s compiler.Statement) map[interface{}]interface{} {
 		m["elsif"] = elsifs
 		m["else_body"] = convertBody(st.ElseBody)
 
-	case *compiler.WhileStmt:
+	case *ast.WhileStmt:
 		m["type"] = "while"
 		m["body"] = convertBody(st.Body)
 
-	case *compiler.ForStmt:
+	case *ast.ForStmt:
 		m["type"] = "for"
 		m["var"] = st.Var
 		if st.IndexVar != "" {
@@ -143,42 +143,42 @@ func convertStmt(s compiler.Statement) map[interface{}]interface{} {
 		}
 		m["body"] = convertBody(st.Body)
 
-	case *compiler.ReturnStmt:
+	case *ast.ReturnStmt:
 		m["type"] = "return"
 
-	case *compiler.BreakStmt:
+	case *ast.BreakStmt:
 		m["type"] = "break"
 
-	case *compiler.NextStmt:
+	case *ast.NextStmt:
 		m["type"] = "next"
 
-	case *compiler.AssignStmt:
+	case *ast.AssignStmt:
 		m["type"] = "assign"
 		m["target"] = st.Target
 
-	case *compiler.IndexAssignStmt:
+	case *ast.IndexAssignStmt:
 		m["type"] = "index_assign"
 
-	case *compiler.DotAssignStmt:
+	case *ast.DotAssignStmt:
 		m["type"] = "dot_assign"
 		m["field"] = st.Field
 
-	case *compiler.ExprStmt:
+	case *ast.ExprStmt:
 		m["type"] = "expr"
 		m["expr"] = convertExpr(st.Expression)
 
-	case *compiler.UseStmt:
+	case *ast.UseStmt:
 		m["type"] = "use"
 		m["module"] = st.Module
 
-	case *compiler.ImportStmt:
+	case *ast.ImportStmt:
 		m["type"] = "import"
 		m["package"] = st.Package
 		if st.Alias != "" {
 			m["alias"] = st.Alias
 		}
 
-	case *compiler.RequireStmt:
+	case *ast.RequireStmt:
 		m["type"] = "require"
 		m["path"] = st.Path
 		if st.Alias != "" {
@@ -199,7 +199,7 @@ func convertStmt(s compiler.Statement) map[interface{}]interface{} {
 	return m
 }
 
-func convertBody(stmts []compiler.Statement) []interface{} {
+func convertBody(stmts []ast.Statement) []interface{} {
 	result := make([]interface{}, len(stmts))
 	for i, s := range stmts {
 		result[i] = convertStmt(s)
@@ -207,7 +207,7 @@ func convertBody(stmts []compiler.Statement) []interface{} {
 	return result
 }
 
-func convertExpr(e compiler.Expr) map[interface{}]interface{} {
+func convertExpr(e ast.Expr) map[interface{}]interface{} {
 	if e == nil {
 		return map[interface{}]interface{}{"type": "nil"}
 	}
@@ -215,7 +215,7 @@ func convertExpr(e compiler.Expr) map[interface{}]interface{} {
 	m := map[interface{}]interface{}{}
 
 	switch ex := e.(type) {
-	case *compiler.CallExpr:
+	case *ast.CallExpr:
 		m["type"] = "call"
 		m["func"] = convertExpr(ex.Func)
 		args := make([]interface{}, len(ex.Args))
@@ -224,51 +224,51 @@ func convertExpr(e compiler.Expr) map[interface{}]interface{} {
 		}
 		m["args"] = args
 
-	case *compiler.IdentExpr:
+	case *ast.IdentExpr:
 		m["type"] = "ident"
 		m["name"] = ex.Name
 
-	case *compiler.DotExpr:
+	case *ast.DotExpr:
 		m["type"] = "dot"
 		m["object"] = convertExpr(ex.Object)
 		m["field"] = ex.Field
 
-	case *compiler.StringLiteral:
+	case *ast.StringLiteral:
 		m["type"] = "string"
 		m["value"] = ex.Value
 
-	case *compiler.IntLiteral:
+	case *ast.IntLiteral:
 		m["type"] = "int"
 		m["value"] = ex.Value
 
-	case *compiler.FloatLiteral:
+	case *ast.FloatLiteral:
 		m["type"] = "float"
 		m["value"] = ex.Value
 
-	case *compiler.BoolLiteral:
+	case *ast.BoolLiteral:
 		m["type"] = "bool"
 		m["value"] = ex.Value
 
-	case *compiler.NilLiteral:
+	case *ast.NilLiteral:
 		m["type"] = "nil"
 
-	case *compiler.BinaryExpr:
+	case *ast.BinaryExpr:
 		m["type"] = "binary"
 		m["op"] = ex.Op
 		m["left"] = convertExpr(ex.Left)
 		m["right"] = convertExpr(ex.Right)
 
-	case *compiler.UnaryExpr:
+	case *ast.UnaryExpr:
 		m["type"] = "unary"
 		m["op"] = ex.Op
 
-	case *compiler.ArrayLiteral:
+	case *ast.ArrayLiteral:
 		m["type"] = "array"
 
-	case *compiler.HashLiteral:
+	case *ast.HashLiteral:
 		m["type"] = "hash"
 
-	case *compiler.IndexExpr:
+	case *ast.IndexExpr:
 		m["type"] = "index"
 
 	default:

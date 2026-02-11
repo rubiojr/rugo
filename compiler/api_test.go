@@ -1,6 +1,7 @@
 package compiler
 
 import (
+	"github.com/rubiojr/rugo/ast"
 	"strings"
 	"testing"
 
@@ -21,7 +22,7 @@ func TestParseSourceFuncDef(t *testing.T) {
 	prog, err := c.ParseSource("def greet(name)\n  puts(name)\nend\n", "test.rugo")
 	require.NoError(t, err)
 	require.Len(t, prog.Statements, 1)
-	fn, ok := prog.Statements[0].(*FuncDef)
+	fn, ok := prog.Statements[0].(*ast.FuncDef)
 	require.True(t, ok)
 	assert.Equal(t, "greet", fn.Name)
 	assert.Equal(t, []string{"name"}, fn.Params)
@@ -48,7 +49,7 @@ func TestEndLineFuncDef(t *testing.T) {
 	prog, err := c.ParseSource(src, "test.rugo")
 	require.NoError(t, err)
 	require.Len(t, prog.Statements, 1)
-	fn := prog.Statements[0].(*FuncDef)
+	fn := prog.Statements[0].(*ast.FuncDef)
 	assert.Equal(t, 1, fn.StmtLine())
 	assert.Equal(t, 4, fn.StmtEndLine())
 }
@@ -59,8 +60,8 @@ func TestEndLineTestDef(t *testing.T) {
 	prog, err := c.ParseSource(src, "test.rugo")
 	require.NoError(t, err)
 	require.True(t, len(prog.Statements) >= 2)
-	td, ok := prog.Statements[1].(*TestDef)
-	require.True(t, ok, "expected TestDef, got %T", prog.Statements[1])
+	td, ok := prog.Statements[1].(*ast.TestDef)
+	require.True(t, ok, "expected ast.TestDef, got %T", prog.Statements[1])
 	assert.Equal(t, 2, td.StmtLine())
 	assert.Equal(t, 4, td.StmtEndLine())
 }
@@ -71,7 +72,7 @@ func TestEndLineIfStmt(t *testing.T) {
 	prog, err := c.ParseSource(src, "test.rugo")
 	require.NoError(t, err)
 	require.Len(t, prog.Statements, 1)
-	ifStmt := prog.Statements[0].(*IfStmt)
+	ifStmt := prog.Statements[0].(*ast.IfStmt)
 	assert.Equal(t, 1, ifStmt.StmtLine())
 	assert.Equal(t, 3, ifStmt.StmtEndLine())
 }
@@ -81,7 +82,7 @@ func TestEndLineNonBlockStmt(t *testing.T) {
 	prog, err := c.ParseSource("x = 42\n", "test.rugo")
 	require.NoError(t, err)
 	require.Len(t, prog.Statements, 1)
-	assign := prog.Statements[0].(*AssignStmt)
+	assign := prog.Statements[0].(*ast.AssignStmt)
 	assert.Equal(t, 1, assign.StmtLine())
 	assert.Equal(t, 1, assign.StmtEndLine())
 }
@@ -92,8 +93,8 @@ func TestEndLineMultipleFuncs(t *testing.T) {
 	prog, err := c.ParseSource(src, "test.rugo")
 	require.NoError(t, err)
 	require.Len(t, prog.Statements, 2)
-	fn1 := prog.Statements[0].(*FuncDef)
-	fn2 := prog.Statements[1].(*FuncDef)
+	fn1 := prog.Statements[0].(*ast.FuncDef)
+	fn2 := prog.Statements[1].(*ast.FuncDef)
 	assert.Equal(t, 1, fn1.StmtLine())
 	assert.Equal(t, 3, fn1.StmtEndLine())
 	assert.Equal(t, 5, fn2.StmtLine())
@@ -109,9 +110,9 @@ func TestStmtLineAfterHeredoc(t *testing.T) {
 	require.NoError(t, err)
 
 	lines := strings.Split(prog.RawSource, "\n")
-	var fn *FuncDef
+	var fn *ast.FuncDef
 	for _, s := range prog.Statements {
-		if f, ok := s.(*FuncDef); ok {
+		if f, ok := s.(*ast.FuncDef); ok {
 			fn = f
 			break
 		}
@@ -143,11 +144,11 @@ func TestWalkStmts(t *testing.T) {
 	require.NoError(t, err)
 
 	var names []string
-	WalkStmts(prog, func(s Statement) bool {
+	WalkStmts(prog, func(s ast.Statement) bool {
 		switch st := s.(type) {
-		case *FuncDef:
+		case *ast.FuncDef:
 			names = append(names, "def:"+st.Name)
-		case *AssignStmt:
+		case *ast.AssignStmt:
 			names = append(names, "assign:"+st.Target)
 		}
 		return true
@@ -162,12 +163,12 @@ func TestWalkStmtsSkipChildren(t *testing.T) {
 	require.NoError(t, err)
 
 	var names []string
-	WalkStmts(prog, func(s Statement) bool {
+	WalkStmts(prog, func(s ast.Statement) bool {
 		switch st := s.(type) {
-		case *FuncDef:
+		case *ast.FuncDef:
 			names = append(names, "def:"+st.Name)
 			return false // skip body
-		case *AssignStmt:
+		case *ast.AssignStmt:
 			names = append(names, "assign:"+st.Target)
 		}
 		return true
@@ -182,8 +183,8 @@ func TestWalkExprsExported(t *testing.T) {
 	require.NoError(t, err)
 
 	var foundBinary bool
-	WalkExprs(prog, func(e Expr) bool {
-		if _, ok := e.(*BinaryExpr); ok {
+	WalkExprs(prog, func(e ast.Expr) bool {
+		if _, ok := e.(*ast.BinaryExpr); ok {
 			foundBinary = true
 			return true
 		}
@@ -217,14 +218,14 @@ func TestRawSourceCommentCorrelation(t *testing.T) {
 
 	lines := strings.Split(prog.RawSource, "\n")
 
-	// FuncDef at line 2 should have comment at line 1
-	fn := prog.Statements[0].(*FuncDef)
+	// ast.FuncDef at line 2 should have comment at line 1
+	fn := prog.Statements[0].(*ast.FuncDef)
 	assert.Equal(t, 2, fn.StmtLine())
 	commentLine := lines[fn.StmtLine()-2] // line above the def
 	assert.Equal(t, "# adds two numbers", commentLine)
 
-	// AssignStmt at line 7 has a comment at line 6 but with a blank line gap
-	assign := prog.Statements[1].(*AssignStmt)
+	// ast.AssignStmt at line 7 has a comment at line 6 but with a blank line gap
+	assign := prog.Statements[1].(*ast.AssignStmt)
 	assert.Equal(t, 7, assign.StmtLine())
 	gapLine := lines[assign.StmtLine()-2] // line above is "# no doc here"
 	assert.Equal(t, "# no doc here", gapLine)
@@ -237,7 +238,7 @@ func TestRawSourceMultiLineDocComment(t *testing.T) {
 	require.NoError(t, err)
 
 	lines := strings.Split(prog.RawSource, "\n")
-	fn := prog.Statements[0].(*FuncDef)
+	fn := prog.Statements[0].(*ast.FuncDef)
 	assert.Equal(t, 3, fn.StmtLine())
 
 	// Walk backwards from the def to collect doc comment lines
@@ -260,7 +261,7 @@ func TestRawSourceInlineCommentStripped(t *testing.T) {
 	require.NoError(t, err)
 
 	// AST has the assignment without the comment
-	assign := prog.Statements[0].(*AssignStmt)
+	assign := prog.Statements[0].(*ast.AssignStmt)
 	assert.Equal(t, "x", assign.Target)
 
 	// But RawSource still has the inline comment
@@ -276,7 +277,7 @@ func TestRawSourceExtractBlockWithComments(t *testing.T) {
 	lines := strings.Split(prog.RawSource, "\n")
 
 	// Extract the greet function block using position info
-	fn := prog.Statements[0].(*FuncDef)
+	fn := prog.Statements[0].(*ast.FuncDef)
 	assert.Equal(t, "greet", fn.Name)
 
 	// Include the doc comment above

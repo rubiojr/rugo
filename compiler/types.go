@@ -1,6 +1,8 @@
 package compiler
 
-// RugoType represents the inferred type of a Rugo expression or variable.
+import (
+	"github.com/rubiojr/rugo/ast"
+)
 type RugoType int
 
 const (
@@ -107,7 +109,7 @@ func unifyTypes(a, b RugoType) RugoType {
 // TypeInfo holds inferred type information for a program.
 type TypeInfo struct {
 	// ExprTypes maps expressions to their inferred types.
-	ExprTypes map[Expr]RugoType
+	ExprTypes map[ast.Expr]RugoType
 	// FuncTypes maps function names to their inferred signatures.
 	FuncTypes map[string]*FuncTypeInfo
 	// VarTypes maps (scope, variable name) to their final inferred type.
@@ -122,7 +124,7 @@ type FuncTypeInfo struct {
 }
 
 // ExprType returns the inferred type of an expression, or TypeDynamic if unknown.
-func (ti *TypeInfo) ExprType(e Expr) RugoType {
+func (ti *TypeInfo) ExprType(e ast.Expr) RugoType {
 	if t, ok := ti.ExprTypes[e]; ok {
 		return t
 	}

@@ -15,7 +15,7 @@ import (
 
 	"github.com/rubiojr/rugo/cmd/dev"
 	"github.com/rubiojr/rugo/compiler"
-	"github.com/rubiojr/rugo/compiler/gobridge"
+	"github.com/rubiojr/rugo/gobridge"
 	rugodoc "github.com/rubiojr/rugo/doc"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/remote"

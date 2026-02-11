@@ -1,8 +1,10 @@
 package compiler
 
-// WalkExprs traverses the entire AST and calls fn on every Expr node.
+import "github.com/rubiojr/rugo/ast"
+
+// WalkExprs traverses the entire AST and calls fn on every ast.Expr node.
 // Returns true as soon as fn returns true for any expression.
-func WalkExprs(prog *Program, fn func(Expr) bool) bool {
+func WalkExprs(prog *ast.Program, fn func(ast.Expr) bool) bool {
 	for _, s := range prog.Statements {
 		if walkStmtExprs(s, fn) {
 			return true
@@ -11,33 +13,33 @@ func WalkExprs(prog *Program, fn func(Expr) bool) bool {
 	return false
 }
 
-// WalkStmts traverses all statements in a Program, calling fn for each.
+// WalkStmts traverses all statements in a ast.Program, calling fn for each.
 // If fn returns false, children of that statement are not visited.
-// Recurses into block bodies (FuncDef, TestDef, BenchDef, IfStmt, WhileStmt, ForStmt).
-func WalkStmts(prog *Program, fn func(Statement) bool) {
+// Recurses into block bodies (ast.FuncDef, ast.TestDef, ast.BenchDef, ast.IfStmt, ast.WhileStmt, ast.ForStmt).
+func WalkStmts(prog *ast.Program, fn func(ast.Statement) bool) {
 	for _, s := range prog.Statements {
 		walkStmtRecursive(s, fn)
 	}
 }
 
-func walkStmtRecursive(s Statement, fn func(Statement) bool) {
+func walkStmtRecursive(s ast.Statement, fn func(ast.Statement) bool) {
 	if !fn(s) {
 		return
 	}
 	switch st := s.(type) {
-	case *FuncDef:
+	case *ast.FuncDef:
 		for _, child := range st.Body {
 			walkStmtRecursive(child, fn)
 		}
-	case *TestDef:
+	case *ast.TestDef:
 		for _, child := range st.Body {
 			walkStmtRecursive(child, fn)
 		}
-	case *BenchDef:
+	case *ast.BenchDef:
 		for _, child := range st.Body {
 			walkStmtRecursive(child, fn)
 		}
-	case *IfStmt:
+	case *ast.IfStmt:
 		for _, child := range st.Body {
 			walkStmtRecursive(child, fn)
 		}
@@ -49,28 +51,28 @@ func walkStmtRecursive(s Statement, fn func(Statement) bool) {
 		for _, child := range st.ElseBody {
 			walkStmtRecursive(child, fn)
 		}
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		for _, child := range st.Body {
 			walkStmtRecursive(child, fn)
 		}
-	case *ForStmt:
+	case *ast.ForStmt:
 		for _, child := range st.Body {
 			walkStmtRecursive(child, fn)
 		}
 	}
 }
 
-func walkStmtExprs(s Statement, fn func(Expr) bool) bool {
+func walkStmtExprs(s ast.Statement, fn func(ast.Expr) bool) bool {
 	switch st := s.(type) {
-	case *ExprStmt:
+	case *ast.ExprStmt:
 		return walkExpr(st.Expression, fn)
-	case *AssignStmt:
+	case *ast.AssignStmt:
 		return walkExpr(st.Value, fn)
-	case *IndexAssignStmt:
+	case *ast.IndexAssignStmt:
 		return walkExpr(st.Object, fn) || walkExpr(st.Index, fn) || walkExpr(st.Value, fn)
-	case *DotAssignStmt:
+	case *ast.DotAssignStmt:
 		return walkExpr(st.Object, fn) || walkExpr(st.Value, fn)
-	case *IfStmt:
+	case *ast.IfStmt:
 		if walkExpr(st.Condition, fn) {
 			return true
 		}
@@ -94,7 +96,7 @@ func walkStmtExprs(s Statement, fn func(Expr) bool) bool {
 				return true
 			}
 		}
-	case *WhileStmt:
+	case *ast.WhileStmt:
 		if walkExpr(st.Condition, fn) {
 			return true
 		}
@@ -103,7 +105,7 @@ func walkStmtExprs(s Statement, fn func(Expr) bool) bool {
 				return true
 			}
 		}
-	case *ForStmt:
+	case *ast.ForStmt:
 		if walkExpr(st.Collection, fn) {
 			return true
 		}
@@ -112,25 +114,25 @@ func walkStmtExprs(s Statement, fn func(Expr) bool) bool {
 				return true
 			}
 		}
-	case *FuncDef:
+	case *ast.FuncDef:
 		for _, s := range st.Body {
 			if walkStmtExprs(s, fn) {
 				return true
 			}
 		}
-	case *TestDef:
+	case *ast.TestDef:
 		for _, s := range st.Body {
 			if walkStmtExprs(s, fn) {
 				return true
 			}
 		}
-	case *BenchDef:
+	case *ast.BenchDef:
 		for _, s := range st.Body {
 			if walkStmtExprs(s, fn) {
 				return true
 			}
 		}
-	case *ReturnStmt:
+	case *ast.ReturnStmt:
 		if st.Value != nil {
 			return walkExpr(st.Value, fn)
 		}
@@ -140,7 +142,7 @@ func walkStmtExprs(s Statement, fn func(Expr) bool) bool {
 
 // walkExpr calls fn on the expression, then recurses into child expressions.
 // Returns true as soon as fn returns true.
-func walkExpr(e Expr, fn func(Expr) bool) bool {
+func walkExpr(e ast.Expr, fn func(ast.Expr) bool) bool {
 	if e == nil {
 		return false
 	}
@@ -148,7 +150,7 @@ func walkExpr(e Expr, fn func(Expr) bool) bool {
 		return true
 	}
 	switch ex := e.(type) {
-	case *CallExpr:
+	case *ast.CallExpr:
 		if walkExpr(ex.Func, fn) {
 			return true
 		}
@@ -157,27 +159,27 @@ func walkExpr(e Expr, fn func(Expr) bool) bool {
 				return true
 			}
 		}
-	case *BinaryExpr:
+	case *ast.BinaryExpr:
 		return walkExpr(ex.Left, fn) || walkExpr(ex.Right, fn)
-	case *UnaryExpr:
+	case *ast.UnaryExpr:
 		return walkExpr(ex.Operand, fn)
-	case *IndexExpr:
+	case *ast.IndexExpr:
 		return walkExpr(ex.Object, fn) || walkExpr(ex.Index, fn)
-	case *DotExpr:
+	case *ast.DotExpr:
 		return walkExpr(ex.Object, fn)
-	case *ArrayLiteral:
+	case *ast.ArrayLiteral:
 		for _, el := range ex.Elements {
 			if walkExpr(el, fn) {
 				return true
 			}
 		}
-	case *HashLiteral:
+	case *ast.HashLiteral:
 		for _, p := range ex.Pairs {
 			if walkExpr(p.Key, fn) || walkExpr(p.Value, fn) {
 				return true
 			}
 		}
-	case *TryExpr:
+	case *ast.TryExpr:
 		if walkExpr(ex.Expr, fn) {
 			return true
 		}
@@ -186,13 +188,13 @@ func walkExpr(e Expr, fn func(Expr) bool) bool {
 				return true
 			}
 		}
-	case *SpawnExpr:
+	case *ast.SpawnExpr:
 		for _, s := range ex.Body {
 			if walkStmtExprs(s, fn) {
 				return true
 			}
 		}
-	case *ParallelExpr:
+	case *ast.ParallelExpr:
 		for _, s := range ex.Body {
 			if walkStmtExprs(s, fn) {
 				return true
