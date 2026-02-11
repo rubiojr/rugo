@@ -19,13 +19,13 @@ rats "test passes with generous timeout"
   result = test.run("RUGO_TEST_TIMEOUT=60 rugo rats rats/fixtures/test_timeout.rugo")
   # The second test sleeps 10s which exceeds 60s, so it should timeout
   # Actually, use a separate fixture for fast tests
-  result = test.run("RUGO_TEST_TIMEOUT=60 rugo rats rats/02_variables_test.rugo")
+  result = test.run("RUGO_TEST_TIMEOUT=60 rugo rats rats/core/02_variables_test.rugo")
   test.assert_eq(result["status"], 0)
 end
 
 # --- Positive: timeout disabled with 0 ---
 
 rats "timeout disabled with RUGO_TEST_TIMEOUT=0"
-  result = test.run("RUGO_TEST_TIMEOUT=0 rugo rats rats/02_variables_test.rugo")
+  result = test.run("RUGO_TEST_TIMEOUT=0 rugo rats rats/core/02_variables_test.rugo")
   test.assert_eq(result["status"], 0)
 end

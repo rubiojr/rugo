@@ -1,8 +1,8 @@
 use "test"
 use "conv"
 use "str"
-require "fixtures/struct_dog" as "dog"
-require "fixtures/struct_cat" as "cat"
+require "../fixtures/struct_dog" as "dog"
+require "../fixtures/struct_cat" as "cat"
 
 struct Point
   x
