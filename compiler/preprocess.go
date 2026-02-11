@@ -642,7 +642,7 @@ func isHyphenatedCommand(s string) bool {
 
 func isOperatorStart(ch byte) bool {
 	switch ch {
-	case '+', '-', '*', '/', '%', '<', '>', '!', '&', '|':
+	case '+', '-', '*', '/', '%', '<', '>', '!', '&', '|', '=':
 		return true
 	}
 	return false

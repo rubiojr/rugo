@@ -1,6 +1,6 @@
-# RATS: dot-access in .map() and .sort_by() callbacks
-# Regression tests for bug where u.name inside .map()/.sort_by()
-# callbacks was interpreted as a method call instead of hash field access.
+# RATS: inline lambda preprocessing regressions
+# Tests for bugs where expressions inside inline fn() bodies were
+# mishandled by the preprocessor (dot-access, comparison operators).
 use "test"
 
 # ============================================================
@@ -57,4 +57,29 @@ rats "filter then map with dot-access works"
   adults = people.filter(fn(p) p.age >= 18 end).map(fn(p) p.name end)
   test.assert_eq(adults[0], "Alice")
   test.assert_eq(adults[1], "Charlie")
+end
+
+# ============================================================
+# D. comparison operators inside inline lambda bodies
+# ============================================================
+
+rats "== inside inline lambda is not treated as shell"
+  nums = [1, 2, 3]
+  found = nums.find(fn(x) x == 2 end)
+  test.assert_eq(found, 2)
+end
+
+rats "!= inside inline lambda works"
+  nums = [1, 2, 3]
+  result = nums.filter(fn(x) x != 2 end)
+  test.assert_eq(len(result), 2)
+  test.assert_eq(result[0], 1)
+  test.assert_eq(result[1], 3)
+end
+
+rats "hash.find with == in inline lambda"
+  h = {a: 1, b: 2, c: 3}
+  found = h.find(fn(k, v) v == 2 end)
+  test.assert_eq(found[0], "b")
+  test.assert_eq(found[1], 2)
 end
