@@ -1,0 +1,76 @@
+# RATS: array literal on new line (bug 2e3cc56)
+# Tests that [array] at the start of a new line is parsed as a new statement,
+# not as an index Suffix on the previous expression.
+use "test"
+
+# ============================================================
+# A. Array literal after assignment on previous line
+# ============================================================
+
+rats "array literal on new line after assignment"
+  result = []
+  [1, 2, 3].each(fn(x)
+    result = append(result, x)
+  end)
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 1)
+  test.assert_eq(result[1], 2)
+  test.assert_eq(result[2], 3)
+end
+
+rats "array literal on new line after variable"
+  x = 10
+  result = []
+  [4, 5, 6].each(fn(v) result = append(result, v) end)
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 4)
+end
+
+rats "standalone array literal on new line"
+  result = []
+  [1, 2, 3]
+  test.assert_eq(len(result), 0)
+end
+
+# ============================================================
+# B. Same-line index still works
+# ============================================================
+
+rats "same-line index access still works"
+  arr = [10, 20, 30]
+  test.assert_eq(arr[0], 10)
+  test.assert_eq(arr[1], 20)
+  test.assert_eq(arr[2], 30)
+end
+
+rats "inline array literal with index on same line"
+  test.assert_eq([10, 20, 30][1], 20)
+end
+
+# ============================================================
+# C. Array literal with method chain
+# ============================================================
+
+rats "array literal with .map on same line"
+  result = [1, 2, 3].map(fn(x) x * 2 end)
+  test.assert_eq(result[0], 2)
+  test.assert_eq(result[1], 4)
+  test.assert_eq(result[2], 6)
+end
+
+rats "array literal with multi-line fn body"
+  result = []
+  [1, 2, 3].each(fn(x)
+    result = append(result, x)
+  end)
+  test.assert_eq(len(result), 3)
+end
+
+rats "array literal with chained methods on new line"
+  result = [3, 1, 2]
+    .sort_by(fn(x) x end)
+    .map(fn(x) x * 10 end)
+  test.assert_eq(result[0], 10)
+  test.assert_eq(result[1], 20)
+  test.assert_eq(result[2], 30)
+end

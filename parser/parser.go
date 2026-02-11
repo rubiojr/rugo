@@ -203,6 +203,7 @@ type Parser struct{
 	src       []byte
 	tok       scanner.Token // current lookahead
 	tokIndex  int32 // For scanner.Token(tokIndex)
+	lastShiftLine int // line of the most recently consumed token (for newline-aware disambiguation)
 }
 
 type Symbol int32
@@ -3081,6 +3082,11 @@ state1:
 accept, errorSet = true, 36
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0028, RugoTOK_002e, RugoTOK_005b:
+// '[' on a new line starts a new array literal statement, not an index Suffix.
+// This disambiguates `expr\n[1, 2, 3]` (two statements) from `expr[idx]` (index).
+if Symbol(p.tok.Ch) == RugoTOK_005b && p.tok.Position().Line != p.lastShiftLine {
+	break
+}
 r = p.add(r, p.Suffix())
 goto state1
 }
@@ -3955,6 +3961,7 @@ return p.stop(r, accept, errorSet)
 func (p *Parser) shift() (r int32) {
 	r = p.tokIndex
 	if !p.eof {
+		p.lastShiftLine = p.tok.Position().Line
 		p.tok = p.Scan()
 		p.tokIndex++
 		p.eof = p.tok.Ch == rune(RugoTOK_EOF)
