@@ -1,0 +1,162 @@
+# smart-append linter
+#
+# Detects `x = append(x, val)` patterns that can be replaced with `append x, val`.
+
+use "ast"
+use "conv"
+use "str"
+use "os"
+
+# Check if a source line matches the pattern: target = append(target, ...)
+# Returns true if it can be safely rewritten.
+def is_redundant_append(line, target)
+  trimmed = str.trim(line)
+
+  # Match: target = append(target, ...)
+  prefix = target + " = append(" + target + ","
+  if str.starts_with(trimmed, prefix) == false
+    return false
+  end
+
+  # Must end with )
+  if str.ends_with(trimmed, ")") == false
+    return false
+  end
+
+  return true
+end
+
+# Rewrite a redundant append line to bare form.
+# "  arr = append(arr, val)" -> "  append arr, val"
+def rewrite_line(line, target)
+  trimmed = str.trim(line)
+  indent_len = str.index(line, trimmed)
+  indent = ""
+  if indent_len > 0
+    indent = line[0, indent_len]
+  end
+
+  prefix = target + " = append(" + target + ", "
+  inner = trimmed[len(prefix), len(trimmed) - len(prefix) - 1]
+
+  return indent + "append " + target + ", " + inner
+end
+
+# Build a warning hash.
+def make_warning(path, line, target, source)
+  return {path: path, line: line, target: target, source: source, fixed: str.trim(rewrite_line(source, target))}
+end
+
+# Recursively scan a statement (and its body) for redundant append.
+def scan_statement(warnings, prog, stmt, path)
+  if stmt["type"] == "assign"
+    lines = ast.source_lines(prog, stmt)
+    line = lines[0]
+    target = stmt["target"]
+    if is_redundant_append(line, target)
+      append warnings, make_warning(path, stmt["line"], target, str.trim(line))
+    end
+  end
+
+  # Recurse into block-bearing statements
+  if stmt["type"] == "def"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "if"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+    if stmt["else_body"] != nil
+      for s in stmt["else_body"]
+        warnings = scan_statement(warnings, prog, s, path)
+      end
+    end
+  end
+
+  if stmt["type"] == "for"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "while"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "try"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+    if stmt["rescue_body"] != nil
+      for s in stmt["rescue_body"]
+        warnings = scan_statement(warnings, prog, s, path)
+      end
+    end
+  end
+
+  if stmt["type"] == "spawn"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "test"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  return warnings
+end
+
+# Lint a single file. Returns array of warning hashes.
+def lint(path)
+  warnings = []
+
+  prog = try ast.parse_file(path) or e
+    nil
+  end
+
+  if prog == nil
+    puts "error: could not parse " + path
+    return warnings
+  end
+
+  for stmt in prog["statements"]
+    warnings = scan_statement(warnings, prog, stmt, path)
+  end
+
+  return warnings
+end
+
+# Apply fixes to a file by rewriting matching lines.
+def fix(path, warnings)
+  content = `cat '#{path}'`
+  lines = str.split(content, "\n")
+
+  fix_map = {}
+  for w in warnings
+    fix_map[conv.to_s(w["line"])] = w["target"]
+  end
+
+  new_lines = []
+  i = 0
+  for line in lines
+    line_num = conv.to_s(i + 1)
+    if fix_map[line_num] != nil
+      target = fix_map[line_num]
+      append new_lines, rewrite_line(line, target)
+    else
+      append new_lines, line
+    end
+    i += 1
+  end
+
+  new_content = str.join(new_lines, "\n")
+  os.exec("cat > " + path + " << 'RUGO_LINTER_EOF'\n" + new_content + "\nRUGO_LINTER_EOF")
+end

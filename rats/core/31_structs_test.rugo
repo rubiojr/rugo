@@ -132,7 +132,7 @@ rats "dot access with for loop"
   items = [{"name" => "a"}, {"name" => "b"}, {"name" => "c"}]
   names = []
   for item in items
-    names = append(names, item.name)
+    append names, item.name
   end
   test.assert_eq(len(names), 3)
   test.assert_eq(names[0], "a")

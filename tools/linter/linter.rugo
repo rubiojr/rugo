@@ -1,0 +1,137 @@
+# Rugo Linter
+#
+# Modular linter for Rugo source files. Each lint rule lives in linters/.
+# To add a new linter: create linters/foo.rugo with lint(path) and fix(path, warnings),
+# then register it in the linters array below.
+#
+# Usage:
+#   rugo run tools/linter/linter.rugo -- <command> [--fix] file(s)
+#
+# Commands:
+#   smart-append   Detect verbose append patterns
+#   all            Run all linters
+#
+# Examples:
+#   rugo run tools/linter/linter.rugo -- smart-append examples/spawn.rugo
+#   rugo run tools/linter/linter.rugo -- all --fix examples/spawn.rugo
+
+use "cli"
+use "conv"
+use "os"
+
+require "./linters/smart_append"
+
+# --- Linter registry ---
+# Each entry: {name, lint_fn(path) -> warnings, fix_fn(path, warnings)}
+# To add a new linter, require it and add an entry here.
+Linters = [
+  {name: "smart-append", lint: fn(f) smart_append.lint(f) end, fix: fn(f, w) smart_append.fix(f, w) end}
+]
+
+# Run a linter (lint_fn/fix_fn) against files. Returns total warning count.
+def run_linter(name, lint_fn, fix_fn, files, fix_mode)
+  total = 0
+  for file in files
+    warnings = lint_fn(file)
+    if fix_mode == true
+      if len(warnings) > 0
+        fix_fn(file, warnings)
+        for w in warnings
+          puts "[" + name + "] " + file + ":" + conv.to_s(w["line"]) + ": fixed: " + w["source"] + " → " + w["fixed"]
+        end
+      end
+    else
+      for w in warnings
+        puts "[" + name + "] " + file + ":" + conv.to_s(w["line"]) + ": " + w["source"]
+        puts "  suggestion: " + w["fixed"]
+      end
+    end
+    total += len(warnings)
+  end
+  return total
+end
+
+# Find a linter by name, returns nil if not found.
+def find_linter(name)
+  for l in Linters
+    if l["name"] == name
+      return l
+    end
+  end
+  return nil
+end
+
+# Validate that all files exist.
+def validate_files(files)
+  for file in files
+    if os.file_exists(file) == false
+      puts "error: file not found: " + file
+      os.exit(1)
+    end
+  end
+end
+
+# Print available commands.
+def print_usage()
+  puts "Usage: rugo-lint <command> [--fix] <file(s)>"
+  puts ""
+  puts "Commands:"
+  for l in Linters
+    puts "  " + l["name"]
+  end
+  puts "  all            Run all linters"
+end
+
+# Main
+cli.name("rugo-lint")
+cli.about("Modular linter for Rugo source files")
+cli.bool_flag("", "fix", "f", "Auto-fix detected patterns in place")
+cli.parse()
+
+fix_mode = cli.get("fix")
+args = cli.args()
+
+if len(args) == 0
+  print_usage()
+  os.exit(1)
+end
+
+cmd = args[0]
+files = args[1, len(args) - 1]
+
+if len(files) == 0
+  print_usage()
+  os.exit(1)
+end
+
+# Validate command before files
+if cmd != "all"
+  if find_linter(cmd) == nil
+    puts "error: unknown command '" + cmd + "'"
+    print_usage()
+    os.exit(1)
+  end
+end
+
+validate_files(files)
+
+total = 0
+
+if cmd == "all"
+  for l in Linters
+    total += run_linter(l["name"], l["lint"], l["fix"], files, fix_mode)
+  end
+else
+  linter = find_linter(cmd)
+  total = run_linter(linter["name"], linter["lint"], linter["fix"], files, fix_mode)
+end
+
+if total == 0
+  puts "No issues found."
+else
+  if fix_mode
+    puts conv.to_s(total) + " issue(s) fixed."
+  else
+    puts conv.to_s(total) + " issue(s) found."
+  end
+end

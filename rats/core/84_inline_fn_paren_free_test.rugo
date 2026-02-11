@@ -103,7 +103,7 @@ end
 def my_test_map(f, arr)
   result = []
   for item in arr
-    result = append(result, f(item))
+    append result, f(item)
   end
   return result
 end
