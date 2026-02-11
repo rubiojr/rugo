@@ -119,7 +119,7 @@ func TestExpandHeredocs(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := expandHeredocs(tt.input)
+			result, _, err := expandHeredocs(tt.input)
 			if err != nil {
 				t.Fatalf("expandHeredocs error: %v", err)
 			}
@@ -131,7 +131,7 @@ func TestExpandHeredocs(t *testing.T) {
 }
 
 func TestExpandHeredocsError(t *testing.T) {
-	_, err := expandHeredocs("x = <<TEXT\nHello\n")
+	_, _, err := expandHeredocs("x = <<TEXT\nHello\n")
 	if err == nil {
 		t.Fatal("expected error for unterminated heredoc")
 	}

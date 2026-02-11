@@ -116,8 +116,10 @@ ti := compiler.Infer(prog)
 
 ```go
 // Walk all statements (including nested ones inside blocks).
-compiler.WalkStmts(prog, func(s compiler.Statement) {
+// Return false to skip children of the current statement.
+compiler.WalkStmts(prog, func(s compiler.Statement) bool {
     // called for every statement in the tree
+    return true // return false to skip children
 })
 
 // Walk all expressions. Returns true on first match.

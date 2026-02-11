@@ -100,6 +100,29 @@ func TestEndLineMultipleFuncs(t *testing.T) {
 	assert.Equal(t, 7, fn2.StmtEndLine())
 }
 
+func TestStmtLineAfterHeredoc(t *testing.T) {
+	c := &Compiler{}
+	// Heredoc compresses 3 lines (opener, body, delimiter) into 1.
+	// def foo() should still report original line 6, not a shifted line.
+	src := "msg = <<TEXT\nHello\nTEXT\n\ndef foo()\n  puts(msg)\nend\n"
+	prog, err := c.ParseSource(src, "test.rugo")
+	require.NoError(t, err)
+
+	lines := strings.Split(prog.RawSource, "\n")
+	var fn *FuncDef
+	for _, s := range prog.Statements {
+		if f, ok := s.(*FuncDef); ok {
+			fn = f
+			break
+		}
+	}
+	require.NotNil(t, fn)
+	assert.Equal(t, 5, fn.StmtLine())
+	assert.Equal(t, 7, fn.StmtEndLine())
+	// The raw source line at StmtLine() should be the actual def
+	assert.Equal(t, "def foo()", strings.TrimSpace(lines[fn.StmtLine()-1]))
+}
+
 func TestInferExported(t *testing.T) {
 	c := &Compiler{}
 	src := "def add(a, b)\n  return a + b\nend\nx = add(1, 2)\n"
@@ -120,15 +143,37 @@ func TestWalkStmts(t *testing.T) {
 	require.NoError(t, err)
 
 	var names []string
-	WalkStmts(prog, func(s Statement) {
+	WalkStmts(prog, func(s Statement) bool {
 		switch st := s.(type) {
 		case *FuncDef:
 			names = append(names, "def:"+st.Name)
 		case *AssignStmt:
 			names = append(names, "assign:"+st.Target)
 		}
+		return true
 	})
 	assert.Equal(t, []string{"def:foo", "assign:x", "assign:y"}, names)
+}
+
+func TestWalkStmtsSkipChildren(t *testing.T) {
+	c := &Compiler{}
+	src := "def foo()\n  x = 1\nend\ny = 2\n"
+	prog, err := c.ParseSource(src, "test.rugo")
+	require.NoError(t, err)
+
+	var names []string
+	WalkStmts(prog, func(s Statement) bool {
+		switch st := s.(type) {
+		case *FuncDef:
+			names = append(names, "def:"+st.Name)
+			return false // skip body
+		case *AssignStmt:
+			names = append(names, "assign:"+st.Target)
+		}
+		return true
+	})
+	// x=1 is inside foo's body, should be skipped
+	assert.Equal(t, []string{"def:foo", "assign:y"}, names)
 }
 
 func TestWalkExprsExported(t *testing.T) {
@@ -246,4 +291,26 @@ func TestRawSourceExtractBlockWithComments(t *testing.T) {
 	assert.Contains(t, block, "def greet(name)")
 	assert.Contains(t, block, "# say hello")
 	assert.Contains(t, block, "end")
+}
+
+func TestStructInfo(t *testing.T) {
+	c := &Compiler{}
+	src := "struct Dog\n  name\n  breed\nend\n\ndef Dog.bark()\n  return \"woof\"\nend\n"
+	prog, err := c.ParseSource(src, "test.rugo")
+	require.NoError(t, err)
+	require.Len(t, prog.Structs, 1)
+	assert.Equal(t, "Dog", prog.Structs[0].Name)
+	assert.Equal(t, []string{"name", "breed"}, prog.Structs[0].Fields)
+	assert.Equal(t, 1, prog.Structs[0].Line)
+}
+
+func TestStructInfoMultiple(t *testing.T) {
+	c := &Compiler{}
+	src := "struct Point\n  x\n  y\nend\n\nstruct Color\n  r\n  g\n  b\nend\n"
+	prog, err := c.ParseSource(src, "test.rugo")
+	require.NoError(t, err)
+	require.Len(t, prog.Structs, 2)
+	assert.Equal(t, "Point", prog.Structs[0].Name)
+	assert.Equal(t, "Color", prog.Structs[1].Name)
+	assert.Equal(t, []string{"r", "g", "b"}, prog.Structs[1].Fields)
 }

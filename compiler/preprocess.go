@@ -698,10 +698,11 @@ func scanFuncDefs(src string) map[string]bool {
 // becomes:
 //
 //	def bark(self)
-func expandStructDefs(src string) (string, []int) {
+func expandStructDefs(src string) (string, []int, []StructInfo) {
 	lines := strings.Split(src, "\n")
 	var result []string
 	var lineMap []int
+	var structs []StructInfo
 	structNames := make(map[string]bool)
 
 	// First pass: collect struct names
@@ -746,6 +747,8 @@ func expandStructDefs(src string) (string, []int) {
 				}
 				i++
 			}
+
+			structs = append(structs, StructInfo{Name: name, Fields: fields, Line: origLine})
 
 			// Generate constructor: def Name(field1, field2)
 			params := strings.Join(fields, ", ")
@@ -815,7 +818,7 @@ func expandStructDefs(src string) (string, []int) {
 		i++
 	}
 
-	return strings.Join(result, "\n"), lineMap
+	return strings.Join(result, "\n"), lineMap, structs
 }
 
 // processInterpolation converts "Hello #{expr}" to format string + args.
@@ -1062,15 +1065,17 @@ func buildHeredocReplacement(h heredocOpener, bodyLines []string) string {
 //
 // The closing delimiter may be indented; leading whitespace is ignored when
 // matching. Body lines between the opener and closer are collected verbatim.
-func expandHeredocs(src string) (string, error) {
+func expandHeredocs(src string) (string, []int, error) {
 	lines := strings.Split(src, "\n")
 	var result []string
+	var lineMap []int
 
 	i := 0
 	for i < len(lines) {
 		h, tokenStart, ok := findHeredocOpener(lines[i])
 		if !ok {
 			result = append(result, lines[i])
+			lineMap = append(lineMap, i+1)
 			i++
 			continue
 		}
@@ -1093,14 +1098,15 @@ func expandHeredocs(src string) (string, error) {
 			i++
 		}
 		if !found {
-			return "", fmt.Errorf("%d: unterminated heredoc — missing closing %s (opened at line %d)", openerLineNum, h.delimiter, openerLineNum)
+			return "", nil, fmt.Errorf("%d: unterminated heredoc — missing closing %s (opened at line %d)", openerLineNum, h.delimiter, openerLineNum)
 		}
 
 		replacement := buildHeredocReplacement(h, bodyLines)
 		result = append(result, prefix+replacement)
+		lineMap = append(lineMap, openerLineNum)
 	}
 
-	return strings.Join(result, "\n"), nil
+	return strings.Join(result, "\n"), lineMap, nil
 }
 
 // expandTrySugar expands single-line try forms into the full block form.

@@ -12,15 +12,18 @@ func WalkExprs(prog *Program, fn func(Expr) bool) bool {
 }
 
 // WalkStmts traverses all statements in a Program, calling fn for each.
+// If fn returns false, children of that statement are not visited.
 // Recurses into block bodies (FuncDef, TestDef, BenchDef, IfStmt, WhileStmt, ForStmt).
-func WalkStmts(prog *Program, fn func(Statement)) {
+func WalkStmts(prog *Program, fn func(Statement) bool) {
 	for _, s := range prog.Statements {
 		walkStmtRecursive(s, fn)
 	}
 }
 
-func walkStmtRecursive(s Statement, fn func(Statement)) {
-	fn(s)
+func walkStmtRecursive(s Statement, fn func(Statement) bool) {
+	if !fn(s) {
+		return
+	}
 	switch st := s.(type) {
 	case *FuncDef:
 		for _, child := range st.Body {

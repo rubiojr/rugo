@@ -1,15 +1,17 @@
 // Package doc extracts documentation from Rugo source files.
 //
-// It works on raw .rg source before preprocessing, since the compiler's
-// stripComments phase destroys comments. The extraction rule is simple:
-// consecutive # lines immediately before a def/struct declaration (no blank
-// line gap) are attached as the doc comment for that declaration.
+// It uses the compiler's ParseSource API to get AST nodes and struct metadata,
+// then correlates doc comments from the raw source using line numbers. The
+// attachment rule: consecutive # lines immediately before a def/struct
+// declaration (no blank line gap) are attached as the doc comment.
 package doc
 
 import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/rubiojr/rugo/compiler"
 )
 
 // FileDoc holds all extracted documentation for a single Rugo file.
@@ -168,131 +170,173 @@ func isTestFile(name string) bool {
 }
 
 // Extract parses raw Rugo source and returns structured documentation.
+// It uses the compiler API for AST and struct metadata, and correlates
+// doc comments from the raw source by line number.
 func Extract(src, path string) *FileDoc {
 	fd := &FileDoc{Path: path}
 	lines := strings.Split(src, "\n")
 
-	// State tracking
-	var commentBlock []string
-	commentStart := 0
-	seenCode := false  // true once we've seen any non-comment, non-blank line
-	inHeredoc := false // skip # lines inside heredocs
-	heredocEnd := ""   // closing delimiter for current heredoc
-	inStruct := false  // inside a struct block
-	structName := ""   // current struct name
-	var structFields []string
-	structDoc := ""
-	structLine := 0
+	// Extract file-level doc: first comment block before any code
+	fd.Doc = extractFileDoc(lines)
 
+	// Parse with compiler to get AST + struct info
+	c := &compiler.Compiler{}
+	prog, err := c.ParseSource(src, path)
+	if err != nil {
+		// Parse failed — fall back to text-based extraction for functions
+		extractFuncsFromLines(fd, lines)
+		return fd
+	}
+
+	// Build set of struct constructor names to exclude from func docs.
+	// Struct expansion generates def Name(...) and def new(...) which
+	// are not user-written functions.
+	structConstructors := make(map[string]bool)
+	for _, si := range prog.Structs {
+		structConstructors[si.Name] = true
+	}
+	if len(prog.Structs) == 1 {
+		structConstructors["new"] = true
+	}
+
+	// Extract function docs from AST
+	for _, s := range prog.Statements {
+		fn, ok := s.(*compiler.FuncDef)
+		if !ok {
+			continue
+		}
+		// Skip struct constructor functions
+		if structConstructors[fn.Name] {
+			continue
+		}
+		// Check if the original source line has a method definition (Dog.bark)
+		name, params, defLine := funcDocFromRawLine(lines, fn)
+		fd.Funcs = append(fd.Funcs, FuncDoc{
+			Name:   name,
+			Params: params,
+			Doc:    extractDocComment(lines, defLine),
+			Line:   defLine,
+		})
+	}
+
+	// Extract struct docs from preprocessor metadata
+	for _, si := range prog.Structs {
+		fd.Structs = append(fd.Structs, StructDoc{
+			Name:   si.Name,
+			Fields: si.Fields,
+			Doc:    extractDocComment(lines, si.Line),
+			Line:   si.Line,
+		})
+	}
+
+	return fd
+}
+
+// extractFuncsFromLines extracts function documentation by scanning raw source
+// lines. Used as fallback when the compiler can't parse the file (e.g. partial
+// files with methods but no struct definition).
+func extractFuncsFromLines(fd *FileDoc, lines []string) {
 	for i, line := range lines {
-		lineNum := i + 1
 		trimmed := strings.TrimSpace(line)
-
-		// Track heredoc state to avoid treating # in heredocs as comments
-		if inHeredoc {
-			if trimmed == heredocEnd {
-				inHeredoc = false
-				heredocEnd = ""
-			}
-			continue
-		}
-
-		// Detect heredoc start: something = <<DELIM or <<-DELIM
-		if idx := strings.Index(line, "<<"); idx >= 0 {
-			rest := strings.TrimPrefix(line[idx+2:], "-")
-			delim := strings.TrimSpace(rest)
-			if len(delim) > 0 && isHeredocDelim(delim) {
-				inHeredoc = true
-				heredocEnd = delim
-				seenCode = true
-				commentBlock = nil
-				continue
-			}
-		}
-
-		// Inside struct block: collect fields
-		if inStruct {
-			if trimmed == "end" {
-				fd.Structs = append(fd.Structs, StructDoc{
-					Name:   structName,
-					Fields: structFields,
-					Doc:    structDoc,
-					Line:   structLine,
-				})
-				inStruct = false
-				structFields = nil
-				commentBlock = nil
-				continue
-			}
-			if trimmed != "" && !strings.HasPrefix(trimmed, "#") {
-				structFields = append(structFields, trimmed)
-			}
-			continue
-		}
-
-		// Comment line
-		if strings.HasPrefix(trimmed, "#") {
-			commentText := strings.TrimPrefix(trimmed[1:], " ")
-			if len(commentBlock) == 0 {
-				commentStart = lineNum
-			}
-			commentBlock = append(commentBlock, commentText)
-			continue
-		}
-
-		// Blank line: potential file-level doc boundary
-		if trimmed == "" {
-			if len(commentBlock) > 0 && !seenCode {
-				// First comment block before any code = file-level doc
-				fd.Doc = strings.Join(commentBlock, "\n")
-				seenCode = true // prevent re-assignment
-			}
-			// Blank line breaks attachment
-			commentBlock = nil
-			continue
-		}
-
-		// Non-comment, non-blank line: this is code
-		if !seenCode && len(commentBlock) > 0 {
-			// First comment block before any code = file-level doc
-			fd.Doc = strings.Join(commentBlock, "\n")
-		}
-		seenCode = true
-
-		// Check for struct declaration
-		if strings.HasPrefix(trimmed, "struct ") {
-			parts := strings.Fields(trimmed)
-			if len(parts) >= 2 {
-				inStruct = true
-				structName = parts[1]
-				structDoc = strings.Join(commentBlock, "\n")
-				structLine = lineNum
-				_ = commentStart
-				commentBlock = nil
-				continue
-			}
-		}
-
-		// Check for function declaration
 		if strings.HasPrefix(trimmed, "def ") {
 			name, params := parseDef(trimmed)
 			if name != "" {
 				fd.Funcs = append(fd.Funcs, FuncDoc{
 					Name:   name,
 					Params: params,
-					Doc:    strings.Join(commentBlock, "\n"),
-					Line:   lineNum,
+					Doc:    extractDocComment(lines, i+1),
+					Line:   i + 1,
 				})
 			}
-			commentBlock = nil
+		}
+		if strings.HasPrefix(trimmed, "struct ") {
+			parts := strings.Fields(trimmed)
+			if len(parts) >= 2 {
+				structName := parts[1]
+				var fields []string
+				for j := i + 1; j < len(lines); j++ {
+					ft := strings.TrimSpace(lines[j])
+					if ft == "end" {
+						break
+					}
+					if ft != "" && !strings.HasPrefix(ft, "#") {
+						fields = append(fields, ft)
+					}
+				}
+				fd.Structs = append(fd.Structs, StructDoc{
+					Name:   structName,
+					Fields: fields,
+					Doc:    extractDocComment(lines, i+1),
+					Line:   i + 1,
+				})
+			}
+		}
+	}
+}
+
+// funcDocFromRawLine extracts the function name, params, and source line from
+// the raw source, preserving method names like "Dog.bark" that the preprocessor
+// rewrites. Falls back to searching by name if line mapping is off (e.g. heredocs).
+func funcDocFromRawLine(lines []string, fn *compiler.FuncDef) (name string, params []string, line int) {
+	line = fn.StmtLine()
+	if line >= 1 && line <= len(lines) {
+		rawLine := strings.TrimSpace(lines[line-1])
+		if strings.HasPrefix(rawLine, "def ") {
+			name, params = parseDef(rawLine)
+			if name != "" {
+				return name, params, line
+			}
+		}
+	}
+	// Line map may be off (e.g. heredoc expansion). Search raw source for the def.
+	for i, l := range lines {
+		trimmed := strings.TrimSpace(l)
+		if !strings.HasPrefix(trimmed, "def ") {
 			continue
 		}
-
-		// Any other code line: discard pending comment block
-		commentBlock = nil
+		n, p := parseDef(trimmed)
+		// Match by function name (method name may include struct prefix)
+		if n == fn.Name || strings.HasSuffix(n, "."+fn.Name) {
+			return n, p, i + 1
+		}
 	}
+	return fn.Name, fn.Params, line
+}
 
-	return fd
+// extractFileDoc returns the first comment block before any code or blank line.
+func extractFileDoc(lines []string) string {
+	var block []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if strings.HasPrefix(trimmed, "#") {
+			block = append(block, strings.TrimPrefix(trimmed[1:], " "))
+			continue
+		}
+		// Blank line or code line ends the file-level doc search
+		break
+	}
+	if len(block) == 0 {
+		return ""
+	}
+	return strings.Join(block, "\n")
+}
+
+// extractDocComment walks backwards from a declaration line to collect
+// consecutive # comment lines with no blank line gap.
+func extractDocComment(lines []string, declLine int) string {
+	if declLine <= 1 || declLine > len(lines) {
+		return ""
+	}
+	var block []string
+	for i := declLine - 2; i >= 0; i-- {
+		trimmed := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(trimmed, "#") {
+			block = append([]string{strings.TrimPrefix(trimmed[1:], " ")}, block...)
+		} else {
+			break
+		}
+	}
+	return strings.Join(block, "\n")
 }
 
 // parseDef extracts the function name and parameter names from a def line.

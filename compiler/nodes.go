@@ -31,8 +31,18 @@ type Expr interface {
 // Program is the root node.
 type Program struct {
 	Statements []Statement
-	SourceFile string // display path of the source file
-	RawSource  string // original source before preprocessing (for comment access)
+	SourceFile string       // display path of the source file
+	RawSource  string       // original source before preprocessing (for comment access)
+	Structs    []StructInfo // struct definitions found during preprocessing
+}
+
+// StructInfo holds metadata about a struct definition extracted during
+// preprocessing. Structs are expanded into constructor functions before
+// parsing, so they don't appear in the AST as nodes.
+type StructInfo struct {
+	Name   string   // struct name (e.g. "Dog")
+	Fields []string // field names
+	Line   int      // 1-based line number of the struct keyword in original source
 }
 
 func (p *Program) node() {}

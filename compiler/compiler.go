@@ -289,7 +289,7 @@ func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 	rawSource := source
 
 	// Expand heredocs before comment stripping (bodies may contain #).
-	cleaned, err := expandHeredocs(source)
+	cleaned, heredocLineMap, err := expandHeredocs(source)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
@@ -302,7 +302,8 @@ func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 
 	// Expand struct definitions and method definitions before other preprocessing
 	var structLineMap []int
-	cleaned, structLineMap = expandStructDefs(cleaned)
+	var structInfos []StructInfo
+	cleaned, structLineMap, structInfos = expandStructDefs(cleaned)
 
 	// Scan for user-defined function names (quick pass for def lines)
 	userFuncs := scanFuncDefs(cleaned)
@@ -314,7 +315,8 @@ func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
 
-	// Compose struct line map with preprocess line map for accurate source locations
+	// Compose all line maps: preprocess → struct → heredoc → original source.
+	// Each map translates from its output lines to its input lines (1-indexed).
 	if structLineMap != nil && lineMap != nil {
 		for i, ppLine := range lineMap {
 			if ppLine > 0 && ppLine <= len(structLineMap) {
@@ -323,6 +325,16 @@ func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 		}
 	} else if structLineMap != nil {
 		lineMap = structLineMap
+	}
+
+	if heredocLineMap != nil && lineMap != nil {
+		for i, ppLine := range lineMap {
+			if ppLine > 0 && ppLine <= len(heredocLineMap) {
+				lineMap[i] = heredocLineMap[ppLine-1]
+			}
+		}
+	} else if heredocLineMap != nil {
+		lineMap = heredocLineMap
 	}
 
 	// Ensure source ends with newline
@@ -343,6 +355,7 @@ func (c *Compiler) parseSource(source, displayName string) (*Program, error) {
 
 	prog.SourceFile = displayName
 	prog.RawSource = rawSource
+	prog.Structs = structInfos
 	return prog, nil
 }
 
