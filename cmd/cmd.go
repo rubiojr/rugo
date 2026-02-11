@@ -394,7 +394,7 @@ func docAction(ctx context.Context, cmd *cli.Command) error {
 }
 
 // docRemote fetches a remote module and prints its documentation.
-// Aggregates docs from all Rugo files in the module directory.
+// Recursively aggregates docs from all non-test Rugo files in the module directory.
 func docRemote(target, symbol string) error {
 	r := &remote.Resolver{}
 
@@ -404,13 +404,13 @@ func docRemote(target, symbol string) error {
 		return fmt.Errorf("fetching %s: %w", target, err)
 	}
 
+	dir := filepath.Dir(entryPath)
+	fd, err := rugodoc.ExtractDirRecursive(dir, entryPath)
+	if err != nil {
+		return fmt.Errorf("reading %s: %w", dir, err)
+	}
+
 	if symbol != "" {
-		// Symbol lookup: scan all files
-		dir := filepath.Dir(entryPath)
-		fd, err := rugodoc.ExtractDir(dir, entryPath)
-		if err != nil {
-			return fmt.Errorf("reading %s: %w", dir, err)
-		}
 		doc, sig, found := rugodoc.LookupSymbol(fd, symbol)
 		if !found {
 			return fmt.Errorf("%s: symbol %q not found", target, symbol)
@@ -419,12 +419,6 @@ func docRemote(target, symbol string) error {
 		return nil
 	}
 
-	// No symbol: aggregate all docs from the module directory
-	dir := filepath.Dir(entryPath)
-	fd, err := rugodoc.ExtractDir(dir, entryPath)
-	if err != nil {
-		return fmt.Errorf("reading %s: %w", dir, err)
-	}
 	docOutput(rugodoc.FormatFile(fd))
 	return nil
 }
