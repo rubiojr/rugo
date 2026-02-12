@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/rubiojr/rugo/cmd/dev"
 	"github.com/rubiojr/rugo/compiler"
@@ -112,6 +113,10 @@ func Execute(version string) {
 						Aliases: []string{"t"},
 						Usage:   "Per-test timeout in seconds (0 to disable)",
 						Value:   30,
+					},
+					&cli.BoolFlag{
+						Name:  "timing",
+						Usage: "Show per-test and total elapsed time",
 					},
 				},
 				Action: testAction,
@@ -729,6 +734,11 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		os.Setenv("RUGO_TEST_TIMEOUT", "30")
 	}
 
+	// Timing: propagate via env so subprocesses inherit it
+	if cmd.Bool("timing") {
+		os.Setenv("RUGO_TEST_TIMING", "1")
+	}
+
 	// Collect test files: _test.rugo/_test.rg files and Rugo files with inline rats blocks
 	var files []string
 	for _, target := range targets {
@@ -789,7 +799,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	ansi := `(?:\x1b\[[0-9;]*m)*`
-	summaryRe := regexp.MustCompile(ansi + `(\d+) tests, ` + ansi + `(\d+) passed` + ansi + `, ` + ansi + `(\d+) failed` + ansi + `, (\d+) skipped`)
+	summaryRe := regexp.MustCompile(ansi + `(\d+) tests, ` + ansi + `(\d+) passed` + ansi + `, ` + ansi + `(\d+) failed` + ansi + `, (\d+) skipped` + `(?: in \S+)?`)
 
 	type fileResult struct {
 		output []byte
@@ -797,6 +807,8 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	results := make([]fileResult, len(files))
+	showTiming := os.Getenv("RUGO_TEST_TIMING") != ""
+	suiteStart := time.Now()
 
 	if jobs == 1 {
 		// Sequential: run each file with live output
@@ -874,12 +886,16 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	if noColor {
 		colorOK, colorFail, colorReset = "", "", ""
 	}
+	timingTotal := ""
+	if showTiming {
+		timingTotal = fmt.Sprintf(" in %s", formatTestDuration(time.Since(suiteStart)))
+	}
 	if grandFailed > 0 {
-		fmt.Fprintf(os.Stderr, "\n%d files, %d tests, %d passed, %s%d failed%s, %d skipped\n",
-			len(files), grandTests, grandPassed, colorFail, grandFailed, colorReset, grandSkipped)
+		fmt.Fprintf(os.Stderr, "\n%d files, %d tests, %d passed, %s%d failed%s, %d skipped%s\n",
+			len(files), grandTests, grandPassed, colorFail, grandFailed, colorReset, grandSkipped, timingTotal)
 	} else {
-		fmt.Fprintf(os.Stderr, "\n%d files, %d tests, %s%d passed%s, %d failed, %d skipped\n",
-			len(files), grandTests, colorOK, grandPassed, colorReset, grandFailed, grandSkipped)
+		fmt.Fprintf(os.Stderr, "\n%d files, %d tests, %s%d passed%s, %d failed, %d skipped%s\n",
+			len(files), grandTests, colorOK, grandPassed, colorReset, grandFailed, grandSkipped, timingTotal)
 	}
 
 	if grandFailed > 0 {
@@ -958,4 +974,16 @@ func formatError(msg string) string {
 	}
 
 	return result
+}
+
+// formatTestDuration formats a duration in a human-friendly way for test output.
+func formatTestDuration(d time.Duration) string {
+switch {
+case d < time.Millisecond:
+return fmt.Sprintf("%dµs", d.Microseconds())
+case d < time.Second:
+return fmt.Sprintf("%dms", d.Milliseconds())
+default:
+return fmt.Sprintf("%.2fs", d.Seconds())
+}
 }

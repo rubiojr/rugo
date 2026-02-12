@@ -99,6 +99,7 @@ rugo rats --filter "greet"           # filter by test name
 rugo rats -j 4                       # run with 4 parallel workers
 rugo rats -j 1                       # run sequentially
 rugo rats --tap                      # raw TAP output
+rugo rats --timing                   # show per-test and total elapsed time
 ```
 
 ### Output

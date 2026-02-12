@@ -145,12 +145,15 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown, setupFile, teardown
 		}
 	}
 
+	showTiming := os.Getenv("RUGO_TEST_TIMING") != ""
+
 	totalTests := 0
 	totalPassed := 0
 	totalFailed := 0
 	totalSkipped := 0
 	fmt.Println("TAP version 13")
 	fmt.Printf("1..%d\n", len(tests))
+	suiteStart := time.Now()
 
 	if teardownFile != nil {
 		defer teardownFile()
@@ -175,7 +178,9 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown, setupFile, teardown
 			setup()
 		}
 
+		testStart := time.Now()
 		passed, skipped, skipReason := rugo_run_test_with_timeout(t.Func, testTimeout)
+		testElapsed := time.Since(testStart)
 
 		if teardown != nil {
 			teardown()
@@ -185,22 +190,32 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown, setupFile, teardown
 		os.RemoveAll(tmpDir)
 		testInstance.TmpDir = ""
 
+		timingSuffix := ""
+		if showTiming {
+			timingSuffix = fmt.Sprintf(" (%s)", rugo_format_duration(testElapsed))
+		}
+
 		if skipped {
-			fmt.Printf("%sok%s %d - %s # SKIP %s\n", colorSkip, colorReset, testNum, t.Name, skipReason)
+			fmt.Printf("%sok%s %d - %s # SKIP %s%s\n", colorSkip, colorReset, testNum, t.Name, skipReason, timingSuffix)
 			totalSkipped++
 		} else if passed {
-			fmt.Printf("%sok%s %d - %s\n", colorOK, colorReset, testNum, t.Name)
+			fmt.Printf("%sok%s %d - %s%s\n", colorOK, colorReset, testNum, t.Name, timingSuffix)
 			totalPassed++
 		} else {
-			fmt.Printf("%snot ok%s %d - %s\n", colorFail, colorReset, testNum, t.Name)
+			fmt.Printf("%snot ok%s %d - %s%s\n", colorFail, colorReset, testNum, t.Name, timingSuffix)
 			totalFailed++
 		}
 	}
 
+	timingTotal := ""
+	if showTiming {
+		timingTotal = fmt.Sprintf(" in %s", rugo_format_duration(time.Since(suiteStart)))
+	}
+
 	if totalFailed > 0 {
-		fmt.Fprintf(os.Stderr, "\n%d tests, %d passed, %s%d failed%s, %d skipped\n", totalTests, totalPassed, colorFail, totalFailed, colorReset, totalSkipped)
+		fmt.Fprintf(os.Stderr, "\n%d tests, %d passed, %s%d failed%s, %d skipped%s\n", totalTests, totalPassed, colorFail, totalFailed, colorReset, totalSkipped, timingTotal)
 	} else {
-		fmt.Fprintf(os.Stderr, "\n%d tests, %s%d passed%s, %d failed, %d skipped\n", totalTests, colorOK, totalPassed, colorReset, totalFailed, totalSkipped)
+		fmt.Fprintf(os.Stderr, "\n%d tests, %s%d passed%s, %d failed, %d skipped%s\n", totalTests, colorOK, totalPassed, colorReset, totalFailed, totalSkipped, timingTotal)
 	}
 	if totalFailed > 0 {
 		os.Exit(1)
@@ -238,5 +253,17 @@ func rugo_run_test_with_timeout(fn func() (bool, bool, string), timeout time.Dur
 		}
 		fmt.Fprintf(os.Stderr, "  %sFAIL%s: test timed out after %v\n", failColor, failReset, timeout)
 		return false, false, ""
+	}
+}
+
+// rugo_format_duration formats a duration in a human-friendly way.
+func rugo_format_duration(d time.Duration) string {
+	switch {
+	case d < time.Millisecond:
+		return fmt.Sprintf("%dµs", d.Microseconds())
+	case d < time.Second:
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	default:
+		return fmt.Sprintf("%.2fs", d.Seconds())
 	}
 }

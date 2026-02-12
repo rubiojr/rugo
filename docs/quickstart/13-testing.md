@@ -23,6 +23,7 @@ end
 rugo rats                       # run all _test.rugo files in rats/ (or current dir)
 rugo rats test/greet_test.rugo         # run a specific file
 rugo rats --filter "hello"      # filter by test name
+rugo rats --timing              # show per-test and total elapsed time
 ```
 
 Output looks like:

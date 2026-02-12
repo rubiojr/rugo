@@ -1,0 +1,38 @@
+# RATS: Test the --timing flag
+use "test"
+use "str"
+
+rats "timing flag shows per-test duration"
+  result = test.run("rugo rats --timing rats/core/08_rats_self_test.rugo 2>&1")
+  test.assert_eq(result["status"], 0)
+  # Per-test output should contain parenthesized duration
+  test.assert_contains(result["output"], "ok 1 - test.assert_eq passes on equal values (")
+end
+
+rats "timing flag shows total time in summary"
+  result = test.run("rugo rats --timing rats/core/08_rats_self_test.rugo 2>&1")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "skipped in ")
+end
+
+rats "no timing without flag"
+  result = test.run("RUGO_TEST_TIMING= rugo rats rats/core/08_rats_self_test.rugo 2>&1")
+  test.assert_eq(result["status"], 0)
+  # Summary should NOT contain " in "
+  lines = result["lines"]
+  found = false
+  for line in lines
+    if str.contains(line, "skipped in ")
+      found = true
+    end
+  end
+  test.assert_false(found)
+end
+
+rats "timing works in multi-file mode"
+  result = test.run("rugo rats --timing rats/fixtures/summary/ 2>&1")
+  test.assert_eq(result["status"], 0)
+  # Grand summary should contain timing
+  test.assert_contains(result["output"], "files,")
+  test.assert_contains(result["output"], "skipped in ")
+end
