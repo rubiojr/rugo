@@ -1190,7 +1190,8 @@ func isEndExpectedSet(raw string) bool {
 
 // detectNestedQuotesInInterpolation checks whether the source line at the
 // given position contains double-quoted strings nested inside #{} string
-// interpolation — a pattern the parser cannot handle (e.g. "#{h["foo"]}").
+// interpolation — a pattern the parser cannot handle (e.g. "#{h["foo"]}"
+// or `echo #{h["key"]}`).
 func detectNestedQuotesInInterpolation(filename string, line int) string {
 	if filename == "" || line <= 0 {
 		return ""
@@ -1206,21 +1207,27 @@ func detectNestedQuotesInInterpolation(filename string, line int) string {
 	src := lines[line-1]
 
 	// Scan for #{...} that contains a double quote.
-	// We look for the pattern: inside a double-quoted string, there is #{
-	// and between #{ and the matching } there is another ".
+	// We look for the pattern: inside a double-quoted string or backtick
+	// expression, there is #{ and between #{ and the matching } there is
+	// another ".
 	inString := false
+	inBacktick := false
 	for i := 0; i < len(src); i++ {
 		ch := src[i]
 		if ch == '\\' && inString {
 			i++ // skip escaped char
 			continue
 		}
-		if ch == '"' {
+		if ch == '"' && !inBacktick {
 			inString = !inString
 			continue
 		}
-		if inString && i+1 < len(src) && ch == '#' && src[i+1] == '{' {
-			// Inside a string, found #{ — scan for nested " before }
+		if ch == '`' && !inString {
+			inBacktick = !inBacktick
+			continue
+		}
+		if (inString || inBacktick) && i+1 < len(src) && ch == '#' && src[i+1] == '{' {
+			// Inside a string or backtick, found #{ — scan for nested " before }
 			depth := 1
 			j := i + 2
 			for j < len(src) && depth > 0 {
@@ -1229,6 +1236,9 @@ func detectNestedQuotesInInterpolation(filename string, line int) string {
 				} else if src[j] == '}' {
 					depth--
 				} else if src[j] == '"' {
+					if inBacktick {
+						return "nested double quotes inside backtick interpolation are not supported — use a variable instead: x = h[\"key\"]; `echo #{x}`"
+					}
 					return `nested double quotes inside string interpolation are not supported — use a variable instead: x = h["key"]; "#{x}"`
 				}
 				j++

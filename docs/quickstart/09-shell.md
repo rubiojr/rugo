@@ -32,7 +32,13 @@ hostname = `hostname`
 puts "Running on #{hostname}"
 ```
 
-Backticks run the command and return stdout as a trimmed string.
+Backticks run the command and return stdout as a trimmed string. String interpolation works inside backticks:
+
+```ruby
+name = "world"
+greeting = `echo hello #{name}`
+puts greeting   # hello world
+```
 
 ## Mix Shell and Rugo
 

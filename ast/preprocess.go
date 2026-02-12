@@ -24,12 +24,13 @@ var rugoBuiltins = map[string]bool{
 	"exit": true,
 }
 
-// stripComments removes # comments from source, respecting string boundaries.
+// stripComments removes # comments from source, respecting string and backtick boundaries.
 // Returns an error if an unterminated string literal is found.
 func StripComments(src string) (string, error) {
 	var sb strings.Builder
 	inDouble := false
 	inSingle := false
+	inBacktick := false
 	escaped := false
 	stringStartLine := 0
 	lineNum := 1
@@ -56,7 +57,7 @@ func StripComments(src string) (string, error) {
 			escaped = true
 			continue
 		}
-		if ch == '"' && !inSingle {
+		if ch == '"' && !inSingle && !inBacktick {
 			if !inDouble {
 				stringStartLine = lineNum
 			}
@@ -64,7 +65,7 @@ func StripComments(src string) (string, error) {
 			sb.WriteByte(ch)
 			continue
 		}
-		if ch == '\'' && !inDouble {
+		if ch == '\'' && !inDouble && !inBacktick {
 			if !inSingle {
 				stringStartLine = lineNum
 			}
@@ -72,7 +73,12 @@ func StripComments(src string) (string, error) {
 			sb.WriteByte(ch)
 			continue
 		}
-		if ch == '#' && !inDouble && !inSingle {
+		if ch == '`' && !inDouble && !inSingle {
+			inBacktick = !inBacktick
+			sb.WriteByte(ch)
+			continue
+		}
+		if ch == '#' && !inDouble && !inSingle && !inBacktick {
 			for i < len(src) && src[i] != '\n' {
 				i++
 			}
@@ -554,6 +560,7 @@ func ExpandHashColonSyntax(src string) (string, error) {
 
 	inDouble := false
 	inSingle := false
+	inBacktick := false
 	escaped := false
 	braceDepth := 0
 	line := 1
@@ -580,21 +587,28 @@ func ExpandHashColonSyntax(src string) (string, error) {
 			continue
 		}
 
-		if ch == '"' && !inSingle {
+		if ch == '"' && !inSingle && !inBacktick {
 			inDouble = !inDouble
 			sb.WriteByte(ch)
 			i++
 			continue
 		}
 
-		if ch == '\'' && !inDouble {
+		if ch == '\'' && !inDouble && !inBacktick {
 			inSingle = !inSingle
 			sb.WriteByte(ch)
 			i++
 			continue
 		}
 
-		if !inDouble && !inSingle {
+		if ch == '`' && !inDouble && !inSingle {
+			inBacktick = !inBacktick
+			sb.WriteByte(ch)
+			i++
+			continue
+		}
+
+		if !inDouble && !inSingle && !inBacktick {
 			if ch == '{' {
 				braceDepth++
 			} else if ch == '}' && braceDepth > 0 {
@@ -602,8 +616,8 @@ func ExpandHashColonSyntax(src string) (string, error) {
 			}
 		}
 
-		// Outside strings, look for ident: pattern
-		if !inDouble && !inSingle && (unicode.IsLetter(rune(ch)) || ch == '_') {
+		// Outside strings and backticks, look for ident: pattern
+		if !inDouble && !inSingle && !inBacktick && (unicode.IsLetter(rune(ch)) || ch == '_') {
 			start := i
 			for i < len(src) && (unicode.IsLetter(rune(src[i])) || unicode.IsDigit(rune(src[i])) || src[i] == '_') {
 				i++
@@ -624,7 +638,7 @@ func ExpandHashColonSyntax(src string) (string, error) {
 		}
 
 		// Inside hash literal, reject non-identifier colon keys (e.g. {1: "one"})
-		if !inDouble && !inSingle && braceDepth > 0 && unicode.IsDigit(rune(ch)) {
+		if !inDouble && !inSingle && !inBacktick && braceDepth > 0 && unicode.IsDigit(rune(ch)) {
 			start := i
 			for i < len(src) && unicode.IsDigit(rune(src[i])) {
 				i++
@@ -726,6 +740,50 @@ func shellEscape(s string) string {
 	s = strings.ReplaceAll(s, `\`, `\\`)
 	s = strings.ReplaceAll(s, `"`, `\"`)
 	return s
+}
+
+// shellEscapePreservingInterpolation escapes shell metacharacters in s
+// but leaves #{...} interpolation expressions untouched so the codegen
+// string-interpolation pass can process them.
+func shellEscapePreservingInterpolation(s string) string {
+	var sb strings.Builder
+	for i := 0; i < len(s); i++ {
+		if i+1 < len(s) && s[i] == '#' && s[i+1] == '{' {
+			// Find matching closing brace, respecting nesting.
+			depth := 0
+			j := i + 1
+			for j < len(s) {
+				if s[j] == '{' {
+					depth++
+				} else if s[j] == '}' {
+					depth--
+					if depth == 0 {
+						break
+					}
+				}
+				j++
+			}
+			if j >= len(s) {
+				// Unclosed #{, copy remainder as-is; the parser
+				// will report the error downstream.
+				sb.WriteString(s[i:])
+				break
+			}
+			// Copy the entire #{...} expression verbatim.
+			sb.WriteString(s[i : j+1])
+			i = j
+			continue
+		}
+		switch s[i] {
+		case '\\':
+			sb.WriteString(`\\`)
+		case '"':
+			sb.WriteString(`\"`)
+		default:
+			sb.WriteByte(s[i])
+		}
+	}
+	return sb.String()
 }
 
 // scanFuncDefs does a quick scan to find all `def name(` patterns
@@ -1911,7 +1969,7 @@ func expandBackticks(src string) (string, error) {
 				return "", fmt.Errorf("%d: unterminated backtick expression (opened at line %d)", btLine, btLine)
 			}
 			cmd := src[i+1 : j]
-			sb.WriteString(`__capture__("` + shellEscape(cmd) + `")`)
+			sb.WriteString(`__capture__("` + shellEscapePreservingInterpolation(cmd) + `")`)
 			i = j
 			continue
 		}
@@ -2080,6 +2138,10 @@ func isRugoSegment(seg string, funcs map[string]bool) bool {
 		return false
 	}
 	if rugoBuiltins[firstTok] || funcs[firstTok] {
+		return true
+	}
+	// Internal functions produced by earlier preprocessor passes.
+	if firstTok == "__capture__" || firstTok == "__shell__" || firstTok == "__pipe_shell__" {
 		return true
 	}
 	if isDottedIdent(firstTok) {

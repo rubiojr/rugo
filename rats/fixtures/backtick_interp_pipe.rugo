@@ -1,0 +1,4 @@
+use "str"
+name = "world"
+result = `echo hello #{name}` | str.upper
+puts result

@@ -302,7 +302,12 @@ Backtick expressions capture command output instead of printing it:
 name = `whoami`     # captures output, strips trailing newline
 ```
 
-These are rewritten to `__capture__("...")` calls.
+These are rewritten to `__capture__("...")` calls. String interpolation works inside backticks:
+
+```ruby
+name = "world"
+greeting = `echo hello #{name}`   # captures "hello world"
+```
 
 ### Pipe Operator
 

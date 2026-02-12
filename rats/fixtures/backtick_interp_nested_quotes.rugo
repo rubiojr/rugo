@@ -1,0 +1,2 @@
+person = {"name" => "alice"}
+puts `echo #{person["name"]}`

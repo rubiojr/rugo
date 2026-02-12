@@ -25,3 +25,38 @@ rats "backtick result in expressions"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello world")
 end
+
+rats "backtick with string interpolation"
+  result = test.run("rugo run rats/fixtures/backtick_interpolation.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "hello world")
+  test.assert_eq(lines[1], "hi rugo")
+  test.assert_eq(lines[2], "42")
+  test.assert_eq(lines[3], "8080")
+  test.assert_eq(lines[4], "started")
+  test.assert_eq(lines[5], "foobar")
+end
+
+rats "backtick interpolation in different scopes"
+  result = test.run("rugo run rats/fixtures/backtick_interp_scopes.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "hello rugo")
+  test.assert_eq(lines[1], "hi world")
+  test.assert_eq(lines[2], "hey alice")
+  test.assert_eq(lines[3], "hey bob")
+  test.assert_eq(lines[4], "flag true")
+end
+
+rats "backtick interpolation with pipe"
+  result = test.run("rugo run rats/fixtures/backtick_interp_pipe.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO WORLD")
+end
+
+rats "backtick interpolation with nested quotes gives friendly error"
+  result = test.run("rugo run rats/fixtures/backtick_interp_nested_quotes.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "nested double quotes inside backtick interpolation")
+end

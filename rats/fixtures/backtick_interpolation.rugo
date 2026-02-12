@@ -1,0 +1,25 @@
+name = "world"
+result = `echo hello #{name}`
+puts result
+
+greeting = "hi"
+who = "rugo"
+result2 = `echo #{greeting} #{who}`
+puts result2
+
+x = 21
+result3 = `echo #{x * 2}`
+puts result3
+
+# Integer variable
+port = 8080
+puts `echo #{port}`
+
+# Interpolation at start of command
+cmd = "echo"
+puts `#{cmd} started`
+
+# Adjacent interpolations
+a = "foo"
+b = "bar"
+puts `echo #{a}#{b}`
