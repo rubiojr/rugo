@@ -8,8 +8,8 @@ rats "bare append basic paren-free"
     puts(len(arr))
     puts(arr[2])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "3")
@@ -23,8 +23,8 @@ rats "bare append with explicit parens"
     puts(len(arr))
     puts(arr[2])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "3")
@@ -77,8 +77,8 @@ rats "bare append inside for loop"
     puts(arr[1])
     puts(arr[2])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "10")
@@ -196,8 +196,8 @@ rats "bare append inside def with lambda"
     puts(arr[1])
     puts(arr[2])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "11")
@@ -212,8 +212,8 @@ rats "bare append with string interpolation"
     append arr, "hello #{name}"
     puts(arr[0])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "hello world")
 end
@@ -224,8 +224,8 @@ rats "bare append with hash value"
     append arr, {"key" => "val"}
     puts(arr[0]["key"])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "val")
 end
@@ -237,8 +237,8 @@ rats "bare append with nil value"
     puts(len(arr))
     puts(arr[0] == nil)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "1")
   test.assert_eq(result["lines"][1], "true")
@@ -252,8 +252,8 @@ rats "bare append with boolean values"
     puts(arr[0])
     puts(arr[1])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "true")
   test.assert_eq(result["lines"][1], "false")
@@ -282,8 +282,8 @@ rats "bare append deeply nested blocks"
     puts(arr[3])
     puts(arr[4])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "5")

@@ -12,8 +12,8 @@ rats "sort.strings"
     puts(sorted[1])
     puts(sorted[2])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "apple")
 end
@@ -28,8 +28,8 @@ rats "sort.ints"
     puts(conv.to_s(sorted[1]))
     puts(conv.to_s(sorted[2]))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "1")
 end
@@ -40,8 +40,8 @@ rats "sort.is_sorted"
     puts(sort.is_sorted(["apple", "banana", "cherry"]))
     puts(sort.is_sorted(["cherry", "apple"]))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
   test.assert_contains(result["output"], "false")
@@ -55,8 +55,8 @@ rats "time.now_unix"
     ts = time.now_unix()
     puts(conv.to_s(ts > 0))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
 end
@@ -70,8 +70,8 @@ rats "time.sleep_ms"
     elapsed = time.now_unix_nano() - start
     puts(conv.to_s(elapsed > 40000000))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
 end
@@ -83,8 +83,8 @@ rats "os bridge getenv with alias"
     home = go_os.getenv("HOME")
     puts(home)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_neq(result["output"], "")
 end
@@ -95,8 +95,8 @@ rats "os bridge getwd"
     cwd = go_os.getwd()
     puts(cwd)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_neq(result["output"], "")
 end
@@ -107,8 +107,8 @@ rats "os bridge hostname"
     h = go_os.hostname()
     puts(h)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_neq(result["output"], "")
 end
@@ -118,8 +118,8 @@ rats "os bridge temp_dir"
     import "os" as go_os
     puts(go_os.temp_dir())
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "tmp")
 end
@@ -132,8 +132,8 @@ rats "os bridge read_file"
     puts(content)
     go_os.remove_all("/tmp/rugo_test_bridge")
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
 end
 
@@ -146,8 +146,8 @@ rats "os bridge write_file"
     puts(content)
     go_os.remove(path)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(str.trim(result["output"]), "hello from rugo")
 end

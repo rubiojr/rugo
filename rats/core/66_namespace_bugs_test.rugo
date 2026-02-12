@@ -5,39 +5,39 @@ use "test"
 
 rats "barrel file require exposes inner namespaces"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/mylib")
-  test.write_file(tmpdir + "/mylib/mylib.rugo", "require \"inner\"\n")
+  test.run("mkdir -p #{tmpdir}/mylib")
+  test.write_file("#{tmpdir}/mylib/mylib.rugo", "require \"inner\"\n")
   test.write_file(tmpdir + "/mylib/inner.rugo", "def greet(name)\n  return \"hi \" + name\nend\n")
   script = <<~SCRIPT
     require "mylib"
     puts(inner.greet("world"))
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hi world")
 end
 
 rats "variable shadows require namespace for dot calls"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/helper.rugo", "def make()\n  return {foo: \"bar\"}\nend\n")
+  test.write_file("#{tmpdir}/helper.rugo", "def make()\n  return {foo: \"bar\"}\nend\n")
   script = <<~SCRIPT
     require "helper"
     helper = helper.make()
     puts(helper.foo)
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "bar")
 end
 
 rats "variable shadows namespace - no internal Go symbols leaked"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/helper.rugo", "def make()\n  return {foo: \"bar\"}\nend\n")
+  test.write_file("#{tmpdir}/helper.rugo", "def make()\n  return {foo: \"bar\"}\nend\n")
   script = "require \"helper\"\nhelper = helper.make()\nputs(helper.foo)\n"
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   # Must succeed — no rugons_ symbol leak
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "bar")
@@ -45,13 +45,13 @@ end
 
 rats "variable does not shadow namespace before assignment"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/helper.rugo", "def greet()\n  return \"hello\"\nend\n")
+  test.write_file("#{tmpdir}/helper.rugo", "def greet()\n  return \"hello\"\nend\n")
   script = <<~SCRIPT
     require "helper"
     puts(helper.greet())
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end

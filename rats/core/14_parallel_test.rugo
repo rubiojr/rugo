@@ -65,9 +65,9 @@ end
 # --- Positive: build to binary ---
 
 rats "parallel compiles to native binary"
-  result = test.run("rugo build -o " + test.tmpdir() + "/par_bin rats/fixtures/parallel_basic.rugo")
+  result = test.run("rugo build -o #{test.tmpdir()}/par_bin rats/fixtures/parallel_basic.rugo")
   test.assert_eq(result["status"], 0)
-  result = test.run(test.tmpdir() + "/par_bin")
+  result = test.run("#{test.tmpdir()}/par_bin")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "10")

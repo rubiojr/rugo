@@ -32,8 +32,8 @@ rats "correct argument count works"
     end
     puts(add(1, 2))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "3")
 end
@@ -45,8 +45,8 @@ rats "zero-param function works with no args"
     end
     hello()
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hi")
 end

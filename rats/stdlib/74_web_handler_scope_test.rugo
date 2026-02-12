@@ -10,10 +10,10 @@ rats "web handler can access top-level constant"
       return web.text(GREETING)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo build #{test.tmpdir()}/test.rugo -o #{test.tmpdir()}/webbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/webbin")
+  test.run("rm -f #{test.tmpdir()}/webbin")
 end
 
 rats "web handler can access top-level variable"
@@ -25,10 +25,10 @@ rats "web handler can access top-level variable"
       return web.text(count)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo build #{test.tmpdir()}/test.rugo -o #{test.tmpdir()}/webbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/webbin")
+  test.run("rm -f #{test.tmpdir()}/webbin")
 end
 
 rats "web handler can access top-level hash"
@@ -40,14 +40,14 @@ rats "web handler can access top-level hash"
       return web.text(config["greeting"])
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo build #{test.tmpdir()}/test.rugo -o #{test.tmpdir()}/webbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/webbin")
+  test.run("rm -f #{test.tmpdir()}/webbin")
 end
 
 rats "web handler fixture compiles"
-  result = test.run("rugo build rats/fixtures/web_handler_scope.rugo -o " + test.tmpdir() + "/webbin")
+  result = test.run("rugo build rats/fixtures/web_handler_scope.rugo -o #{test.tmpdir()}/webbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/webbin")
+  test.run("rm -f #{test.tmpdir()}/webbin")
 end

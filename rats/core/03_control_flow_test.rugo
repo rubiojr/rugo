@@ -7,8 +7,8 @@ rats "if statement true branch"
       puts("yes")
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "yes")
 end
@@ -21,8 +21,8 @@ rats "if/else false branch"
       puts("no")
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "no")
 end
@@ -38,8 +38,8 @@ rats "if/elsif/else chain"
       puts("other")
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "two")
 end
@@ -52,8 +52,8 @@ rats "while loop"
       i = i + 1
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "0")

@@ -2,7 +2,7 @@
 use "test"
 
 rats "required module top-level web.get route serves"
-  test.run("mkdir -p " + test.tmpdir() + "/webmod")
+  test.run("mkdir -p #{test.tmpdir()}/webmod")
   mod = <<~MOD
     use "web"
     use "json"
@@ -18,7 +18,7 @@ rats "required module top-level web.get route serves"
       return port
     end
   MOD
-  test.write_file(test.tmpdir() + "/webmod/main.rugo", mod)
+  test.write_file("#{test.tmpdir()}/webmod/main.rugo", mod)
   main = <<~MAIN
     require "webmod"
     use "http"
@@ -30,14 +30,14 @@ rats "required module top-level web.get route serves"
     resp = http.get("http://localhost:" + conv.to_s(port) + "/test")
     puts resp.status_code
   MAIN
-  test.write_file(test.tmpdir() + "/main.rugo", main)
-  result = test.run("rugo run " + test.tmpdir() + "/main.rugo")
+  test.write_file("#{test.tmpdir()}/main.rugo", main)
+  result = test.run("rugo run #{test.tmpdir()}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "200")
 end
 
 rats "required module route handler in dispatch map"
-  test.run("mkdir -p " + test.tmpdir() + "/webmod")
+  test.run("mkdir -p #{test.tmpdir()}/webmod")
   mod = <<~MOD
     use "web"
 
@@ -52,7 +52,7 @@ rats "required module route handler in dispatch map"
       return port
     end
   MOD
-  test.write_file(test.tmpdir() + "/webmod/main.rugo", mod)
+  test.write_file("#{test.tmpdir()}/webmod/main.rugo", mod)
   main = <<~MAIN
     require "webmod"
     use "http"
@@ -64,14 +64,14 @@ rats "required module route handler in dispatch map"
     resp = http.get("http://localhost:" + conv.to_s(port) + "/ping")
     puts resp.body
   MAIN
-  test.write_file(test.tmpdir() + "/main.rugo", main)
-  result = test.run("rugo run " + test.tmpdir() + "/main.rugo")
+  test.write_file("#{test.tmpdir()}/main.rugo", main)
+  result = test.run("rugo run #{test.tmpdir()}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "pong")
 end
 
 rats "required module with multiple routes"
-  test.run("mkdir -p " + test.tmpdir() + "/api")
+  test.run("mkdir -p #{test.tmpdir()}/api")
   mod = <<~MOD
     use "web"
     use "json"
@@ -93,7 +93,7 @@ rats "required module with multiple routes"
       return port
     end
   MOD
-  test.write_file(test.tmpdir() + "/api/main.rugo", mod)
+  test.write_file("#{test.tmpdir()}/api/main.rugo", mod)
   main = <<~MAIN
     require "api"
     use "http"
@@ -108,8 +108,8 @@ rats "required module with multiple routes"
     puts a.body
     puts b.body
   MAIN
-  test.write_file(test.tmpdir() + "/main.rugo", main)
-  result = test.run("rugo run " + test.tmpdir() + "/main.rugo")
+  test.write_file("#{test.tmpdir()}/main.rugo", main)
+  result = test.run("rugo run #{test.tmpdir()}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "a")
   test.assert_eq(result["lines"][1], "b")

@@ -6,8 +6,8 @@ rats "import conflict with use errors"
     use "os"
     import "os"
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "conflicts")
 end
@@ -21,8 +21,8 @@ rats "import with alias resolves conflict"
     r = os.exec("echo from_rugo_os")
     puts("rugo:" + r)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "bridge:")
 end
@@ -31,8 +31,8 @@ rats "unknown Go bridge package errors"
   script = <<~SCRIPT
     import "net/http"
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unknown package")
 end
@@ -42,8 +42,8 @@ rats "unknown function in Go bridge errors"
     import "strings"
     strings.nonexistent("hello")
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unknown function")
 end
@@ -53,8 +53,8 @@ rats "wrong arg count for Go bridge errors"
     import "strings"
     strings.contains("hello")
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "takes")
   test.assert_contains(result["output"], "given")
@@ -70,8 +70,8 @@ rats "multiple Go bridge packages in one script"
     puts(strconv.itoa(42))
     puts(conv.to_s(math.sqrt(9.0)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "HELLO")
   test.assert_contains(result["output"], "42")
@@ -86,8 +86,8 @@ rats "Go bridge works with user modules"
     end
     puts(greet("world"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "HELLO WORLD")
 end
@@ -99,15 +99,15 @@ rats "Go bridge in required file"
       return strings.to_upper(s)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/helper.rugo", helper)
+  test.write_file("#{test.tmpdir()}/helper.rugo", helper)
 
   main = <<~SCRIPT
     require "helper"
     puts(helper.shout("hello"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/main.rugo", main)
+  test.write_file("#{test.tmpdir()}/main.rugo", main)
 
-  result = test.run("rugo run " + test.tmpdir() + "/main.rugo")
+  result = test.run("rugo run #{test.tmpdir()}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "HELLO")
 end

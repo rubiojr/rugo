@@ -16,10 +16,10 @@ rats "typed def function compiles alongside use web"
 
     puts helper("hello")
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo build #{test.tmpdir()}/test.rugo -o #{test.tmpdir()}/webbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/webbin")
+  test.run("rm -f #{test.tmpdir()}/webbin")
 end
 
 rats "require web module with local typed def compiles"
@@ -38,8 +38,8 @@ rats "require web module with local typed def compiles"
       return port
     end
   MOD
-  test.run("mkdir -p " + test.tmpdir() + "/web_dispatch_mock")
-  test.write_file(test.tmpdir() + "/web_dispatch_mock/main.rugo", mock)
+  test.run("mkdir -p #{test.tmpdir()}/web_dispatch_mock")
+  test.write_file("#{test.tmpdir()}/web_dispatch_mock/main.rugo", mock)
   caller = <<~CALLER
     require "web_dispatch_mock"
 
@@ -49,10 +49,10 @@ rats "require web module with local typed def compiles"
 
     puts my_helper("hello")
   CALLER
-  test.write_file(test.tmpdir() + "/caller.rugo", caller)
-  result = test.run("rugo build " + test.tmpdir() + "/caller.rugo -o " + test.tmpdir() + "/callerbin")
+  test.write_file("#{test.tmpdir()}/caller.rugo", caller)
+  result = test.run("rugo build #{test.tmpdir()}/caller.rugo -o #{test.tmpdir()}/callerbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/callerbin")
+  test.run("rm -f #{test.tmpdir()}/callerbin")
 end
 
 rats "private def function not added to web dispatch map"
@@ -70,8 +70,8 @@ rats "private def function not added to web dispatch map"
 
     puts _private_helper("test")
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo build #{test.tmpdir()}/test.rugo -o #{test.tmpdir()}/webbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/webbin")
+  test.run("rm -f #{test.tmpdir()}/webbin")
 end

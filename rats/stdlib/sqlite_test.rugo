@@ -20,14 +20,14 @@ rats "open returns a connection handle"
 end
 
 rats "open file-based database"
-  path = test.tmpdir() + "/test.db"
+  path = "#{test.tmpdir()}/test.db"
   conn = sqlite.open(path)
   sqlite.exec(conn, "CREATE TABLE t (id INTEGER PRIMARY KEY)")
   sqlite.close(conn)
 end
 
 rats "open with file: URI"
-  path = "file:" + test.tmpdir() + "/uri_test.db"
+  path = "file:#{test.tmpdir()}/uri_test.db"
   conn = sqlite.open(path)
   sqlite.exec(conn, "CREATE TABLE t (id INTEGER PRIMARY KEY)")
   sqlite.exec(conn, "INSERT INTO t VALUES (1)")
@@ -317,7 +317,7 @@ end
 # --- pragmas ---
 
 rats "pragma journal_mode WAL"
-  path = test.tmpdir() + "/wal_test.db"
+  path = "#{test.tmpdir()}/wal_test.db"
   conn = sqlite.open(path)
   sqlite.exec(conn, "PRAGMA journal_mode=WAL")
   mode = sqlite.query_val(conn, "PRAGMA journal_mode")

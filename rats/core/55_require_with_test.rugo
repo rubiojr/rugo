@@ -97,8 +97,8 @@ rats "with: loads a single module"
     puts(math_helpers.double(21))
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/test.rugo")
   if result["status"] != 0
     puts "DEBUG: " + result["output"]
   end
@@ -116,8 +116,8 @@ rats "with: loads multiple modules"
     puts(conv.to_s(math_helpers.triple(7)))
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/test.rugo")
   if result["status"] != 0
     puts "DEBUG: " + result["output"]
   end
@@ -139,8 +139,8 @@ rats "with: loads all modules from a multi-file repo"
     puts(greeter.hello("world"))
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/test.rugo")
   if result["status"] != 0
     puts "DEBUG: " + result["output"]
   end
@@ -161,8 +161,8 @@ rats "with: inter-module dependency works when both loaded"
     puts(client.get(gh, "/repos"))
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/test.rugo")
   if result["status"] != 0
     puts "DEBUG: " + result["output"]
   end
@@ -179,40 +179,40 @@ rats "with: works with rugo build"
     puts(conv.to_s(math_helpers.double(100)))
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
-  build_result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build " + tmpdir + "/test.rugo -o " + tmpdir + "/test_bin")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  build_result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo build #{tmpdir}/test.rugo -o #{tmpdir}/test_bin")
   if build_result["status"] != 0
     puts "DEBUG build: " + build_result["output"]
   end
   test.assert_eq(build_result["status"], 0)
-  result = test.run(tmpdir + "/test_bin")
+  result = test.run("#{tmpdir}/test_bin")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "200")
 end
 
 rats "with: caches immutable version"
   tmpdir = test.tmpdir()
-  moddir = tmpdir + "/modules"
+  moddir = "#{tmpdir}/modules"
   p = port()
   script = <<~RG
     require "localhost:PORT/testuser/multimod@v1.0.0" with greeter
     puts(greeter.hello("cache"))
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
+  test.write_file("#{tmpdir}/test.rugo", script)
 
   # First run
-  result = test.run("RUGO_MODULE_DIR=" + moddir + " rugo run " + tmpdir + "/test.rugo")
+  result = test.run("RUGO_MODULE_DIR=#{moddir} rugo run #{tmpdir}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, cache!")
 
   # Check cache dir exists
-  cache_path = moddir + "/localhost:" + p + "/testuser/multimod/v1.0.0"
-  r = test.run("test -d " + cache_path)
+  cache_path = moddir + "/localhost:#{p}/testuser/multimod/v1.0.0"
+  r = test.run("test -d #{cache_path}")
   test.assert_eq(r["status"], 0)
 
   # Second run uses cache
-  result = test.run("RUGO_MODULE_DIR=" + moddir + " rugo run " + tmpdir + "/test.rugo")
+  result = test.run("RUGO_MODULE_DIR=#{moddir} rugo run #{tmpdir}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, cache!")
 end
@@ -227,8 +227,8 @@ rats "with: error on nonexistent module name"
     puts "should not get here"
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "nonexistent")
   test.assert_contains(result["output"], "not found")
@@ -240,8 +240,8 @@ rats "with: error on local path that is not a directory"
     require "helpers" with foo
     puts "should not get here"
   RG
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "not a directory")
 end
@@ -254,8 +254,8 @@ rats "with: error on bad remote repo"
     puts "should not get here"
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "git clone")
 end
@@ -269,8 +269,8 @@ rats "with: subpath require also works for flat files"
     puts(greeter.hello("subpath"))
   RG
   script = str.replace(script, "PORT", p)
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/test.rugo")
   if result["status"] != 0
     puts "DEBUG: " + result["output"]
   end

@@ -25,8 +25,8 @@ rats "real_ip resolves X-Forwarded-For header"
     web.port()
     puts(http.get("http://localhost:#{p}/ip").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   # Without X-Forwarded-For, falls back to stripping port
   test.assert_eq(result["output"], "::1")
@@ -53,8 +53,8 @@ rats "real_ip without headers strips port"
     r = http.get("http://localhost:#{p}/check").body
     puts(r)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   # Should be bare IP (port stripped)
   test.assert_eq(result["output"], "::1")
@@ -74,8 +74,8 @@ rats "real_ip does not interfere with handler"
     web.port()
     puts(http.get("http://localhost:#{p}/data").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "\"ip\":\"::1\"")
   test.assert_contains(result["output"], "\"method\":\"GET\"")
@@ -128,8 +128,8 @@ rats "rate_limiter returns 429 JSON error"
     puts(http.get("http://localhost:#{p}/api").body)
     puts(http.get("http://localhost:#{p}/api").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "ok")
@@ -157,8 +157,8 @@ rats "rate_limiter with route-level middleware"
     puts(http.get("http://localhost:#{p}/limited").body)
     puts(http.get("http://localhost:#{p}/free").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "limited")
@@ -183,8 +183,8 @@ rats "rate_limiter with float rps"
     puts(http.get("http://localhost:#{p}/slow").body)
     puts(http.get("http://localhost:#{p}/slow").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "ok")
@@ -211,8 +211,8 @@ rats "real_ip + rate_limiter work together"
     puts(http.get("http://localhost:#{p}/combo").body)
     puts(http.get("http://localhost:#{p}/combo").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "ip:::1")
@@ -237,8 +237,8 @@ rats "real_ip + logger + rate_limiter full stack"
     web.port()
     puts(http.get("http://localhost:#{p}/stack").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "\"ok\":true")
 end
@@ -253,10 +253,10 @@ rats "rate_limiter compiles to native binary"
       return web.text("ok")
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/mwbin")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo build #{test.tmpdir()}/test.rugo -o #{test.tmpdir()}/mwbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/mwbin")
+  test.run("rm -f #{test.tmpdir()}/mwbin")
 end
 
 rats "real_ip compiles to native binary"
@@ -268,10 +268,10 @@ rats "real_ip compiles to native binary"
       return web.text("ok")
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/ipbin")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo build #{test.tmpdir()}/test.rugo -o #{test.tmpdir()}/ipbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/ipbin")
+  test.run("rm -f #{test.tmpdir()}/ipbin")
 end
 
 rats "rate_limit config appears in emitted code"
@@ -285,8 +285,8 @@ rats "rate_limit config appears in emitted code"
     end
     web.listen(9999)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo emit " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo emit #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "rugo_web_rate_limit")
   test.assert_contains(result["output"], "tokenBucketLimiter")

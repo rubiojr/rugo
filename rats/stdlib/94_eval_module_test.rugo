@@ -38,8 +38,8 @@ end
 
 rats "eval.file with temp file"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/simple.rugo", "puts(\"eval works\")")
-  result = eval.file(tmpdir + "/simple.rugo")
+  test.write_file("#{tmpdir}/simple.rugo", "puts(\"eval works\")")
+  result = eval.file("#{tmpdir}/simple.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "eval works")
 end

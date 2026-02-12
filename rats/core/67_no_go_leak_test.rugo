@@ -9,8 +9,8 @@ rats "undefined variable error does not leak Go symbols"
     x = nothing.foo()
     puts(x)
   SCRIPT
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
   test.assert_neq(result["status"], 0)
   # Must not contain internal Go identifiers
   test.assert_eq(str.contains(result["output"], "rugons_"), false)
@@ -27,50 +27,50 @@ rats "mismatched types error does not leak interface{}"
     end
     puts(base)
   SCRIPT
-  test.write_file(tmpdir + "/test.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/test.rugo")
+  test.write_file("#{tmpdir}/test.rugo", script)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "start, a")
 end
 
 rats "variable shadowing namespace does not leak rugons_"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/helper.rugo", "def make()\n  return {foo: \"bar\"}\nend\n")
+  test.write_file("#{tmpdir}/helper.rugo", "def make()\n  return {foo: \"bar\"}\nend\n")
   script = <<~SCRIPT
     require "helper"
     helper = helper.make()
     puts(helper.foo)
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "bar")
 end
 
 rats "variable shadowing namespace call does not leak rugons_"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/helper.rugo", "def make()\n  return {greet: \"hello\"}\nend\n")
+  test.write_file("#{tmpdir}/helper.rugo", "def make()\n  return {greet: \"hello\"}\nend\n")
   script = <<~SCRIPT
     require "helper"
     helper = helper.make()
     puts(helper.greet)
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end
 
 rats "dotcall on reassigned namespace var does not leak rugons_"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/builder.rugo", "def new()\n  h = {}\n  h[\"run\"] = fn()\n    return \"ran\"\n  end\n  return h\nend\n")
+  test.write_file("#{tmpdir}/builder.rugo", "def new()\n  h = {}\n  h[\"run\"] = fn()\n    return \"ran\"\n  end\n  return h\nend\n")
   script = <<~SCRIPT
     require "builder"
     builder = builder.new()
     puts(builder.run())
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "ran")
 end

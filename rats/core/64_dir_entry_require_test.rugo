@@ -22,29 +22,29 @@ end
 
 rats "require directory resolves sole .rugo file"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/mymod")
-  test.write_file(tmpdir + "/mymod/utils.rugo", "def ping()\n  return \"pong\"\nend\n")
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/utils.rugo", "def ping()\n  return \"pong\"\nend\n")
   script = <<~SCRIPT
     require "mymod"
     puts(mymod.ping())
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "pong")
 end
 
 rats "require directory works with rugo build"
   tmpdir = test.tmpdir()
-  test.run("cp -r rats/fixtures/dir_entry_lib " + tmpdir + "/dir_entry_lib")
+  test.run("cp -r rats/fixtures/dir_entry_lib #{tmpdir}/dir_entry_lib")
   script = <<~SCRIPT
     require "dir_entry_lib"
     puts(dir_entry_lib.greet("binary"))
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  build_result = test.run("rugo build " + tmpdir + "/main.rugo -o " + tmpdir + "/main_bin")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  build_result = test.run("rugo build #{tmpdir}/main.rugo -o #{tmpdir}/main_bin")
   test.assert_eq(build_result["status"], 0)
-  result = test.run(tmpdir + "/main_bin")
+  result = test.run("#{tmpdir}/main_bin")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello from dir_entry_lib, binary")
 end
@@ -53,14 +53,14 @@ end
 
 rats "require directory fails when ambiguous (multiple .rugo files, no entry point)"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/ambiguous")
-  test.write_file(tmpdir + "/ambiguous/foo.rugo", "def foo()\n  return 1\nend\n")
-  test.write_file(tmpdir + "/ambiguous/bar.rugo", "def bar()\n  return 2\nend\n")
+  test.run("mkdir -p #{tmpdir}/ambiguous")
+  test.write_file("#{tmpdir}/ambiguous/foo.rugo", "def foo()\n  return 1\nend\n")
+  test.write_file("#{tmpdir}/ambiguous/bar.rugo", "def bar()\n  return 2\nend\n")
   script = <<~SCRIPT
     require "ambiguous"
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot determine entry point")
   test.assert_contains(result["output"], "with")
@@ -68,27 +68,27 @@ end
 
 rats "require directory fails when no Rugo source files"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/empty_dir")
+  test.run("mkdir -p #{tmpdir}/empty_dir")
   script = <<~SCRIPT
     require "empty_dir"
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "no Rugo source files")
 end
 
 rats "require prefers file over directory when both exist"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/mymod")
-  test.write_file(tmpdir + "/mymod.rugo", "def source()\n  return \"file\"\nend\n")
-  test.write_file(tmpdir + "/mymod/mymod.rugo", "def source()\n  return \"dir\"\nend\n")
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod.rugo", "def source()\n  return \"file\"\nend\n")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "def source()\n  return \"dir\"\nend\n")
   script = <<~SCRIPT
     require "mymod"
     puts(mymod.source())
   SCRIPT
-  test.write_file(tmpdir + "/main.rugo", script)
-  result = test.run("rugo run " + tmpdir + "/main.rugo")
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "file")
 end

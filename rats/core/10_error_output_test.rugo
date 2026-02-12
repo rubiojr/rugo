@@ -45,9 +45,9 @@ rats "successful scripts have clean output"
 end
 
 rats "built binary shows script line in errors"
-  result = test.run("rugo build -o " + test.tmpdir() + "/errbin rats/fixtures/error_index.rugo")
+  result = test.run("rugo build -o #{test.tmpdir()}/errbin rats/fixtures/error_index.rugo")
   test.assert_eq(result["status"], 0)
-  result = test.run(test.tmpdir() + "/errbin")
+  result = test.run("#{test.tmpdir()}/errbin")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error:")
   test.assert_contains(result["output"], "error_index.rugo:2")

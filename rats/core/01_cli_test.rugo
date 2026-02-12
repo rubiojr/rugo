@@ -11,9 +11,9 @@ end
 
 # Test: rugo build produces a binary
 rats "rugo build creates binary"
-  result = test.run("rugo build -o " + test.tmpdir() + "/hello examples/hello.rugo")
+  result = test.run("rugo build -o #{test.tmpdir()}/hello examples/hello.rugo")
   test.assert_eq(result["status"], 0)
-  result = test.run(test.tmpdir() + "/hello")
+  result = test.run("#{test.tmpdir()}/hello")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello")
 end
@@ -68,9 +68,9 @@ end
 rats "rugo rats with no args finds rats/ directory"
   tmpdir = test.tmpdir()
   # Create a rats/ subdir with a minimal test file
-  os.exec("mkdir -p " + tmpdir + "/rats")
-  test.write_file(tmpdir + "/rats/mini_test.rugo", "use \"test\"\nrats \"mini\"\n  test.assert_eq(1, 1)\nend\n")
-  result = test.run("cd " + tmpdir + " && rugo rats")
+  os.exec("mkdir -p #{tmpdir}/rats")
+  test.write_file("#{tmpdir}/rats/mini_test.rugo", "use \"test\"\nrats \"mini\"\n  test.assert_eq(1, 1)\nend\n")
+  result = test.run("cd #{tmpdir} && rugo rats")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "1 passed")
 end

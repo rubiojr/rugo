@@ -6,8 +6,8 @@ rats "filepath.base"
     import "path/filepath"
     puts(filepath.base("/home/user/file.txt"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "file.txt")
 end
@@ -17,8 +17,8 @@ rats "filepath.dir"
     import "path/filepath"
     puts(filepath.dir("/home/user/file.txt"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "/home/user")
 end
@@ -29,8 +29,8 @@ rats "filepath.ext"
     puts(filepath.ext("file.txt"))
     puts(filepath.ext("file"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], ".txt")
 end
@@ -40,8 +40,8 @@ rats "filepath.join"
     import "path/filepath"
     puts(filepath.join("home", "user", "docs"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "home/user/docs")
 end
@@ -52,8 +52,8 @@ rats "filepath.is_abs"
     puts(filepath.is_abs("/home/user"))
     puts(filepath.is_abs("relative/path"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
   test.assert_contains(result["output"], "false")
@@ -64,8 +64,8 @@ rats "filepath.clean"
     import "path/filepath"
     puts(filepath.clean("/home/user/../user/./docs"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "/home/user/docs")
 end
@@ -76,8 +76,8 @@ rats "filepath.abs"
     result = filepath.abs(".")
     puts(result)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_neq(result["output"], "")
 end
@@ -89,8 +89,8 @@ rats "filepath.split"
     puts(parts[0])
     puts(parts[1])
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "/home/user/")
   test.assert_contains(result["output"], "file.txt")

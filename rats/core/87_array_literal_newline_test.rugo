@@ -83,8 +83,8 @@ rats "user semicolons produce clear error"
   script = <<~SCRIPT
     x = 1; y = 2
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "semicolons are not supported")
 end
@@ -93,8 +93,8 @@ rats "semicolons inside strings are fine"
   script = <<~SCRIPT
     puts "hello; world"
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello; world")
 end
@@ -141,8 +141,8 @@ rats "trailing comma in array is rejected"
   script = <<~SCRIPT
     x = [1, 2, 3,]
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
@@ -151,8 +151,8 @@ rats "trailing comma in hash is rejected"
   script = <<~SCRIPT
     h = {"a" => 1,}
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
@@ -164,8 +164,8 @@ rats "trailing comma in multi-line array is rejected"
       2,
     ]
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
@@ -175,8 +175,8 @@ rats "commas inside strings are not trailing commas"
     x = ["a,"]
     puts x[0]
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "a,")
 end
@@ -258,7 +258,7 @@ rats "multi-line array inside for body"
       i,
       i * 10
     ]
-    result = append(result, chunk)
+    append result, chunk
   end
   test.assert_eq(len(result), 2)
   test.assert_eq(result[0][1], 10)
@@ -322,8 +322,8 @@ rats "trailing comma in nested inner array is rejected"
   script = <<~SCRIPT
     x = [[1,], [2]]
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
@@ -335,8 +335,8 @@ rats "trailing comma in multi-line hash is rejected"
       "b" => 2,
     }
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
@@ -346,8 +346,8 @@ rats "comma before ] inside string is not trailing"
     x = [",]"]
     puts x[0]
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], ",]")
 end
@@ -357,8 +357,8 @@ rats "comma before } inside string is not trailing"
     h = {"k" => ",}"}
     puts h["k"]
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], ",}")
 end

@@ -91,8 +91,8 @@ rats "heredoc containing try/or syntax is not expanded"
 end
 
 rats "heredoc compiles to native binary"
-  test.run("rugo build -o " + test.tmpdir() + "/heredoc_test rats/fixtures/heredoc_basic.rugo")
-  result = test.run(test.tmpdir() + "/heredoc_test")
+  test.run("rugo build -o #{test.tmpdir()}/heredoc_test rats/fixtures/heredoc_basic.rugo")
+  result = test.run("#{test.tmpdir()}/heredoc_test")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "Hello World")

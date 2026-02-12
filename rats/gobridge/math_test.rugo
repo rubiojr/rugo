@@ -7,8 +7,8 @@ rats "math.sqrt"
     use "conv"
     puts(conv.to_s(math.sqrt(16.0)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "4")
 end
@@ -19,8 +19,8 @@ rats "math.abs"
     use "conv"
     puts(conv.to_s(math.abs(-5.0)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "5")
 end
@@ -32,8 +32,8 @@ rats "math.ceil and floor"
     puts(conv.to_s(math.ceil(3.2)))
     puts(conv.to_s(math.floor(3.8)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "4")
   test.assert_contains(result["output"], "3")
@@ -45,8 +45,8 @@ rats "math.pow"
     use "conv"
     puts(conv.to_s(math.pow(2.0, 10.0)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "1024")
 end
@@ -58,8 +58,8 @@ rats "math.round"
     puts(conv.to_s(math.round(3.5)))
     puts(conv.to_s(math.round(3.4)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "4")
   test.assert_contains(result["output"], "3")
@@ -72,8 +72,8 @@ rats "math.max and min"
     puts(conv.to_s(math.max(3.0, 7.0)))
     puts(conv.to_s(math.min(3.0, 7.0)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "7")
   test.assert_contains(result["output"], "3")
@@ -86,8 +86,8 @@ rats "math.log and log10"
     puts(conv.to_s(math.log(1.0)))
     puts(conv.to_s(math.log10(100.0)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "0")
   test.assert_contains(result["output"], "2")
@@ -98,8 +98,8 @@ rats "math.is_nan and nan"
     import "math"
     puts(math.is_nan(math.nan()))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
 end
@@ -110,8 +110,8 @@ rats "math.mod"
     use "conv"
     puts(conv.to_s(math.mod(10.0, 3.0)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "1")
 end

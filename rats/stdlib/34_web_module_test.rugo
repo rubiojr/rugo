@@ -152,8 +152,8 @@ rats "web.json with status code 201"
     _port = web.port()
     puts(http.post("http://localhost:#{_port}/items", "{}").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "\"ok\":true")
 end
@@ -170,8 +170,8 @@ rats "web.text with status code 404"
     _port = web.port()
     puts(http.get("http://localhost:#{_port}/missing").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "not found")
 end
@@ -188,8 +188,8 @@ rats "nested hash in JSON response"
     _port = web.port()
     puts(http.get("http://localhost:#{_port}/nested").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "\"name\":\"Alice\"")
   test.assert_contains(result["output"], "\"age\":30")
@@ -207,8 +207,8 @@ rats "handler receives correct method for POST"
     _port = web.port()
     puts(http.post("http://localhost:#{_port}/check", "").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "POST")
 end
@@ -233,8 +233,8 @@ rats "middleware chain runs in order"
     _port = web.port()
     puts(http.get("http://localhost:#{_port}/chain").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "stopped by mw_second")
 end
@@ -252,8 +252,8 @@ rats "built-in logger middleware runs without error"
     _port = web.port()
     puts(http.get("http://localhost:#{_port}/logged").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "ok")
   test.assert_contains(result["output"], "GET /logged")
@@ -273,8 +273,8 @@ rats "custom headers on response"
     _port = web.port()
     puts(http.get("http://localhost:#{_port}/custom").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "with headers")
 end
@@ -298,8 +298,8 @@ rats "web.group and end_group reset prefix"
     puts(http.get("http://localhost:#{_port}/api/items").body)
     puts(http.get("http://localhost:#{_port}/outside").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "items")
@@ -319,8 +319,8 @@ rats "handler with string interpolation"
     _port = web.port()
     puts(http.get("http://localhost:#{_port}/greet/Rugo").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, Rugo!")
 end
@@ -333,10 +333,10 @@ rats "web module compiles to native binary"
       return web.text("ok")
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo build " + test.tmpdir() + "/test.rugo -o " + test.tmpdir() + "/webbin")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo build #{test.tmpdir()}/test.rugo -o #{test.tmpdir()}/webbin")
   test.assert_eq(result["status"], 0)
-  test.run("rm -f " + test.tmpdir() + "/webbin")
+  test.run("rm -f #{test.tmpdir()}/webbin")
 end
 
 rats "web emit includes dispatch map"
@@ -348,8 +348,8 @@ rats "web emit includes dispatch map"
     end
     web.listen(9999)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo emit " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo emit #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "rugo_web_dispatch")
   test.assert_contains(result["output"], "rugofn_home")
@@ -377,8 +377,8 @@ rats "multiple routes to different handlers"
     puts(http.get("http://localhost:#{_port}/b").body)
     puts(http.get("http://localhost:#{_port}/c").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "A")
@@ -400,8 +400,8 @@ rats "request params hash via dot access"
     _port = web.port()
     puts(http.get("http://localhost:#{_port}/users/7/posts/42").body)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "\"user_id\":\"7\"")
   test.assert_contains(result["output"], "\"post_id\":\"42\"")

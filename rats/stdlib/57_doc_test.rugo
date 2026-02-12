@@ -51,8 +51,8 @@ end
 # Test: rugo doc for a .rugo file
 rats "rugo doc on .rugo file extracts docs"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/lib.rugo", "# A helper library.\n\n# Adds two numbers.\ndef add(a, b)\n  return a + b\nend\n")
-  result = test.run("rugo doc " + tmpdir + "/lib.rugo")
+  test.write_file("#{tmpdir}/lib.rugo", "# A helper library.\n\n# Adds two numbers.\ndef add(a, b)\n  return a + b\nend\n")
+  result = test.run("rugo doc #{tmpdir}/lib.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "A helper library.")
   test.assert_contains(result["output"], "def add(a, b)")
@@ -62,8 +62,8 @@ end
 # Test: rugo doc for a specific symbol
 rats "rugo doc file symbol looks up function"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/lib.rugo", "# Multiplies x by y.\ndef mul(x, y)\n  return x * y\nend\n\ndef other()\nend\n")
-  result = test.run("rugo doc " + tmpdir + "/lib.rugo mul")
+  test.write_file("#{tmpdir}/lib.rugo", "# Multiplies x by y.\ndef mul(x, y)\n  return x * y\nend\n\ndef other()\nend\n")
+  result = test.run("rugo doc #{tmpdir}/lib.rugo mul")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "def mul(x, y)")
   test.assert_contains(result["output"], "Multiplies x by y.")
@@ -72,8 +72,8 @@ end
 # Test: rugo doc for struct
 rats "rugo doc file symbol looks up struct"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/lib.rugo", "# A 2D point.\nstruct Point\n  x\n  y\nend\n")
-  result = test.run("rugo doc " + tmpdir + "/lib.rugo Point")
+  test.write_file("#{tmpdir}/lib.rugo", "# A 2D point.\nstruct Point\n  x\n  y\nend\n")
+  result = test.run("rugo doc #{tmpdir}/lib.rugo Point")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "struct Point")
   test.assert_contains(result["output"], "A 2D point.")
@@ -82,8 +82,8 @@ end
 # Test: rugo doc with missing symbol
 rats "rugo doc file with missing symbol fails"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/lib.rugo", "def foo()\nend\n")
-  result = test.run("rugo doc " + tmpdir + "/lib.rugo missing")
+  test.write_file("#{tmpdir}/lib.rugo", "def foo()\nend\n")
+  result = test.run("rugo doc #{tmpdir}/lib.rugo missing")
   test.assert_neq(result["status"], 0)
 end
 
@@ -96,8 +96,8 @@ end
 # Test: rugo doc blank line breaks doc attachment
 rats "rugo doc blank line breaks attachment"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/lib.rugo", "# Orphaned comment.\n\ndef foo()\nend\n")
-  result = test.run("rugo doc " + tmpdir + "/lib.rugo foo")
+  test.write_file("#{tmpdir}/lib.rugo", "# Orphaned comment.\n\ndef foo()\nend\n")
+  result = test.run("rugo doc #{tmpdir}/lib.rugo foo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "def foo")
 end
@@ -137,8 +137,8 @@ end
 # Test: file-level doc captured when comment block runs directly into code
 rats "rugo doc file-level doc before code without blank line"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/mod.rugo", "# Module docs.\n# Second line.\nrequire \"./lib\"\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/mod.rugo")
+  test.write_file("#{tmpdir}/mod.rugo", "# Module docs.\n# Second line.\nrequire \"./lib\"\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/mod.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Module docs.")
   test.assert_contains(result["output"], "Second line.")
@@ -147,8 +147,8 @@ end
 # Test: rugo doc shows structs with fields
 rats "rugo doc shows struct fields"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/t.rugo", "# A Config.\nstruct Config\n  host\n  port\n  debug\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/t.rugo")
+  test.write_file("#{tmpdir}/t.rugo", "# A Config.\nstruct Config\n  host\n  port\n  debug\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/t.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "struct Config")
   test.assert_contains(result["output"], "host")
@@ -158,8 +158,8 @@ end
 # Test: rugo doc method on struct (def Struct.method)
 rats "rugo doc shows struct methods"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/t.rugo", "struct Dog\n  name\nend\n\n# Makes the dog bark.\ndef Dog.bark()\n  return self.name\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/t.rugo")
+  test.write_file("#{tmpdir}/t.rugo", "struct Dog\n  name\nend\n\n# Makes the dog bark.\ndef Dog.bark()\n  return self.name\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/t.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "def Dog.bark")
   test.assert_contains(result["output"], "Makes the dog bark.")
@@ -168,8 +168,8 @@ end
 # Test: rugo doc multiline doc comment preserved
 rats "rugo doc multiline doc"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/t.rugo", "# Line one.\n# Line two.\n# Line three.\ndef multi()\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/t.rugo multi")
+  test.write_file("#{tmpdir}/t.rugo", "# Line one.\n# Line two.\n# Line three.\ndef multi()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/t.rugo multi")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Line one.")
   test.assert_contains(result["output"], "Line two.")
@@ -237,10 +237,10 @@ end
 # Test: rugo doc on local directory with entry point
 rats "rugo doc local directory shows docs"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/mymod")
-  test.write_file(tmpdir + "/mymod/mymod.rugo", "# My module.\n\n# Does stuff.\ndef do_stuff()\n  return 1\nend\n")
-  test.write_file(tmpdir + "/mymod/helpers.rugo", "# A helper.\ndef helper()\n  return 2\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/mymod")
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "# My module.\n\n# Does stuff.\ndef do_stuff()\n  return 1\nend\n")
+  test.write_file("#{tmpdir}/mymod/helpers.rugo", "# A helper.\ndef helper()\n  return 2\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/mymod")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "My module.")
   test.assert_contains(result["output"], "def do_stuff")
@@ -250,9 +250,9 @@ end
 # Test: rugo doc on local directory with symbol lookup
 rats "rugo doc local directory symbol lookup"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/mymod")
-  test.write_file(tmpdir + "/mymod/mymod.rugo", "# Adds numbers.\ndef add(a, b)\n  return a + b\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/mymod add")
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "# Adds numbers.\ndef add(a, b)\n  return a + b\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/mymod add")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "def add(a, b)")
   test.assert_contains(result["output"], "Adds numbers.")
@@ -261,17 +261,17 @@ end
 # Test: rugo doc on local directory with missing symbol fails
 rats "rugo doc local directory missing symbol fails"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/mymod")
-  test.write_file(tmpdir + "/mymod/mymod.rugo", "def foo()\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/mymod nope")
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "def foo()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/mymod nope")
   test.assert_neq(result["status"], 0)
 end
 
 # Test: undocumented functions are hidden from file listing
 rats "rugo doc hides undocumented functions"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/lib.rugo", "# Documented.\ndef public()\nend\n\ndef _private()\nend\n\ndef also_undocumented()\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/lib.rugo")
+  test.write_file("#{tmpdir}/lib.rugo", "# Documented.\ndef public()\nend\n\ndef _private()\nend\n\ndef also_undocumented()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/lib.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "def public")
   test.assert_contains(result["output"], "Documented.")
@@ -282,8 +282,8 @@ end
 # Test: undocumented structs are hidden from file listing
 rats "rugo doc hides undocumented structs"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/lib.rugo", "# A good struct.\nstruct Visible\n  x\nend\n\nstruct Hidden\n  y\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/lib.rugo")
+  test.write_file("#{tmpdir}/lib.rugo", "# A good struct.\nstruct Visible\n  x\nend\n\nstruct Hidden\n  y\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/lib.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "struct Visible")
   test.assert_contains(result["output"], "A good struct.")
@@ -293,8 +293,8 @@ end
 # Test: undocumented functions can still be looked up directly
 rats "rugo doc symbol lookup works for undocumented function"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/lib.rugo", "def secret(x)\n  x + 1\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/lib.rugo secret")
+  test.write_file("#{tmpdir}/lib.rugo", "def secret(x)\n  x + 1\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/lib.rugo secret")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "def secret(x)")
 end
@@ -302,10 +302,10 @@ end
 # Test: rugo doc on project tree finds files in subdirectories
 rats "rugo doc recursive finds subdirectory files"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/proj/lib")
-  test.write_file(tmpdir + "/proj/proj.rugo", "# My project.\n\n# Entry point.\ndef main()\nend\n")
-  test.write_file(tmpdir + "/proj/lib/helpers.rugo", "# A helper function.\ndef helper()\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/proj")
+  test.run("mkdir -p #{tmpdir}/proj/lib")
+  test.write_file("#{tmpdir}/proj/proj.rugo", "# My project.\n\n# Entry point.\ndef main()\nend\n")
+  test.write_file("#{tmpdir}/proj/lib/helpers.rugo", "# A helper function.\ndef helper()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/proj")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "My project.")
   test.assert_contains(result["output"], "def main")
@@ -318,10 +318,10 @@ end
 # Test: rugo doc on project tree excludes test files
 rats "rugo doc recursive excludes test files"
   tmpdir = test.tmpdir()
-  test.run("mkdir -p " + tmpdir + "/proj/rats")
-  test.write_file(tmpdir + "/proj/proj.rugo", "# My project.\n\n# Public API.\ndef api()\nend\n")
-  test.write_file(tmpdir + "/proj/rats/proj_test.rugo", "# Test function.\ndef test_api()\nend\n")
-  result = test.run("NO_COLOR=1 rugo doc " + tmpdir + "/proj")
+  test.run("mkdir -p #{tmpdir}/proj/rats")
+  test.write_file("#{tmpdir}/proj/proj.rugo", "# My project.\n\n# Public API.\ndef api()\nend\n")
+  test.write_file("#{tmpdir}/proj/rats/proj_test.rugo", "# Test function.\ndef test_api()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/proj")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "def api")
   test.assert_false(str.contains(result["output"], "test_api"))

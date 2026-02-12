@@ -9,8 +9,8 @@ rats "variable in rats block shows scoping hint"
       test.assert_eq(port, 8080)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test_test.rugo", script)
-  result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
+  test.write_file("#{test.tmpdir()}/test_test.rugo", script)
+  result = test.run("rugo rats #{test.tmpdir()}/test_test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "not available inside rats blocks")
   test.assert_contains(result["output"], "use a constant")
@@ -24,8 +24,8 @@ rats "constant in rats block shows scoping hint"
       test.assert_eq(PORT, 8080)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/test_test.rugo", script)
-  result = test.run("rugo rats " + test.tmpdir() + "/test_test.rugo")
+  test.write_file("#{test.tmpdir()}/test_test.rugo", script)
+  result = test.run("rugo rats #{test.tmpdir()}/test_test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "not available inside rats blocks")
   test.assert_contains(result["output"], "environment variable")
@@ -39,8 +39,8 @@ rats "variable in def shows clean error"
     end
     greet()
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   # This one actually works via handlerVars promotion, so should pass
   test.assert_eq(result["status"], 0)
 end

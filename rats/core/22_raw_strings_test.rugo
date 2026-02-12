@@ -53,8 +53,8 @@ rats "raw string in emit produces valid Go"
 end
 
 rats "raw strings compile to native binary"
-  test.run("rugo build -o " + test.tmpdir() + "/raw_test rats/fixtures/raw_string_basic.rugo")
-  result = test.run(test.tmpdir() + "/raw_test")
+  test.run("rugo build -o #{test.tmpdir()}/raw_test rats/fixtures/raw_string_basic.rugo")
+  result = test.run("#{test.tmpdir()}/raw_test")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], 'hello\nworld')

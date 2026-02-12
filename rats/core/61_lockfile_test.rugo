@@ -18,15 +18,15 @@ end
 
 def setup_file()
   bd = base_dir()
-  r = test.run("mkdir -p " + bd + "/repos/lockuser/lock-mod.git " + bd + "/work")
+  r = test.run("mkdir -p #{bd}/repos/lockuser/lock-mod.git #{bd}/work")
   if r["status"] != 0
     puts "DEBUG setup mkdir: " + r["output"]
   end
-  r = test.run("git init --bare " + bd + "/repos/lockuser/lock-mod.git")
+  r = test.run("git init --bare #{bd}/repos/lockuser/lock-mod.git")
   if r["status"] != 0
     puts "DEBUG setup git init: " + r["output"]
   end
-  r = test.run("git clone " + bd + "/repos/lockuser/lock-mod.git " + bd + "/work")
+  r = test.run("git clone #{bd}/repos/lockuser/lock-mod.git #{bd}/work")
   if r["status"] != 0
     puts "DEBUG setup git clone: " + r["output"]
   end
@@ -36,13 +36,13 @@ def setup_file()
       return "Hello v1, " + name + "!"
     end
   RG
-  test.write_file(bd + "/work/lock-mod.rugo", mod_src)
+  test.write_file("#{bd}/work/lock-mod.rugo", mod_src)
 
-  r = test.run("cd " + bd + "/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m v1 && git tag v1.0.0")
+  r = test.run("cd #{bd}/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m v1 && git tag v1.0.0")
   if r["status"] != 0
     puts "DEBUG setup v1 commit: " + r["output"]
   end
-  r = test.run("cd " + bd + "/work && git push origin HEAD v1.0.0")
+  r = test.run("cd #{bd}/work && git push origin HEAD v1.0.0")
   if r["status"] != 0
     puts "DEBUG setup v1 push: " + r["output"]
   end
@@ -53,26 +53,26 @@ def setup_file()
       return "Hello v2, " + name + "!"
     end
   RG
-  test.write_file(bd + "/work/lock-mod.rugo", mod_src2)
+  test.write_file("#{bd}/work/lock-mod.rugo", mod_src2)
 
-  r = test.run("cd " + bd + "/work && git add . && git commit -m v2 && git push origin HEAD")
+  r = test.run("cd #{bd}/work && git add . && git commit -m v2 && git push origin HEAD")
   if r["status"] != 0
     puts "DEBUG setup v2 push: " + r["output"]
   end
 
-  r = test.run("cd " + bd + "/repos/lockuser/lock-mod.git && git update-server-info")
+  r = test.run("cd #{bd}/repos/lockuser/lock-mod.git && git update-server-info")
   if r["status"] != 0
     puts "DEBUG setup update-server-info: " + r["output"]
   end
 
-  web.static("/lockuser/lock-mod.git", bd + "/repos/lockuser/lock-mod.git")
+  web.static("/lockuser/lock-mod.git", "#{bd}/repos/lockuser/lock-mod.git")
   spawn web.listen(0)
   p = web.port()
-  test.write_file(bd + "/port", conv.to_s(p))
+  test.write_file("#{bd}/port", conv.to_s(p))
 end
 
 def teardown_file()
-  test.run("rm -rf " + base_dir())
+  test.run("rm -rf #{base_dir()}")
 end
 
 # --- Tests ---
@@ -85,19 +85,19 @@ rats "mod tidy generates lock file with tagged version"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Run mod tidy to generate lock file
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   if result["status"] != 0
     puts "DEBUG mod-tidy: " + result["output"]
   end
   test.assert_eq(result["status"], 0)
 
   # Verify rugo.lock was created
-  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  lock_result = test.run("cat #{tmpdir}/rugo.lock")
   test.assert_eq(lock_result["status"], 0)
-  test.assert_contains(lock_result["output"], "localhost:" + port + "/lockuser/lock-mod")
+  test.assert_contains(lock_result["output"], "localhost:#{port}/lockuser/lock-mod")
   test.assert_contains(lock_result["output"], "v1.0.0")
 end
 
@@ -109,17 +109,17 @@ rats "mod tidy generates lock file with mutable version"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Run mod tidy
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   if result["status"] != 0
     puts "DEBUG mod-tidy-mutable: " + result["output"]
   end
   test.assert_eq(result["status"], 0)
 
   # Verify rugo.lock was created with _default version and a SHA
-  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  lock_result = test.run("cat #{tmpdir}/rugo.lock")
   test.assert_eq(lock_result["status"], 0)
   test.assert_contains(lock_result["output"], "_default")
 end
@@ -132,11 +132,11 @@ rats "run does not create lock file"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Run without mod tidy — should work but not create lock file
   # Redirect stderr to /dev/null to avoid hint in output
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>/dev/null")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>/dev/null")
   if result["status"] != 0
     puts "DEBUG run-no-lock: " + result["output"]
   end
@@ -144,7 +144,7 @@ rats "run does not create lock file"
   test.assert_eq(result["output"], "Hello v1, Rugo!")
 
   # Verify no lock file was created
-  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  lock_result = test.run("cat #{tmpdir}/rugo.lock")
   test.assert_neq(lock_result["status"], 0)
 end
 
@@ -156,13 +156,13 @@ rats "run without lock shows hint message"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Create an empty lock file so the hint triggers (stale lock scenario)
-  test.write_file(tmpdir + "/rugo.lock", "# rugo.lock — auto-generated, do not edit\n")
+  test.write_file("#{tmpdir}/rugo.lock", "# rugo.lock — auto-generated, do not edit\n")
 
   # Run with stale lock — stderr should contain the hint
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>&1")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>&1")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "rugo mod tidy")
 end
@@ -175,14 +175,14 @@ rats "run with lock does not show hint"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # First, create lock file with mod tidy
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Run with lock — no hint in output
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>&1")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>&1")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello v1, Rugo!")
   # Should NOT contain the hint
@@ -199,23 +199,23 @@ rats "locked mutable version uses cached SHA on second run"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Create lock file with mod tidy
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Read the locked SHA
-  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_content = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_contains(lock_content, "_default")
 
   # Run — should use cached SHA directory, no re-fetch needed
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello v2, Rugo!")
 
   # Verify SHA-keyed cache directory exists
-  sha_dirs = test.run("ls " + tmpdir + "/modules/localhost:" + port + "/lockuser/lock-mod/ | grep _sha_")
+  sha_dirs = test.run("ls #{tmpdir}/modules/localhost:#{port}/lockuser/lock-mod/ | grep _sha_")
   test.assert_eq(sha_dirs["status"], 0)
 end
 
@@ -227,10 +227,10 @@ rats "frozen flag errors when no lock entry exists"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Build with --frozen and no lock file should fail
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build --frozen " + tmpdir + "/app.rugo -o " + tmpdir + "/app")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo build --frozen #{tmpdir}/app.rugo -o #{tmpdir}/app")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "--frozen")
 end
@@ -243,17 +243,17 @@ rats "frozen flag succeeds with valid lock file"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Generate lock file with mod tidy
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   if result["status"] != 0
     puts "DEBUG frozen-tidy: " + result["output"]
   end
   test.assert_eq(result["status"], 0)
 
   # Build with frozen should succeed
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build --frozen " + tmpdir + "/app.rugo -o " + tmpdir + "/app")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo build --frozen #{tmpdir}/app.rugo -o #{tmpdir}/app")
   if result["status"] != 0
     puts "DEBUG frozen-success: " + result["output"]
   end
@@ -268,13 +268,13 @@ rats "mod tidy records immutable version SHA"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Lock file should contain the module with v1.0.0 and a 40-char SHA
-  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_content = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_contains(lock_content, "v1.0.0")
   # Each non-comment line should have 3 fields
   lines = str.split(lock_content, "\n")
@@ -296,14 +296,14 @@ rats "rugo mod update re-resolves mutable _default dependency"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Generate lock file with mod tidy
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Read the initial SHA from lock
-  lock_before = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_before = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_contains(lock_before, "_default")
 
   # Push a v3 commit to the repo
@@ -313,26 +313,26 @@ rats "rugo mod update re-resolves mutable _default dependency"
     end
   RG
   bd = base_dir()
-  test.write_file(bd + "/work/lock-mod.rugo", mod_src3)
-  r = test.run("cd " + bd + "/work && git add . && git commit -m v3 && git push origin HEAD")
+  test.write_file("#{bd}/work/lock-mod.rugo", mod_src3)
+  r = test.run("cd #{bd}/work && git add . && git commit -m v3 && git push origin HEAD")
   if r["status"] != 0
     puts "DEBUG v3 push: " + r["output"]
   end
-  r = test.run("cd " + bd + "/repos/lockuser/lock-mod.git && git update-server-info")
+  r = test.run("cd #{bd}/repos/lockuser/lock-mod.git && git update-server-info")
 
   # Run rugo mod update from the directory containing rugo.lock
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod update")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod update")
   if result["status"] != 0
     puts "DEBUG mod-update: " + result["output"]
   end
   test.assert_eq(result["status"], 0)
 
   # Lock file should be updated with new SHA
-  lock_after = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_after = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_contains(lock_after, "_default")
 
   # Run again — should now get v3
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo")
   if result["status"] != 0
     puts "DEBUG post-update run: " + result["output"]
   end
@@ -348,19 +348,19 @@ rats "rugo mod update skips immutable versions"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Generate lock file with mod tidy
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
-  lock_before = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_before = test.run("cat #{tmpdir}/rugo.lock")["output"]
 
   # Run mod update — should not change the SHA for immutable v1.0.0
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod update")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod update")
   test.assert_eq(result["status"], 0)
 
-  lock_after = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_after = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_eq(lock_before, lock_after)
 end
 
@@ -372,25 +372,25 @@ rats "mod tidy prunes unused entries"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Generate lock file with mod tidy
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
-  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  lock_result = test.run("cat #{tmpdir}/rugo.lock")
   test.assert_eq(lock_result["status"], 0)
   test.assert_contains(lock_result["output"], "lock-mod")
 
   # Remove the remote require from the script
-  test.write_file(tmpdir + "/app.rugo", "puts \"no deps\"")
+  test.write_file("#{tmpdir}/app.rugo", "puts \"no deps\"")
 
   # Run mod tidy again — should prune the unused entry and remove lock file
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Lock file should be removed (no entries left)
-  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  lock_result = test.run("cat #{tmpdir}/rugo.lock")
   test.assert_neq(lock_result["status"], 0)
 end
 
@@ -399,25 +399,25 @@ end
 rats "mod tidy in empty directory prints message"
   tmpdir = test.tmpdir()
 
-  result = test.run("cd " + tmpdir + " && rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && rugo mod tidy 2>&1")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "no .rugo files")
 
   # No lock file should be created
-  lock_result = test.run("test -f " + tmpdir + "/rugo.lock")
+  lock_result = test.run("test -f #{tmpdir}/rugo.lock")
   test.assert_neq(lock_result["status"], 0)
 end
 
 rats "mod tidy with no remote deps does not create lock file"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/hello.rugo", "puts \"hello\"")
-  test.write_file(tmpdir + "/world.rugo", "puts \"world\"")
+  test.write_file("#{tmpdir}/hello.rugo", "puts \"hello\"")
+  test.write_file("#{tmpdir}/world.rugo", "puts \"world\"")
 
-  result = test.run("cd " + tmpdir + " && rugo mod tidy")
+  result = test.run("cd #{tmpdir} && rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # No lock file — no remote deps
-  lock_result = test.run("test -f " + tmpdir + "/rugo.lock")
+  lock_result = test.run("test -f #{tmpdir}/rugo.lock")
   test.assert_neq(lock_result["status"], 0)
 end
 
@@ -431,21 +431,21 @@ rats "mod tidy removes existing lock when no remote deps remain"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  test.write_file("#{tmpdir}/app.rugo", consumer)
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Verify lock exists
-  lock_result = test.run("test -f " + tmpdir + "/rugo.lock")
+  lock_result = test.run("test -f #{tmpdir}/rugo.lock")
   test.assert_eq(lock_result["status"], 0)
 
   # Replace with no-dep file
-  test.write_file(tmpdir + "/app.rugo", "puts \"no deps\"")
+  test.write_file("#{tmpdir}/app.rugo", "puts \"no deps\"")
 
   # Tidy again — lock should be removed
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
-  lock_result = test.run("test -f " + tmpdir + "/rugo.lock")
+  lock_result = test.run("test -f #{tmpdir}/rugo.lock")
   test.assert_neq(lock_result["status"], 0)
 end
 
@@ -457,17 +457,17 @@ rats "mod tidy is idempotent"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Tidy once
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
-  lock_first = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_first = test.run("cat #{tmpdir}/rugo.lock")["output"]
 
   # Tidy again — lock should be identical
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
-  lock_second = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_second = test.run("cat #{tmpdir}/rugo.lock")["output"]
 
   test.assert_eq(lock_first, lock_second)
 end
@@ -482,18 +482,18 @@ rats "mod tidy skips files with syntax errors"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/good.rugo", consumer)
+  test.write_file("#{tmpdir}/good.rugo", consumer)
 
   # One broken file
-  test.write_file(tmpdir + "/broken.rugo", "def foo(\n  this is broken syntax {{{{")
+  test.write_file("#{tmpdir}/broken.rugo", "def foo(\n  this is broken syntax {{{{")
 
   # Tidy should warn about broken file but still generate lock from good file
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "warning: skipping broken.rugo")
 
   # Lock should exist with the good file's dep
-  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  lock_result = test.run("cat #{tmpdir}/rugo.lock")
   test.assert_eq(lock_result["status"], 0)
   test.assert_contains(lock_result["output"], "lock-mod")
 end
@@ -508,7 +508,7 @@ rats "mod tidy with multiple files collects all deps"
     puts mod.greet("A")
   RG
   file_a = str.replace(file_a, "PORT", port)
-  test.write_file(tmpdir + "/a.rugo", file_a)
+  test.write_file("#{tmpdir}/a.rugo", file_a)
 
   # File B: same tagged version, different alias
   file_b = <<~RG
@@ -516,16 +516,16 @@ rats "mod tidy with multiple files collects all deps"
     puts lib.greet("B")
   RG
   file_b = str.replace(file_b, "PORT", port)
-  test.write_file(tmpdir + "/b.rugo", file_b)
+  test.write_file("#{tmpdir}/b.rugo", file_b)
 
   # File C: no remote deps
-  test.write_file(tmpdir + "/c.rugo", "puts \"no deps\"")
+  test.write_file("#{tmpdir}/c.rugo", "puts \"no deps\"")
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Lock should have the tagged entry
-  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_content = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_contains(lock_content, "v1.0.0")
 end
 
@@ -534,23 +534,23 @@ rats "mod tidy does not scan subdirectories"
   port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
 
   # Put a remote-dep file only in a subdirectory
-  test.run("mkdir -p " + tmpdir + "/sub")
+  test.run("mkdir -p #{tmpdir}/sub")
   consumer = <<~RG
     require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/sub/app.rugo", consumer)
+  test.write_file("#{tmpdir}/sub/app.rugo", consumer)
 
   # Put a no-dep file in the root
-  test.write_file(tmpdir + "/hello.rugo", "puts \"hello\"")
+  test.write_file("#{tmpdir}/hello.rugo", "puts \"hello\"")
 
   # Tidy from root — should NOT pick up subdirectory file
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # No lock file — root file has no remote deps
-  lock_result = test.run("test -f " + tmpdir + "/rugo.lock")
+  lock_result = test.run("test -f #{tmpdir}/rugo.lock")
   test.assert_neq(lock_result["status"], 0)
 end
 
@@ -562,15 +562,15 @@ rats "mod tidy preserves existing SHAs for already-locked deps"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Tidy to create lock with current SHA
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
-  lock_before = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_before = test.run("cat #{tmpdir}/rugo.lock")["output"]
 
   # Capture what the locked version produces
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo")
   test.assert_eq(result["status"], 0)
   output_before = result["output"]
 
@@ -581,19 +581,19 @@ rats "mod tidy preserves existing SHAs for already-locked deps"
     end
   RG
   bd = base_dir()
-  test.write_file(bd + "/work/lock-mod.rugo", mod_src_new)
-  r = test.run("cd " + bd + "/work && git add . && git commit -m preserve-test && git push origin HEAD")
-  test.run("cd " + bd + "/repos/lockuser/lock-mod.git && git update-server-info")
+  test.write_file("#{bd}/work/lock-mod.rugo", mod_src_new)
+  r = test.run("cd #{bd}/work && git add . && git commit -m preserve-test && git push origin HEAD")
+  test.run("cd #{bd}/repos/lockuser/lock-mod.git && git update-server-info")
 
   # Tidy again — should keep the existing SHA, not re-resolve
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
-  lock_after = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_after = test.run("cat #{tmpdir}/rugo.lock")["output"]
 
   test.assert_eq(lock_before, lock_after)
 
   # Run should still produce the same output as before (locked version)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], output_before)
 end
@@ -607,16 +607,16 @@ rats "mod tidy handles require with clause"
     puts mod.greet("With")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   if result["status"] != 0
     puts "DEBUG tidy-with: " + result["output"]
   end
   test.assert_eq(result["status"], 0)
 
   # Lock file should exist with the module
-  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  lock_result = test.run("cat #{tmpdir}/rugo.lock")
   test.assert_eq(lock_result["status"], 0)
   test.assert_contains(lock_result["output"], "lock-mod")
   test.assert_contains(lock_result["output"], "v1.0.0")
@@ -627,16 +627,16 @@ end
 rats "mod update with no lock file prints message"
   tmpdir = test.tmpdir()
 
-  result = test.run("cd " + tmpdir + " && rugo mod update 2>&1")
+  result = test.run("cd #{tmpdir} && rugo mod update 2>&1")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "no rugo.lock")
 end
 
 rats "mod update with empty lock file prints message"
   tmpdir = test.tmpdir()
-  test.write_file(tmpdir + "/rugo.lock", "# rugo.lock — auto-generated, do not edit\n")
+  test.write_file("#{tmpdir}/rugo.lock", "# rugo.lock — auto-generated, do not edit\n")
 
-  result = test.run("cd " + tmpdir + " && rugo mod update 2>&1")
+  result = test.run("cd #{tmpdir} && rugo mod update 2>&1")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "no rugo.lock found or lock file is empty")
 end
@@ -649,18 +649,18 @@ rats "mod update with nonexistent module is a no-op"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Create lock file
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
-  lock_before = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_before = test.run("cat #{tmpdir}/rugo.lock")["output"]
 
   # Update a module that doesn't exist in the lock — should succeed, no changes
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod update nonexistent.com/fake/module")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod update nonexistent.com/fake/module")
   test.assert_eq(result["status"], 0)
 
-  lock_after = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_after = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_eq(lock_before, lock_after)
 end
 
@@ -674,21 +674,21 @@ rats "build does not create lock file"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Build without mod tidy — should work but not create lock file
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build " + tmpdir + "/app.rugo -o " + tmpdir + "/app 2>/dev/null")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo build #{tmpdir}/app.rugo -o #{tmpdir}/app 2>/dev/null")
   if result["status"] != 0
     puts "DEBUG build-no-lock: " + result["output"]
   end
   test.assert_eq(result["status"], 0)
 
   # Verify no lock file was created
-  lock_result = test.run("test -f " + tmpdir + "/rugo.lock")
+  lock_result = test.run("test -f #{tmpdir}/rugo.lock")
   test.assert_neq(lock_result["status"], 0)
 
   # But the binary should work
-  result = test.run(tmpdir + "/app")
+  result = test.run("#{tmpdir}/app")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello v1, Rugo!")
 end
@@ -703,8 +703,8 @@ rats "build --frozen fails when lock is stale"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  test.write_file("#{tmpdir}/app.rugo", consumer)
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Now add a new dep that isn't in the lock (change to mutable version)
@@ -713,10 +713,10 @@ rats "build --frozen fails when lock is stale"
     puts mod.greet("Rugo")
   RG
   consumer2 = str.replace(consumer2, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer2)
+  test.write_file("#{tmpdir}/app.rugo", consumer2)
 
   # Build --frozen should fail because the mutable version isn't in the lock
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build --frozen " + tmpdir + "/app.rugo -o " + tmpdir + "/app")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo build --frozen #{tmpdir}/app.rugo -o #{tmpdir}/app")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "--frozen")
 end
@@ -734,13 +734,13 @@ rats "hint shows only once with multiple unlocked deps"
     puts mod1.greet("A")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Create an empty lock file so hints trigger
-  test.write_file(tmpdir + "/rugo.lock", "# rugo.lock — auto-generated, do not edit\n")
+  test.write_file("#{tmpdir}/rugo.lock", "# rugo.lock — auto-generated, do not edit\n")
 
   # Run — hint should appear exactly once, not twice
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>&1")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>&1")
   test.assert_eq(result["status"], 0)
   # Count occurrences of the hint
   lines = str.split(result["output"], "\n")
@@ -761,10 +761,10 @@ rats "no hint when lock file does not exist"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Run without any lock file — should NOT show hint
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>&1")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>&1")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "Hello v1, Rugo!")
   if str.contains(result["output"], "rugo mod tidy")
@@ -783,12 +783,12 @@ rats "mod tidy with malformed lock file reports error"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Write a malformed lock file (wrong number of fields)
-  test.write_file(tmpdir + "/rugo.lock", "this is not a valid lock line\n")
+  test.write_file("#{tmpdir}/rugo.lock", "this is not a valid lock line\n")
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "expected 3 fields")
 end
@@ -802,25 +802,25 @@ rats "mod tidy prunes hand-added stale entries"
     puts mod.greet("Rugo")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Tidy to get the real entry
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Hand-add a fake entry to the lock file
-  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
-  lock_content = lock_content + "\nfake.com/bogus/module v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
-  test.write_file(tmpdir + "/rugo.lock", lock_content)
+  lock_content = test.run("cat #{tmpdir}/rugo.lock")["output"]
+  lock_content = "#{lock_content}\nfake.com/bogus/module v9.9.9 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\n"
+  test.write_file("#{tmpdir}/rugo.lock", lock_content)
 
   # Verify the fake entry is there
   test.assert_contains(test.run("cat " + tmpdir + "/rugo.lock")["output"], "fake.com/bogus/module")
 
   # Tidy again — fake entry should be pruned
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
-  lock_after = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_after = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_contains(lock_after, "lock-mod")
   if str.contains(lock_after, "fake.com/bogus/module")
     test.fail("stale hand-added entry should have been pruned")
@@ -839,7 +839,7 @@ rats "mod tidy errors on different tagged versions across files"
     puts mod.greet("A")
   RG
   file_a = str.replace(file_a, "PORT", port)
-  test.write_file(tmpdir + "/a.rugo", file_a)
+  test.write_file("#{tmpdir}/a.rugo", file_a)
 
   # File B: mutable (no version = _default)
   file_b = <<~RG
@@ -847,9 +847,9 @@ rats "mod tidy errors on different tagged versions across files"
     puts mod.greet("B")
   RG
   file_b = str.replace(file_b, "PORT", port)
-  test.write_file(tmpdir + "/b.rugo", file_b)
+  test.write_file("#{tmpdir}/b.rugo", file_b)
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "version conflict")
   test.assert_contains(result["output"], "lock-mod")
@@ -866,9 +866,9 @@ rats "mod tidy errors on tagged vs mutable in same file"
     puts mod_v1.greet("pinned")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "version conflict")
 end
@@ -883,20 +883,20 @@ rats "mod tidy allows same version across files"
     puts mod.greet("A")
   RG
   file_a = str.replace(file_a, "PORT", port)
-  test.write_file(tmpdir + "/a.rugo", file_a)
+  test.write_file("#{tmpdir}/a.rugo", file_a)
 
   file_b = <<~RG
     require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "lib"
     puts lib.greet("B")
   RG
   file_b = str.replace(file_b, "PORT", port)
-  test.write_file(tmpdir + "/b.rugo", file_b)
+  test.write_file("#{tmpdir}/b.rugo", file_b)
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_eq(result["status"], 0)
 
   # Lock should have exactly one entry for this module
-  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_content = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_contains(lock_content, "v1.0.0")
 end
 
@@ -909,16 +909,16 @@ rats "mod tidy conflict message includes file names"
     puts mod.greet("A")
   RG
   file_a = str.replace(file_a, "PORT", port)
-  test.write_file(tmpdir + "/alpha.rugo", file_a)
+  test.write_file("#{tmpdir}/alpha.rugo", file_a)
 
   file_b = <<~RG
     require "localhost:PORT/lockuser/lock-mod" as "mod"
     puts mod.greet("B")
   RG
   file_b = str.replace(file_b, "PORT", port)
-  test.write_file(tmpdir + "/beta.rugo", file_b)
+  test.write_file("#{tmpdir}/beta.rugo", file_b)
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "alpha.rugo")
   test.assert_contains(result["output"], "beta.rugo")
@@ -933,20 +933,20 @@ rats "mod tidy conflict does not write lock file"
     puts mod.greet("A")
   RG
   file_a = str.replace(file_a, "PORT", port)
-  test.write_file(tmpdir + "/a.rugo", file_a)
+  test.write_file("#{tmpdir}/a.rugo", file_a)
 
   file_b = <<~RG
     require "localhost:PORT/lockuser/lock-mod" as "mod"
     puts mod.greet("B")
   RG
   file_b = str.replace(file_b, "PORT", port)
-  test.write_file(tmpdir + "/b.rugo", file_b)
+  test.write_file("#{tmpdir}/b.rugo", file_b)
 
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_neq(result["status"], 0)
 
   # No lock file should have been written
-  lock_result = test.run("test -f " + tmpdir + "/rugo.lock")
+  lock_result = test.run("test -f #{tmpdir}/rugo.lock")
   test.assert_neq(lock_result["status"], 0)
 end
 
@@ -960,17 +960,17 @@ rats "mod tidy conflict resolved by aligning versions"
     puts mod.greet("A")
   RG
   file_a = str.replace(file_a, "PORT", port)
-  test.write_file(tmpdir + "/a.rugo", file_a)
+  test.write_file("#{tmpdir}/a.rugo", file_a)
 
   file_b = <<~RG
     require "localhost:PORT/lockuser/lock-mod" as "mod"
     puts mod.greet("B")
   RG
   file_b = str.replace(file_b, "PORT", port)
-  test.write_file(tmpdir + "/b.rugo", file_b)
+  test.write_file("#{tmpdir}/b.rugo", file_b)
 
   # Should fail
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_neq(result["status"], 0)
 
   # Fix by aligning both to v1.0.0
@@ -979,13 +979,13 @@ rats "mod tidy conflict resolved by aligning versions"
     puts mod.greet("B")
   RG
   file_b_fixed = str.replace(file_b_fixed, "PORT", port)
-  test.write_file(tmpdir + "/b.rugo", file_b_fixed)
+  test.write_file("#{tmpdir}/b.rugo", file_b_fixed)
 
   # Should succeed now
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy 2>&1")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy 2>&1")
   test.assert_eq(result["status"], 0)
 
-  lock_result = test.run("cat " + tmpdir + "/rugo.lock")
+  lock_result = test.run("cat #{tmpdir}/rugo.lock")
   test.assert_eq(lock_result["status"], 0)
   test.assert_contains(lock_result["output"], "v1.0.0")
 end
@@ -1006,9 +1006,9 @@ rats "run allows two versions of same module in one file (runtime)"
     puts latest.greet("floating")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>/dev/null")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>/dev/null")
   test.assert_eq(result["status"], 0)
   # Both versions work — v1 gets v1 code, latest gets latest code
   test.assert_contains(result["output"], "Hello v1, pinned!")
@@ -1028,20 +1028,20 @@ rats "run with lock pins each version independently"
     puts mod.greet("locked")
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/app.rugo", consumer)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
 
   # Tidy to create lock
-  result = test.run("cd " + tmpdir + " && RUGO_MODULE_DIR=" + tmpdir + "/modules rugo mod tidy")
+  result = test.run("cd #{tmpdir} && RUGO_MODULE_DIR=#{tmpdir}/modules rugo mod tidy")
   test.assert_eq(result["status"], 0)
 
   # Run uses the locked version
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/app.rugo 2>/dev/null")
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>/dev/null")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello v1, locked!")
 
   # Even if we push a new tag that overwrites v1.0.0 (which git shouldn't
   # allow normally), the lock SHA would still pin us. The point is: the
   # lock file makes this deterministic.
-  lock_content = test.run("cat " + tmpdir + "/rugo.lock")["output"]
+  lock_content = test.run("cat #{tmpdir}/rugo.lock")["output"]
   test.assert_contains(lock_content, "v1.0.0")
 end

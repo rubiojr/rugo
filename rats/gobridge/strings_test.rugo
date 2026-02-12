@@ -7,8 +7,8 @@ rats "strings.contains"
     puts(strings.contains("hello world", "world"))
     puts(strings.contains("hello world", "xyz"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
   test.assert_contains(result["output"], "false")
@@ -20,8 +20,8 @@ rats "strings.to_upper and to_lower"
     puts(strings.to_upper("hello"))
     puts(strings.to_lower("WORLD"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "HELLO")
   test.assert_contains(result["output"], "world")
@@ -35,8 +35,8 @@ rats "strings.split and join"
     puts(conv.to_s(len(parts)))
     puts(strings.join(["x", "y", "z"], "-"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "3")
   test.assert_contains(result["output"], "x-y-z")
@@ -49,8 +49,8 @@ rats "strings.has_prefix and has_suffix"
     puts(strings.has_suffix("hello", "llo"))
     puts(strings.has_prefix("hello", "xyz"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
 end
@@ -60,8 +60,8 @@ rats "strings.replace_all"
     import "strings"
     puts(strings.replace_all("hello world", "o", "0"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hell0 w0rld")
 end
@@ -71,8 +71,8 @@ rats "strings.trim_space"
     import "strings"
     puts(strings.trim_space("  hello  "))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello")
 end
@@ -82,8 +82,8 @@ rats "strings.repeat"
     import "strings"
     puts(strings.repeat("ab", 3))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "ababab")
 end
@@ -94,8 +94,8 @@ rats "strings.count"
     use "conv"
     puts(conv.to_s(strings.count("hello", "l")))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "2")
 end
@@ -107,8 +107,8 @@ rats "strings.index"
     puts(conv.to_s(strings.index("hello", "ll")))
     puts(conv.to_s(strings.index("hello", "xyz")))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "2")
   test.assert_contains(result["output"], "-1")
@@ -121,8 +121,8 @@ rats "strings.fields"
     parts = strings.fields("  hello   world  ")
     puts(conv.to_s(len(parts)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "2")
 end
@@ -133,8 +133,8 @@ rats "strings.trim_prefix and trim_suffix"
     puts(strings.trim_prefix("hello_world", "hello_"))
     puts(strings.trim_suffix("hello_world", "_world"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "world")
   test.assert_contains(result["output"], "hello")
@@ -145,8 +145,8 @@ rats "strings.equal_fold"
     import "strings"
     puts(strings.equal_fold("Hello", "hello"))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
 end
@@ -158,8 +158,8 @@ rats "strings.split_n"
     parts = strings.split_n("a,b,c,d", ",", 2)
     puts(conv.to_s(len(parts)))
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "2")
 end
@@ -172,8 +172,8 @@ rats "strings.cut_prefix"
     result2 = strings.cut_prefix("Hello", "Xyz")
     puts(result2)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "World")
 end

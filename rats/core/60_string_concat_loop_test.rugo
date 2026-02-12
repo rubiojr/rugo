@@ -10,7 +10,7 @@ rats "string concat: variable + literal in for-hash loop"
   commands = {"help" => "List commands", "ping" => "Pong"}
   lines = "cmds:\n"
   for name, desc in commands
-    lines = lines + "- " + name + "\n"
+    lines = lines + "- #{name}\n"
   end
   test.assert_contains(lines, "cmds:")
   test.assert_contains(lines, "- help")
@@ -21,7 +21,7 @@ rats "string concat: variable + variable in for-hash loop"
   commands = {"help" => "List commands", "ping" => "Pong"}
   lines = ""
   for name, desc in commands
-    lines = lines + name + ": " + desc + "\n"
+    lines = lines + "#{name}: #{desc}\n"
   end
   test.assert_contains(lines, "help: List commands")
   test.assert_contains(lines, "ping: Pong")
@@ -31,7 +31,7 @@ rats "string concat: literal + variable in for-hash loop"
   items = {"a" => "1", "b" => "2"}
   result = ""
   for k, v in items
-    result = "(" + k + "=" + v + ") " + result
+    result = "(#{k}=#{v}) #{result}"
   end
   test.assert_contains(result, "(a=1)")
   test.assert_contains(result, "(b=2)")
@@ -42,7 +42,7 @@ rats "string concat: variable + literal in while loop with dynamic var"
   s = ""
   i = 0
   while i < len(arr)
-    s = s + "item" + conv.to_s(arr[i]) + " "
+    s = s + "item#{arr[i]} "
     i = i + 1
   end
   test.assert_contains(s, "item1")
@@ -61,7 +61,7 @@ end
 rats "pure string concat in for loop still works"
   s = ""
   for i in [1, 2, 3]
-    s = s + "x"
+    s = "#{s}x"
   end
   test.assert_eq(s, "xxx")
 end

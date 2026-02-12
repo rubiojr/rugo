@@ -112,9 +112,9 @@ end
 # --- Positive: build to native binary ---
 
 rats "spawn compiles to native binary"
-  result = test.run("rugo build -o " + test.tmpdir() + "/spawn_bin rats/fixtures/spawn_value.rugo")
+  result = test.run("rugo build -o #{test.tmpdir()}/spawn_bin rats/fixtures/spawn_value.rugo")
   test.assert_eq(result["status"], 0)
-  result = test.run(test.tmpdir() + "/spawn_bin")
+  result = test.run("#{test.tmpdir()}/spawn_bin")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end

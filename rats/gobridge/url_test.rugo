@@ -14,8 +14,8 @@ rats "url.parse full URL"
     puts u.fragment
     puts u.user
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "https")
   test.assert_contains(result["output"], "example.com:8080")
@@ -36,8 +36,8 @@ rats "url.parse without port"
     puts u.port
     puts u.path
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "https")
   test.assert_contains(result["output"], "example.com")
@@ -51,8 +51,8 @@ rats "url.parse relative URL"
     puts u.path
     puts u.query
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "/api/v2/users")
   test.assert_contains(result["output"], "page=1")
@@ -64,8 +64,8 @@ rats "url.parse raw field"
     u = url.parse("https://example.com/path")
     puts u.raw
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "https://example.com/path")
 end
@@ -77,8 +77,8 @@ rats "url.query_escape and query_unescape"
     puts escaped
     puts url.query_unescape(escaped)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello+world")
   test.assert_contains(result["output"], "hello world&foo=bar")
@@ -91,8 +91,8 @@ rats "url.path_escape and path_unescape"
     puts escaped
     puts url.path_unescape(escaped)
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "my%2Fpath%20segment")
   test.assert_contains(result["output"], "my/path segment")
@@ -103,8 +103,8 @@ rats "url.query_unescape error"
     import "net/url"
     url.query_unescape("%ZZ")
   SCRIPT
-  test.write_file(test.tmpdir() + "/test.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "url.query_unescape")
 end
@@ -117,8 +117,8 @@ rats "url.parse with alias"
     puts parsed.hostname
     puts parsed.port
   SCRIPT
-  test.write_file(test.tmpdir() + "/test_alias.rugo", script)
-  result = test.run("rugo run " + test.tmpdir() + "/test_alias.rugo")
+  test.write_file("#{test.tmpdir()}/test_alias.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test_alias.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "https")
   test.assert_contains(result["output"], "example.com")

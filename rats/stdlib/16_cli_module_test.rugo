@@ -105,8 +105,8 @@ rats "cli unknown flag exits with error"
 end
 
 rats "cli compiles to native binary"
-  test.run("rugo build -o " + test.tmpdir() + "/cli_test rats/fixtures/cli_greet.rugo")
-  result = test.run(test.tmpdir() + "/cli_test hello -n Binary")
+  test.run("rugo build -o #{test.tmpdir()}/cli_test rats/fixtures/cli_greet.rugo")
+  result = test.run("#{test.tmpdir()}/cli_test hello -n Binary")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, Binary!")
 end

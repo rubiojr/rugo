@@ -5,8 +5,8 @@ use "str"
 # Test: .rugo extension runs correctly
 rats ".rugo extension works with rugo run"
   dir = test.tmpdir()
-  test.write_file(dir + "/hello.rugo", "puts \"hello from rugo\"")
-  result = test.run("rugo run " + dir + "/hello.rugo")
+  test.write_file("#{dir}/hello.rugo", "puts \"hello from rugo\"")
+  result = test.run("rugo run #{dir}/hello.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello from rugo")
 end
@@ -14,10 +14,10 @@ end
 # Test: .rugo extension builds correctly
 rats ".rugo extension works with rugo build"
   dir = test.tmpdir()
-  test.write_file(dir + "/hello.rugo", "puts \"built from rugo\"")
-  result = test.run("rugo build -o " + dir + "/hello " + dir + "/hello.rugo")
+  test.write_file("#{dir}/hello.rugo", "puts \"built from rugo\"")
+  result = test.run("rugo build -o #{dir}/hello #{dir}/hello.rugo")
   test.assert_eq(result["status"], 0)
-  result = test.run(dir + "/hello")
+  result = test.run("#{dir}/hello")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "built from rugo")
 end
@@ -25,8 +25,8 @@ end
 # Test: .rugo extension emits correctly
 rats ".rugo extension works with rugo emit"
   dir = test.tmpdir()
-  test.write_file(dir + "/hello.rugo", "puts \"emit test\"")
-  result = test.run("rugo emit " + dir + "/hello.rugo")
+  test.write_file("#{dir}/hello.rugo", "puts \"emit test\"")
+  result = test.run("rugo emit #{dir}/hello.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "package main")
 end
@@ -34,9 +34,9 @@ end
 # Test: .rg extension still works but produces deprecation warning
 rats ".rg extension produces deprecation warning"
   dir = test.tmpdir()
-  rg = ".r" + "g"
-  test.write_file(dir + "/old" + rg, "puts \"still works\"")
-  result = test.run("rugo run " + dir + "/old" + rg)
+  rg = ".rg"
+  test.write_file("#{dir}/old#{rg}", "puts \"still works\"")
+  result = test.run("rugo run #{dir}/old#{rg}")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "still works")
   test.assert_contains(result["output"], "warning:")
@@ -47,8 +47,8 @@ end
 # Test: .rugo extension does NOT produce deprecation warning
 rats ".rugo extension has no deprecation warning"
   dir = test.tmpdir()
-  test.write_file(dir + "/new.rugo", "puts \"no warning\"")
-  result = test.run("rugo run " + dir + "/new.rugo")
+  test.write_file("#{dir}/new.rugo", "puts \"no warning\"")
+  result = test.run("rugo run #{dir}/new.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "no warning")
   test.assert_false(str.contains(result["output"], "deprecated"))
@@ -57,9 +57,9 @@ end
 # Test: require resolves .rugo files
 rats "require prefers .rugo"
   dir = test.tmpdir()
-  test.write_file(dir + "/lib.rugo", "def greet()\n  return \"hello from rugo lib\"\nend\n")
-  test.write_file(dir + "/main.rugo", "require \"lib\"\nputs lib.greet()\n")
-  result = test.run("rugo run " + dir + "/main.rugo")
+  test.write_file("#{dir}/lib.rugo", "def greet()\n  return \"hello from rugo lib\"\nend\n")
+  test.write_file("#{dir}/main.rugo", "require \"lib\"\nputs lib.greet()\n")
+  result = test.run("rugo run #{dir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello from rugo lib")
 end
@@ -67,10 +67,10 @@ end
 # Test: require falls back to .rg with warning
 rats "require falls back to .rg with deprecation warning"
   dir = test.tmpdir()
-  rg = ".r" + "g"
-  test.write_file(dir + "/helper" + rg, "def help()\n  return \"old helper\"\nend\n")
-  test.write_file(dir + "/main.rugo", "require \"helper\"\nputs helper.help()\n")
-  result = test.run("rugo run " + dir + "/main.rugo")
+  rg = ".rg"
+  test.write_file("#{dir}/helper#{rg}", "def help()\n  return \"old helper\"\nend\n")
+  test.write_file("#{dir}/main.rugo", "require \"helper\"\nputs helper.help()\n")
+  result = test.run("rugo run #{dir}/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "old helper")
   test.assert_contains(result["output"], "warning:")
@@ -80,8 +80,8 @@ end
 # Test: rugo shorthand works with .rugo extension
 rats "rugo shorthand works with .rugo"
   dir = test.tmpdir()
-  test.write_file(dir + "/test.rugo", "puts \"shorthand\"")
-  result = test.run("rugo " + dir + "/test.rugo")
+  test.write_file("#{dir}/test.rugo", "puts \"shorthand\"")
+  result = test.run("rugo #{dir}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "shorthand")
 end

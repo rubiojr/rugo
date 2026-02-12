@@ -52,7 +52,7 @@ def setup_file()
   spawn web.listen(0)
   p = web.port()
   test.write_file("/tmp/rats_remote_require/port", conv.to_s(p))
-  puts "DEBUG setup complete, port=" + conv.to_s(p)
+  puts "DEBUG setup complete, port=#{p}"
 end
 
 def teardown_file()
@@ -71,8 +71,8 @@ rats "remote require loads functions from git repo"
     puts(conv.to_s(mod.double(21)))
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/consumer.rugo", consumer)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/consumer.rugo")
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/consumer.rugo")
   if result["status"] != 0
     puts "DEBUG test1 port=" + port + " status=" + conv.to_s(result["status"])
     puts "DEBUG test1 output: " + result["output"]
@@ -91,8 +91,8 @@ rats "remote require uses default namespace from repo name"
     puts(rugo_test_mod.greet("world"))
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/consumer.rugo", consumer)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/consumer.rugo")
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/consumer.rugo")
   if result["status"] != 0
     puts "DEBUG test2 output: " + result["output"]
   end
@@ -102,17 +102,17 @@ end
 
 rats "remote require caches immutable versions"
   tmpdir = test.tmpdir()
-  moddir = tmpdir + "/modules"
+  moddir = "#{tmpdir}/modules"
   port = test.run("cat /tmp/rats_remote_require/port")["output"]
   consumer = <<~RG
     require "localhost:PORT/testuser/rugo-test-mod@v0.1.0" as "mod"
     puts(mod.greet("cache"))
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/consumer.rugo", consumer)
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
 
   # First run: fetches from server
-  result = test.run("RUGO_MODULE_DIR=" + moddir + " rugo run " + tmpdir + "/consumer.rugo")
+  result = test.run("RUGO_MODULE_DIR=#{moddir} rugo run #{tmpdir}/consumer.rugo")
   if result["status"] != 0
     puts "DEBUG test3 run1 output: " + result["output"]
   end
@@ -120,12 +120,12 @@ rats "remote require caches immutable versions"
   test.assert_eq(result["output"], "Hello from remote, cache!")
 
   # Verify cache dir was created
-  cache_path = moddir + "/localhost:" + port + "/testuser/rugo-test-mod/v0.1.0"
-  result = test.run("test -d " + cache_path)
+  cache_path = moddir + "/localhost:#{port}/testuser/rugo-test-mod/v0.1.0"
+  result = test.run("test -d #{cache_path}")
   test.assert_eq(result["status"], 0)
 
   # Second run: uses cache (immutable version, compiler skips fetch)
-  result = test.run("RUGO_MODULE_DIR=" + moddir + " rugo run " + tmpdir + "/consumer.rugo")
+  result = test.run("RUGO_MODULE_DIR=#{moddir} rugo run #{tmpdir}/consumer.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello from remote, cache!")
 end
@@ -138,8 +138,8 @@ rats "remote require fails gracefully on bad repo"
     puts(bad.foo())
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/consumer.rugo", consumer)
-  result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo run " + tmpdir + "/consumer.rugo")
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/consumer.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "git clone")
 end
@@ -154,12 +154,12 @@ rats "remote require with build produces working binary"
     puts(conv.to_s(mod.double(5)))
   RG
   consumer = str.replace(consumer, "PORT", port)
-  test.write_file(tmpdir + "/consumer.rugo", consumer)
-  build_result = test.run("RUGO_MODULE_DIR=" + tmpdir + "/modules rugo build " + tmpdir + "/consumer.rugo -o " + tmpdir + "/consumer_bin")
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
+  build_result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo build #{tmpdir}/consumer.rugo -o #{tmpdir}/consumer_bin")
   if build_result["status"] != 0
     puts "DEBUG test5 build output: " + build_result["output"]
   end
-  result = test.run(tmpdir + "/consumer_bin")
+  result = test.run("#{tmpdir}/consumer_bin")
   if result["status"] != 0
     puts "DEBUG test5 run output: " + result["output"]
   end
