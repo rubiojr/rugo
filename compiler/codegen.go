@@ -49,6 +49,7 @@ type codeGen struct {
 	lambdaScopeBase []int             // scope index at each lambda entry (stack)
 	lambdaOuterFunc []*ast.FuncDef    // enclosing function at each lambda entry (stack)
 	sandbox         *SandboxConfig    // Landlock sandbox config (nil = no sandbox)
+	cliSandbox      *SandboxConfig    // CLI-provided sandbox (non-nil = override script directive)
 }
 
 // generate produces Go source code from a ast.Program AST.
@@ -70,6 +71,7 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 		testMode:    testMode,
 		typeInfo:    ti,
 		sandbox:     sandbox,
+		cliSandbox:  sandbox,
 	}
 	return g.generate(prog)
 }
@@ -124,12 +126,17 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			g.goImports[st.Package] = st.Alias
 			continue
 		case *ast.SandboxStmt:
-			// Collect sandbox from script; CLI override takes precedence (set below)
-			if g.sandbox == nil {
-				g.sandbox = &SandboxConfig{
-					RO: st.RO, RW: st.RW, ROX: st.ROX, RWX: st.RWX,
-					Connect: st.Connect, Bind: st.Bind,
-				}
+			// Only one sandbox directive allowed in the entire source tree.
+			if g.sandbox != nil && g.sandbox != g.cliSandbox {
+				return "", fmt.Errorf("%s:%d: duplicate sandbox directive (only one allowed per program)", g.sourceFile, st.SourceLine)
+			}
+			// CLI override takes precedence — skip script directive.
+			if g.cliSandbox != nil {
+				continue
+			}
+			g.sandbox = &SandboxConfig{
+				RO: st.RO, RW: st.RW, ROX: st.ROX, RWX: st.RWX,
+				Connect: st.Connect, Bind: st.Bind,
 			}
 			continue
 		default:

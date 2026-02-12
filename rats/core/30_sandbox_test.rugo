@@ -81,3 +81,9 @@ rats "sandbox: no sandbox directive runs unrestricted"
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "landlock_ok")
 end
+
+rats "sandbox: duplicate sandbox directive is a compile error"
+  result = test.run("rugo run rats/core/fixtures/sandbox/duplicate.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "duplicate sandbox directive")
+end

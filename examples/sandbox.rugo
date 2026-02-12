@@ -3,6 +3,13 @@
 # All other filesystem access and all network access is denied.
 sandbox ro: ["/tmp"], rox: ["/usr", "/lib"]
 
+import "os"
+
 puts("Running in a Landlock sandbox!")
 puts("Allowed: reading /tmp, executing /usr binaries")
 puts("Denied: everything else (network, writes, other paths)")
+
+try echo "foo" > "bar" or err
+  puts "Couldn't write! #{err}"
+end
+

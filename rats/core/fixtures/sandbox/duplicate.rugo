@@ -1,0 +1,4 @@
+# Two sandbox directives — should be a compile error
+sandbox ro: "/etc"
+sandbox rw: "/tmp"
+puts("should not reach here")
