@@ -1,0 +1,143 @@
+# RATS: eval-file linter tool
+use "test"
+use "os"
+
+rats "eval-file detects test.run rugo run with interpolation"
+  script = <<~'SCRIPT'
+    use "test"
+    rats "example"
+      target = test.tmpdir() + "/hello.rugo"
+      test.write_file(target, "puts 42")
+      result = test.run("rugo run #{target}")
+      test.assert_eq(result["status"], 0)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- eval-file #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "eval.file(target)")
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "eval-file detects test.run rugo run with path concat"
+  script = <<~'SCRIPT'
+    use "test"
+    rats "example"
+      target = test.tmpdir() + "/hello.rugo"
+      test.write_file(target, "puts 42")
+      result = test.run("rugo run #{test.tmpdir()}/hello.rugo")
+      test.assert_eq(result["status"], 0)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- eval-file #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "eval-file ignores test.run with non-rugo commands"
+  script = <<~'SCRIPT'
+    use "test"
+    rats "example"
+      result = test.run("echo hello")
+      test.assert_eq(result["status"], 0)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- eval-file #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "eval-file ignores test.run with extra args"
+  script = <<~'SCRIPT'
+    use "test"
+    rats "example"
+      result = test.run("rugo run tools/linter/main.rugo -- all file.rugo")
+      test.assert_eq(result["status"], 0)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- eval-file #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "eval-file fix rewrites to eval.file"
+  script = <<~'SCRIPT'
+    use "test"
+    use "eval"
+    rats "example"
+      target = test.tmpdir() + "/hello.rugo"
+      test.write_file(target, "puts 42")
+      result = test.run("rugo run #{target}")
+      test.assert_eq(result["status"], 0)
+      test.assert_eq(result["lines"][0], "42")
+    end
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  result = test.run("rugo run tools/linter/main.rugo -- eval-file --fix #{target}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1 issue(s) fixed.")
+
+  # Verify fixed file still works
+  result2 = test.run("rugo run #{target}")
+  test.assert_eq(result2["status"], 0)
+end
+
+rats "eval-file fix is idempotent"
+  script = <<~'SCRIPT'
+    use "test"
+    use "eval"
+    rats "example"
+      target = test.tmpdir() + "/hello.rugo"
+      test.write_file(target, "puts 42")
+      result = test.run("rugo run #{target}")
+      test.assert_eq(result["status"], 0)
+    end
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+
+  test.run("rugo run tools/linter/main.rugo -- eval-file --fix #{target}")
+
+  result = test.run("rugo run tools/linter/main.rugo -- eval-file #{target}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "eval-file fix preserves indentation"
+  script = <<~'SCRIPT'
+    use "test"
+    use "eval"
+    rats "example"
+      target = test.tmpdir() + "/hello.rugo"
+      test.write_file(target, "puts 42")
+      if true
+        result = test.run("rugo run #{target}")
+        test.assert_eq(result["status"], 0)
+      end
+    end
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  test.run("rugo run tools/linter/main.rugo -- eval-file --fix #{target}")
+
+  # Verify fixed file still works
+  result = test.run("rugo run #{target}")
+  test.assert_eq(result["status"], 0)
+end
+
+rats "eval-file all command includes eval-file"
+  script = <<~'SCRIPT'
+    use "test"
+    rats "example"
+      result = test.run("rugo run #{test.tmpdir()}/hello.rugo")
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- all #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[eval-file]")
+end

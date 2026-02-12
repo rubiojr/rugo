@@ -25,13 +25,15 @@ use "str"
 
 require "./linters/smart_append"
 require "./linters/string_interp"
+require "./linters/eval_file"
 
 # --- Linter registry ---
 # Each entry: {name, lint_fn(path) -> warnings, fix_fn(path, warnings)}
 # To add a new linter, require it and add an entry here.
 Linters = [
   {name: "smart-append", lint: fn(f) smart_append.lint(f) end, fix: fn(f, w) smart_append.fix(f, w) end},
-  {name: "string-interp", lint: fn(f) string_interp.lint(f) end, fix: fn(f, w) string_interp.fix(f, w) end}
+  {name: "string-interp", lint: fn(f) string_interp.lint(f) end, fix: fn(f, w) string_interp.fix(f, w) end},
+  {name: "eval-file", lint: fn(f) eval_file.lint(f) end, fix: fn(f, w) eval_file.fix(f, w) end}
 ]
 
 # Expand a list of file/directory arguments into .rugo file paths.

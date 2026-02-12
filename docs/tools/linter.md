@@ -22,6 +22,7 @@ Arguments can be individual `.rugo` files or directories. When a directory is gi
 |---------|-------------|
 | `smart-append` | Detect verbose append patterns |
 | `string-interp` | Detect string concatenation over interpolation |
+| `eval-file` | Detect `test.run("rugo run ...")` over `eval.file()` |
 | `all` | Run all registered linters |
 
 ### Flags
@@ -112,6 +113,29 @@ msg = "#{count} items"
 - Non-string concatenation (`a + b` where neither is a string literal)
 - Multi-line concatenation (V1 limitation)
 
+### eval-file
+
+Detects `test.run("rugo run ...")` patterns in test files that should use the `eval` module instead. Shelling out to rugo is slower and less idiomatic.
+
+**What it catches:**
+
+```ruby
+# Before (shells out to rugo CLI)
+result = test.run("rugo run #{target}")
+result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+
+# After (uses eval module directly)
+result = eval.file(target)
+result = eval.file("#{test.tmpdir()}/test.rugo")
+```
+
+**Fix mode:** Rewrites `test.run("rugo run <path>")` to `eval.file(<path>)`. When the path is a single variable interpolation (`#{var}`), simplifies to `eval.file(var)`.
+
+**Skips:**
+- Non-rugo commands: `test.run("echo hello")` — not relevant
+- Runs with extra arguments: `test.run("rugo run main.rugo -- arg1")` — `eval.file` arg passing has different semantics
+- `rugo build` and other subcommands — only targets `rugo run`
+
 ## Architecture
 
 ```
@@ -120,6 +144,7 @@ tools/linter/
   linters/
     smart_append.rugo      # smart-append lint rule
     string_interp.rugo     # string-interp lint rule
+    eval_file.rugo         # eval-file lint rule
 ```
 
 ### Linter Registry
@@ -129,7 +154,8 @@ The main CLI maintains a `Linters` array where each entry provides a name and la
 ```ruby
 Linters = [
   {name: "smart-append", lint: fn(f) smart_append.lint(f) end, fix: fn(f, w) smart_append.fix(f, w) end},
-  {name: "string-interp", lint: fn(f) string_interp.lint(f) end, fix: fn(f, w) string_interp.fix(f, w) end}
+  {name: "string-interp", lint: fn(f) string_interp.lint(f) end, fix: fn(f, w) string_interp.fix(f, w) end},
+  {name: "eval-file", lint: fn(f) eval_file.lint(f) end, fix: fn(f, w) eval_file.fix(f, w) end}
 ]
 ```
 

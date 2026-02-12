@@ -1,0 +1,355 @@
+# eval-file linter
+#
+# Detects test.run("rugo run ...") patterns that should use eval.file() instead.
+# Shelling out to rugo is slower and less idiomatic in tests.
+#
+# test.run("rugo run " + path) → eval.file(path)
+# test.run("rugo run #{path}")  → eval.file(path)
+
+use "ast"
+use "conv"
+use "str"
+use "os"
+
+# Check if a source line contains a test.run("rugo run ...") pattern.
+# Returns a result hash {source, fixed} or nil.
+def check_line(line)
+  trimmed = str.trim(line)
+
+  if str.contains(trimmed, "test.run(") == false
+    return nil
+  end
+
+  # Find the test.run( call
+  idx = str.index(trimmed, "test.run(")
+  if idx == -1
+    return nil
+  end
+
+  # Extract the argument inside test.run(...)
+  arg_start = idx + 9
+  if arg_start >= len(trimmed)
+    return nil
+  end
+
+  # Find matching closing paren
+  depth = 1
+  i = arg_start
+  slen = len(trimmed)
+  while i < slen && depth > 0
+    ch = trimmed[i, 1]
+    if ch == "("
+      depth += 1
+    end
+    if ch == ")"
+      depth -= 1
+    end
+    if ch == "\""
+      i += 1
+      while i < slen
+        ch2 = trimmed[i, 1]
+        if ch2 == "\\"
+          i += 2
+          next
+        end
+        if ch2 == "\""
+          break
+        end
+        i += 1
+      end
+    end
+    i += 1
+  end
+
+  if depth != 0
+    return nil
+  end
+
+  close_pos = i - 1
+  arg = trimmed[arg_start, close_pos - arg_start]
+
+  # Check if arg is a string starting with "rugo run "
+  is_rugo_run = false
+  if str.starts_with(arg, "\"rugo run ")
+    is_rugo_run = true
+  end
+
+  if is_rugo_run == false
+    return nil
+  end
+
+  # Extract what comes after "rugo run " inside the string
+  # The arg is: "rugo run <rest>"
+  # Or: "rugo run <path>" + more concatenation (old style)
+  inner = arg[10, len(arg) - 10]
+
+  # Remove the trailing quote if present
+  if str.ends_with(inner, "\"")
+    inner = inner[0, len(inner) - 1]
+  end
+
+  # Check for extra args (contains " -- " or spaces after the path)
+  # Simple case: inner is just a path expression, possibly with interpolation
+  # Complex case: "rugo run tools/main.rugo -- arg1 arg2"
+
+  has_extra_args = false
+  if str.contains(inner, " -- ")
+    has_extra_args = true
+  end
+
+  # Build the path expression from the inner content
+  path_expr = extract_path_expr(arg)
+  if path_expr == nil
+    return nil
+  end
+
+  if has_extra_args
+    return {source: trimmed, fixed: nil, reason: "has extra arguments after file path"}
+  end
+
+  # Build the replacement: eval.file(<path_expr>)
+  prefix = trimmed[0, idx]
+  suffix = trimmed[close_pos + 1, len(trimmed) - close_pos - 1]
+  fixed = prefix + "eval.file(" + path_expr + ")" + suffix
+
+  return {source: trimmed, fixed: fixed}
+end
+
+# Extract the file path expression from a test.run("rugo run ...") argument.
+# Handles:
+#   "rugo run #{path}"           → path
+#   "rugo run " + path           → path
+#   "rugo run " + dir + "/file"  → dir + "/file"
+# Returns the path expression as a string, or nil.
+def extract_path_expr(arg)
+  # Case 1: single interpolated string "rugo run #{expr}/rest"
+  # or "rugo run #{expr}"
+  if str.starts_with(arg, "\"rugo run ") && str.ends_with(arg, "\"")
+    inner = arg[10, len(arg) - 11]
+
+    # Check for " -- " which means extra args
+    dash_pos = str.index(inner, " -- ")
+    if dash_pos != -1
+      return nil
+    end
+
+    # Check for spaces that aren't inside interpolation (would mean extra args)
+    has_space = false
+    in_interp = false
+    pdepth = 0
+    j = 0
+    while j < len(inner)
+      ch = inner[j, 1]
+      if ch == "#" && (j + 1) < len(inner) && inner[j + 1, 1] == "{"
+        in_interp = true
+        pdepth = 1
+        j += 2
+        next
+      end
+      if in_interp
+        if ch == "{"
+          pdepth += 1
+        end
+        if ch == "}"
+          pdepth -= 1
+          if pdepth == 0
+            in_interp = false
+          end
+        end
+        j += 1
+        next
+      end
+      if ch == " "
+        has_space = true
+      end
+      j += 1
+    end
+
+    if has_space
+      return nil
+    end
+
+    # Reconstruct the path as a Rugo expression.
+    # If inner is just "#{expr}" (pure interpolation), return expr directly.
+    # Otherwise wrap as an interpolated string.
+    interp_open = '#{'
+    if str.starts_with(inner, interp_open) && str.ends_with(inner, "}")
+      # Check if this is the ONLY interpolation (no literal text around it)
+      expr_part = inner[2, len(inner) - 3]
+      # Make sure there's no } before the end (nested braces)
+      brace_depth = 0
+      is_single = true
+      k = 0
+      while k < len(expr_part)
+        ch = expr_part[k, 1]
+        if ch == "{"
+          brace_depth += 1
+        end
+        if ch == "}"
+          brace_depth -= 1
+          if brace_depth < 0
+            is_single = false
+          end
+        end
+        k += 1
+      end
+      if is_single && brace_depth == 0
+        return expr_part
+      end
+    end
+    return "\"#{inner}\""
+  end
+
+  # Case 2: "rugo run " + path_expr (concatenation style)
+  # The arg looks like: "rugo run " + <path_expr>
+  if str.starts_with(arg, "\"rugo run \"")
+    rest = str.trim(arg[11, len(arg) - 11])
+    if str.starts_with(rest, "+ ")
+      path_expr = str.trim(rest[2, len(rest) - 2])
+
+      # Check the path_expr doesn't contain " -- " args
+      if str.contains(path_expr, "\" -- ")
+        return nil
+      end
+      if str.contains(path_expr, " -- \"")
+        return nil
+      end
+
+      return path_expr
+    end
+  end
+
+  return nil
+end
+
+# Build a warning hash.
+def make_warning(path, line_num, source, fixed)
+  return {path: path, line: line_num, source: source, fixed: fixed}
+end
+
+# Recursively scan a statement for test.run("rugo run ...").
+def scan_statement(warnings, prog, stmt, path)
+  lines = ast.source_lines(prog, stmt)
+  if len(lines) > 0
+    line = lines[0]
+    result = check_line(line)
+    if result != nil
+      if result["fixed"] != nil
+        append warnings, make_warning(path, stmt["line"], result["source"], result["fixed"])
+      else
+        reason = result["reason"]
+        append warnings, make_warning(path, stmt["line"], result["source"], "# cannot auto-fix: #{reason}")
+      end
+    end
+  end
+
+  if stmt["type"] == "def"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "if"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+    if stmt["else_body"] != nil
+      for s in stmt["else_body"]
+        warnings = scan_statement(warnings, prog, s, path)
+      end
+    end
+  end
+
+  if stmt["type"] == "for"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "while"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "try"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+    if stmt["rescue_body"] != nil
+      for s in stmt["rescue_body"]
+        warnings = scan_statement(warnings, prog, s, path)
+      end
+    end
+  end
+
+  if stmt["type"] == "spawn"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "test"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  return warnings
+end
+
+# Lint a single file. Returns array of warning hashes.
+def lint(path)
+  warnings = []
+
+  prog = try ast.parse_file(path) or e
+    nil
+  end
+
+  if prog == nil
+    puts "error: could not parse #{path}"
+    return warnings
+  end
+
+  for stmt in prog["statements"]
+    warnings = scan_statement(warnings, prog, stmt, path)
+  end
+
+  return warnings
+end
+
+# Apply fixes to a file by rewriting matching lines.
+def fix(path, warnings)
+  content = `cat '#{path}'`
+  lines = str.split(content, "\n")
+
+  fix_map = {}
+  for w in warnings
+    if str.starts_with(w["fixed"], "# cannot") == false
+      fix_map[conv.to_s(w["line"])] = w
+    end
+  end
+
+  new_lines = []
+  i = 0
+  for line in lines
+    line_num = conv.to_s(i + 1)
+    if fix_map[line_num] != nil
+      w = fix_map[line_num]
+      trimmed = str.trim(line)
+      indent_len = str.index(line, trimmed)
+      indent = ""
+      if indent_len > 0
+        indent = line[0, indent_len]
+      end
+      new_line = str.replace(trimmed, w["source"], w["fixed"])
+      append new_lines, indent + new_line
+    else
+      append new_lines, line
+    end
+    i += 1
+  end
+
+  new_content = str.join(new_lines, "\n")
+  os.exec("cat > #{path} << 'RUGO_LINTER_EOF'\n#{new_content}\nRUGO_LINTER_EOF")
+end
