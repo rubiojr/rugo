@@ -203,7 +203,6 @@ type Parser struct{
 	src       []byte
 	tok       scanner.Token // current lookahead
 	tokIndex  int32 // For scanner.Token(tokIndex)
-	lastShiftLine int // line of the most recently consumed token (for newline-aware disambiguation)
 }
 
 type Symbol int32
@@ -261,7 +260,7 @@ type Symbol int32
 //	id  47: ([a-zA-Z_][a-zA-Z0-9_]*)
 //	id  48: ([0-9]+)
 //	id  49: (')((([^'\\])|(\\)([^\n])))*(')
-//	id  50: (")((([^"\\])|(\\)(x)([0-9a-fA-F])([0-9a-fA-F])|(\\)([0-7])([0-7])([0-7])|(\\)([nrt"\\])))*(")
+//	id  50: (")((([^"\\])|(\\)([^\n])))*(")
 //	id  51: ( |\t|\n|\r)
 //
 // ID == -1 is returned when no lexeme was recognized.
@@ -290,56 +289,56 @@ _ = accept2
 	if accept(' ') { goto l91 }
 	if accept('!') { goto l93 }
 	if accept('"') { goto l99 }
-	if accept('%') { goto l163 }
-	if accept('&') { goto l165 }
-	if accept('\'') { goto l170 }
-	if accept('(') { goto l196 }
-	if accept(')') { goto l198 }
-	if accept('*') { goto l200 }
-	if accept('+') { goto l202 }
-	if accept(',') { goto l204 }
-	if accept('-') { goto l206 }
-	if accept('.') { goto l208 }
-	if accept('/') { goto l210 }
-	if accept('<') { goto l225 }
-	if accept('=') { goto l231 }
-	if accept('>') { goto l241 }
-	if accept('[') { goto l255 }
-	if accept(']') { goto l257 }
-	if accept('a') { goto l259 }
-	if accept('b') { goto l269 }
-	if accept('d') { goto l321 }
-	if accept('e') { goto l337 }
-	if accept('f') { goto l383 }
-	if accept('i') { goto l429 }
-	if accept('n') { goto l475 }
-	if accept('o') { goto l509 }
-	if accept('p') { goto l519 }
-	if accept('r') { goto l565 }
-	if accept('s') { goto l647 }
-	if accept('t') { goto l675 }
-	if accept('u') { goto l703 }
-	if accept('w') { goto l719 }
-	if accept('{') { goto l765 }
-	if accept('|') { goto l767 }
-	if accept('}') { goto l772 }
+	if accept('%') { goto l125 }
+	if accept('&') { goto l127 }
+	if accept('\'') { goto l132 }
+	if accept('(') { goto l158 }
+	if accept(')') { goto l160 }
+	if accept('*') { goto l162 }
+	if accept('+') { goto l164 }
+	if accept(',') { goto l166 }
+	if accept('-') { goto l168 }
+	if accept('.') { goto l170 }
+	if accept('/') { goto l172 }
+	if accept('<') { goto l187 }
+	if accept('=') { goto l193 }
+	if accept('>') { goto l203 }
+	if accept('[') { goto l217 }
+	if accept(']') { goto l219 }
+	if accept('a') { goto l221 }
+	if accept('b') { goto l231 }
+	if accept('d') { goto l283 }
+	if accept('e') { goto l299 }
+	if accept('f') { goto l345 }
+	if accept('i') { goto l391 }
+	if accept('n') { goto l437 }
+	if accept('o') { goto l471 }
+	if accept('p') { goto l481 }
+	if accept('r') { goto l527 }
+	if accept('s') { goto l609 }
+	if accept('t') { goto l637 }
+	if accept('u') { goto l665 }
+	if accept('w') { goto l681 }
+	if accept('{') { goto l727 }
+	if accept('|') { goto l729 }
+	if accept('}') { goto l734 }
 	if r < '0' { goto l78out }
-	if accept2('9') { goto l212 }
+	if accept2('9') { goto l174 }
 l78out:
 	if r < 'A' { goto l80out }
-	if accept2('Z') { goto l247 }
-	if accept('_') { goto l247 }
-	if accept('c') { goto l247 }
+	if accept2('Z') { goto l209 }
+	if accept('_') { goto l209 }
+	if accept('c') { goto l209 }
 	if r < 'g' { goto l80out }
-	if accept2('h') { goto l247 }
+	if accept2('h') { goto l209 }
 	if r < 'j' { goto l80out }
-	if accept2('m') { goto l247 }
-	if accept('q') { goto l247 }
-	if accept('v') { goto l247 }
+	if accept2('m') { goto l209 }
+	if accept('q') { goto l209 }
+	if accept('v') { goto l209 }
 	if r < 'x' { goto l80out }
-	if accept2('z') { goto l247 }
+	if accept2('z') { goto l209 }
 l80out:
-	if r == endOfText { goto l774 }
+	if r == endOfText { goto l736 }
 	return id, length
 l85:
 	id, length = 51, pos
@@ -363,1435 +362,1382 @@ l97:
 l99:
 	if accept('"') { goto l106 }
 	if accept('\\') { goto l108 }
-	if accept2('!') { goto l130 }
+	if accept2('!') { goto l118 }
 	if r < '#' { goto l103out }
-	if accept2('[') { goto l130 }
+	if accept2('[') { goto l118 }
 	if r < ']' { goto l103out }
-	if accept2('\U0010ffff') { goto l130 }
+	if accept2('\U0010ffff') { goto l118 }
 l103out:
 	return id, length
 l106:
 	id, length = 50, pos
 	return id, length
 l108:
-	if accept('"') { goto l123 }
-	if accept('\\') { goto l123 }
-	if accept('n') { goto l123 }
-	if accept('r') { goto l123 }
-	if accept('t') { goto l123 }
-	if accept('x') { goto l150 }
-	if r < '0' { goto l120out }
-	if accept2('7') { goto l137 }
-l120out:
+	if accept2('\t') { goto l111 }
+	if r < '\v' { goto l108out }
+	if accept2('\U0010ffff') { goto l111 }
+l108out:
 	return id, length
-l123:
+l111:
 	if accept('"') { goto l106 }
 	if accept('\\') { goto l108 }
-	if accept2('!') { goto l130 }
-	if r < '#' { goto l127out }
-	if accept2('[') { goto l130 }
-	if r < ']' { goto l127out }
-	if accept2('\U0010ffff') { goto l130 }
-l127out:
+	if accept2('!') { goto l118 }
+	if r < '#' { goto l115out }
+	if accept2('[') { goto l118 }
+	if r < ']' { goto l115out }
+	if accept2('\U0010ffff') { goto l118 }
+l115out:
 	return id, length
-l130:
+l118:
 	if accept('"') { goto l106 }
 	if accept('\\') { goto l108 }
-	if accept2('!') { goto l130 }
-	if r < '#' { goto l134out }
-	if accept2('[') { goto l130 }
-	if r < ']' { goto l134out }
-	if accept2('\U0010ffff') { goto l130 }
-l134out:
+	if accept2('!') { goto l118 }
+	if r < '#' { goto l122out }
+	if accept2('[') { goto l118 }
+	if r < ']' { goto l122out }
+	if accept2('\U0010ffff') { goto l118 }
+l122out:
 	return id, length
-l137:
-	if r < '0' { goto l137out }
-	if accept2('7') { goto l140 }
-l137out:
-	return id, length
-l140:
-	if r < '0' { goto l140out }
-	if accept2('7') { goto l143 }
-l140out:
-	return id, length
-l143:
-	if accept('"') { goto l106 }
-	if accept('\\') { goto l108 }
-	if accept2('!') { goto l130 }
-	if r < '#' { goto l147out }
-	if accept2('[') { goto l130 }
-	if r < ']' { goto l147out }
-	if accept2('\U0010ffff') { goto l130 }
-l147out:
-	return id, length
-l150:
-	if r < '0' { goto l150out }
-	if accept2('9') { goto l153 }
-	if r < 'A' { goto l150out }
-	if accept2('F') { goto l153 }
-	if r < 'a' { goto l150out }
-	if accept2('f') { goto l153 }
-l150out:
-	return id, length
-l153:
-	if r < '0' { goto l153out }
-	if accept2('9') { goto l156 }
-	if r < 'A' { goto l153out }
-	if accept2('F') { goto l156 }
-	if r < 'a' { goto l153out }
-	if accept2('f') { goto l156 }
-l153out:
-	return id, length
-l156:
-	if accept('"') { goto l106 }
-	if accept('\\') { goto l108 }
-	if accept2('!') { goto l130 }
-	if r < '#' { goto l160out }
-	if accept2('[') { goto l130 }
-	if r < ']' { goto l160out }
-	if accept2('\U0010ffff') { goto l130 }
-l160out:
-	return id, length
-l163:
+l125:
 	id, length = 31, pos
 	return id, length
-l165:
-	if accept('&') { goto l168 }
+l127:
+	if accept('&') { goto l130 }
 	return id, length
-l168:
+l130:
 	id, length = 1, pos
 	return id, length
-l170:
-	if accept('\'') { goto l177 }
-	if accept('\\') { goto l179 }
-	if accept2('&') { goto l189 }
-	if r < '(' { goto l174out }
-	if accept2('[') { goto l189 }
-	if r < ']' { goto l174out }
-	if accept2('\U0010ffff') { goto l189 }
-l174out:
+l132:
+	if accept('\'') { goto l139 }
+	if accept('\\') { goto l141 }
+	if accept2('&') { goto l151 }
+	if r < '(' { goto l136out }
+	if accept2('[') { goto l151 }
+	if r < ']' { goto l136out }
+	if accept2('\U0010ffff') { goto l151 }
+l136out:
 	return id, length
-l177:
+l139:
 	id, length = 49, pos
 	return id, length
-l179:
-	if accept2('\t') { goto l182 }
-	if r < '\v' { goto l179out }
-	if accept2('\U0010ffff') { goto l182 }
-l179out:
+l141:
+	if accept2('\t') { goto l144 }
+	if r < '\v' { goto l141out }
+	if accept2('\U0010ffff') { goto l144 }
+l141out:
 	return id, length
-l182:
-	if accept('\'') { goto l177 }
-	if accept('\\') { goto l179 }
-	if accept2('&') { goto l189 }
-	if r < '(' { goto l186out }
-	if accept2('[') { goto l189 }
-	if r < ']' { goto l186out }
-	if accept2('\U0010ffff') { goto l189 }
-l186out:
+l144:
+	if accept('\'') { goto l139 }
+	if accept('\\') { goto l141 }
+	if accept2('&') { goto l151 }
+	if r < '(' { goto l148out }
+	if accept2('[') { goto l151 }
+	if r < ']' { goto l148out }
+	if accept2('\U0010ffff') { goto l151 }
+l148out:
 	return id, length
-l189:
-	if accept('\'') { goto l177 }
-	if accept('\\') { goto l179 }
-	if accept2('&') { goto l189 }
-	if r < '(' { goto l193out }
-	if accept2('[') { goto l189 }
-	if r < ']' { goto l193out }
-	if accept2('\U0010ffff') { goto l189 }
-l193out:
+l151:
+	if accept('\'') { goto l139 }
+	if accept('\\') { goto l141 }
+	if accept2('&') { goto l151 }
+	if r < '(' { goto l155out }
+	if accept2('[') { goto l151 }
+	if r < ']' { goto l155out }
+	if accept2('\U0010ffff') { goto l151 }
+l155out:
 	return id, length
-l196:
+l158:
 	id, length = 32, pos
 	return id, length
-l198:
+l160:
 	id, length = 33, pos
 	return id, length
-l200:
+l162:
 	id, length = 34, pos
 	return id, length
-l202:
+l164:
 	id, length = 35, pos
 	return id, length
-l204:
+l166:
 	id, length = 36, pos
 	return id, length
-l206:
+l168:
 	id, length = 37, pos
 	return id, length
-l208:
+l170:
 	id, length = 38, pos
 	return id, length
-l210:
+l172:
 	id, length = 39, pos
 	return id, length
-l212:
+l174:
 	id, length = 48, pos
-	if accept('.') { goto l218 }
-	if r < '0' { goto l215out }
-	if accept2('9') { goto l212 }
-l215out:
+	if accept('.') { goto l180 }
+	if r < '0' { goto l177out }
+	if accept2('9') { goto l174 }
+l177out:
 	return id, length
-l218:
-	if r < '0' { goto l218out }
-	if accept2('9') { goto l221 }
-l218out:
+l180:
+	if r < '0' { goto l180out }
+	if accept2('9') { goto l183 }
+l180out:
 	return id, length
-l221:
+l183:
 	id, length = 46, pos
-	if r < '0' { goto l222out }
-	if accept2('9') { goto l221 }
-l222out:
+	if r < '0' { goto l184out }
+	if accept2('9') { goto l183 }
+l184out:
 	return id, length
-l225:
+l187:
 	id, length = 45, pos
-	if accept('=') { goto l229 }
+	if accept('=') { goto l191 }
 	return id, length
-l229:
+l191:
 	id, length = 45, pos
 	return id, length
-l231:
+l193:
 	id, length = 40, pos
-	if accept('=') { goto l237 }
-	if accept('>') { goto l239 }
+	if accept('=') { goto l199 }
+	if accept('>') { goto l201 }
 	return id, length
-l237:
+l199:
 	id, length = 45, pos
 	return id, length
-l239:
+l201:
 	id, length = 2, pos
 	return id, length
-l241:
+l203:
 	id, length = 45, pos
-	if accept('=') { goto l245 }
+	if accept('=') { goto l207 }
+	return id, length
+l207:
+	id, length = 45, pos
+	return id, length
+l209:
+	id, length = 47, pos
+	if r < '0' { goto l210out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l210out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l210out }
+	if accept2('z') { goto l213 }
+l210out:
+	return id, length
+l213:
+	id, length = 47, pos
+	if r < '0' { goto l214out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l214out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l214out }
+	if accept2('z') { goto l213 }
+l214out:
+	return id, length
+l217:
+	id, length = 41, pos
+	return id, length
+l219:
+	id, length = 42, pos
+	return id, length
+l221:
+	id, length = 47, pos
+	if accept('s') { goto l227 }
+	if r < '0' { goto l224out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l224out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l224out }
+	if accept2('r') { goto l213 }
+	if r < 't' { goto l224out }
+	if accept2('z') { goto l213 }
+l224out:
+	return id, length
+l227:
+	id, length = 3, pos
+	if r < '0' { goto l228out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l228out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l228out }
+	if accept2('z') { goto l213 }
+l228out:
+	return id, length
+l231:
+	id, length = 47, pos
+	if accept('e') { goto l239 }
+	if accept('r') { goto l261 }
+	if r < '0' { goto l236out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l236out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l236out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l236out }
+	if accept2('q') { goto l213 }
+	if r < 's' { goto l236out }
+	if accept2('z') { goto l213 }
+l236out:
+	return id, length
+l239:
+	id, length = 47, pos
+	if accept('n') { goto l245 }
+	if r < '0' { goto l242out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l242out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l242out }
+	if accept2('m') { goto l213 }
+	if r < 'o' { goto l242out }
+	if accept2('z') { goto l213 }
+l242out:
 	return id, length
 l245:
-	id, length = 45, pos
-	return id, length
-l247:
 	id, length = 47, pos
+	if accept('c') { goto l251 }
 	if r < '0' { goto l248out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l248out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l248out }
-	if accept2('z') { goto l251 }
+	if accept2('b') { goto l213 }
+	if r < 'd' { goto l248out }
+	if accept2('z') { goto l213 }
 l248out:
 	return id, length
 l251:
 	id, length = 47, pos
-	if r < '0' { goto l252out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l252out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l252out }
-	if accept2('z') { goto l251 }
-l252out:
-	return id, length
-l255:
-	id, length = 41, pos
+	if accept('h') { goto l257 }
+	if r < '0' { goto l254out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l254out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l254out }
+	if accept2('g') { goto l213 }
+	if r < 'i' { goto l254out }
+	if accept2('z') { goto l213 }
+l254out:
 	return id, length
 l257:
-	id, length = 42, pos
+	id, length = 4, pos
+	if r < '0' { goto l258out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l258out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l258out }
+	if accept2('z') { goto l213 }
+l258out:
 	return id, length
-l259:
+l261:
 	id, length = 47, pos
-	if accept('s') { goto l265 }
-	if r < '0' { goto l262out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l262out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l262out }
-	if accept2('r') { goto l251 }
-	if r < 't' { goto l262out }
-	if accept2('z') { goto l251 }
-l262out:
+	if accept('e') { goto l267 }
+	if r < '0' { goto l264out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l264out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l264out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l264out }
+	if accept2('z') { goto l213 }
+l264out:
 	return id, length
-l265:
-	id, length = 3, pos
-	if r < '0' { goto l266out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l266out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l266out }
-	if accept2('z') { goto l251 }
-l266out:
-	return id, length
-l269:
+l267:
 	id, length = 47, pos
-	if accept('e') { goto l277 }
-	if accept('r') { goto l299 }
-	if r < '0' { goto l274out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l274out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l274out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l274out }
-	if accept2('q') { goto l251 }
-	if r < 's' { goto l274out }
-	if accept2('z') { goto l251 }
-l274out:
+	if accept('a') { goto l273 }
+	if r < '0' { goto l270out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l270out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'b' { goto l270out }
+	if accept2('z') { goto l213 }
+l270out:
 	return id, length
-l277:
+l273:
 	id, length = 47, pos
-	if accept('n') { goto l283 }
+	if accept('k') { goto l279 }
+	if r < '0' { goto l276out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l276out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l276out }
+	if accept2('j') { goto l213 }
+	if r < 'l' { goto l276out }
+	if accept2('z') { goto l213 }
+l276out:
+	return id, length
+l279:
+	id, length = 5, pos
 	if r < '0' { goto l280out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l280out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l280out }
-	if accept2('m') { goto l251 }
-	if r < 'o' { goto l280out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l280out:
 	return id, length
 l283:
 	id, length = 47, pos
-	if accept('c') { goto l289 }
+	if accept('e') { goto l289 }
 	if r < '0' { goto l286out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l286out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l286out }
-	if accept2('b') { goto l251 }
-	if r < 'd' { goto l286out }
-	if accept2('z') { goto l251 }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l286out }
+	if accept2('z') { goto l213 }
 l286out:
 	return id, length
 l289:
 	id, length = 47, pos
-	if accept('h') { goto l295 }
+	if accept('f') { goto l295 }
 	if r < '0' { goto l292out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l292out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l292out }
-	if accept2('g') { goto l251 }
-	if r < 'i' { goto l292out }
-	if accept2('z') { goto l251 }
+	if accept2('e') { goto l213 }
+	if r < 'g' { goto l292out }
+	if accept2('z') { goto l213 }
 l292out:
 	return id, length
 l295:
-	id, length = 4, pos
+	id, length = 6, pos
 	if r < '0' { goto l296out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l296out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l296out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l296out:
 	return id, length
 l299:
 	id, length = 47, pos
-	if accept('e') { goto l305 }
-	if r < '0' { goto l302out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l302out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l302out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l302out }
-	if accept2('z') { goto l251 }
-l302out:
+	if accept('l') { goto l307 }
+	if accept('n') { goto l335 }
+	if r < '0' { goto l304out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l304out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l304out }
+	if accept2('k') { goto l213 }
+	if accept('m') { goto l213 }
+	if r < 'o' { goto l304out }
+	if accept2('z') { goto l213 }
+l304out:
 	return id, length
-l305:
+l307:
 	id, length = 47, pos
-	if accept('a') { goto l311 }
-	if r < '0' { goto l308out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l308out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'b' { goto l308out }
-	if accept2('z') { goto l251 }
-l308out:
+	if accept('s') { goto l313 }
+	if r < '0' { goto l310out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l310out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l310out }
+	if accept2('r') { goto l213 }
+	if r < 't' { goto l310out }
+	if accept2('z') { goto l213 }
+l310out:
 	return id, length
-l311:
+l313:
 	id, length = 47, pos
-	if accept('k') { goto l317 }
-	if r < '0' { goto l314out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l314out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l314out }
-	if accept2('j') { goto l251 }
-	if r < 'l' { goto l314out }
-	if accept2('z') { goto l251 }
-l314out:
-	return id, length
-l317:
-	id, length = 5, pos
+	if accept('e') { goto l321 }
+	if accept('i') { goto l325 }
 	if r < '0' { goto l318out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l318out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l318out }
-	if accept2('z') { goto l251 }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l318out }
+	if accept2('h') { goto l213 }
+	if r < 'j' { goto l318out }
+	if accept2('z') { goto l213 }
 l318out:
 	return id, length
 l321:
-	id, length = 47, pos
-	if accept('e') { goto l327 }
-	if r < '0' { goto l324out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l324out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l324out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l324out }
-	if accept2('z') { goto l251 }
-l324out:
+	id, length = 7, pos
+	if r < '0' { goto l322out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l322out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l322out }
+	if accept2('z') { goto l213 }
+l322out:
 	return id, length
-l327:
+l325:
 	id, length = 47, pos
-	if accept('f') { goto l333 }
-	if r < '0' { goto l330out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l330out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l330out }
-	if accept2('e') { goto l251 }
-	if r < 'g' { goto l330out }
-	if accept2('z') { goto l251 }
-l330out:
+	if accept('f') { goto l331 }
+	if r < '0' { goto l328out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l328out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l328out }
+	if accept2('e') { goto l213 }
+	if r < 'g' { goto l328out }
+	if accept2('z') { goto l213 }
+l328out:
 	return id, length
-l333:
-	id, length = 6, pos
-	if r < '0' { goto l334out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l334out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l334out }
-	if accept2('z') { goto l251 }
-l334out:
+l331:
+	id, length = 8, pos
+	if r < '0' { goto l332out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l332out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l332out }
+	if accept2('z') { goto l213 }
+l332out:
 	return id, length
-l337:
+l335:
 	id, length = 47, pos
-	if accept('l') { goto l345 }
-	if accept('n') { goto l373 }
+	if accept('d') { goto l341 }
+	if r < '0' { goto l338out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l338out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l338out }
+	if accept2('c') { goto l213 }
+	if r < 'e' { goto l338out }
+	if accept2('z') { goto l213 }
+l338out:
+	return id, length
+l341:
+	id, length = 9, pos
 	if r < '0' { goto l342out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l342out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l342out }
-	if accept2('k') { goto l251 }
-	if accept('m') { goto l251 }
-	if r < 'o' { goto l342out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l342out:
 	return id, length
 l345:
 	id, length = 47, pos
-	if accept('s') { goto l351 }
-	if r < '0' { goto l348out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l348out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l348out }
-	if accept2('r') { goto l251 }
-	if r < 't' { goto l348out }
-	if accept2('z') { goto l251 }
-l348out:
+	if accept('a') { goto l355 }
+	if accept('n') { goto l377 }
+	if accept('o') { goto l381 }
+	if r < '0' { goto l352out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l352out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'b' { goto l352out }
+	if accept2('m') { goto l213 }
+	if r < 'p' { goto l352out }
+	if accept2('z') { goto l213 }
+l352out:
 	return id, length
-l351:
+l355:
 	id, length = 47, pos
-	if accept('e') { goto l359 }
-	if accept('i') { goto l363 }
-	if r < '0' { goto l356out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l356out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l356out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l356out }
-	if accept2('h') { goto l251 }
-	if r < 'j' { goto l356out }
-	if accept2('z') { goto l251 }
-l356out:
+	if accept('l') { goto l361 }
+	if r < '0' { goto l358out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l358out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l358out }
+	if accept2('k') { goto l213 }
+	if r < 'm' { goto l358out }
+	if accept2('z') { goto l213 }
+l358out:
 	return id, length
-l359:
-	id, length = 7, pos
-	if r < '0' { goto l360out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l360out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l360out }
-	if accept2('z') { goto l251 }
-l360out:
-	return id, length
-l363:
+l361:
 	id, length = 47, pos
-	if accept('f') { goto l369 }
-	if r < '0' { goto l366out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l366out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l366out }
-	if accept2('e') { goto l251 }
-	if r < 'g' { goto l366out }
-	if accept2('z') { goto l251 }
-l366out:
+	if accept('s') { goto l367 }
+	if r < '0' { goto l364out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l364out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l364out }
+	if accept2('r') { goto l213 }
+	if r < 't' { goto l364out }
+	if accept2('z') { goto l213 }
+l364out:
 	return id, length
-l369:
-	id, length = 8, pos
+l367:
+	id, length = 47, pos
+	if accept('e') { goto l373 }
 	if r < '0' { goto l370out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l370out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l370out }
-	if accept2('z') { goto l251 }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l370out }
+	if accept2('z') { goto l213 }
 l370out:
 	return id, length
 l373:
-	id, length = 47, pos
-	if accept('d') { goto l379 }
-	if r < '0' { goto l376out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l376out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l376out }
-	if accept2('c') { goto l251 }
-	if r < 'e' { goto l376out }
-	if accept2('z') { goto l251 }
-l376out:
+	id, length = 10, pos
+	if r < '0' { goto l374out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l374out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l374out }
+	if accept2('z') { goto l213 }
+l374out:
 	return id, length
-l379:
-	id, length = 9, pos
-	if r < '0' { goto l380out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l380out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l380out }
-	if accept2('z') { goto l251 }
-l380out:
+l377:
+	id, length = 11, pos
+	if r < '0' { goto l378out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l378out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l378out }
+	if accept2('z') { goto l213 }
+l378out:
 	return id, length
-l383:
+l381:
 	id, length = 47, pos
-	if accept('a') { goto l393 }
-	if accept('n') { goto l415 }
-	if accept('o') { goto l419 }
-	if r < '0' { goto l390out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l390out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'b' { goto l390out }
-	if accept2('m') { goto l251 }
-	if r < 'p' { goto l390out }
-	if accept2('z') { goto l251 }
-l390out:
+	if accept('r') { goto l387 }
+	if r < '0' { goto l384out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l384out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l384out }
+	if accept2('q') { goto l213 }
+	if r < 's' { goto l384out }
+	if accept2('z') { goto l213 }
+l384out:
 	return id, length
-l393:
-	id, length = 47, pos
-	if accept('l') { goto l399 }
-	if r < '0' { goto l396out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l396out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l396out }
-	if accept2('k') { goto l251 }
-	if r < 'm' { goto l396out }
-	if accept2('z') { goto l251 }
-l396out:
+l387:
+	id, length = 12, pos
+	if r < '0' { goto l388out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l388out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l388out }
+	if accept2('z') { goto l213 }
+l388out:
 	return id, length
-l399:
+l391:
 	id, length = 47, pos
-	if accept('s') { goto l405 }
+	if accept('f') { goto l401 }
+	if accept('m') { goto l405 }
+	if accept('n') { goto l433 }
+	if r < '0' { goto l398out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l398out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l398out }
+	if accept2('e') { goto l213 }
+	if r < 'g' { goto l398out }
+	if accept2('l') { goto l213 }
+	if r < 'o' { goto l398out }
+	if accept2('z') { goto l213 }
+l398out:
+	return id, length
+l401:
+	id, length = 13, pos
 	if r < '0' { goto l402out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l402out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l402out }
-	if accept2('r') { goto l251 }
-	if r < 't' { goto l402out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l402out:
 	return id, length
 l405:
 	id, length = 47, pos
-	if accept('e') { goto l411 }
+	if accept('p') { goto l411 }
 	if r < '0' { goto l408out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l408out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l408out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l408out }
-	if accept2('z') { goto l251 }
+	if accept2('o') { goto l213 }
+	if r < 'q' { goto l408out }
+	if accept2('z') { goto l213 }
 l408out:
 	return id, length
 l411:
-	id, length = 10, pos
-	if r < '0' { goto l412out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l412out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l412out }
-	if accept2('z') { goto l251 }
-l412out:
-	return id, length
-l415:
-	id, length = 11, pos
-	if r < '0' { goto l416out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l416out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l416out }
-	if accept2('z') { goto l251 }
-l416out:
-	return id, length
-l419:
 	id, length = 47, pos
-	if accept('r') { goto l425 }
-	if r < '0' { goto l422out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l422out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l422out }
-	if accept2('q') { goto l251 }
-	if r < 's' { goto l422out }
-	if accept2('z') { goto l251 }
-l422out:
+	if accept('o') { goto l417 }
+	if r < '0' { goto l414out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l414out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l414out }
+	if accept2('n') { goto l213 }
+	if r < 'p' { goto l414out }
+	if accept2('z') { goto l213 }
+l414out:
 	return id, length
-l425:
-	id, length = 12, pos
+l417:
+	id, length = 47, pos
+	if accept('r') { goto l423 }
+	if r < '0' { goto l420out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l420out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l420out }
+	if accept2('q') { goto l213 }
+	if r < 's' { goto l420out }
+	if accept2('z') { goto l213 }
+l420out:
+	return id, length
+l423:
+	id, length = 47, pos
+	if accept('t') { goto l429 }
 	if r < '0' { goto l426out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l426out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l426out }
-	if accept2('z') { goto l251 }
+	if accept2('s') { goto l213 }
+	if r < 'u' { goto l426out }
+	if accept2('z') { goto l213 }
 l426out:
 	return id, length
 l429:
-	id, length = 47, pos
-	if accept('f') { goto l439 }
-	if accept('m') { goto l443 }
-	if accept('n') { goto l471 }
-	if r < '0' { goto l436out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l436out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l436out }
-	if accept2('e') { goto l251 }
-	if r < 'g' { goto l436out }
-	if accept2('l') { goto l251 }
-	if r < 'o' { goto l436out }
-	if accept2('z') { goto l251 }
-l436out:
+	id, length = 14, pos
+	if r < '0' { goto l430out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l430out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l430out }
+	if accept2('z') { goto l213 }
+l430out:
 	return id, length
-l439:
-	id, length = 13, pos
-	if r < '0' { goto l440out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l440out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l440out }
-	if accept2('z') { goto l251 }
-l440out:
+l433:
+	id, length = 15, pos
+	if r < '0' { goto l434out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l434out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l434out }
+	if accept2('z') { goto l213 }
+l434out:
 	return id, length
-l443:
+l437:
 	id, length = 47, pos
-	if accept('p') { goto l449 }
-	if r < '0' { goto l446out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l446out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l446out }
-	if accept2('o') { goto l251 }
-	if r < 'q' { goto l446out }
-	if accept2('z') { goto l251 }
-l446out:
+	if accept('e') { goto l445 }
+	if accept('i') { goto l461 }
+	if r < '0' { goto l442out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l442out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l442out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l442out }
+	if accept2('h') { goto l213 }
+	if r < 'j' { goto l442out }
+	if accept2('z') { goto l213 }
+l442out:
 	return id, length
-l449:
+l445:
 	id, length = 47, pos
-	if accept('o') { goto l455 }
-	if r < '0' { goto l452out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l452out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l452out }
-	if accept2('n') { goto l251 }
-	if r < 'p' { goto l452out }
-	if accept2('z') { goto l251 }
-l452out:
+	if accept('x') { goto l451 }
+	if r < '0' { goto l448out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l448out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l448out }
+	if accept2('w') { goto l213 }
+	if r < 'y' { goto l448out }
+	if accept2('z') { goto l213 }
+l448out:
 	return id, length
-l455:
+l451:
 	id, length = 47, pos
-	if accept('r') { goto l461 }
+	if accept('t') { goto l457 }
+	if r < '0' { goto l454out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l454out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l454out }
+	if accept2('s') { goto l213 }
+	if r < 'u' { goto l454out }
+	if accept2('z') { goto l213 }
+l454out:
+	return id, length
+l457:
+	id, length = 16, pos
 	if r < '0' { goto l458out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l458out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l458out }
-	if accept2('q') { goto l251 }
-	if r < 's' { goto l458out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l458out:
 	return id, length
 l461:
 	id, length = 47, pos
-	if accept('t') { goto l467 }
+	if accept('l') { goto l467 }
 	if r < '0' { goto l464out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l464out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l464out }
-	if accept2('s') { goto l251 }
-	if r < 'u' { goto l464out }
-	if accept2('z') { goto l251 }
+	if accept2('k') { goto l213 }
+	if r < 'm' { goto l464out }
+	if accept2('z') { goto l213 }
 l464out:
 	return id, length
 l467:
-	id, length = 14, pos
+	id, length = 17, pos
 	if r < '0' { goto l468out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l468out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l468out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l468out:
 	return id, length
 l471:
-	id, length = 15, pos
-	if r < '0' { goto l472out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l472out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l472out }
-	if accept2('z') { goto l251 }
-l472out:
-	return id, length
-l475:
 	id, length = 47, pos
-	if accept('e') { goto l483 }
-	if accept('i') { goto l499 }
-	if r < '0' { goto l480out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l480out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l480out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l480out }
-	if accept2('h') { goto l251 }
-	if r < 'j' { goto l480out }
-	if accept2('z') { goto l251 }
-l480out:
+	if accept('r') { goto l477 }
+	if r < '0' { goto l474out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l474out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l474out }
+	if accept2('q') { goto l213 }
+	if r < 's' { goto l474out }
+	if accept2('z') { goto l213 }
+l474out:
 	return id, length
-l483:
+l477:
+	id, length = 18, pos
+	if r < '0' { goto l478out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l478out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l478out }
+	if accept2('z') { goto l213 }
+l478out:
+	return id, length
+l481:
 	id, length = 47, pos
-	if accept('x') { goto l489 }
-	if r < '0' { goto l486out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l486out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l486out }
-	if accept2('w') { goto l251 }
-	if r < 'y' { goto l486out }
-	if accept2('z') { goto l251 }
-l486out:
+	if accept('a') { goto l487 }
+	if r < '0' { goto l484out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l484out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'b' { goto l484out }
+	if accept2('z') { goto l213 }
+l484out:
 	return id, length
-l489:
+l487:
 	id, length = 47, pos
-	if accept('t') { goto l495 }
-	if r < '0' { goto l492out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l492out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l492out }
-	if accept2('s') { goto l251 }
-	if r < 'u' { goto l492out }
-	if accept2('z') { goto l251 }
-l492out:
+	if accept('r') { goto l493 }
+	if r < '0' { goto l490out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l490out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l490out }
+	if accept2('q') { goto l213 }
+	if r < 's' { goto l490out }
+	if accept2('z') { goto l213 }
+l490out:
 	return id, length
-l495:
-	id, length = 16, pos
+l493:
+	id, length = 47, pos
+	if accept('a') { goto l499 }
 	if r < '0' { goto l496out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l496out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l496out }
-	if accept2('z') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'b' { goto l496out }
+	if accept2('z') { goto l213 }
 l496out:
 	return id, length
 l499:
 	id, length = 47, pos
 	if accept('l') { goto l505 }
 	if r < '0' { goto l502out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l502out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l502out }
-	if accept2('k') { goto l251 }
+	if accept2('k') { goto l213 }
 	if r < 'm' { goto l502out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l502out:
 	return id, length
 l505:
-	id, length = 17, pos
-	if r < '0' { goto l506out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l506out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l506out }
-	if accept2('z') { goto l251 }
-l506out:
-	return id, length
-l509:
 	id, length = 47, pos
-	if accept('r') { goto l515 }
-	if r < '0' { goto l512out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l512out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l512out }
-	if accept2('q') { goto l251 }
-	if r < 's' { goto l512out }
-	if accept2('z') { goto l251 }
-l512out:
+	if accept('l') { goto l511 }
+	if r < '0' { goto l508out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l508out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l508out }
+	if accept2('k') { goto l213 }
+	if r < 'm' { goto l508out }
+	if accept2('z') { goto l213 }
+l508out:
 	return id, length
-l515:
-	id, length = 18, pos
-	if r < '0' { goto l516out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l516out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l516out }
-	if accept2('z') { goto l251 }
-l516out:
-	return id, length
-l519:
+l511:
 	id, length = 47, pos
-	if accept('a') { goto l525 }
-	if r < '0' { goto l522out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l522out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'b' { goto l522out }
-	if accept2('z') { goto l251 }
-l522out:
+	if accept('e') { goto l517 }
+	if r < '0' { goto l514out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l514out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l514out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l514out }
+	if accept2('z') { goto l213 }
+l514out:
 	return id, length
-l525:
+l517:
 	id, length = 47, pos
-	if accept('r') { goto l531 }
-	if r < '0' { goto l528out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l528out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l528out }
-	if accept2('q') { goto l251 }
-	if r < 's' { goto l528out }
-	if accept2('z') { goto l251 }
-l528out:
+	if accept('l') { goto l523 }
+	if r < '0' { goto l520out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l520out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l520out }
+	if accept2('k') { goto l213 }
+	if r < 'm' { goto l520out }
+	if accept2('z') { goto l213 }
+l520out:
 	return id, length
-l531:
-	id, length = 47, pos
-	if accept('a') { goto l537 }
-	if r < '0' { goto l534out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l534out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'b' { goto l534out }
-	if accept2('z') { goto l251 }
-l534out:
-	return id, length
-l537:
-	id, length = 47, pos
-	if accept('l') { goto l543 }
-	if r < '0' { goto l540out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l540out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l540out }
-	if accept2('k') { goto l251 }
-	if r < 'm' { goto l540out }
-	if accept2('z') { goto l251 }
-l540out:
-	return id, length
-l543:
-	id, length = 47, pos
-	if accept('l') { goto l549 }
-	if r < '0' { goto l546out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l546out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l546out }
-	if accept2('k') { goto l251 }
-	if r < 'm' { goto l546out }
-	if accept2('z') { goto l251 }
-l546out:
-	return id, length
-l549:
-	id, length = 47, pos
-	if accept('e') { goto l555 }
-	if r < '0' { goto l552out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l552out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l552out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l552out }
-	if accept2('z') { goto l251 }
-l552out:
-	return id, length
-l555:
-	id, length = 47, pos
-	if accept('l') { goto l561 }
-	if r < '0' { goto l558out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l558out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l558out }
-	if accept2('k') { goto l251 }
-	if r < 'm' { goto l558out }
-	if accept2('z') { goto l251 }
-l558out:
-	return id, length
-l561:
+l523:
 	id, length = 19, pos
+	if r < '0' { goto l524out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l524out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l524out }
+	if accept2('z') { goto l213 }
+l524out:
+	return id, length
+l527:
+	id, length = 47, pos
+	if accept('a') { goto l535 }
+	if accept('e') { goto l551 }
+	if r < '0' { goto l532out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l532out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'b' { goto l532out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l532out }
+	if accept2('z') { goto l213 }
+l532out:
+	return id, length
+l535:
+	id, length = 47, pos
+	if accept('t') { goto l541 }
+	if r < '0' { goto l538out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l538out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l538out }
+	if accept2('s') { goto l213 }
+	if r < 'u' { goto l538out }
+	if accept2('z') { goto l213 }
+l538out:
+	return id, length
+l541:
+	id, length = 47, pos
+	if accept('s') { goto l547 }
+	if r < '0' { goto l544out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l544out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l544out }
+	if accept2('r') { goto l213 }
+	if r < 't' { goto l544out }
+	if accept2('z') { goto l213 }
+l544out:
+	return id, length
+l547:
+	id, length = 20, pos
+	if r < '0' { goto l548out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l548out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l548out }
+	if accept2('z') { goto l213 }
+l548out:
+	return id, length
+l551:
+	id, length = 47, pos
+	if accept('q') { goto l559 }
+	if accept('t') { goto l587 }
+	if r < '0' { goto l556out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l556out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l556out }
+	if accept2('p') { goto l213 }
+	if r < 'r' { goto l556out }
+	if accept2('s') { goto l213 }
+	if r < 'u' { goto l556out }
+	if accept2('z') { goto l213 }
+l556out:
+	return id, length
+l559:
+	id, length = 47, pos
+	if accept('u') { goto l565 }
 	if r < '0' { goto l562out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l562out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l562out }
-	if accept2('z') { goto l251 }
+	if accept2('t') { goto l213 }
+	if r < 'v' { goto l562out }
+	if accept2('z') { goto l213 }
 l562out:
 	return id, length
 l565:
 	id, length = 47, pos
-	if accept('a') { goto l573 }
-	if accept('e') { goto l589 }
-	if r < '0' { goto l570out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l570out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'b' { goto l570out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l570out }
-	if accept2('z') { goto l251 }
-l570out:
+	if accept('i') { goto l571 }
+	if r < '0' { goto l568out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l568out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l568out }
+	if accept2('h') { goto l213 }
+	if r < 'j' { goto l568out }
+	if accept2('z') { goto l213 }
+l568out:
 	return id, length
-l573:
+l571:
 	id, length = 47, pos
-	if accept('t') { goto l579 }
-	if r < '0' { goto l576out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l576out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l576out }
-	if accept2('s') { goto l251 }
-	if r < 'u' { goto l576out }
-	if accept2('z') { goto l251 }
-l576out:
+	if accept('r') { goto l577 }
+	if r < '0' { goto l574out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l574out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l574out }
+	if accept2('q') { goto l213 }
+	if r < 's' { goto l574out }
+	if accept2('z') { goto l213 }
+l574out:
 	return id, length
-l579:
+l577:
 	id, length = 47, pos
-	if accept('s') { goto l585 }
-	if r < '0' { goto l582out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l582out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l582out }
-	if accept2('r') { goto l251 }
-	if r < 't' { goto l582out }
-	if accept2('z') { goto l251 }
-l582out:
+	if accept('e') { goto l583 }
+	if r < '0' { goto l580out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l580out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l580out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l580out }
+	if accept2('z') { goto l213 }
+l580out:
 	return id, length
-l585:
-	id, length = 20, pos
-	if r < '0' { goto l586out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l586out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l586out }
-	if accept2('z') { goto l251 }
-l586out:
+l583:
+	id, length = 21, pos
+	if r < '0' { goto l584out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l584out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l584out }
+	if accept2('z') { goto l213 }
+l584out:
 	return id, length
-l589:
+l587:
 	id, length = 47, pos
-	if accept('q') { goto l597 }
-	if accept('t') { goto l625 }
-	if r < '0' { goto l594out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l594out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l594out }
-	if accept2('p') { goto l251 }
-	if r < 'r' { goto l594out }
-	if accept2('s') { goto l251 }
-	if r < 'u' { goto l594out }
-	if accept2('z') { goto l251 }
-l594out:
+	if accept('u') { goto l593 }
+	if r < '0' { goto l590out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l590out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l590out }
+	if accept2('t') { goto l213 }
+	if r < 'v' { goto l590out }
+	if accept2('z') { goto l213 }
+l590out:
 	return id, length
-l597:
+l593:
 	id, length = 47, pos
-	if accept('u') { goto l603 }
-	if r < '0' { goto l600out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l600out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l600out }
-	if accept2('t') { goto l251 }
-	if r < 'v' { goto l600out }
-	if accept2('z') { goto l251 }
-l600out:
+	if accept('r') { goto l599 }
+	if r < '0' { goto l596out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l596out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l596out }
+	if accept2('q') { goto l213 }
+	if r < 's' { goto l596out }
+	if accept2('z') { goto l213 }
+l596out:
 	return id, length
-l603:
+l599:
 	id, length = 47, pos
-	if accept('i') { goto l609 }
+	if accept('n') { goto l605 }
+	if r < '0' { goto l602out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l602out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l602out }
+	if accept2('m') { goto l213 }
+	if r < 'o' { goto l602out }
+	if accept2('z') { goto l213 }
+l602out:
+	return id, length
+l605:
+	id, length = 22, pos
 	if r < '0' { goto l606out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l606out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l606out }
-	if accept2('h') { goto l251 }
-	if r < 'j' { goto l606out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l606out:
 	return id, length
 l609:
 	id, length = 47, pos
-	if accept('r') { goto l615 }
+	if accept('p') { goto l615 }
 	if r < '0' { goto l612out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l612out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l612out }
-	if accept2('q') { goto l251 }
-	if r < 's' { goto l612out }
-	if accept2('z') { goto l251 }
+	if accept2('o') { goto l213 }
+	if r < 'q' { goto l612out }
+	if accept2('z') { goto l213 }
 l612out:
 	return id, length
 l615:
 	id, length = 47, pos
-	if accept('e') { goto l621 }
+	if accept('a') { goto l621 }
 	if r < '0' { goto l618out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l618out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l618out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l618out }
-	if accept2('z') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'b' { goto l618out }
+	if accept2('z') { goto l213 }
 l618out:
 	return id, length
 l621:
-	id, length = 21, pos
-	if r < '0' { goto l622out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l622out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l622out }
-	if accept2('z') { goto l251 }
-l622out:
-	return id, length
-l625:
 	id, length = 47, pos
-	if accept('u') { goto l631 }
-	if r < '0' { goto l628out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l628out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l628out }
-	if accept2('t') { goto l251 }
-	if r < 'v' { goto l628out }
-	if accept2('z') { goto l251 }
-l628out:
+	if accept('w') { goto l627 }
+	if r < '0' { goto l624out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l624out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l624out }
+	if accept2('v') { goto l213 }
+	if r < 'x' { goto l624out }
+	if accept2('z') { goto l213 }
+l624out:
 	return id, length
-l631:
+l627:
 	id, length = 47, pos
-	if accept('r') { goto l637 }
+	if accept('n') { goto l633 }
+	if r < '0' { goto l630out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l630out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l630out }
+	if accept2('m') { goto l213 }
+	if r < 'o' { goto l630out }
+	if accept2('z') { goto l213 }
+l630out:
+	return id, length
+l633:
+	id, length = 23, pos
 	if r < '0' { goto l634out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l634out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l634out }
-	if accept2('q') { goto l251 }
-	if r < 's' { goto l634out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l634out:
 	return id, length
 l637:
 	id, length = 47, pos
-	if accept('n') { goto l643 }
+	if accept('r') { goto l643 }
 	if r < '0' { goto l640out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l640out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l640out }
-	if accept2('m') { goto l251 }
-	if r < 'o' { goto l640out }
-	if accept2('z') { goto l251 }
+	if accept2('q') { goto l213 }
+	if r < 's' { goto l640out }
+	if accept2('z') { goto l213 }
 l640out:
 	return id, length
 l643:
-	id, length = 22, pos
-	if r < '0' { goto l644out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l644out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l644out }
-	if accept2('z') { goto l251 }
-l644out:
-	return id, length
-l647:
 	id, length = 47, pos
-	if accept('p') { goto l653 }
-	if r < '0' { goto l650out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l650out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l650out }
-	if accept2('o') { goto l251 }
-	if r < 'q' { goto l650out }
-	if accept2('z') { goto l251 }
-l650out:
+	if accept('u') { goto l651 }
+	if accept('y') { goto l661 }
+	if r < '0' { goto l648out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l648out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l648out }
+	if accept2('t') { goto l213 }
+	if r < 'v' { goto l648out }
+	if accept2('x') { goto l213 }
+	if accept('z') { goto l213 }
+l648out:
 	return id, length
-l653:
+l651:
 	id, length = 47, pos
-	if accept('a') { goto l659 }
-	if r < '0' { goto l656out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l656out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'b' { goto l656out }
-	if accept2('z') { goto l251 }
-l656out:
+	if accept('e') { goto l657 }
+	if r < '0' { goto l654out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l654out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l654out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l654out }
+	if accept2('z') { goto l213 }
+l654out:
 	return id, length
-l659:
-	id, length = 47, pos
-	if accept('w') { goto l665 }
+l657:
+	id, length = 24, pos
+	if r < '0' { goto l658out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l658out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l658out }
+	if accept2('z') { goto l213 }
+l658out:
+	return id, length
+l661:
+	id, length = 25, pos
 	if r < '0' { goto l662out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l662out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l662out }
-	if accept2('v') { goto l251 }
-	if r < 'x' { goto l662out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l662out:
 	return id, length
 l665:
 	id, length = 47, pos
-	if accept('n') { goto l671 }
+	if accept('s') { goto l671 }
 	if r < '0' { goto l668out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l668out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l668out }
-	if accept2('m') { goto l251 }
-	if r < 'o' { goto l668out }
-	if accept2('z') { goto l251 }
+	if accept2('r') { goto l213 }
+	if r < 't' { goto l668out }
+	if accept2('z') { goto l213 }
 l668out:
 	return id, length
 l671:
-	id, length = 23, pos
-	if r < '0' { goto l672out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l672out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l672out }
-	if accept2('z') { goto l251 }
-l672out:
-	return id, length
-l675:
 	id, length = 47, pos
-	if accept('r') { goto l681 }
+	if accept('e') { goto l677 }
+	if r < '0' { goto l674out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l674out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l674out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l674out }
+	if accept2('z') { goto l213 }
+l674out:
+	return id, length
+l677:
+	id, length = 26, pos
 	if r < '0' { goto l678out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l678out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l678out }
-	if accept2('q') { goto l251 }
-	if r < 's' { goto l678out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l678out:
 	return id, length
 l681:
 	id, length = 47, pos
-	if accept('u') { goto l689 }
-	if accept('y') { goto l699 }
+	if accept('h') { goto l689 }
+	if accept('i') { goto l711 }
 	if r < '0' { goto l686out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l686out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l686out }
-	if accept2('t') { goto l251 }
-	if r < 'v' { goto l686out }
-	if accept2('x') { goto l251 }
-	if accept('z') { goto l251 }
+	if accept2('g') { goto l213 }
+	if r < 'j' { goto l686out }
+	if accept2('z') { goto l213 }
 l686out:
 	return id, length
 l689:
 	id, length = 47, pos
-	if accept('e') { goto l695 }
+	if accept('i') { goto l695 }
 	if r < '0' { goto l692out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l692out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l692out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l692out }
-	if accept2('z') { goto l251 }
+	if accept2('h') { goto l213 }
+	if r < 'j' { goto l692out }
+	if accept2('z') { goto l213 }
 l692out:
 	return id, length
 l695:
-	id, length = 24, pos
-	if r < '0' { goto l696out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l696out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l696out }
-	if accept2('z') { goto l251 }
-l696out:
-	return id, length
-l699:
-	id, length = 25, pos
-	if r < '0' { goto l700out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l700out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l700out }
-	if accept2('z') { goto l251 }
-l700out:
-	return id, length
-l703:
 	id, length = 47, pos
-	if accept('s') { goto l709 }
-	if r < '0' { goto l706out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l706out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l706out }
-	if accept2('r') { goto l251 }
-	if r < 't' { goto l706out }
-	if accept2('z') { goto l251 }
-l706out:
+	if accept('l') { goto l701 }
+	if r < '0' { goto l698out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l698out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l698out }
+	if accept2('k') { goto l213 }
+	if r < 'm' { goto l698out }
+	if accept2('z') { goto l213 }
+l698out:
 	return id, length
-l709:
+l701:
 	id, length = 47, pos
-	if accept('e') { goto l715 }
-	if r < '0' { goto l712out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l712out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l712out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l712out }
-	if accept2('z') { goto l251 }
-l712out:
+	if accept('e') { goto l707 }
+	if r < '0' { goto l704out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l704out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l704out }
+	if accept2('d') { goto l213 }
+	if r < 'f' { goto l704out }
+	if accept2('z') { goto l213 }
+l704out:
 	return id, length
-l715:
-	id, length = 26, pos
-	if r < '0' { goto l716out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l716out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l716out }
-	if accept2('z') { goto l251 }
-l716out:
+l707:
+	id, length = 27, pos
+	if r < '0' { goto l708out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l708out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l708out }
+	if accept2('z') { goto l213 }
+l708out:
 	return id, length
-l719:
+l711:
 	id, length = 47, pos
-	if accept('h') { goto l727 }
-	if accept('i') { goto l749 }
+	if accept('t') { goto l717 }
+	if r < '0' { goto l714out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l714out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l714out }
+	if accept2('s') { goto l213 }
+	if r < 'u' { goto l714out }
+	if accept2('z') { goto l213 }
+l714out:
+	return id, length
+l717:
+	id, length = 47, pos
+	if accept('h') { goto l723 }
+	if r < '0' { goto l720out }
+	if accept2('9') { goto l213 }
+	if r < 'A' { goto l720out }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
+	if r < 'a' { goto l720out }
+	if accept2('g') { goto l213 }
+	if r < 'i' { goto l720out }
+	if accept2('z') { goto l213 }
+l720out:
+	return id, length
+l723:
+	id, length = 28, pos
 	if r < '0' { goto l724out }
-	if accept2('9') { goto l251 }
+	if accept2('9') { goto l213 }
 	if r < 'A' { goto l724out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
+	if accept2('Z') { goto l213 }
+	if accept('_') { goto l213 }
 	if r < 'a' { goto l724out }
-	if accept2('g') { goto l251 }
-	if r < 'j' { goto l724out }
-	if accept2('z') { goto l251 }
+	if accept2('z') { goto l213 }
 l724out:
 	return id, length
 l727:
-	id, length = 47, pos
-	if accept('i') { goto l733 }
-	if r < '0' { goto l730out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l730out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l730out }
-	if accept2('h') { goto l251 }
-	if r < 'j' { goto l730out }
-	if accept2('z') { goto l251 }
-l730out:
-	return id, length
-l733:
-	id, length = 47, pos
-	if accept('l') { goto l739 }
-	if r < '0' { goto l736out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l736out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l736out }
-	if accept2('k') { goto l251 }
-	if r < 'm' { goto l736out }
-	if accept2('z') { goto l251 }
-l736out:
-	return id, length
-l739:
-	id, length = 47, pos
-	if accept('e') { goto l745 }
-	if r < '0' { goto l742out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l742out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l742out }
-	if accept2('d') { goto l251 }
-	if r < 'f' { goto l742out }
-	if accept2('z') { goto l251 }
-l742out:
-	return id, length
-l745:
-	id, length = 27, pos
-	if r < '0' { goto l746out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l746out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l746out }
-	if accept2('z') { goto l251 }
-l746out:
-	return id, length
-l749:
-	id, length = 47, pos
-	if accept('t') { goto l755 }
-	if r < '0' { goto l752out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l752out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l752out }
-	if accept2('s') { goto l251 }
-	if r < 'u' { goto l752out }
-	if accept2('z') { goto l251 }
-l752out:
-	return id, length
-l755:
-	id, length = 47, pos
-	if accept('h') { goto l761 }
-	if r < '0' { goto l758out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l758out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l758out }
-	if accept2('g') { goto l251 }
-	if r < 'i' { goto l758out }
-	if accept2('z') { goto l251 }
-l758out:
-	return id, length
-l761:
-	id, length = 28, pos
-	if r < '0' { goto l762out }
-	if accept2('9') { goto l251 }
-	if r < 'A' { goto l762out }
-	if accept2('Z') { goto l251 }
-	if accept('_') { goto l251 }
-	if r < 'a' { goto l762out }
-	if accept2('z') { goto l251 }
-l762out:
-	return id, length
-l765:
 	id, length = 43, pos
 	return id, length
-l767:
-	if accept('|') { goto l770 }
+l729:
+	if accept('|') { goto l732 }
 	return id, length
-l770:
+l732:
 	id, length = 29, pos
 	return id, length
-l772:
+l734:
 	id, length = 44, pos
 	return id, length
-l774:
+l736:
 	id, length = 0, pos
 	return id, length
 }
@@ -3082,11 +3028,6 @@ state1:
 accept, errorSet = true, 36
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0028, RugoTOK_002e, RugoTOK_005b:
-// '[' on a new line starts a new array literal statement, not an index Suffix.
-// This disambiguates `expr\n[1, 2, 3]` (two statements) from `expr[idx]` (index).
-if Symbol(p.tok.Ch) == RugoTOK_005b && p.tok.Position().Line != p.lastShiftLine {
-	break
-}
 r = p.add(r, p.Suffix())
 goto state1
 }
@@ -3961,7 +3902,6 @@ return p.stop(r, accept, errorSet)
 func (p *Parser) shift() (r int32) {
 	r = p.tokIndex
 	if !p.eof {
-		p.lastShiftLine = p.tok.Position().Line
 		p.tok = p.Scan()
 		p.tokIndex++
 		p.eof = p.tok.Ch == rune(RugoTOK_EOF)

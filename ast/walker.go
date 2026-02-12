@@ -8,6 +8,15 @@ import (
 	"github.com/rubiojr/rugo/parser"
 )
 
+// UserError represents a user-facing error (bad source code) rather than
+// an internal compiler error. The compiler uses this to avoid wrapping
+// the message with "internal compiler error".
+type UserError struct {
+	Msg string
+}
+
+func (e *UserError) Error() string { return e.Msg }
+
 // walker converts the flat []int32 AST from egg into typed AST nodes.
 type walker struct {
 	p       *parser.Parser
@@ -257,7 +266,10 @@ func (w *walker) walkUseStmt(ast []int32) (Statement, error) {
 	// UseStmt = "use" str_lit .
 	_, ast = w.readToken(ast) // skip "use"
 	tok, _ := w.readToken(ast)
-	module := unquoteString(tok.src)
+	module, err := unquoteString(tok.src)
+	if err != nil {
+		return nil, err
+	}
 	return &UseStmt{Module: module}, nil
 }
 
@@ -265,7 +277,10 @@ func (w *walker) walkImportStmt(ast []int32) (Statement, error) {
 	// ImportStmt = "import" str_lit [ "as" ident ] .
 	_, ast = w.readToken(ast) // skip "import"
 	tok, ast := w.readToken(ast)
-	pkg := unquoteString(tok.src)
+	pkg, err := unquoteString(tok.src)
+	if err != nil {
+		return nil, err
+	}
 	alias := ""
 	if len(ast) > 0 && ast[0] >= 0 {
 		nextTok := w.p.Token(ast[0])
@@ -282,7 +297,10 @@ func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {
 	// RequireStmt = "require" str_lit [ "as" ( str_lit | ident ) | "with" ident { ',' ident } ] .
 	_, ast = w.readToken(ast) // skip "require"
 	tok, ast := w.readToken(ast)
-	path := unquoteString(tok.src)
+	path, err := unquoteString(tok.src)
+	if err != nil {
+		return nil, err
+	}
 	alias := ""
 	var with []string
 	// Check for optional "as" alias or "with" clause
@@ -291,7 +309,10 @@ func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {
 		if parser.Symbol(nextTok.Ch) == parser.RugoTOK_as {
 			_, ast = w.readToken(ast) // consume "as"
 			aliasTok, _ := w.readToken(ast)
-			alias = unquoteString(aliasTok.src)
+			alias, err = unquoteString(aliasTok.src)
+			if err != nil {
+				return nil, err
+			}
 		} else if parser.Symbol(nextTok.Ch) == parser.RugoTOK_with {
 			_, ast = w.readToken(ast) // consume "with"
 			// Read comma-separated identifiers
@@ -318,13 +339,15 @@ func (w *walker) walkTestDef(ast []int32) (Statement, error) {
 	// TestDef = "rats" str_lit Body "end" .
 	_, ast = w.readToken(ast) // skip "rats"
 	nameTok, ast := w.readToken(ast)
-	name := unquoteString(nameTok.src)
+	name, err := unquoteString(nameTok.src)
+	if err != nil {
+		return nil, err
+	}
 
 	var body []Statement
 	if len(ast) > 0 && ast[0] < 0 {
 		sym, children, rest := w.readNonTerminal(ast)
 		if sym == parser.RugoBody {
-			var err error
 			body, err = w.walkBody(children)
 			if err != nil {
 				return nil, err
@@ -340,7 +363,10 @@ func (w *walker) walkBenchDef(ast []int32) (Statement, error) {
 	// BenchDef = "bench" str_lit Body "end" .
 	_, ast = w.readToken(ast) // skip "bench"
 	nameTok, ast := w.readToken(ast)
-	name := unquoteString(nameTok.src)
+	name, err := unquoteString(nameTok.src)
+	if err != nil {
+		return nil, err
+	}
 
 	var body []Statement
 	if len(ast) > 0 && ast[0] < 0 {
@@ -901,7 +927,11 @@ func (w *walker) walkPrimary(ast []int32) (Expr, []int32, error) {
 	case parser.Rugofloat_lit:
 		return &FloatLiteral{Value: tok.src}, rest, nil
 	case parser.Rugostr_lit:
-		return &StringLiteral{Value: unquoteString(tok.src)}, rest, nil
+		val, err := unquoteString(tok.src)
+		if err != nil {
+			return nil, rest, err
+		}
+		return &StringLiteral{Value: val}, rest, nil
 	case parser.Rugoraw_str_lit:
 		return &StringLiteral{Value: unquoteRawString(tok.src), Raw: true}, rest, nil
 	case parser.RugoTOK_true:
@@ -1082,7 +1112,7 @@ func (w *walker) walkFnExpr(ast []int32) (Expr, error) {
 }
 
 // unquoteString removes surrounding quotes and processes escape sequences.
-func unquoteString(s string) string {
+func unquoteString(s string) (string, error) {
 	if len(s) >= 2 && s[0] == '"' && s[len(s)-1] == '"' {
 		s = s[1 : len(s)-1]
 	}
@@ -1136,10 +1166,10 @@ func unquoteString(s string) string {
 			}
 			sb.WriteByte(s[i])
 		default:
-			sb.WriteByte(s[i])
+			return "", &UserError{Msg: fmt.Sprintf("unsupported escape sequence \\%c in string literal", next)}
 		}
 	}
-	return sb.String()
+	return sb.String(), nil
 }
 
 // unquoteRawString removes surrounding single quotes and only processes \\ and \'.

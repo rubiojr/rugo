@@ -1,0 +1,41 @@
+# RATS: Test escape sequence edge cases (bug 0320f45)
+# Ensures unsupported/short escape sequences give friendly errors
+# instead of raw Go runtime panics.
+use "test"
+
+rats "single octal digit backslash-0 does not crash"
+  result = test.run("rugo run rats/fixtures/escape_null.rugo")
+  test.assert_eq(result["status"], 0)
+end
+
+rats "single octal digit backslash-7 produces 1-byte string"
+  result = test.run("rugo run rats/fixtures/escape_single_octal.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "1")
+end
+
+rats "two octal digits backslash-77 produces 1-byte string"
+  result = test.run("rugo run rats/fixtures/escape_two_octal.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "1")
+end
+
+rats "three octal digit escape still works"
+  result = test.run("rugo run rats/fixtures/escape_short_octal.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello")
+end
+
+rats "unknown escape backslash-q gives friendly error"
+  result = test.run("rugo run rats/fixtures/escape_unknown.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unsupported escape sequence")
+  test.assert_contains(result["output"], '\q')
+end
+
+rats "unsupported unicode escape backslash-u gives friendly error"
+  result = test.run("rugo run rats/fixtures/escape_unicode.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unsupported escape sequence")
+  test.assert_contains(result["output"], '\u')
+end

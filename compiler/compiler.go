@@ -357,6 +357,10 @@ func (c *Compiler) parseSource(source, displayName string) (*ast.Program, error)
 
 	prog, err := ast.WalkWithLineMap(p, flatAST, lineMap)
 	if err != nil {
+		var ue *ast.UserError
+		if errors.As(err, &ue) {
+			return nil, fmt.Errorf("%s: %s", displayName, ue.Msg)
+		}
 		return nil, fmt.Errorf("%s: internal compiler error: %w (please report this bug)", displayName, err)
 	}
 

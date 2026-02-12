@@ -436,7 +436,7 @@ func (g *codeGen) generateTestHarness(tests []*ast.TestDef, topStmts []ast.State
 	g.writeln("rugo_test_runner([]rugoTestCase{")
 	g.indent++
 	for i, t := range tests {
-		escapedName := strings.ReplaceAll(t.Name, `"`, `\"`)
+		escapedName := goEscapeString(t.Name)
 		g.writef("{Name: \"%s\", Func: rugo_test_%d},\n", escapedName, i)
 	}
 	g.indent--
@@ -503,7 +503,7 @@ func (g *codeGen) generateBenchHarness(benches []*ast.BenchDef, topStmts []ast.S
 	g.writeln("rugo_bench_runner([]rugoBenchCase{")
 	g.indent++
 	for i, b := range benches {
-		escapedName := strings.ReplaceAll(b.Name, `"`, `\"`)
+		escapedName := goEscapeString(b.Name)
 		g.writef("{Name: \"%s\", Func: rugo_bench_%d},\n", escapedName, i)
 	}
 	g.indent--
