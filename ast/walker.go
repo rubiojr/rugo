@@ -627,7 +627,7 @@ func (w *walker) walkAssignOrExpr(ast []int32) (Statement, error) {
 		if dot, ok := lhs.(*DotExpr); ok {
 			return &DotAssignStmt{Object: dot.Object, Field: dot.Field, Value: rhs}, nil
 		}
-		return nil, fmt.Errorf("invalid assignment target")
+		return nil, &UserError{Msg: "cannot assign to non-variable — left side of '=' must be a variable, index expression (x[i]), or field access (x.y)"}
 	}
 	return &ExprStmt{Expression: lhs}, nil
 }
