@@ -150,7 +150,7 @@ Different blocks create different scoping boundaries:
 
 **Loops create their own scope** — `while` and `for` loops can read and modify outer variables, but variables first assigned inside the loop body are local to that iteration scope. The `for` loop variable is also local.
 
-**Lambdas capture outer scope** — they can read variables from the enclosing scope, but variables assigned inside the lambda don't leak out.
+**Lambdas capture outer scope** — they can read and modify variables from the enclosing scope. Variables assigned inside the lambda don't leak out.
 
 ### Control Flow
 
@@ -247,7 +247,7 @@ ops = {"add" => fn(a, b) a + b end}
 puts ops["add"](2, 3)   # 5
 ```
 
-Lambdas compile to Go variadic anonymous functions: `func(_args ...interface{}) interface{} { ... }`. Parameters are unpacked from the variadic args. The last expression in a lambda body is implicitly returned. Closures capture variables by reference (Go's default), so mutations to captured variables are visible inside the lambda.
+Lambdas compile to Go variadic anonymous functions: `func(_args ...interface{}) interface{} { ... }`. Parameters are unpacked from the variadic args. The last expression in a lambda body is implicitly returned. Closures capture variables by reference, so mutations to captured variables are visible outside the lambda.
 
 When a variable holding a lambda is called, the codegen emits a runtime type assertion: `variable.(func(...interface{}) interface{})(args...)`. Calling a non-function variable produces a friendly compile error: `cannot call x — not a function`.
 

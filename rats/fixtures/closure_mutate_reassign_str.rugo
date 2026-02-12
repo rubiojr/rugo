@@ -1,0 +1,7 @@
+# Closure mutating a string variable
+name = "before"
+change = fn()
+  name = "after"
+end
+change()
+puts name

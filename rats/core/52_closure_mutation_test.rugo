@@ -1,0 +1,101 @@
+use "test"
+
+# ===========================================================
+# Closure mutation regression tests (bug cd112f0)
+#
+# Closures capture variables from their enclosing scope.
+# Both reading and mutating captured variables work correctly.
+# Hash field mutation (the factory pattern) is the idiomatic
+# approach for mutable state, but direct mutation is also supported.
+# ===========================================================
+
+# --- Read-only closures ---
+
+rats "closure: read-only capture from outer scope"
+  result = test.run("rugo run rats/fixtures/closure_readonly_multi.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "20")
+  test.assert_eq(result["lines"][1], "30")
+end
+
+rats "closure: read-only capture from function param (factory)"
+  result = test.run("rugo run rats/fixtures/closure_readonly_nested.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "Hello, World!")
+  test.assert_eq(result["lines"][1], "Hi, Rugo!")
+end
+
+rats "closure: read-only make_adder pattern"
+  result = test.run("rugo run rats/fixtures/fn_closure.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "15")
+end
+
+rats "closure: capture ref reads latest value"
+  result = test.run("rugo run rats/fixtures/fn_capture_ref.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "20")
+end
+
+# --- Hash field mutation (idiomatic factory pattern) ---
+
+rats "closure: hash field mutation via factory pattern"
+  result = test.run("rugo run rats/fixtures/closure_hash_mutate.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "3")
+end
+
+rats "closure: setting new hash fields from closure"
+  result = test.run("rugo run rats/fixtures/closure_hash_field_set.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "Alice")
+  test.assert_eq(result["lines"][1], "30")
+end
+
+# --- Array mutation via hash ---
+
+rats "closure: array append via hash in closure"
+  result = test.run("rugo run rats/fixtures/closure_array_append.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "3")
+  test.assert_eq(result["lines"][1], "a")
+  test.assert_eq(result["lines"][2], "c")
+end
+
+# --- Direct variable mutation in closures (bug cd112f0) ---
+
+rats "closure: mutate int counter works"
+  result = test.run("rugo run rats/fixtures/closure_mutate_counter.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "1")
+end
+
+rats "closure: mutate int with compound assignment works"
+  result = test.run("rugo run rats/fixtures/closure_mutate_compound.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "1")
+end
+
+rats "closure: mutate string reassignment works"
+  result = test.run("rugo run rats/fixtures/closure_mutate_reassign_str.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "after")
+end
+
+rats "closure: mutate bool reassignment works"
+  result = test.run("rugo run rats/fixtures/closure_mutate_bool.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "true")
+end
+
+rats "closure: mutate var in loop works"
+  result = test.run("rugo run rats/fixtures/closure_mutate_loop.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "6")
+end
+
+rats "closure: nested lambda mutation works"
+  result = test.run("rugo run rats/fixtures/closure_mutate_nested.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "1")
+end

@@ -60,6 +60,23 @@ x = 20
 puts f()   # 20
 ```
 
+Closures can also mutate captured variables:
+
+```ruby
+def make_counter()
+  count = 0
+  inc = fn()
+    count = count + 1
+    return count
+  end
+  return inc
+end
+
+counter = make_counter()
+puts counter()   # 1
+puts counter()   # 2
+```
+
 ## Lambdas in Data Structures
 
 ```ruby

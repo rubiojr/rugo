@@ -1,0 +1,17 @@
+# Hash field mutation in closure (factory pattern)
+def make_counter()
+  c = {value: 0}
+  c["increment"] = fn()
+    c.value += 1
+  end
+  c["get"] = fn()
+    return c.value
+  end
+  return c
+end
+
+counter = make_counter()
+counter.increment()
+counter.increment()
+counter.increment()
+puts counter.get()

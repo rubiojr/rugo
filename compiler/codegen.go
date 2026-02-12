@@ -45,6 +45,9 @@ type codeGen struct {
 	currentFunc     *ast.FuncDef          // current function being generated (for type lookups)
 	varTypeScope    string            // override scope key for varType lookups (test/bench blocks)
 	inSpawn         int               // nesting depth of spawn blocks (>0 means inside spawn)
+	lambdaDepth     int               // nesting depth of lambda bodies (>0 means inside fn)
+	lambdaScopeBase []int             // scope index at each lambda entry (stack)
+	lambdaOuterFunc []*ast.FuncDef    // enclosing function at each lambda entry (stack)
 }
 
 // generate produces Go source code from a ast.Program AST.
@@ -821,6 +824,13 @@ func (g *codeGen) stmtError(s ast.Statement, err error) error {
 			msg = msg[idx+2:]
 		}
 	}
+	// Strip existing "file:N: " prefix if present (from nested stmtError)
+	if g.sourceFile != "" && strings.HasPrefix(msg, g.sourceFile+":") {
+		rest := msg[len(g.sourceFile)+1:]
+		if idx := strings.Index(rest, ": "); idx != -1 {
+			msg = rest[idx+2:]
+		}
+	}
 	if line > 0 && g.sourceFile != "" {
 		return fmt.Errorf("%s:%d: %s", g.sourceFile, line, msg)
 	}
@@ -836,6 +846,13 @@ func (g *codeGen) writeAssign(a *ast.AssignStmt) error {
 	exprType := g.exprType(a.Value)
 	varType := g.varType(a.Target)
 
+	// For captured variables inside lambdas, use the outer scope's type
+	// to ensure proper type conversion in the generated Go code.
+	isCaptured := g.isCapturedVar(a.Target)
+	if isCaptured {
+		varType = g.capturedVarType(a.Target)
+	}
+
 	// If the variable is dynamic but the expression is typed, box the value.
 	expr, err := g.exprString(a.Value)
 	if err != nil {
@@ -843,6 +860,21 @@ func (g *codeGen) writeAssign(a *ast.AssignStmt) error {
 	}
 	if !varType.IsTyped() && exprType.IsTyped() {
 		expr = fmt.Sprintf("interface{}(%s)", expr)
+	}
+	// If the variable is typed but the expression is dynamic, add a type assertion.
+	// This happens when a captured variable (declared typed in outer scope)
+	// is assigned a dynamic expression inside a lambda.
+	if isCaptured && varType.IsTyped() && !exprType.IsTyped() {
+		switch varType {
+		case TypeInt:
+			expr = fmt.Sprintf("rugo_to_int(%s)", expr)
+		case TypeFloat:
+			expr = fmt.Sprintf("rugo_to_float(%s)", expr)
+		case TypeString:
+			expr = fmt.Sprintf("rugo_to_string(%s)", expr)
+		case TypeBool:
+			expr = fmt.Sprintf("rugo_to_bool(%s)", expr)
+		}
 	}
 
 	if g.isDeclared(a.Target) || g.handlerVars[a.Target] {
@@ -1740,13 +1772,26 @@ func (g *codeGen) spawnExpr(e *ast.SpawnExpr) (string, error) {
 func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 	// Emit: func(_args ...interface{}) interface{} { p1 := _args[0]; ...; body; return nil }
 	bodyCode, cerr := g.captureOutput(func() error {
+		g.lambdaDepth++
+		g.lambdaOuterFunc = append(g.lambdaOuterFunc, g.currentFunc)
 		g.pushScope()
+		g.lambdaScopeBase = append(g.lambdaScopeBase, len(g.scopes)-1)
 		for _, p := range e.Params {
 			g.declareVar(p)
 		}
 		savedFunc := g.currentFunc
 		savedInFunc := g.inFunc
 		g.inFunc = true
+
+		restoreLambda := func() {
+			g.inFunc = savedInFunc
+			g.currentFunc = savedFunc
+			g.lambdaScopeBase = g.lambdaScopeBase[:len(g.lambdaScopeBase)-1]
+			g.lambdaOuterFunc = g.lambdaOuterFunc[:len(g.lambdaOuterFunc)-1]
+			g.popScope()
+			g.lambdaDepth--
+		}
+
 		for i, s := range e.Body {
 			isLast := i == len(e.Body)-1
 			if isLast {
@@ -1755,9 +1800,7 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 					g.emitLineDirective(es.StmtLine())
 					val, verr := g.exprString(es.Expression)
 					if verr != nil {
-						g.popScope()
-						g.inFunc = savedInFunc
-						g.currentFunc = savedFunc
+						restoreLambda()
 						return verr
 					}
 					g.writef("return %s\n", val)
@@ -1765,15 +1808,11 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 				}
 			}
 			if werr := g.writeStmt(s); werr != nil {
-				g.popScope()
-				g.inFunc = savedInFunc
-				g.currentFunc = savedFunc
+				restoreLambda()
 				return werr
 			}
 		}
-		g.inFunc = savedInFunc
-		g.currentFunc = savedFunc
-		g.popScope()
+		restoreLambda()
 		return nil
 	})
 	if cerr != nil {
@@ -2050,6 +2089,42 @@ func (g *codeGen) isDeclared(name string) bool {
 		}
 	}
 	return false
+}
+
+// isCapturedVar returns true if name is declared in an outer scope beyond
+// the current lambda boundary (i.e., it's a captured variable from the
+// enclosing scope, not a local variable of the lambda).
+func (g *codeGen) isCapturedVar(name string) bool {
+	if g.lambdaDepth == 0 {
+		return false
+	}
+	base := g.lambdaScopeBase[len(g.lambdaScopeBase)-1]
+	// Check if declared in scopes below the lambda boundary
+	for i := len(g.scopes) - 1; i >= base; i-- {
+		if g.scopes[i][name] {
+			return false // declared inside the lambda
+		}
+	}
+	for i := base - 1; i >= 0; i-- {
+		if g.scopes[i][name] {
+			return true // declared outside the lambda
+		}
+	}
+	return false
+}
+
+// capturedVarType returns the inferred type of a captured variable
+// by looking it up in the enclosing function's scope.
+func (g *codeGen) capturedVarType(name string) RugoType {
+	if g.typeInfo == nil || g.lambdaDepth == 0 {
+		return TypeDynamic
+	}
+	outerFunc := g.lambdaOuterFunc[len(g.lambdaOuterFunc)-1]
+	scope := ""
+	if outerFunc != nil {
+		scope = funcKey(outerFunc)
+	}
+	return g.typeInfo.VarType(scope, name)
 }
 
 func (g *codeGen) declareConst(name string, line int) {

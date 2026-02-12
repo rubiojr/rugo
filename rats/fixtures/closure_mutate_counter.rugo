@@ -1,0 +1,12 @@
+# Bug cd112f0: direct variable mutation in closure
+def make_counter()
+  count = 0
+  inc = fn()
+    count = count + 1
+    return count
+  end
+  return inc
+end
+
+counter = make_counter()
+puts counter()

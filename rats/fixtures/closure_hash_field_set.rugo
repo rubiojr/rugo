@@ -1,0 +1,9 @@
+# Setting new hash fields from a closure
+state = {count: 0}
+track = fn(key, val)
+  state[key] = val
+end
+track("name", "Alice")
+track("age", 30)
+puts state.name
+puts state.age
