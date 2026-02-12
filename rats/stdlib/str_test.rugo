@@ -1,0 +1,21 @@
+use "test"
+use "str"
+
+rats "str.rune_count with ASCII"
+  test.assert_eq(str.rune_count("hello"), 5)
+  test.assert_eq(str.rune_count(""), 0)
+  test.assert_eq(str.rune_count("a"), 1)
+end
+
+rats "str.rune_count with multibyte Unicode"
+  test.assert_eq(str.rune_count("─"), 1)
+  test.assert_eq(str.rune_count("╭──╮"), 4)
+  test.assert_eq(str.rune_count("héllo"), 5)
+  test.assert_eq(str.rune_count("日本語"), 3)
+end
+
+rats "str.rune_count vs len"
+  s = "café"
+  test.assert_eq(str.rune_count(s), 4)
+  test.assert_true(len(s) > str.rune_count(s))
+end

@@ -71,3 +71,13 @@ parts = ["a=1", "b=2", "c=3"]
 str.join(parts, "&")   # "a=1&b=2&c=3"
 str.join([1, 2, 3], "-")   # "1-2-3"
 ```
+
+## rune_count
+
+Returns the number of Unicode characters (runes) in a string. Unlike `len`, which returns byte count, `rune_count` counts visible characters.
+
+```ruby
+str.rune_count("hello")   # 5
+str.rune_count("café")    # 4 (len returns 5)
+str.rune_count("日本語")   # 3
+```

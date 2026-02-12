@@ -25,7 +25,9 @@ func init() {
 			{Name: "lower", Args: []modules.ArgType{modules.String}, Doc: "Convert a string to lowercase."},
 			{Name: "index", Args: []modules.ArgType{modules.String, modules.String}, Doc: "Return the index of the first occurrence of the substring, or -1."},
 			{Name: "join", Args: []modules.ArgType{modules.Any, modules.String}, Doc: "Join an array of strings with a separator."},
+			{Name: "rune_count", Args: []modules.ArgType{modules.String}, Doc: "Return the number of Unicode characters (runes) in a string."},
 		},
-		Runtime: modules.CleanRuntime(runtime),
+		GoImports: []string{"unicode/utf8"},
+		Runtime:   modules.CleanRuntime(runtime),
 	})
 }

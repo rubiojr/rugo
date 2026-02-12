@@ -3,6 +3,7 @@ package strmod
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 )
 
 // --- str module ---
@@ -60,4 +61,8 @@ func (*Str) Join(v interface{}, sep string) interface{} {
 		strs[i] = fmt.Sprintf("%v", p)
 	}
 	return strings.Join(strs, sep)
+}
+
+func (*Str) RuneCount(s string) interface{} {
+	return utf8.RuneCountInString(s)
 }

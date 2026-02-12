@@ -19,7 +19,9 @@ func init() {
 			{Name: "exit", Args: []modules.ArgType{modules.Int}, Doc: "Exit the program with the given status code."},
 			{Name: "file_exists", Args: []modules.ArgType{modules.String}, Doc: "Return true if the file or directory exists."},
 			{Name: "is_dir", Args: []modules.ArgType{modules.String}, Doc: "Return true if the path exists and is a directory."},
+			{Name: "read_line", Args: []modules.ArgType{modules.String}, Doc: "Print the prompt and read a line from stdin. Returns the input without trailing newline."},
 		},
-		Runtime: modules.CleanRuntime(runtime),
+		GoImports: []string{"bufio"},
+		Runtime:   modules.CleanRuntime(runtime),
 	})
 }

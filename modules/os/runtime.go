@@ -1,6 +1,7 @@
 package osmod
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -34,4 +35,20 @@ func (*OS) FileExists(path string) interface{} {
 func (*OS) IsDir(path string) interface{} {
 	fi, err := os.Stat(path)
 	return err == nil && fi.IsDir()
+}
+
+var stdinReader *bufio.Reader
+
+func (*OS) ReadLine(prompt string) interface{} {
+	if prompt != "" {
+		fmt.Print(prompt)
+	}
+	if stdinReader == nil {
+		stdinReader = bufio.NewReader(os.Stdin)
+	}
+	line, err := stdinReader.ReadString('\n')
+	if err != nil {
+		return strings.TrimRight(line, "\r\n")
+	}
+	return strings.TrimRight(line, "\r\n")
 }

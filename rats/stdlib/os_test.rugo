@@ -1,0 +1,38 @@
+use "test"
+use "os"
+
+rats "os.read_line reads a line from stdin"
+  code = <<~CODE
+    use "os"
+    answer = os.read_line("")
+    puts "got:" + answer
+  CODE
+  test.write_file("readline_test.rugo", code)
+  result = test.run("echo hello | rugo run readline_test.rugo")
+  test.assert_eq(result.status, 0)
+  test.assert_eq(result.output, "got:hello")
+end
+
+rats "os.read_line with prompt"
+  code = <<~CODE
+    use "os"
+    answer = os.read_line("name? ")
+    puts answer
+  CODE
+  test.write_file("readline_prompt.rugo", code)
+  result = test.run("echo Alice | rugo run readline_prompt.rugo")
+  test.assert_eq(result.status, 0)
+  test.assert_contains(result.output, "Alice")
+end
+
+rats "os.read_line returns empty on EOF"
+  code = <<~CODE
+    use "os"
+    answer = os.read_line("")
+    puts "len:" + type_of(len(answer))
+  CODE
+  test.write_file("readline_eof.rugo", code)
+  result = test.run("echo -n '' | rugo run readline_eof.rugo")
+  test.assert_eq(result.status, 0)
+  test.assert_contains(result.output, "len:")
+end

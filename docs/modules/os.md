@@ -38,3 +38,18 @@ Terminates the program with the given exit code.
 os.exit(0)   # success
 os.exit(1)   # failure
 ```
+
+## read_line
+
+Prints the prompt and reads a line from stdin. Returns the input without the trailing newline. Returns an empty string on EOF.
+
+```ruby
+name = os.read_line("What is your name? ")
+puts "Hello, #{name}!"
+```
+
+Pass an empty string to read without a prompt:
+
+```ruby
+line = os.read_line("")
+```
