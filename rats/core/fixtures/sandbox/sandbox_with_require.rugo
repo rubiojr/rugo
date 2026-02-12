@@ -1,0 +1,4 @@
+# Main with sandbox + require of clean library
+sandbox ro: ["/etc"]
+require "lib_clean" as "helper"
+puts(helper.helper_add(1, 2))

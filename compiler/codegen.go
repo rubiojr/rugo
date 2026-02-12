@@ -88,9 +88,11 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	var setupFileFunc *ast.FuncDef
 	var teardownFileFunc *ast.FuncDef
 	funcLines := make(map[string]int) // track first definition line per function
+	seenNonDecl := false              // tracks whether sandbox can still appear (only use/import/require allowed before it)
 	for _, s := range prog.Statements {
 		switch st := s.(type) {
 		case *ast.FuncDef:
+			seenNonDecl = true
 			// Detect duplicate function definitions
 			key := st.Name
 			if st.Namespace != "" {
@@ -112,10 +114,12 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			}
 			funcs = append(funcs, st)
 		case *ast.TestDef:
+			seenNonDecl = true
 			if g.testMode {
 				tests = append(tests, st)
 			}
 		case *ast.BenchDef:
+			seenNonDecl = true
 			benches = append(benches, st)
 		case *ast.RequireStmt:
 			continue
@@ -126,6 +130,9 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			g.goImports[st.Package] = st.Alias
 			continue
 		case *ast.SandboxStmt:
+			if seenNonDecl {
+				return "", fmt.Errorf("%s:%d: sandbox must appear before any other code (only use, import, and require may precede it)", g.sourceFile, st.SourceLine)
+			}
 			// Only one sandbox directive allowed in the entire source tree.
 			if g.sandbox != nil && g.sandbox != g.cliSandbox {
 				return "", fmt.Errorf("%s:%d: duplicate sandbox directive (only one allowed per program)", g.sourceFile, st.SourceLine)
@@ -140,6 +147,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			}
 			continue
 		default:
+			seenNonDecl = true
 			if assign, ok := s.(*ast.AssignStmt); ok && assign.Namespace != "" {
 				nsVars = append(nsVars, assign)
 			} else {
@@ -978,6 +986,8 @@ func (g *codeGen) writeStmt(s ast.Statement) error {
 		return nil
 	case *ast.ImportStmt:
 		return nil
+	case *ast.SandboxStmt:
+		err = fmt.Errorf("sandbox must be a top-level directive — it cannot appear inside functions, blocks, or control flow")
 	default:
 		err = fmt.Errorf("unknown statement type: %T", s)
 	}

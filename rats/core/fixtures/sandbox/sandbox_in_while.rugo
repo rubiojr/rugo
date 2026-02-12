@@ -1,0 +1,5 @@
+# Sandbox inside while — should be a compile error
+while false
+  sandbox ro: "/etc"
+end
+puts("hi")

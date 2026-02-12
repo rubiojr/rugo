@@ -1,0 +1,5 @@
+# Sandbox after use/import/require — should work
+use "os"
+import "strings"
+sandbox ro: ["/etc"]
+puts("declarations before sandbox ok")

@@ -1,0 +1,3 @@
+# Main script that requires a library with sandbox
+require "lib_with_sandbox" as "helper"
+puts(helper.helper_greet("world"))

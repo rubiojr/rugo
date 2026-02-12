@@ -1,0 +1,8 @@
+# Sandbox with a function defined — sandbox should still apply
+sandbox ro: ["/etc"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
+
+def greet()
+  return "hello from sandboxed function"
+end
+
+puts(greet())

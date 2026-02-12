@@ -763,6 +763,8 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 		// Expression statements (e.g. web.get route registrations) are also included.
 		for _, rs := range reqProg.Statements {
 			switch st := rs.(type) {
+			case *ast.SandboxStmt:
+				return nil, fmt.Errorf("%s:%d: sandbox directive not allowed in required files — it must be in the main entry file", reqSourceFile, st.SourceLine)
 			case *ast.UseStmt:
 				c.imports[st.Module] = true
 				resolved = append(resolved, st)

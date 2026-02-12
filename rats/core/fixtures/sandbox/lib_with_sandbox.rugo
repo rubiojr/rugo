@@ -1,0 +1,6 @@
+# Required library that illegally declares sandbox
+sandbox ro: ["/etc"]
+
+def helper_greet(name)
+  return "hello #{name}"
+end

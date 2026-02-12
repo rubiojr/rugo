@@ -1,0 +1,6 @@
+# Sandbox with rw: write to a file and read it back via Go bridge
+sandbox rw: ["/tmp"]
+import "os"
+os.write_file("/tmp/rugo_sandbox_write_check", "sandbox_write_test", 0644)
+data = os.read_file("/tmp/rugo_sandbox_write_check")
+puts(data)

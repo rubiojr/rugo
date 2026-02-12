@@ -1,0 +1,6 @@
+# Sandbox with rwx: write and read back via Go bridge
+sandbox rwx: ["/tmp"]
+import "os"
+os.write_file("/tmp/rugo_sandbox_rwx_check", "rwx_test", 0644)
+data = os.read_file("/tmp/rugo_sandbox_rwx_check")
+puts(data)

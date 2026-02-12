@@ -1,0 +1,3 @@
+# Main requires lib that requires another lib with sandbox (nested)
+require "lib_nested_require" as "outer"
+puts(outer.outer_greet("world"))

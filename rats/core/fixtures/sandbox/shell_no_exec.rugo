@@ -1,0 +1,4 @@
+# Shell without /usr — cannot find binaries
+sandbox ro: ["/tmp"], rw: ["/dev/null"]
+result = `cat /tmp/rugo_sandbox_test_readable`
+puts(result)

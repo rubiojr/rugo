@@ -1,0 +1,4 @@
+# Shell read from allowed path
+sandbox ro: ["/tmp"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
+result = `cat /tmp/rugo_sandbox_test_readable`
+puts(result)

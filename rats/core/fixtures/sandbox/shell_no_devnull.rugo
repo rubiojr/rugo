@@ -1,0 +1,4 @@
+# Shell without /dev/null — shell itself fails
+sandbox rox: ["/usr", "/lib"], ro: ["/tmp"]
+result = `cat /tmp/rugo_sandbox_test_readable`
+puts(result)

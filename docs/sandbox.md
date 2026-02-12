@@ -48,7 +48,15 @@ rugo: warning: sandbox requires Linux with Landlock support, running unrestricte
 
 ### Script Directive
 
-The `sandbox` directive is a top-level statement. Place it at the beginning of your script, before any code that performs I/O.
+The `sandbox` directive is a top-level statement. It must appear before any code — only `use`, `import`, and `require` may precede it.
+
+```ruby
+use "os"
+import "strings"
+sandbox ro: ["/etc"], rw: ["/tmp"]
+
+# code goes here
+```
 
 ```ruby
 # Bare sandbox: deny ALL filesystem and network access
@@ -137,6 +145,32 @@ rugo run --sandbox --ro /etc script.rugo
 ```
 
 ## Important Notes
+
+### Placement Rules
+
+- `sandbox` must appear **before any other code**. Only `use`, `import`, and `require` may precede it.
+- Only **one** `sandbox` directive is allowed per program.
+- `sandbox` is **not allowed in required files** — it must be in the main entry file.
+- `sandbox` **cannot appear inside** functions, blocks, or control flow.
+
+```ruby
+# ✓ Valid
+use "os"
+import "strings"
+sandbox ro: ["/etc"]
+puts("ok")
+
+# ✗ Invalid — def before sandbox
+def helper()
+  return 1
+end
+sandbox ro: ["/etc"]
+
+# ✗ Invalid — sandbox inside function
+def foo()
+  sandbox ro: ["/etc"]
+end
+```
 
 ### What Landlock Restricts
 

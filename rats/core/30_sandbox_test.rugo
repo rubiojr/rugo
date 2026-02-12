@@ -1,23 +1,25 @@
-# RATS: Sandbox (Landlock) tests
+# RATS: Sandbox (Landlock) comprehensive tests
 use "test"
 use "os"
+use "str"
 
 def skip_if_no_landlock()
-  # Landlock requires Linux — skip on other platforms
   result = test.run("uname -s")
   if result["status"] != 0 || result["output"] != "Linux"
     test.skip("Landlock requires Linux")
   end
 end
 
-rats "sandbox: bare sandbox emits correct code"
+# ── Codegen / emit tests ────────────────────────────────────────────
+
+rats "emit: bare sandbox generates Restrict() call"
   result = test.run("rugo emit rats/core/fixtures/sandbox/bare.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "landlock.V5.BestEffort()")
   test.assert_contains(result["output"], "rugo_sandbox_cfg.Restrict()")
 end
 
-rats "sandbox: full permissions emit all rule types"
+rats "emit: full permissions generate all rule types"
   result = test.run("rugo emit rats/core/fixtures/sandbox/full_perms.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "rugo_sandbox_fs_ro")
@@ -28,21 +30,124 @@ rats "sandbox: full permissions emit all rule types"
   test.assert_contains(result["output"], "landlock.BindTCP")
 end
 
-rats "sandbox: non-linux warning in emit"
+rats "emit: non-linux warning is generated"
   result = test.run("rugo emit rats/core/fixtures/sandbox/bare.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "runtime.GOOS")
   test.assert_contains(result["output"], "sandbox requires Linux")
 end
 
-rats "sandbox: bare sandbox runs"
+rats "emit: single values (not arrays) work"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/single_values.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "/etc")
+  test.assert_contains(result["output"], "/tmp")
+  test.assert_contains(result["output"], "/usr/bin")
+  test.assert_contains(result["output"], "ConnectTCP(uint16(443))")
+  test.assert_contains(result["output"], "BindTCP(uint16(8080))")
+end
+
+rats "emit: network-only sandbox still restricts filesystem"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/network_only.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "RestrictPaths()")
+  test.assert_contains(result["output"], "RestrictNet(rugo_sandbox_net...)")
+end
+
+rats "emit: fs-only sandbox still restricts network"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/fs_only.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "RestrictPaths(rugo_sandbox_fs...)")
+  test.assert_contains(result["output"], "RestrictNet()")
+end
+
+rats "emit: sandbox with function definitions"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/sandbox_with_func.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "rugo_sandbox_cfg")
+  test.assert_contains(result["output"], "hello from sandboxed function")
+end
+
+rats "emit: no sandbox means no landlock imports"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/no_sandbox.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_false(str.contains(result["output"], "go-landlock"))
+  test.assert_false(str.contains(result["output"], "rugo_sandbox_cfg"))
+end
+
+rats "emit: sandbox with require of clean library"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/sandbox_with_require.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "rugo_sandbox_cfg")
+  test.assert_contains(result["output"], "rugons_helper_helper_add")
+end
+
+rats "emit: sandbox after use/import/require compiles"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/sandbox_after_decls.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "rugo_sandbox_cfg")
+end
+
+# ── Placement / compile error tests ─────────────────────────────────
+
+rats "error: duplicate sandbox directive"
+  result = test.run("rugo run rats/core/fixtures/sandbox/duplicate.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "duplicate sandbox directive")
+end
+
+rats "error: sandbox in required file"
+  result = test.run("rugo run rats/core/fixtures/sandbox/require_sandbox_lib.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox directive not allowed in required files")
+end
+
+rats "error: sandbox in nested required file"
+  result = test.run("rugo run rats/core/fixtures/sandbox/require_nested_sandbox.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox directive not allowed in required files")
+end
+
+rats "error: sandbox after assignment"
+  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_after_code.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox must appear before any other code")
+end
+
+rats "error: sandbox after def"
+  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_after_def.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox must appear before any other code")
+end
+
+rats "error: sandbox inside function"
+  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_in_func.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox must be a top-level directive")
+end
+
+rats "error: sandbox inside if block"
+  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_in_if.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox must be a top-level directive")
+end
+
+rats "error: sandbox inside while block"
+  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_in_while.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox must be a top-level directive")
+end
+
+# ── Runtime enforcement: Go bridge ──────────────────────────────────
+
+rats "enforce: bare sandbox runs"
   skip_if_no_landlock()
   result = test.run("rugo run rats/core/fixtures/sandbox/bare.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox active")
 end
 
-rats "sandbox: allowed read-only path works"
+rats "enforce: ro allows reading via shell"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
   result = test.run("rugo run rats/core/fixtures/sandbox/ro_allowed.rugo")
@@ -50,7 +155,7 @@ rats "sandbox: allowed read-only path works"
   test.assert_contains(result["output"], "landlock_ok")
 end
 
-rats "sandbox: denied path is blocked"
+rats "enforce: missing ro path is denied via shell"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
   result = test.run("rugo run rats/core/fixtures/sandbox/ro_denied.rugo")
@@ -58,16 +163,100 @@ rats "sandbox: denied path is blocked"
   test.assert_contains(result["output"], "Permission denied")
 end
 
-rats "sandbox: CLI --sandbox override blocks script permissions"
+rats "enforce: ro denies write via Go bridge"
   skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/ro_denies_write.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "permission denied")
+end
+
+rats "enforce: rw allows write and read via Go bridge"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/rw_write.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox_write_test")
+end
+
+rats "enforce: rwx allows write and read via Go bridge"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/rwx_path.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "rwx_test")
+end
+
+rats "enforce: sandbox with function definitions"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_with_func.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello from sandboxed function")
+end
+
+rats "enforce: sandbox with require of clean library"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_with_require.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+end
+
+rats "enforce: no sandbox runs unrestricted"
   test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
-  # Script allows /tmp but CLI override removes it
-  result = test.run("rugo run --sandbox --rox /usr --rox /lib --rw /dev/null rats/core/fixtures/sandbox/ro_allowed.rugo")
+  result = test.run("rugo run rats/core/fixtures/sandbox/no_sandbox.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "landlock_ok")
+end
+
+# ── Runtime enforcement: shell commands ─────────────────────────────
+
+rats "enforce: shell rw allows write and read"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/shell_rw.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "shell_write_ok")
+end
+
+rats "enforce: shell ro allows reading"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "shell_read_ok")
+  result = test.run("rugo run rats/core/fixtures/sandbox/shell_ro_read.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "shell_read_ok")
+end
+
+rats "enforce: shell ro denies write"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/shell_ro_denies_write.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "Permission denied")
 end
 
-rats "sandbox: CLI --sandbox with allowed path works"
+rats "enforce: shell without /dev/null fails"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "data")
+  result = test.run("rugo run rats/core/fixtures/sandbox/shell_no_devnull.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "/dev/null")
+  test.assert_contains(result["output"], "permission denied")
+end
+
+rats "enforce: shell without rox /usr cannot execute"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "data")
+  result = test.run("rugo run rats/core/fixtures/sandbox/shell_no_exec.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "permission denied")
+end
+
+# ── CLI flag tests ──────────────────────────────────────────────────
+
+rats "cli: --sandbox bare denies file access"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
+  result = test.run("rugo run --sandbox --rox /usr --rox /lib --rw /dev/null rats/core/fixtures/sandbox/no_sandbox.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "Permission denied")
+end
+
+rats "cli: --sandbox with --ro allows reading"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
   result = test.run("rugo run --sandbox --ro /tmp --rox /usr --rox /lib --rw /dev/null rats/core/fixtures/sandbox/no_sandbox.rugo")
@@ -75,15 +264,25 @@ rats "sandbox: CLI --sandbox with allowed path works"
   test.assert_contains(result["output"], "landlock_ok")
 end
 
-rats "sandbox: no sandbox directive runs unrestricted"
+rats "cli: --sandbox overrides script directive entirely"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
+  # Script allows /tmp via ro, but CLI override removes it
+  result = test.run("rugo run --sandbox --rox /usr --rox /lib --rw /dev/null rats/core/fixtures/sandbox/ro_allowed.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "Permission denied")
+end
+
+rats "cli: --sandbox without permission flags = deny all"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
+  result = test.run("rugo run --sandbox rats/core/fixtures/sandbox/no_sandbox.rugo")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "cli: no --sandbox flag means no sandboxing"
   test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
   result = test.run("rugo run rats/core/fixtures/sandbox/no_sandbox.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "landlock_ok")
-end
-
-rats "sandbox: duplicate sandbox directive is a compile error"
-  result = test.run("rugo run rats/core/fixtures/sandbox/duplicate.rugo")
-  test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "duplicate sandbox directive")
 end

@@ -1,0 +1,6 @@
+# Library that requires another library with sandbox
+require "lib_with_sandbox" as "inner"
+
+def outer_greet(name)
+  return "outer: #{name}"
+end

@@ -1,0 +1,3 @@
+# Sandbox with only filesystem restrictions (no network)
+sandbox ro: ["/etc"], rw: ["/tmp"]
+puts("fs only sandbox")

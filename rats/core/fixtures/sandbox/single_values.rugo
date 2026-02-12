@@ -1,0 +1,3 @@
+# Sandbox with single values (not arrays)
+sandbox ro: "/etc", rw: "/tmp", rox: "/usr/bin", connect: 443, bind: 8080
+puts("single values ok")
