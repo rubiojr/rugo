@@ -80,6 +80,13 @@ func Execute(version string) {
 				Action:    emitAction,
 			},
 			{
+				Name:            "eval",
+				Usage:           "Evaluate Rugo source from an argument or stdin",
+				ArgsUsage:       "[source]",
+				SkipFlagParsing: true,
+				Action:          evalAction,
+			},
+			{
 				Name:      "rats",
 				Usage:     "Run tests from _test.rugo files and Rugo files with inline rats blocks",
 				ArgsUsage: "[file.rugo | directory]",
@@ -228,6 +235,37 @@ func emitAction(ctx context.Context, cmd *cli.Command) error {
 	}
 	fmt.Print(src)
 	return nil
+}
+
+func evalAction(ctx context.Context, cmd *cli.Command) error {
+	var source string
+	if cmd.NArg() > 0 {
+		source = strings.Join(cmd.Args().Slice(), " ")
+	} else if !term.IsTerminal(int(os.Stdin.Fd())) {
+		data, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			return fmt.Errorf("reading stdin: %w", err)
+		}
+		source = string(data)
+	}
+
+	if strings.TrimSpace(source) == "" {
+		return fmt.Errorf("usage: rugo eval '<source>' or echo '<source>' | rugo eval")
+	}
+
+	tmpDir, err := os.MkdirTemp("", "rugo-eval-*")
+	if err != nil {
+		return fmt.Errorf("creating temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	srcFile := filepath.Join(tmpDir, "eval.rugo")
+	if err := os.WriteFile(srcFile, []byte(source), 0644); err != nil {
+		return fmt.Errorf("writing source: %w", err)
+	}
+
+	comp := &compiler.Compiler{BaseDir: tmpDir}
+	return comp.Run(srcFile)
 }
 
 func modTidyAction(ctx context.Context, cmd *cli.Command) error {

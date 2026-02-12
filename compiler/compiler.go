@@ -180,33 +180,11 @@ func (c *Compiler) Run(filename string, extraArgs ...string) error {
 		return err
 	}
 
-	// Write to build cache directory with go module
-	tmpDir, err := makeBuildDir()
+	tmpDir, binFile, err := buildBinary(result)
 	if err != nil {
-		return fmt.Errorf("creating build dir: %w", err)
+		return err
 	}
 	defer os.RemoveAll(tmpDir)
-
-	goFile := filepath.Join(tmpDir, "main.go")
-	if err := os.WriteFile(goFile, []byte(result.GoSource), 0644); err != nil {
-		return fmt.Errorf("writing Go source: %w", err)
-	}
-
-	goMod := goModContent(result.Program)
-	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
-		return fmt.Errorf("writing go.mod: %w", err)
-	}
-
-	// Build to a binary first, then run it
-	binFile := filepath.Join(tmpDir, "rugo_program")
-	buildCmd := exec.Command("go", "build", "-mod=mod", "-ldflags=-s -w", "-o", binFile, ".")
-	buildCmd.Dir = tmpDir
-	buildCmd.Env = appendGoNoSumCheck(os.Environ())
-	var buildStderr bytes.Buffer
-	buildCmd.Stderr = &buildStderr
-	if err := buildCmd.Run(); err != nil {
-		return translateBuildError(buildStderr.String(), result.SourceFile)
-	}
 
 	cmd := exec.Command(binFile, extraArgs...)
 	cmd.Stdout = os.Stdout
@@ -220,6 +198,79 @@ func (c *Compiler) Run(filename string, extraArgs ...string) error {
 		return err
 	}
 	return nil
+}
+
+// CapturedOutput holds the result of RunCapture.
+type CapturedOutput struct {
+	Output   string
+	ExitCode int
+}
+
+// RunCapture compiles and runs a Rugo source file, capturing combined
+// stdout/stderr output instead of passing it through. Returns the captured
+// output and exit code. A non-zero exit code is not treated as an error.
+func (c *Compiler) RunCapture(filename string, extraArgs ...string) (*CapturedOutput, error) {
+	result, err := c.Compile(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	tmpDir, binFile, err := buildBinary(result)
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(tmpDir)
+
+	cmd := exec.Command(binFile, extraArgs...)
+	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	out, err := cmd.CombinedOutput()
+	output := strings.TrimRight(string(out), "\n")
+
+	exitCode := 0
+	if err != nil {
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			return nil, fmt.Errorf("running compiled binary: %w", err)
+		}
+	}
+
+	return &CapturedOutput{Output: output, ExitCode: exitCode}, nil
+}
+
+// buildBinary compiles a CompileResult to a native binary in a temp directory.
+// Returns the temp dir path and binary path. The caller must defer os.RemoveAll
+// on the returned tmpDir.
+func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
+	tmpDir, err = makeBuildDir()
+	if err != nil {
+		return "", "", fmt.Errorf("creating build dir: %w", err)
+	}
+
+	goFile := filepath.Join(tmpDir, "main.go")
+	if err := os.WriteFile(goFile, []byte(result.GoSource), 0644); err != nil {
+		os.RemoveAll(tmpDir)
+		return "", "", fmt.Errorf("writing Go source: %w", err)
+	}
+
+	goMod := goModContent(result.Program)
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
+		os.RemoveAll(tmpDir)
+		return "", "", fmt.Errorf("writing go.mod: %w", err)
+	}
+
+	binFile = filepath.Join(tmpDir, "rugo_program")
+	buildCmd := exec.Command("go", "build", "-mod=mod", "-ldflags=-s -w", "-o", binFile, ".")
+	buildCmd.Dir = tmpDir
+	buildCmd.Env = appendGoNoSumCheck(os.Environ())
+	var buildStderr bytes.Buffer
+	buildCmd.Stderr = &buildStderr
+	if err := buildCmd.Run(); err != nil {
+		os.RemoveAll(tmpDir)
+		return "", "", translateBuildError(buildStderr.String(), result.SourceFile)
+	}
+
+	return tmpDir, binFile, nil
 }
 
 // Build compiles a Rugo source file to a native binary.

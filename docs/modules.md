@@ -25,6 +25,7 @@ puts resp.body
 | [cli](modules/cli.md) | CLI app builder with commands, flags, and dispatch |
 | [color](modules/color.md) | ANSI terminal colors and styles |
 | [conv](modules/conv.md) | Type conversions |
+| [eval](modules/eval.md) | Compile and run Rugo code at runtime |
 | [fmt](modules/fmt.md) | String formatting (sprintf, printf) |
 | [http](modules/http.md) | HTTP client |
 | [json](modules/json.md) | JSON parsing and encoding |

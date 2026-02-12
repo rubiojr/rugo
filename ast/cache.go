@@ -12,7 +12,7 @@ import (
 )
 
 //go:embed nodes.go walker.go preprocess.go parse.go
-var astSources embed.FS
+var Sources embed.FS
 
 // goModTemplate is the go.mod for the cached AST module.
 // It declares the same module path as rugo so the replace directive works,
@@ -50,12 +50,12 @@ func EnsureCache() (string, error) {
 	if err := os.MkdirAll(astDir, 0755); err != nil {
 		return "", fmt.Errorf("creating ast cache dir: %w", err)
 	}
-	entries, err := fs.ReadDir(astSources, ".")
+	entries, err := fs.ReadDir(Sources, ".")
 	if err != nil {
 		return "", fmt.Errorf("reading embedded ast sources: %w", err)
 	}
 	for _, e := range entries {
-		data, err := fs.ReadFile(astSources, e.Name())
+		data, err := fs.ReadFile(Sources, e.Name())
 		if err != nil {
 			return "", fmt.Errorf("reading embedded %s: %w", e.Name(), err)
 		}
@@ -89,9 +89,9 @@ func EnsureCache() (string, error) {
 // cacheHash returns a short hash of the embedded sources for cache keying.
 func cacheHash() string {
 	h := sha256.New()
-	entries, _ := fs.ReadDir(astSources, ".")
+	entries, _ := fs.ReadDir(Sources, ".")
 	for _, e := range entries {
-		data, _ := fs.ReadFile(astSources, e.Name())
+		data, _ := fs.ReadFile(Sources, e.Name())
 		h.Write(data)
 	}
 	h.Write(parser.Source)

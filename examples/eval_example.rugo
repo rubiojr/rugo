@@ -1,0 +1,27 @@
+# Eval module example
+#
+# Compile and run Rugo code at runtime.
+# Requires Go toolchain on PATH.
+
+use "eval"
+
+# Run a simple expression
+result = eval.run("puts 1 + 1")
+puts "Output: " + result["output"]
+status = result["status"]
+puts "Status: #{status}"
+
+# Run a multiline program
+source = <<RUGO
+def greet(name)
+  return "hello " + name
+end
+
+puts(greet("world"))
+RUGO
+result = eval.run(source)
+puts "Multiline: " + result["output"]
+
+# Run a file
+result = eval.file("examples/hello.rugo")
+puts "File: " + result["output"]

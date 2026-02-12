@@ -1,0 +1,55 @@
+use "test"
+
+rats "rugo eval with inline argument"
+  result = test.run("rugo eval 'puts 1 + 1'")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "2")
+end
+
+rats "rugo eval with stdin pipe"
+  result = test.run("echo 'puts \"hello from pipe\"' | rugo eval")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello from pipe")
+end
+
+rats "rugo eval with heredoc"
+  cmd = <<~CMD
+    rugo eval <<'EOF'
+    puts "hello from heredoc"
+    x = 10 + 20
+    puts x
+    EOF
+  CMD
+  result = test.run(cmd)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello from heredoc")
+  test.assert_eq(result["lines"][1], "30")
+end
+
+rats "rugo eval with multiline program"
+  cmd = <<~CMD
+    rugo eval 'def add(a, b)
+      return a + b
+    end
+    puts(add(1, 2))'
+  CMD
+  result = test.run(cmd)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "3")
+end
+
+rats "rugo eval no args shows usage"
+  result = test.run("rugo eval < /dev/null")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "usage")
+end
+
+rats "rugo eval propagates exit code"
+  result = test.run("rugo eval 'exit(42)'")
+  test.assert_eq(result["status"], 42)
+end
+
+rats "rugo eval compilation error"
+  result = test.run("rugo eval 'def'")
+  test.assert_neq(result["status"], 0)
+end

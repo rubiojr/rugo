@@ -1,0 +1,73 @@
+use "test"
+use "eval"
+
+rats "eval.run returns output and status 0"
+  result = eval.run("puts 1 + 1")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "2")
+end
+
+rats "eval.run returns lines array"
+  result = eval.run("puts \"hello\"\nputs \"world\"")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello")
+  test.assert_eq(result["lines"][1], "world")
+end
+
+rats "eval.run captures exit code"
+  result = eval.run("exit(42)")
+  test.assert_eq(result["status"], 42)
+end
+
+rats "eval.run captures runtime errors"
+  result = eval.run("x = [1, 2]\nputs(x[99])")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "eval.run handles empty output"
+  result = eval.run("x = 1")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "")
+end
+
+rats "eval.file runs a file"
+  result = eval.file("examples/hello.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "Hello")
+end
+
+rats "eval.file with temp file"
+  tmpdir = test.tmpdir()
+  test.write_file(tmpdir + "/simple.rugo", "puts(\"eval works\")")
+  result = eval.file(tmpdir + "/simple.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "eval works")
+end
+
+rats "eval.run with multiline program"
+  source = <<RUGO
+def greet(name)
+  return "hello " + name
+end
+
+puts(greet("world"))
+RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello world")
+end
+
+rats "try/or catches eval compile errors"
+  result = try eval.run("def") or nil
+  test.assert_nil(result)
+end
+
+rats "try/or catches eval.file errors"
+  result = try eval.file("nonexistent.rugo") or nil
+  test.assert_nil(result)
+end
+
+rats "try/or passes through successful eval"
+  result = try eval.run("puts 42") or nil
+  test.assert_eq(result["output"], "42")
+end

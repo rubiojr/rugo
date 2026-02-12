@@ -1,40 +1,41 @@
 use "test"
 use "str"
+use "eval"
 
 rats "exit with no args exits with code 0"
-  result = test.run("rugo run rats/fixtures/exit_bare.rugo")
+  result = eval.file("rats/fixtures/exit_bare.rugo")
   test.assert_eq(result["status"], 0)
 end
 
 rats "exit(0) exits with code 0"
-  result = test.run("rugo run rats/fixtures/exit_zero.rugo")
+  result = eval.file("rats/fixtures/exit_zero.rugo")
   test.assert_eq(result["status"], 0)
 end
 
 rats "exit(1) exits with code 1"
-  result = test.run("rugo run rats/fixtures/exit_one.rugo")
+  result = eval.file("rats/fixtures/exit_one.rugo")
   test.assert_eq(result["status"], 1)
 end
 
 rats "exit(42) exits with code 42"
-  result = test.run("rugo run rats/fixtures/exit_42.rugo")
+  result = eval.file("rats/fixtures/exit_42.rugo")
   test.assert_eq(result["status"], 42)
 end
 
 rats "exit stops execution"
-  result = test.run("rugo run rats/fixtures/exit_stops.rugo")
+  result = eval.file("rats/fixtures/exit_stops.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "before")
   test.assert_eq(str.contains(result["output"], "SHOULD NOT PRINT"), false)
 end
 
 rats "exit with paren-free syntax"
-  result = test.run("rugo run rats/fixtures/exit_paren_free.rugo")
+  result = eval.file("rats/fixtures/exit_paren_free.rugo")
   test.assert_eq(result["status"], 5)
 end
 
 rats "exit inside a function"
-  result = test.run("rugo run rats/fixtures/exit_in_func.rugo")
+  result = eval.file("rats/fixtures/exit_in_func.rugo")
   test.assert_eq(result["status"], 3)
   test.assert_eq(str.contains(result["output"], "SHOULD NOT PRINT"), false)
 end
