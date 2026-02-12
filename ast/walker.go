@@ -120,8 +120,14 @@ func (w *walker) walkProgram() (*Program, error) {
 		// Skip EOF token
 		if children[0] >= 0 {
 			tok := w.p.Token(children[0])
-			if parser.Symbol(tok.Ch) == parser.RugoTOK_EOF {
+			ch := parser.Symbol(tok.Ch)
+			if ch == parser.RugoTOK_EOF {
 				break
+			}
+			// Skip ';' statement separators (injected by preprocessor)
+			if ch == parser.RugoTOK_003b {
+				_, children = w.readToken(children)
+				continue
 			}
 		}
 		var stmt Statement
@@ -436,9 +442,17 @@ func (w *walker) walkParamList(ast []int32) []string {
 }
 
 func (w *walker) walkBody(ast []int32) ([]Statement, error) {
-	// Body = { Statement } .
+	// Body = { Statement | ';' } .
 	var stmts []Statement
 	for len(ast) > 0 {
+		// Skip ';' statement separators (injected by preprocessor)
+		if ast[0] >= 0 {
+			tok := w.p.Token(ast[0])
+			if parser.Symbol(tok.Ch) == parser.RugoTOK_003b {
+				_, ast = w.readToken(ast)
+				continue
+			}
+		}
 		stmt, rest, err := w.walkStatement(ast)
 		if err != nil {
 			return nil, err

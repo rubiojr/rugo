@@ -101,6 +101,12 @@ func StripComments(src string) (string, error) {
 // Returns the preprocessed source and a line map (preprocessed line 0-indexed
 // → original line 1-indexed). If lineMap is nil, the mapping is 1:1.
 func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
+	// Reject user-written semicolons — they are reserved for internal use
+	// by the preprocessor to disambiguate array literals on new lines.
+	if err := RejectSemicolons(src); err != nil {
+		return "", nil, err
+	}
+
 	// Rewrite hash colon syntax before other transformations:
 	//   {foo: "bar"}  →  {"foo" => "bar"}
 	src, err := ExpandHashColonSyntax(src)
@@ -303,6 +309,11 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 
 	// Desugar bare append: append(x, ...) → x = append(x, ...)
 	joined = ExpandBareAppend(joined)
+
+	// Insert ';' before lines starting with '[' to disambiguate array literals
+	// from index suffix operations. Without this, `expr\n[1, 2, 3]` would be
+	// parsed as `expr[1, 2, 3]` (index) instead of two separate statements.
+	joined = InsertArraySeparators(joined)
 
 	return joined, tryLineMap, nil
 }
@@ -2146,4 +2157,55 @@ func segmentWithPipedArg(seg string, piped string, funcs map[string]bool) string
 	}
 	// Fallback: treat as function call
 	return firstTok + "(" + piped + ")"
+}
+
+// RejectSemicolons scans source for user-written semicolons outside strings
+// and returns an error if found. Semicolons are reserved for internal use by
+// the preprocessor as statement separators.
+func RejectSemicolons(src string) error {
+	inDouble := false
+	inSingle := false
+	escaped := false
+	line := 1
+	for i := 0; i < len(src); i++ {
+		ch := src[i]
+		if ch == '\n' {
+			line++
+		}
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if ch == ';' && !inDouble && !inSingle {
+			return fmt.Errorf("line %d: semicolons are not supported in Rugo", line)
+		}
+	}
+	return nil
+}
+
+// InsertArraySeparators inserts ';' before lines that start with '[' (after
+// optional whitespace) to disambiguate array literals from index suffix
+// operations across line boundaries.
+func InsertArraySeparators(src string) string {
+	lines := strings.Split(src, "\n")
+	for i := 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if len(trimmed) > 0 && trimmed[0] == '[' {
+			indent := lines[i][:len(lines[i])-len(strings.TrimLeft(lines[i], " \t"))]
+			lines[i] = indent + ";" + strings.TrimLeft(lines[i], " \t")
+		}
+	}
+	return strings.Join(lines, "\n")
 }

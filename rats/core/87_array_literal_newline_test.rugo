@@ -74,3 +74,27 @@ rats "array literal with chained methods on new line"
   test.assert_eq(result[1], 20)
   test.assert_eq(result[2], 30)
 end
+
+# ============================================================
+# D. Semicolon Rejection
+# ============================================================
+
+rats "user semicolons produce clear error"
+  script = <<~SCRIPT
+    x = 1; y = 2
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "semicolons are not supported")
+end
+
+rats "semicolons inside strings are fine"
+  script = <<~SCRIPT
+    puts "hello; world"
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello; world")
+end

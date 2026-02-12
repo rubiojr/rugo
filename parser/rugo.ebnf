@@ -2,7 +2,10 @@
 # A minimal Ruby-inspired language that transpiles to Go.
 
 # Entry point
-Program     = { Statement } .
+# ';' is a statement separator injected by the preprocessor to disambiguate
+# array literals on new lines from index suffix operations (e.g. expr\n[1,2,3]).
+# Users should not write ';' directly — the preprocessor rejects it.
+Program     = { Statement | ';' } .
 
 # Statements
 Statement   = UseStmt
@@ -26,7 +29,7 @@ FuncDef     = "def" ident '(' [ ParamList ] ')' Body "end" .
 TestDef     = "rats" str_lit Body "end" .
 BenchDef    = "bench" str_lit Body "end" .
 ParamList   = ident { ',' ident } .
-Body        = { Statement } .
+Body        = { Statement | ';' } .
 IfStmt      = "if" Expr Body { "elsif" Expr Body } [ "else" Body ] "end" .
 WhileStmt   = "while" Expr Body "end" .
 ForStmt     = "for" ident [ ',' ident ] "in" Expr Body "end" .

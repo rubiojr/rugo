@@ -1428,3 +1428,54 @@ func TestExpandHashColonSyntaxRejectsIntegerKeys(t *testing.T) {
 		})
 	}
 }
+
+func TestInsertArraySeparators(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string
+	}{
+		{"array on new line gets separator", "x = []\n[1, 2, 3]", "x = []\n;[1, 2, 3]"},
+		{"indented array on new line", "x = []\n  [1, 2, 3]", "x = []\n  ;[1, 2, 3]"},
+		{"first line array unchanged", "[1, 2, 3]", "[1, 2, 3]"},
+		{"non-array line unchanged", "x = 1\ny = 2", "x = 1\ny = 2"},
+		{"same-line index unaffected", "arr[0]", "arr[0]"},
+		{"array in function body", "def f()\n  result = []\n  [1, 2].each(fn(x) x end)\nend", "def f()\n  result = []\n  ;[1, 2].each(fn(x) x end)\nend"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := ast.InsertArraySeparators(tt.input)
+			if got != tt.expect {
+				t.Errorf("InsertArraySeparators(%q) =\n  %q\nwant:\n  %q", tt.input, got, tt.expect)
+			}
+		})
+	}
+}
+
+func TestRejectSemicolons(t *testing.T) {
+	tests := []struct {
+		name    string
+		input   string
+		wantErr bool
+	}{
+		{"no semicolons", "x = 1\ny = 2", false},
+		{"semicolon in code", "x = 1; y = 2", true},
+		{"semicolon in double string", `puts "a;b"`, false},
+		{"semicolon in single string", `puts 'a;b'`, false},
+		{"semicolon on second line", "x = 1\ny = 2; z = 3", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ast.RejectSemicolons(tt.input)
+			if tt.wantErr && err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if tt.wantErr && err != nil && !strings.Contains(err.Error(), "semicolons are not supported") {
+				t.Errorf("expected semicolons error, got: %v", err)
+			}
+		})
+	}
+}
