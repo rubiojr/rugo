@@ -76,9 +76,10 @@ rats "pipe: | inside strings not treated as pipe"
 end
 
 rats "pipe: native binary with pipes"
-  result = test.run("rugo build rats/fixtures/pipe_binary.rugo -o /tmp/rugo_pipe_binary")
+  bin = test.tmpdir() + "/rugo_pipe_binary"
+  result = test.run("rugo build rats/fixtures/pipe_binary.rugo -o " + bin)
   test.assert_eq(result["status"], 0)
-  result = test.run("/tmp/rugo_pipe_binary")
+  result = test.run(bin)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello binary")
 end

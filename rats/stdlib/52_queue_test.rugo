@@ -106,9 +106,10 @@ end
 # --- Compilation ---
 
 rats "queue compiles to native binary"
-  result = test.run("rugo build rats/fixtures/queue_build.rugo -o /tmp/rugo_queue_build_test")
+  bin = test.tmpdir() + "/rugo_queue_build_test"
+  result = test.run("rugo build rats/fixtures/queue_build.rugo -o " + bin)
   test.assert_eq(result["status"], 0)
-  result = test.run("/tmp/rugo_queue_build_test")
+  result = test.run(bin)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "hello")
