@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/rubiojr/rugo/gobridge"
 	"github.com/rubiojr/rugo/modules"
@@ -347,6 +348,12 @@ func (c *Compiler) parseSource(source, displayName string) (*ast.Program, error)
 	// Ensure source ends with newline
 	if !strings.HasSuffix(cleaned, "\n") {
 		cleaned += "\n"
+	}
+
+	// Validate: no non-ASCII characters outside strings. The parser's
+	// generated scanner panics on multi-byte UTF-8 in code positions.
+	if err := validateSourceChars(cleaned, displayName, lineMap); err != nil {
+		return nil, err
 	}
 
 	p := &parser.Parser{}
@@ -732,6 +739,12 @@ func firstParseError(err error) error {
 		}
 		return fmt.Errorf("%s", msg)
 	}
+	// Safety net: if the parser panicked (e.g., invalid token index from
+	// unrecognized characters), wrap the raw Go error to avoid leaking
+	// runtime internals to the user.
+	if strings.Contains(err.Error(), "runtime error:") {
+		return fmt.Errorf("syntax error: invalid token in source")
+	}
 	return err
 }
 
@@ -767,6 +780,63 @@ func sourceSnippet(filename string, line, col int) string {
 	}
 
 	return sb.String()
+}
+
+// validateSourceChars checks that the preprocessed source contains no
+// non-ASCII characters outside string literals. The parser's generated
+// scanner cannot handle multi-byte UTF-8 characters in code positions
+// (identifiers, operators, etc.) and panics with a raw Go bounds error.
+// This pre-validation catches the problem early and produces a friendly
+// error with file, line, and column information.
+func validateSourceChars(src, displayName string, lineMap []int) error {
+	inDouble := false
+	inSingle := false
+	escaped := false
+	line := 1
+	col := 1
+	for i := 0; i < len(src); i++ {
+		ch := src[i]
+		if ch == '\n' {
+			line++
+			col = 1
+			continue
+		}
+		if escaped {
+			escaped = false
+			col++
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			col++
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			col++
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			col++
+			continue
+		}
+		if !inDouble && !inSingle && ch >= 0x80 {
+			r, _ := utf8.DecodeRuneInString(src[i:])
+			origLine := line
+			if lineMap != nil && line > 0 && line <= len(lineMap) {
+				origLine = lineMap[line-1]
+			}
+			msg := fmt.Sprintf("%s:%d:%d: invalid character %q (U+%04X) — non-ASCII characters are only allowed inside strings",
+				displayName, origLine, col, r, r)
+			if snippet := sourceSnippet(displayName, origLine, col); snippet != "" {
+				msg += snippet
+			}
+			return fmt.Errorf("%s", msg)
+		}
+		col++
+	}
+	return nil
 }
 
 // formatParseError rewrites a parser error message into a human-friendly format.

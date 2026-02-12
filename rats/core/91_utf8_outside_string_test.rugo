@@ -1,0 +1,52 @@
+# RATS: UTF-8 characters outside strings produce friendly errors (not Go panics)
+use "test"
+use "str"
+
+# --- Bare UTF-8 outside strings must produce a clear error ---
+
+rats "bare UTF-8 box-drawing char produces friendly error"
+  result = test.run("rugo run rats/fixtures/utf8_bare_boxdraw.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "invalid character")
+  test.assert_contains(result["output"], "only allowed inside strings")
+  # Must NOT leak raw Go runtime errors
+  test.assert_false(str.contains(result["output"], "runtime error"))
+  test.assert_false(str.contains(result["output"], "index out of range"))
+end
+
+rats "bare UTF-8 latin char produces friendly error"
+  result = test.run("rugo run rats/fixtures/utf8_bare_latin.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "invalid character")
+  test.assert_contains(result["output"], "only allowed inside strings")
+  test.assert_false(str.contains(result["output"], "runtime error"))
+end
+
+rats "bare UTF-8 CJK char produces friendly error"
+  result = test.run("rugo run rats/fixtures/utf8_bare_cjk.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "invalid character")
+  test.assert_contains(result["output"], "only allowed inside strings")
+  test.assert_false(str.contains(result["output"], "runtime error"))
+end
+
+# --- UTF-8 inside strings must work fine ---
+
+rats "UTF-8 inside double-quoted string works"
+  result = test.run("rugo run rats/fixtures/utf8_in_string_ok.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "╭──")
+  test.assert_contains(result["output"], "──╮")
+end
+
+rats "UTF-8 inside interpolated string works"
+  result = test.run("rugo run rats/fixtures/utf8_in_interpolation_ok.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "╭── world ──╮")
+end
+
+rats "UTF-8 inside raw string works"
+  result = test.run("rugo run rats/fixtures/utf8_in_raw_string_ok.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "╭── raw ──╮")
+end

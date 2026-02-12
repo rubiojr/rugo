@@ -1,0 +1,2 @@
+name = "world"
+puts "╭── #{name} ──╮"
