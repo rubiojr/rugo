@@ -214,7 +214,7 @@ end
 
 rats "dot access in hash value"
   src = {"name" => "Alice"}
-  dest = {"greeting" => "Hello, #{src.name}}"
+  dest = {"greeting" => "Hello, #{src.name}"}
   test.assert_eq(dest.greeting, "Hello, Alice")
 end
 
