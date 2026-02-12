@@ -11,15 +11,15 @@ description: Expert in developing Rugo, a Ruby-inspired language that compiles t
 * Avoid introducing insecure code; ask first. Security is paramount.
 * Read `preference.md` and `rats.md` in the repo root for current design decisions and pending work before making changes.
 * **Load the `rugo-quickstart` skill** when writing `.rugo` scripts or helping users with Rugo language syntax and features.
-* **Load the `rugo-native-module-writer` when you are writing or debuging a Rugo module written in Rugo lang.
-* **Load the idiomatic-rugo** skill when writing Rugo code.
+* **Load the `rugo-native-module-writer`** when you are writing or debugging a Rugo module written in Rugo lang.
+* **Load the `idiomatic-rugo`** skill when writing Rugo code.
 
 ## Project Overview
 
 Rugo is a tiny Ruby-inspired language that compiles to native binaries via Go. The compiler pipeline is:
 
 ```
-.rugo source → preprocess → parse (EBNF grammar) → AST walk → Go codegen → go build
+.rugo source → strip comments → preprocess → parse (EBNF grammar) → AST walk → resolve imports/requires → Go codegen → go build
 ```
 
 Repository: `github.com/rubiojr/rugo`
@@ -28,27 +28,37 @@ Repository: `github.com/rubiojr/rugo`
 
 | Path | Purpose |
 |------|---------|
-| `main.go` | CLI entry point (urfave/cli): `run`, `build`, `emit`, `rats`, `bench`, `doc`, `dev` subcommands |
+| `main.go` | CLI entry point (urfave/cli): `run`, `build`, `emit`, `rats`, `bench`, `doc`, `mod`, `tool`, `dev` subcommands |
 | `parser/` | Generated LL(1) parser from `rugo.ebnf` (do NOT hand-edit `parser.go`) |
 | `parser/rugo.ebnf` | Authoritative grammar — edit this to change syntax |
-| `compiler/` | Compiler pipeline: preprocess → parse → walk → codegen |
-| `compiler/preprocess.go` | Line-by-line preprocessor (shell fallback, paren-free calls, string interpolation) |
-| `compiler/walker.go` | AST walker — transforms parse tree into compiler nodes |
-| `compiler/codegen.go` | Go code generation from compiler nodes |
-| `compiler/nodes.go` | AST node types |
-| `compiler/gobridge/` | Go stdlib bridge: type registry and per-package mapping files |
+| `ast/` | AST package: preprocessor, walker, and typed node definitions |
+| `ast/preprocess.go` | Multi-pass preprocessor (compound assignment, bare append, backticks, try sugar, pipes, paren-free calls, shell fallback) |
+| `ast/walker.go` | AST walker — transforms parse tree into typed AST nodes |
+| `ast/nodes.go` | Typed AST node definitions (Statement and Expr interfaces) |
+| `ast/cache.go` | Build cache management |
+| `compiler/` | Compiler pipeline: codegen + orchestration |
+| `compiler/codegen.go` | Go code generation from AST nodes |
 | `compiler/compiler.go` | Orchestrates: file loading, require resolution, compilation |
+| `gobridge/` | Go stdlib bridge: type registry and per-package mapping files |
+| `gobridge/gobridge.go` | Registry types, API, `Codegen` callback, `RuntimeHelpers` |
+| `remote/` | Remote module resolution, lockfile management |
+| `cmd/` | CLI command implementations |
 | `cmd/dev/` | Developer tools: `modgen` module scaffolding |
 | `doc/` | Documentation extractor: parses `.rugo` doc comments, formats module/bridge docs |
 | `modules/` | Stdlib module registry and built-in modules |
 | `modules/module.go` | Module type, registry API, `CleanRuntime` helper |
-| `modules/{os,http,conv,str,test,bench,fmt,re}/` | Built-in modules (each has registration + `runtime.go`) |
-| `rats/` | RATS regression tests (`_test.rugo` files) |
+| `modules/{ast,bench,cli,color,conv,fmt,http,json,os,queue,re,sqlite,str,test,web}/` | Built-in modules (each has registration + `runtime.go`) |
+| `rats/` | RATS regression tests organized into subdirectories |
+| `rats/core/` | Core language tests (variables, control flow, functions, lambdas, structs, pipes, etc.) |
+| `rats/stdlib/` | Stdlib module tests (cli, color, http, json, web, queue, sqlite, etc.) |
+| `rats/gobridge/` | Go bridge package tests (all 16 bridged packages) |
+| `rats/tools/` | Tool tests (linter, tool command, runmd) |
+| `rats/fixtures/` | Test fixture files |
 | `bench/` | Performance benchmarks (`_bench.rugo` files) |
 | `examples/` | Example `.rugo` scripts |
-| `docs/mods.md` | Module system documentation |
-| `changes.md` | Syntax improvement proposals and status |
-| `script/test` | Rugo test runner script (builds rugo, runs Go tests, discovers and runs examples) |
+| `tools/` | Rugo CLI extensions (linter, fuzz, runmd) |
+| `docs/` | Full documentation (language.md, modules.md, gobridge.md, etc.) |
+| `script/test` | Rugo test runner script |
 
 ## Language Features
 
@@ -57,34 +67,64 @@ Repository: `github.com/rubiojr/rugo`
 * Shell fallback — unknown identifiers at top level run as shell commands
 * Paren-free calls — `puts "hello"` (preprocessor rewrites to `puts("hello")`)
 * String interpolation — `"Hello, #{name}!"`
+* Raw strings — `'no #{interpolation}\n'` (single-quoted, no escape processing)
+* Constants — uppercase identifiers (`PI = 3.14`) are immutable bindings (compile-time error on reassignment)
+* Lambdas — `fn(params) body end` (first-class functions with closures)
+* Structs — `struct Name fields end` with methods via `def Name.method(self, ...)`
+* Pipe operator — `echo "hello" | str.upper | puts` (chains shell + Rugo functions)
+* Built-in collection methods — `.map()`, `.filter()`, `.reduce()`, `.each()`, `.sort_by()`, `.join()`, etc. on arrays and hashes
 * Rugo stdlib modules — `use "http"` → `http.get(url)`
-* Go stdlib bridge — `import "strings"` → `strings.to_upper("hello")` (direct Go calls)
+* Go stdlib bridge — `import "strings"` → `strings.to_upper("hello")` (direct Go calls, 16 packages)
 * User modules — `require "lib"` → `lib.func()`
-* Arrays, hashes, closureless functions
-* Global builtins: `puts`, `print`, `len`, `append`
+* Remote modules — `require "github.com/user/repo@v1.0.0"` with lock files
+* Selective imports — `require "lib" with client, helpers`
+* Arrays, hashes, functions, lambdas
+* Global builtins: `puts`, `print`, `len`, `append`, `raise`, `type_of`, `exit`
+* Bare append sugar — `append arr, val` (preprocessor desugars to `arr = append(arr, val)`)
 * `for..in` loops — `for x in arr`, `for k, v in hash` (iterates arrays and hashes)
 * `break` / `next` — loop control (compiles to Go `break`/`continue`)
 * Index assignment — `arr[0] = x`, `hash["key"] = y`
+* Negative indexing — `arr[-1]` returns last element (Ruby behavior)
+* Slicing — `arr[start, length]`, `str[start, length]` (clamped, Ruby behavior)
 * Compound assignment — `x += 1`, `x -= 1`, `*=`, `/=`, `%=` (preprocessor sugar)
-* Error handling — `try expr or default`, `try expr or err ... end`
+* Error handling — `try expr`, `try expr or default`, `try expr or err ... end`
 * Concurrency — `spawn` (goroutine + task handle), `parallel` (fan-out N, wait all)
 * Task API — `task.value` (block+get result), `task.done` (non-blocking check), `task.wait(n)` (timeout)
+* Doc comments — `#` blocks before `def`/`struct` shown by `rugo doc`
+* CLI extensions — `rugo tool install/list/remove` for compiled Rugo tools
+
+### Variable Scoping
+
+| Block | Own scope? | Sees outer vars? | Vars leak out? |
+|-------|-----------|-------------------|----------------|
+| **Top-level** | Yes (root) | — | — |
+| **`def` function** | Yes | Yes (read-only) | No |
+| **`fn` lambda** | Yes | Yes (captures outer) | No |
+| **`if/elsif/else`** | No (transparent) | Yes | Yes |
+| **`while` loop** | Yes | Yes (read + modify) | No |
+| **`for..in` loop** | Yes | Yes (read + modify) | No |
+| **`spawn` block** | Yes | Yes (shared) | No |
+| **`rats` block** | Yes | No (isolated) | No |
 
 ## Compilation Pipeline
 
-### 1. Preprocessor (`compiler/preprocess.go`)
+### 1. Preprocessor (`ast/preprocess.go`)
 
-Transforms raw `.rugo` source before parsing:
-- Desugars compound assignment: `x += y` → `x = x + y` (also works with index targets like `arr[0] += 1`)
-- Rewrites paren-free function calls: `puts "hi"` → `puts("hi")`
-- Expands string interpolation: `"Hello, #{name}"` → `("Hello, " + __to_s(name) + "")`
-- Converts unknown top-level identifiers to shell fallback: `ls -la` → `__shell__("ls -la")`
-- Expands single-line `try` sugar into block form (skips block keywords like `spawn`, `parallel`)
-- Expands single-line `spawn EXPR` into `spawn\n  EXPR\nend`
-- Handles `use`/`import`/`require` statements
-- Tracks block nesting via `blockStack` for `spawn`/`parallel` end-matching
+Transforms raw `.rugo` source before parsing. Operates in multiple passes:
 
-**Keywords** (not treated as shell commands): `if`, `elsif`, `else`, `end`, `while`, `for`, `in`, `def`, `return`, `require`, `break`, `next`, `true`, `false`, `nil`, `use`, `import`, `test`, `try`, `or`, `spawn`, `parallel`, `bench`
+**Pass 1: Compound assignment** — `x += y` → `x = x + y` (also index targets: `arr[0] += 1`)
+**Pass 1b: Bare append** — `append arr, val` → `arr = append(arr, val)`
+**Pass 2: Backtick expansion** — `` `hostname` `` → `__capture__("hostname")`
+**Pass 3: Try sugar** — `try EXPR or DEFAULT` → multi-line block form
+**Pass 4: Line-by-line processing:**
+1. Pipe expansion — `echo "hi" | str.upper | puts` → nested calls (all-shell pipes left native)
+2. Keywords — left untouched
+3. Assignments — left untouched
+4. Parenthesized calls — left untouched
+5. Known function, paren-free — `puts "hi"` → `puts("hi")`
+6. identifier Unknown `ls -la` → `__shell__("ls -la")` 
+
+**Keywords** (not treated as shell commands): `if`, `elsif`, `else`, `end`, `while`, `for`, `in`, `def`, `return`, `require`, `break`, `next`, `true`, `false`, `nil`, `use`, `import`, `test`, `try`, `or`, `spawn`, `parallel`, `bench`, `struct`, `fn`
 
 **Important:** Shell fallback resolution is positional at top level (function names are only recognized after their `def` line) but forward-referencing inside function bodies. See `preference.md` for details.
 
@@ -94,24 +134,54 @@ Transforms raw `.rugo` source before parsing:
 - **Do NOT hand-edit `parser.go`** — regenerate from the EBNF
 - To regenerate: `egg -o parser.go -package parser -start Program -type Parser -constprefix Rugo rugo.ebnf`
 
-### 3. AST Walker (`compiler/walker.go`)
+### 3. AST Walker (`ast/walker.go`)
 
-Walks the parse tree and produces typed AST nodes defined in `compiler/nodes.go`.
+Walks the parse tree and produces typed AST nodes defined in `ast/nodes.go`. The AST uses Go interfaces with marker methods:
+
+```
+Node (interface)
+ Statement: Program, UseStmt, ImportStmt, RequireStmt, FuncDef, TestDef,
+              IfStmt, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt,
+              ExprStmt, AssignStmt, IndexAssignStmt
+ Expr: BinaryExpr, UnaryExpr, CallExpr, IndexExpr, SliceExpr, DotExpr,
+          IdentExpr, IntLiteral, FloatLiteral, StringLiteral, BoolLiteral,
+          NilLiteral, ArrayLiteral, HashLiteral, TryExpr, SpawnExpr,
+          ParallelExpr, FnExpr
+```
+
+Every statement embeds `BaseStmt` with `SourceLine` for `.rugo` source mapping.
 
 ### 4. Code Generation (`compiler/codegen.go`)
 
 Converts AST nodes to Go source code. Emits:
-- A `main()` function with top-level code
-- User-defined functions as Go functions
-- Module runtime code and wrapper functions
+- A `main()` function with top-level code (or TAP test harness when `rats` blocks present)
+- User-defined functions as Go functions (`rugofn_NAME`)
+- Module runtime code and auto-generated wrapper functions
 - Shell fallback via `exec.Command("sh", "-c", ...)`
-- `for..in` loops via `rugo_iterable()` (returns `[]rugo_kv` for uniform array/hash iteration)
+- `for..in` loops via `rugo_iterable()` / `rugo_iterable_default()`
 - Index assignment via `rugo_index_set()` (type-switches arrays and hashes)
+- Negative indexing via `rugo_array_index()` runtime helper
+- Slicing via `rugo_slice()` for arrays and strings
 - `break`/`next` as Go `break`/`continue`
-- `spawn` as IIFE with goroutine + `rugoTask` struct (result, error capture, done channel)
-- `parallel` as IIFE with `sync.WaitGroup` + `sync.Once` (indexed goroutines, ordered results)
-- Task method dispatch (`.value`/`.done`/`.wait`) via runtime helpers with friendly error messages
-- Import gating: `sync`+`time` conditionally emitted based on `hasSpawn`/`hasParallel`/`usesTaskMethods` AST flags
+- Lambdas as Go variadic anonymous functions
+- `spawn` as IIFE with goroutine + `rugoTask` struct
+- `parallel` as IIFE with `sync.WaitGroup` + `sync.Once`
+- Task method dispatch via `rugo_task_*` runtime helpers
+- Collection methods via `rugo_dot_call` runtime dispatch (`.map`, `.filter`, `.reduce`, etc.)
+- `//line` directives for accurate `.rugo` source locations in panics
+- Import gating: `sync`+`time` conditionally emitted based on AST flags
+- Argument count validation with Rugo-friendly error messages
+
+### Function Naming Conventions
+
+| Rugo construct | Go function name |
+|----------------|-----------------|
+| `def greet(...)` | `rugofn_greet(...)` |
+| `ns.func(...)` (user module) | `rugons_ns_func(...)` |
+| `mod.func(...)` (stdlib module) | `rugo_mod_func(...)` |
+| `puts(...)` | `rugo_puts(...)` |
+| `__shell__(...)` | `rugo_shell(...)` |
+| `__capture__(...)` | `rugo_capture(...)` |
 
 ## Module System
 
@@ -121,13 +191,33 @@ Rugo has three import mechanisms:
 |---------|---------|---------|
 | `use` | Rugo stdlib modules (hand-crafted wrappers) | `use "http"` |
 | `import` | Go stdlib bridge (auto-generated calls) | `import "strings"` |
-| `require` | User `.rugo` files | `require "helpers"` |
+| `require` | User `.rugo` files (local or remote) | `require "helpers"` |
 
 ### Rugo Stdlib Modules (`use`)
 
 Modules self-register via Go `init()` using `modules.Register()`. Each module has:
 - `runtime.go` — Go struct + methods (tagged `//go:build ignore`, embedded as string)
 - Registration file — embeds `runtime.go`, declares function signatures with typed args
+
+Available modules:
+
+| Module | Description |
+|--------|-------------|
+| `ast` | Parse and inspect Rugo source files |
+| `bench` | Benchmark framework |
+| `cli` | CLI app builder with commands, flags, and dispatch |
+| `color` | ANSI terminal colors and styles |
+| `conv` | Type conversions |
+| `fmt` | String formatting (sprintf, printf) |
+| `http` | HTTP client |
+| `json` | JSON parsing and encoding |
+| `os` | Shell execution and process control |
+| `queue` | Thread-safe queue for producer-consumer concurrency |
+| `re` | Regular expressions |
+| `sqlite` | SQLite database access (pure Go, no CGO) |
+| `str` | String utilities |
+| `test` | Testing and assertions |
+| `web` | Chi-inspired HTTP router (routes, middleware, groups, static files) |
 
 ### Creating a new module
 
@@ -156,6 +246,12 @@ Manual steps:
 | `Bool` | `bool` | `rugo_to_bool` |
 | `Any` | `interface{}` | none |
 
+When `Variadic` is true on `FuncDef`, extra arguments beyond `Args` are passed as `...interface{}`.
+
+### External Modules (Custom Rugo Builds)
+
+You can create modules in your own Go packages and build custom Rugo binaries. Create a `main.go` that imports your modules alongside standard ones and calls `cmd.Execute(version)`. See `docs/mods.md` for examples (including `GoDeps` for third-party Go dependencies).
+
 ## Go Stdlib Bridge (`import`)
 
 The `import` keyword gives direct access to whitelisted Go stdlib packages. The compiler generates type-safe Go calls with `interface{}` ↔ typed conversions.
@@ -172,25 +268,37 @@ Function names use `snake_case` in Rugo, auto-mapped to Go's `PascalCase` via th
 
 ### Bridge architecture
 
-- **Registry**: `compiler/gobridge/gobridge.go` — types (`GoType`, `GoFuncSig`, `Package`), registry API (`Register`, `IsPackage`, `Lookup`, `PackageNames`)
-- **Mapping files**: `compiler/gobridge/{strings,strconv,math,rand,filepath,sort,os,time}.go` — each self-registers via `init()`
-- **Codegen**: `compiler/codegen.go` `generateGoBridgeCall()` — emits direct Go calls with type conversions and special-case handling
-- **Adding a new bridge**: Create `compiler/gobridge/newpkg.go` with `init()` calling `Register()` — no other files need editing
+- **Registry**: `gobridge/gobridge.go` — types (`GoType`, `GoFuncSig`, `Package`), registry API (`Register`, `IsPackage`, `Lookup`, `PackageNames`)
+- **Mapping files**: `gobridge/{strings,strconv,math,rand,filepath,sort,os,time,json,base64,hex,crypto,url,unicode,slices,maps}.go` — each self-registers via `init()`
+- **Codegen callback**: `GoFuncSig.Codegen` — bridge files can provide custom code generation for special cases
+- **Runtime helpers**: `GoFuncSig.RuntimeHelpers` — declares Go helper functions emitted into generated code, deduplicated by key
+- **Package options**: `Package.NoGoImport` (runtime-only, no Go import), `Package.ExtraImports` (additional Go imports for helpers)
+- **Codegen**: `compiler/codegen.go` `generateGoBridgeCall()` — uses `Codegen` callback if set, falls back to generic handler
+- **Adding a new bridge**: Create `gobridge/newpkg.go` with `init()` calling `Register()` — no other files need editing
 
-### Whitelisted packages
+### Whitelisted packages (16)
 
-`strings`, `strconv`, `math`, `math/rand/v2`, `path/filepath`, `sort`, `os`, `time`
+`strings`, `strconv`, `math`, `math/rand/v2`, `path/filepath`, `sort`, `os`, `time`, `encoding/json`, `encoding/base64`, `encoding/hex`, `crypto/sha256`, `crypto/md5`, `net/url`, `unicode`, `slices`, `maps`
 
-### Key special cases in codegen
+### Key special cases
+
+Special cases use the `Codegen` callback on `GoFuncSig` (each bridge file owns its own codegen):
 
 - `time.Sleep` — ms→Duration conversion, void wrapped in IIFE
-- `time.Now().Unix()` — method-chain calls, int64→int cast
+- `time.Now().Unix()` — method-chain calls (GoName contains `.`), int64→int cast
 - `os.ReadFile` — []byte→string conversion
 - `os.MkdirAll` — os.FileMode cast for permissions
 - `strconv.FormatInt`/`ParseInt` — int64 conversions
 - `sort.Strings`/`Ints` — copy-in/copy-out (mutate-in-place bridge)
 - `filepath.Split` — tuple return mapped to Rugo array
 - `filepath.Join` — variadic string args
+- `encoding/json` — `rugo_json_prepare()` / `rugo_json_to_rugo()` for map type conversions
+- `encoding/base64` — method-chain on `StdEncoding`/`URLEncoding`, []byte conversions
+- `encoding/hex` — []byte conversions
+- `crypto/sha256`/`md5` — fixed-size array → hex string via `fmt.Sprintf`
+- `net/url.Parse` — struct decomposition into Rugo hash
+- `unicode` — rune extraction via `rugo_utf8_decode()` helper
+- `slices`, `maps` — runtime-only packages (`NoGoImport: true`), custom helper functions
 
 ### Error handling
 
@@ -204,6 +312,37 @@ n = try strconv.atoi("abc") or 0
 `import "os" as go_os` when namespace conflicts with `use "os"`.
 
 See `docs/gobridge.md` for the full developer reference.
+
+## User Modules (`require`) and Remote Modules
+
+### Local requires
+```ruby
+require "helpers"            # loads helpers.rugo, namespace: helpers
+require "lib/utils" as "u"  # loads lib/utils.rugo, namespace: u
+```
+
+Paths resolved relative to calling file. Directory entry points: `<dirname>.rugo` → `main.rugo` → sole `.rugo` file.
+
+### Selective imports with `with`
+```ruby
+require "mylib" with client, helpers          # local directory
+require "github.com/user/lib@v1.0.0" with client, issue  # remote
+```
+
+### Remote modules
+```ruby
+require "github.com/user/rugo-utils@v1.0.0" as "utils"
+```
+
+Cached in `~/.rugo/modules/`. Tagged versions and SHAs cached forever; branches locked to SHA on first fetch.
+
+### Lock files
+
+- `rugo mod tidy` — generates `rugo.lock` recording exact commit SHA for all remote modules
+- `rugo mod update` — re-resolves mutable dependencies
+- `rugo build --frozen` — fails if lock file is stale
+
+See `remote/` package for implementation details.
 
 ## Building & Testing
 
@@ -221,36 +360,25 @@ go test ./... -count=1
 
 ### RATS Regression Tests
 
-RATS (Rugo Automated Testing System) tests live in `rats/` as `_test.rugo` files. **Load the `rugo-rats` skill** for full details on test syntax, assertions, the test runner, and the regression test suite.
+RATS (Rugo Automated Testing System) tests live in `rats/` organized by category. **Load the `rugo-rats` skill** for full details.
 
 ```bash
-rugo rats rats/                    # run all _test.rugo files in rats/
-rugo rats rats/03_control_flow_test.rugo  # run a specific test file
+rugo rats rats/                         # run ALL test files
+rugo rats rats/core/                    # run core language tests
+rugo rats rats/stdlib/                  # run stdlib module tests
+rugo rats rats/gobridge/                # run Go bridge tests
+rugo rats rats/tools/                   # run tool tests
+rugo rats rats/core/03_control_flow_test.rugo  # run a specific test file
 ```
 
 ### Benchmarks
 
-Benchmarks use the `bench` keyword and `_bench.rugo` file convention (like Go's `_test.go`):
-
 ```bash
-rugo bench bench/                        # run all _bench.rugo files in bench/
-rugo bench bench/arithmetic_bench.rugo     # run a specific benchmark
-rugo bench bench/io_bench.rugo 1>/dev/null # redirect program stdout, keep bench output on stderr
+rugo bench bench/                        # run all _bench.rugo files
+rugo bench bench/arithmetic_bench.rugo   # run a specific benchmark
 ```
 
-Benchmark files use `use "bench"` and `bench` blocks:
-
-```ruby
-use "bench"
-
-bench "fib(20)"
-  fib(20)
-end
-```
-
-The framework auto-calibrates iterations (scales until ≥1s elapsed), reports ns/op and run count. Output goes to stderr with ANSI colors (respects `NO_COLOR`).
-
-Benchmark files in `bench/`: `arithmetic_bench.rugo`, `strings_bench.rugo`, `collections_bench.rugo`, `control_flow_bench.rugo`, `io_bench.rugo`.
+Benchmark files use `use "bench"` and `bench` blocks. Auto-calibrates iterations (≥1s), reports ns/op. Output on stderr (respects `NO_COLOR`).
 
 ### Go-side Compiler Benchmarks
 
@@ -258,9 +386,7 @@ Benchmark files in `bench/`: `arithmetic_bench.rugo`, `strings_bench.rugo`, `col
 go test -bench=. ./compiler/ -benchmem
 ```
 
-Covers: `CompileHelloWorld`, `CompileFunctions`, `CompileControlFlow`, `CompileStringInterpolation`, `CompileArraysHashes`, `Preprocess`, `Codegen`.
-
-### Run the full test suite (Go tests + all examples)
+### Run the full test suite
 
 ```bash
 rugo run script/test
@@ -275,7 +401,7 @@ go run . emit examples/hello.rugo   # inspect generated Go code
 
 ### Inspect generated Go for debugging
 
-Use `emit` to see what Go code is produced — this is the best way to debug codegen issues:
+Use `emit` to see what Go code produced is this is the best way to debug codegen issues: 
 
 ```bash
 go run . emit script.rugo
@@ -284,11 +410,29 @@ go run . emit script.rugo
 ## Development Workflow
 
 1. **Before editing**, read relevant source files and understand the pipeline stage you're modifying.
-2. **Grammar changes**: Edit `rugo.ebnf`, regenerate `parser.go`, then update the walker and codegen.
-3. **Preprocessor changes**: Be careful with shell fallback logic — read `preference.md` for the positional resolution design.
-4. **New modules**: Follow the pattern in `docs/mods.md`. Always add typed function signatures.
-5. **After edits**: Run `go test ./... -count=1` and test with relevant examples.
-6. **Format code**: `go fmt ./...`
+2. **Grammar changes**: Edit `rugo.ebnf`, regenerate `parser.go`, then update the walker (`ast/walker.go`) and codegen.
+3. **Preprocessor changes**: Be careful with shell fallback logic — read `preference.md` for the positional resolution design. The preprocessor is in `ast/preprocess.go`.
+4. **New modules**: Follow the pattern in `docs/mods.md`. Always add typed function signatures and `Doc` strings.
+5. **New bridge packages**: Create `gobridge/newpkg.go` with `init()` calling `Register()`. Use `Codegen` callback for special cases, `RuntimeHelpers` for Go helpers.
+6. **After edits**: Run `go test ./... -count=1` and test with relevant examples.
+7. **Format code**: `go fmt ./...`
+
+## CLI Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `rugo run script.rugo` | Compile and run |
+| `rugo build script.rugo` | Compile to native binary |
+| `rugo emit script.rugo` | Print generated Go code |
+| `rugo rats [path]` | Run RATS test files |
+| `rugo bench [path]` | Run benchmarks |
+| `rugo doc [target]` | Show documentation |
+| `rugo mod tidy` | Generate lock file |
+| `rugo mod update` | Re-resolve remote modules |
+| `rugo tool install\|list\|remove` | Manage CLI extensions |
+| `rugo dev modgen` | Scaffold a new module |
+
+Shorthand: `rugo script.rugo` is equivalent to `rugo run script.rugo`. Installed tools are discovered as subcommands: `rugo linter ...`.
 
 ## Concurrency
 
@@ -297,26 +441,16 @@ Rugo has two concurrency primitives backed by goroutines. See `docs/concurrency.
 ### `spawn` — single goroutine + task handle
 
 ```ruby
-# Block form
 task = spawn
   http.get("https://example.com")
 end
 
-# One-liner sugar (preprocessor expands to block form)
-task = spawn http.get("https://example.com")
+task = spawn http.get("https://example.com")  # one-liner sugar
 
-# Fire-and-forget (no assignment)
-spawn
-  puts "background work"
-end
-
-# Task API
 task.value      # block until done, return result (re-raises panics)
 task.done       # non-blocking: true if finished
 task.wait(5)    # block with timeout, panics on timeout
 ```
-
-**Codegen:** IIFE creating `rugoTask{done: make(chan struct{})}`, goroutine with defer/recover that captures panics into `t.err` and closes `t.done`. Last expression → `t.result`.
 
 ### `parallel` — fan-out N expressions, wait for all
 
@@ -328,25 +462,26 @@ end
 puts results[0]
 ```
 
-**Codegen:** IIFE with `sync.WaitGroup` + `sync.Once` for first-error capture. Each statement gets its own goroutine writing to `_results[i]`. Returns `[]interface{}`.
-
 ### Key implementation details
 
-- **Task method dispatch is always-on** — `.value`/`.done`/`.wait` always compile to `rugo_task_*` helpers, not gated on `hasSpawn`. The `usesTaskMethods` AST scan independently gates runtime emission.
+- **Task method dispatch is always-on** — `.value`/`.done`/`.wait` always compile to `rugo_task_*` helpers. The `usesTaskMethods` AST scan independently gates runtime emission.
 - **Import gating:** `hasSpawn` → `sync`+`time`; `hasParallel` → `sync` only; `usesTaskMethods` → `sync`+`time`
-- **Error messages:** Runtime helpers type-check and produce friendly messages: `cannot call .value on int — expected a spawn task`
-- **Empty body:** `spawn` returns nil task; `parallel` returns `[]interface{}{}`
-- **Try sugar interaction:** `expandTrySugar` skips lines where expression starts with block keyword (`spawn`/`parallel`)
 - **One-liner limitation:** `spawn EXPR` works at line-start or after `=`, not nested in function calls
 
-### RATS tests
+## Tools System (`rugo tool`)
 
-See the `rugo-rats` skill for the full regression test inventory. Key test files:
+Tools are compiled Rugo programs installed to `~/.rugo/tools/` that extend the CLI:
 
-- `rats/13_spawn_test.rugo`, `rats/14_parallel_test.rugo`, `rats/28_bench_test.rugo`
-- `rats/57_doc_test.rugo`, `rats/58_doc_remote_test.rugo` — 32 doc command tests (local + remote integration)
-- `rats/gobridge/` — 60 tests across 7 files covering all 8 Go bridge packages
-- Fixtures in `rats/fixtures/`
+```bash
+rugo tool install ./tools/linter                     # local
+rugo tool install github.com/user/rugo-fmt@v1.0.0   # remote
+rugo tool install core                                # all official tools
+rugo tool list
+rugo tool remove linter
+rugo linter smart-append examples/spawn.rugo          # use installed tool
+```
+
+See `docs/tools/tool-command.md` for details. Core tools: `linter`, `fuzz`, `runmd`.
 
 ## Documentation System (`rugo doc`)
 
@@ -368,30 +503,30 @@ The `rugo doc` command provides introspection for `.rugo` files, stdlib modules,
 
 ### Doc fields on registries
 
-Both `modules.Module`/`modules.FuncDef` and `gobridge.Package`/`gobridge.GoFuncSig` have `Doc string` fields. All 13 stdlib modules and 8 bridge packages have populated docs. When adding new modules or bridge packages, always include `Doc` strings.
+Both `modules.Module`/`modules.FuncDef` and `gobridge.Package`/`gobridge.GoFuncSig` have `Doc string` fields. All stdlib modules and bridge packages have populated docs. When adding new modules or bridge packages, always include `Doc` strings.
 
 ### Modes
 
 ```bash
 rugo doc file.rugo              # all docs in a .rugo file
 rugo doc file.rugo symbol       # specific function or struct
-rugo doc http                 # stdlib module (use)
-rugo doc strings              # bridge package (import)
-rugo doc github.com/user/repo # remote module (aggregates all .rugo files)
-rugo doc --all                # list all modules and bridge packages
+rugo doc http                   # stdlib module (use)
+rugo doc strings                # bridge package (import)
+rugo doc github.com/user/repo   # remote module
+rugo doc --all                  # list all modules and bridge packages
 ```
 
 ### Bat integration
 
 When `bat` is on PATH and `NO_COLOR` is not set, output is piped through `bat --language=ruby --style=plain --paging=never` for syntax highlighting.
 
-### Remote module docs
-
-Uses `Compiler.ResolveRemoteModule` to fetch, then `doc.ExtractDir` to aggregate docs from all `.rugo` files in the module directory. The entry file's doc becomes the top-level doc.
-
 ## Common Pitfalls
 
 * `parser.go` is generated — never edit it directly; edit `rugo.ebnf` and regenerate.
 * Shell fallback is the default for unknown identifiers at top level — new builtins/keywords must be added to the preprocessor's known sets to avoid being treated as shell commands.
 * Module `runtime.go` files have `//go:build ignore` tags — they're embedded as strings, not compiled directly.
-* The preprocessor runs before parsing — some syntax transformations happen there, not in the parser/walker.
+* The preprocessor runs before parsing — some syntax transformations (pipes, try sugar, compound assignment, bare append) happen there, not in the parser/walker.
+* AST nodes are in `ast/` package, not `compiler/` — walker, nodes, and preprocessor live there.
+* Go bridge files are in `gobridge/` (top-level), not `compiler/gobridge/`.
+* When adding bridge functions with special behavior, use the `Codegen` callback on `GoFuncSig` rather than adding cases to `codegen.go`.
+* RATS tests are organized into `rats/core/`, `rats/stdlib/`, `rats/gobridge/`, `rats/tools/` — put new tests in the right subdirectory.
