@@ -1,0 +1,5 @@
+require "circular_b"
+def func_a()
+  return "A"
+end
+puts func_a()

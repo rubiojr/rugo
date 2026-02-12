@@ -1,0 +1,4 @@
+require "circular_a"
+def func_b()
+  return "B"
+end

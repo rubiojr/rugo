@@ -1,0 +1,2 @@
+require "circular_self"
+puts "hello"

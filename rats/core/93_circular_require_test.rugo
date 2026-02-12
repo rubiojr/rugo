@@ -1,0 +1,25 @@
+use "test"
+
+rats "self-require is detected"
+  result = test.run("rugo run rats/fixtures/circular_self.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "circular require detected")
+  test.assert_contains(result["output"], "circular_self.rugo")
+end
+
+rats "mutual require is detected"
+  result = test.run("rugo run rats/fixtures/circular_a.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "circular require detected")
+  test.assert_contains(result["output"], "circular_a.rugo")
+  test.assert_contains(result["output"], "circular_b.rugo")
+end
+
+rats "three-file circular require is detected"
+  result = test.run("rugo run rats/fixtures/circular_x.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "circular require detected")
+  test.assert_contains(result["output"], "circular_x.rugo")
+  test.assert_contains(result["output"], "circular_y.rugo")
+  test.assert_contains(result["output"], "circular_z.rugo")
+end

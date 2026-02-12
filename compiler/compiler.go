@@ -44,6 +44,8 @@ type Compiler struct {
 	goImports map[string]string // package path → alias (empty = default)
 	// nsFuncs tracks namespace+function pairs to detect duplicates.
 	nsFuncs map[string]string // "ns.func" → source file
+	// requireStack tracks files currently being resolved (for cycle detection).
+	requireStack []string
 	// sourcePrefix is prepended to the main file source before parsing.
 	// Used to auto-inject require statements for test helpers.
 	sourcePrefix string
@@ -100,6 +102,11 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Mark the main file as loaded and track it in the require stack
+	// so that self-requires and circular requires are detected.
+	c.loaded[absPath] = ""
+	c.requireStack = []string{absPath}
 
 	// Resolve requires recursively
 	resolved, err := c.resolveRequires(prog)
@@ -377,6 +384,22 @@ func (c *Compiler) parseSource(source, displayName string) (*ast.Program, error)
 	return prog, nil
 }
 
+// requireChain returns the circular dependency chain as a human-readable string
+// if absPath is already in the require stack, or empty string if no cycle.
+func (c *Compiler) requireChain(absPath string) string {
+	for i, p := range c.requireStack {
+		if p == absPath {
+			chain := make([]string, 0, len(c.requireStack)-i+1)
+			for _, p := range c.requireStack[i:] {
+				chain = append(chain, displayPath(p))
+			}
+			chain = append(chain, displayPath(absPath))
+			return strings.Join(chain, " → ")
+		}
+	}
+	return ""
+}
+
 func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 	// Validate that import/require only appear at top level
 	if err := validateTopLevelOnly(prog.Statements, prog.SourceFile); err != nil {
@@ -486,6 +509,9 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 				if _, alreadyLoaded := c.loaded[absPath]; alreadyLoaded {
 					continue
 				}
+				if chain := c.requireChain(absPath); chain != "" {
+					return nil, fmt.Errorf("%s:%d: circular require detected: %s", prog.SourceFile, req.StmtLine(), chain)
+				}
 				c.loaded[absPath] = modName
 
 				reqProg, err := c.parseFile(absPath, displayPath(absPath))
@@ -495,7 +521,9 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 
 				oldBase := c.BaseDir
 				c.BaseDir = filepath.Dir(absPath)
+				c.requireStack = append(c.requireStack, absPath)
 				reqProg, err = c.resolveRequires(reqProg)
+				c.requireStack = c.requireStack[:len(c.requireStack)-1]
 				c.BaseDir = oldBase
 				if err != nil {
 					return nil, err
@@ -602,10 +630,18 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 		}
 
 		if prevNS, alreadyLoaded := c.loaded[absPath]; alreadyLoaded {
-			if ns != prevNS {
-				return nil, fmt.Errorf("%s:%d: %q already required as %q — cannot re-require with a different namespace %q", prog.SourceFile, req.StmtLine(), req.Path, prevNS, ns)
+			if ns == prevNS {
+				continue // Already loaded with same namespace
 			}
-			continue // Already loaded with same namespace
+			// Namespace mismatch — check if it's a circular require first
+			if chain := c.requireChain(absPath); chain != "" {
+				return nil, fmt.Errorf("%s:%d: circular require detected: %s", prog.SourceFile, req.StmtLine(), chain)
+			}
+			return nil, fmt.Errorf("%s:%d: %q already required as %q — cannot re-require with a different namespace %q", prog.SourceFile, req.StmtLine(), req.Path, prevNS, ns)
+		}
+
+		if chain := c.requireChain(absPath); chain != "" {
+			return nil, fmt.Errorf("%s:%d: circular require detected: %s", prog.SourceFile, req.StmtLine(), chain)
 		}
 		c.loaded[absPath] = ns
 
@@ -622,7 +658,9 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 		// Recursively resolve requires in the required file
 		oldBase := c.BaseDir
 		c.BaseDir = filepath.Dir(absPath)
+		c.requireStack = append(c.requireStack, absPath)
 		reqProg, err = c.resolveRequires(reqProg)
+		c.requireStack = c.requireStack[:len(c.requireStack)-1]
 		c.BaseDir = oldBase
 		if err != nil {
 			return nil, err

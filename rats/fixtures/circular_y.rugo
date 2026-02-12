@@ -1,0 +1,2 @@
+require "circular_z"
+puts "y"
