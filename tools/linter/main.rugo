@@ -5,45 +5,82 @@
 # then register it in the linters array below.
 #
 # Usage:
-#   rugo run tools/linter/linter.rugo -- <command> [--fix] file(s)
+#   rugo run tools/linter/linter.rugo -- <command> [--fix] file(s)/dir(s)
 #
 # Commands:
 #   smart-append   Detect verbose append patterns
+#   string-interp  Detect string concatenation over interpolation
 #   all            Run all linters
 #
 # Examples:
 #   rugo run tools/linter/linter.rugo -- smart-append examples/spawn.rugo
 #   rugo run tools/linter/linter.rugo -- all --fix examples/spawn.rugo
+#   rugo run tools/linter/linter.rugo -- all src/
 
 use "cli"
+use "color"
 use "conv"
 use "os"
+use "str"
 
 require "./linters/smart_append"
+require "./linters/string_interp"
 
 # --- Linter registry ---
 # Each entry: {name, lint_fn(path) -> warnings, fix_fn(path, warnings)}
 # To add a new linter, require it and add an entry here.
 Linters = [
-  {name: "smart-append", lint: fn(f) smart_append.lint(f) end, fix: fn(f, w) smart_append.fix(f, w) end}
+  {name: "smart-append", lint: fn(f) smart_append.lint(f) end, fix: fn(f, w) smart_append.fix(f, w) end},
+  {name: "string-interp", lint: fn(f) string_interp.lint(f) end, fix: fn(f, w) string_interp.fix(f, w) end}
 ]
+
+# Expand a list of file/directory arguments into .rugo file paths.
+# Directories are recursively scanned for .rugo files.
+def expand_files(args)
+  result = []
+  for arg in args
+    if os.is_dir(arg)
+      output = `find '#{arg}' -type f -name '*.rugo' | sort`
+      if output != ""
+        found = str.split(output, "\n")
+        for f in found
+          if str.trim(f) != ""
+            append result, str.trim(f)
+          end
+        end
+      end
+    else
+      append result, arg
+    end
+  end
+  return result
+end
 
 # Run a linter (lint_fn/fix_fn) against files. Returns total warning count.
 def run_linter(name, lint_fn, fix_fn, files, fix_mode)
   total = 0
+  tag = color.cyan("[#{name}]")
   for file in files
     warnings = lint_fn(file)
     if fix_mode == true
       if len(warnings) > 0
         fix_fn(file, warnings)
         for w in warnings
-          puts "[" + name + "] " + file + ":" + conv.to_s(w["line"]) + ": fixed: " + w["source"] + " → " + w["fixed"]
+          wline = w["line"]
+          wsource = w["source"]
+          wfixed = w["fixed"]
+          loc = color.dim("#{file}:#{wline}")
+          puts "#{tag} #{loc}: " + color.yellow("fixed:") + " #{wsource} → " + color.green(wfixed)
         end
       end
     else
       for w in warnings
-        puts "[" + name + "] " + file + ":" + conv.to_s(w["line"]) + ": " + w["source"]
-        puts "  suggestion: " + w["fixed"]
+        wline = w["line"]
+        wsource = w["source"]
+        wfixed = w["fixed"]
+        loc = color.dim("#{file}:#{wline}")
+        puts "#{tag} #{loc}: #{wsource}"
+        puts "  " + color.green("suggestion: #{wfixed}")
       end
     end
     total += len(warnings)
@@ -61,11 +98,11 @@ def find_linter(name)
   return nil
 end
 
-# Validate that all files exist.
-def validate_files(files)
-  for file in files
-    if os.file_exists(file) == false
-      puts "error: file not found: " + file
+# Validate that all file/directory arguments exist.
+def validate_args(args)
+  for arg in args
+    if os.file_exists(arg) == false && os.is_dir(arg) == false
+      puts "error: not found: #{arg}"
       os.exit(1)
     end
   end
@@ -73,11 +110,12 @@ end
 
 # Print available commands.
 def print_usage()
-  puts "Usage: rugo-lint <command> [--fix] <file(s)>"
+  puts "Usage: rugo-lint <command> [--fix] <file(s)/dir(s)>"
   puts ""
   puts "Commands:"
   for l in Linters
-    puts "  " + l["name"]
+    lname = l["name"]
+    puts "  #{lname}"
   end
   puts "  all            Run all linters"
 end
@@ -97,9 +135,9 @@ if len(args) == 0
 end
 
 cmd = args[0]
-files = args[1, len(args) - 1]
+raw_files = args[1, len(args) - 1]
 
-if len(files) == 0
+if len(raw_files) == 0
   print_usage()
   os.exit(1)
 end
@@ -107,13 +145,21 @@ end
 # Validate command before files
 if cmd != "all"
   if find_linter(cmd) == nil
-    puts "error: unknown command '" + cmd + "'"
+    puts "error: unknown command '#{cmd}'"
     print_usage()
     os.exit(1)
   end
 end
 
-validate_files(files)
+validate_args(raw_files)
+
+# Expand directories to .rugo files (single pass, shared across linters)
+files = expand_files(raw_files)
+
+if len(files) == 0
+  puts "No .rugo files found."
+  os.exit(0)
+end
 
 total = 0
 
@@ -130,8 +176,8 @@ if total == 0
   puts "No issues found."
 else
   if fix_mode
-    puts conv.to_s(total) + " issue(s) fixed."
+    puts "#{total} issue(s) fixed."
   else
-    puts conv.to_s(total) + " issue(s) found."
+    puts "#{total} issue(s) found."
   end
 end

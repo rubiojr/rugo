@@ -1,0 +1,289 @@
+# RATS: string-interp linter tool
+use "test"
+use "os"
+
+rats "linter detects simple concatenation"
+  script = <<~SCRIPT
+    name = "World"
+    greeting = "Hello, " + name + "!"
+    puts(greeting)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], '"Hello, " + name + "!"')
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "linter detects conv.to_s wrapping"
+  script = <<~SCRIPT
+    n = 42
+    puts("Count: " + conv.to_s(n))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "linter detects expr + string pattern"
+  script = <<~SCRIPT
+    use "conv"
+    n = 3
+    msg = conv.to_s(n) + " items"
+    puts(msg)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "linter ignores clean code"
+  script = <<~'SCRIPT'
+    name = "World"
+    greeting = "Hello, #{name}!"
+    puts(greeting)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "linter ignores non-string concatenation"
+  script = <<~SCRIPT
+    x = 1 + 2
+    puts(x)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "linter detects inside def"
+  script = <<~SCRIPT
+    use "conv"
+    def greet(name)
+      return "Hello, " + name + "!"
+    end
+    puts(greet("World"))
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], '"Hello, " + name + "!"')
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "linter fix rewrites concatenation"
+  script = <<~SCRIPT
+    name = "World"
+    greeting = "Hello, " + name + "!"
+    puts(greeting)
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp --fix " + target)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "fixed:")
+  test.assert_contains(result["output"], "1 issue(s) fixed.")
+
+  # Verify fixed file runs correctly
+  result2 = test.run("rugo run " + target)
+  test.assert_eq(result2["status"], 0)
+  test.assert_eq(result2["lines"][0], "Hello, World!")
+end
+
+rats "linter fix unwraps conv.to_s"
+  script = <<~SCRIPT
+    use "conv"
+    n = 42
+    puts("Count: " + conv.to_s(n))
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp --fix " + target)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1 issue(s) fixed.")
+
+  result2 = test.run("rugo run " + target)
+  test.assert_eq(result2["status"], 0)
+  test.assert_eq(result2["lines"][0], "Count: 42")
+end
+
+rats "linter fix is idempotent"
+  script = <<~SCRIPT
+    name = "World"
+    greeting = "Hello, " + name + "!"
+    puts(greeting)
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+
+  test.run("rugo run tools/linter/main.rugo -- string-interp --fix " + target)
+
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + target)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "linter fix preserves indentation"
+  script = <<~SCRIPT
+    def greet(name)
+      return "Hello, " + name + "!"
+    end
+    puts(greet("World"))
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  test.run("rugo run tools/linter/main.rugo -- string-interp --fix " + target)
+
+  result = test.run("rugo run " + target)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "Hello, World!")
+end
+
+rats "linter detects inside for loop"
+  script = <<~SCRIPT
+    use "conv"
+    names = ["Alice", "Bob"]
+    for name in names
+      puts("Hello, " + name)
+    end
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "linter handles nested parens in expressions"
+  script = <<~SCRIPT
+    use "conv"
+    puts("len: " + conv.to_s(len([1, 2, 3])))
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp --fix " + target)
+  test.assert_eq(result["status"], 0)
+
+  result2 = test.run("rugo run " + target)
+  test.assert_eq(result2["status"], 0)
+  test.assert_eq(result2["lines"][0], "len: 3")
+end
+
+rats "linter handles multiple files"
+  script1 = <<~S1
+    a = "hello " + "world"
+  S1
+  script2 = <<~S2
+    b = "foo " + "bar"
+  S2
+  test.write_file(test.tmpdir() + "/a.rugo", script1)
+  test.write_file(test.tmpdir() + "/b.rugo", script2)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/a.rugo " + test.tmpdir() + "/b.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "2 issue(s) found.")
+end
+
+rats "linter all command includes string-interp"
+  script = <<~SCRIPT
+    name = "World"
+    greeting = "Hello, " + name + "!"
+    puts(greeting)
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- all " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[string-interp]")
+end
+
+rats "linter skips comments"
+  script = <<~SCRIPT
+    # greeting = "Hello, " + name + "!"
+    puts("no issues")
+  SCRIPT
+  test.write_file(test.tmpdir() + "/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + test.tmpdir() + "/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "linter fix with three-part chain"
+  script = <<~SCRIPT
+    use "conv"
+    count = 5
+    puts "polled " + conv.to_s(count) + " times"
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  test.run("rugo run tools/linter/main.rugo -- string-interp --fix " + target)
+
+  result = test.run("rugo run " + target)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "polled 5 times")
+end
+
+rats "linter scans directory recursively"
+  dir = test.tmpdir() + "/scandir"
+  os.exec("mkdir -p " + dir + "/sub")
+
+  script1 = <<~S1
+    a = "hello " + "world"
+  S1
+  script2 = <<~S2
+    b = "foo " + "bar"
+  S2
+  test.write_file(dir + "/top.rugo", script1)
+  test.write_file(dir + "/sub/nested.rugo", script2)
+
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp " + dir)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "top.rugo")
+  test.assert_contains(result["output"], "nested.rugo")
+  test.assert_contains(result["output"], "2 issue(s) found.")
+end
+
+rats "linter directory with no issues"
+  dir = test.tmpdir() + "/cleandir"
+  os.exec("mkdir -p " + dir)
+
+  script = <<~'SCRIPT'
+    puts "Hello, #{name}!"
+  SCRIPT
+  test.write_file(dir + "/clean.rugo", script)
+
+  result = test.run("rugo run tools/linter/main.rugo -- all " + dir)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "linter fix with multi-arg function call"
+  script = <<~SCRIPT
+    use "conv"
+    def myprint(prefix, msg)
+      puts(prefix + msg)
+    end
+    n = 42
+    myprint("result: ", "count=" + conv.to_s(n))
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp --fix " + target)
+  test.assert_eq(result["status"], 0)
+
+  result2 = test.run("rugo run " + target)
+  test.assert_eq(result2["status"], 0)
+  test.assert_eq(result2["lines"][0], "result: count=42")
+end
+
+rats "linter empty directory shows no files"
+  dir = test.tmpdir() + "/emptydir"
+  os.exec("mkdir -p " + dir)
+
+  result = test.run("rugo run tools/linter/main.rugo -- all " + dir)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No .rugo files found.")
+end

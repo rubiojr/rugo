@@ -1,0 +1,647 @@
+# string-interp linter
+#
+# Detects string concatenation patterns that can use interpolation instead.
+# "Hello, " + name + "!" → "Hello, #{name}!"
+# conv.to_s(n) + " items" → "#{n} items"
+
+use "ast"
+use "conv"
+use "str"
+use "os"
+
+# Raw strings for literal #{ and } to avoid interpolation issues
+INTERP_OPEN = '#{'
+INTERP_CLOSE = '}'
+
+# Tokenize a concatenation expression into parts.
+# Each part is {type: "string", value: "..."} or {type: "expr", value: "..."}
+# Returns nil if the expression can't be parsed or contains single-quoted strings.
+# All character scanning is inlined to keep loop counters as int.
+# Each part includes a `connected` flag: true if preceded by ` + `.
+def tokenize_concat(expr)
+  parts = []
+  i = 0
+  current = ""
+  slen = len(expr)
+  after_plus = false
+
+  while i < slen
+    ch = expr[i, 1]
+
+    # Handle double-quoted strings
+    if ch == "\""
+      if str.trim(current) != ""
+        append parts, {type: "expr", value: str.trim(current), connected: after_plus}
+        current = ""
+        after_plus = false
+      end
+
+      # Inline: find closing double quote
+      j = i + 1
+      found_close = false
+      while j < slen
+        ch2 = expr[j, 1]
+        if ch2 == "\\"
+          j += 2
+          next
+        end
+        if ch2 == "\""
+          found_close = true
+          break
+        end
+        j += 1
+      end
+      if found_close == false
+        return nil
+      end
+      append parts, {type: "string", value: expr[i, j - i + 1], connected: after_plus}
+      after_plus = false
+      i = j + 1
+      next
+    end
+
+    # Single-quoted strings are raw - bail out
+    if ch == "'"
+      return nil
+    end
+
+    # Handle ` + ` concatenation operator
+    if ch == "+" && i > 0 && (i + 1) < slen
+      if expr[i - 1, 1] == " " && expr[i + 1, 1] == " "
+        trimmed = str.trim(current)
+        if trimmed != ""
+          append parts, {type: "expr", value: trimmed, connected: after_plus}
+          current = ""
+        end
+        after_plus = true
+        i += 2
+        next
+      end
+    end
+
+    # Handle parentheses nesting
+    if ch == "("
+      depth = 1
+      current += ch
+      i += 1
+      while i < slen && depth > 0
+        ch2 = expr[i, 1]
+        if ch2 == "("
+          depth += 1
+        end
+        if ch2 == ")"
+          depth -= 1
+        end
+        # Handle strings inside parens
+        if ch2 == "\""
+          current += ch2
+          i += 1
+          while i < slen
+            ch3 = expr[i, 1]
+            current += ch3
+            i += 1
+            if ch3 == "\\"
+              if i < slen
+                current += expr[i, 1]
+                i += 1
+              end
+              next
+            end
+            if ch3 == "\""
+              break
+            end
+          end
+          next
+        end
+        current += ch2
+        i += 1
+      end
+      next
+    end
+
+    # Handle bracket nesting
+    if ch == "["
+      depth = 1
+      current += ch
+      i += 1
+      while i < slen && depth > 0
+        ch2 = expr[i, 1]
+        if ch2 == "["
+          depth += 1
+        end
+        if ch2 == "]"
+          depth -= 1
+        end
+        if ch2 == "\""
+          current += ch2
+          i += 1
+          while i < slen
+            ch3 = expr[i, 1]
+            current += ch3
+            i += 1
+            if ch3 == "\\"
+              if i < slen
+                current += expr[i, 1]
+                i += 1
+              end
+              next
+            end
+            if ch3 == "\""
+              break
+            end
+          end
+          next
+        end
+        current += ch2
+        i += 1
+      end
+      next
+    end
+
+    current += ch
+    i += 1
+  end
+
+  trimmed = str.trim(current)
+  if trimmed != ""
+    append parts, {type: "expr", value: trimmed, connected: after_plus}
+  end
+
+  return parts
+end
+
+# Unwrap conv.to_s() wrapper from an expression.
+def unwrap_to_s(expr)
+  if str.starts_with(expr, "conv.to_s(") && str.ends_with(expr, ")")
+    inner = expr[10, len(expr) - 11]
+    # Check balanced parens
+    depth = 0
+    ok = true
+    i = 0
+    while i < len(inner)
+      ch = inner[i, 1]
+      if ch == "("
+        depth += 1
+      end
+      if ch == ")"
+        depth -= 1
+      end
+      if depth < 0
+        ok = false
+      end
+      i += 1
+    end
+    if ok && depth == 0
+      return inner
+    end
+  end
+  return expr
+end
+
+# Check if an expression contains double quotes.
+def has_double_quotes(expr)
+  return str.contains(expr, "\"")
+end
+
+# Strip quotes from a string literal.
+def strip_quotes(s)
+  if len(s) < 2
+    return s
+  end
+  return s[1, len(s) - 2]
+end
+
+# Build an interpolated string from tokenized parts.
+# Returns nil if auto-fix is not possible.
+def build_interpolated(parts)
+  result = "\""
+  can_fix = true
+
+  for part in parts
+    if part["type"] == "string"
+      result += strip_quotes(part["value"])
+    else
+      expr = unwrap_to_s(part["value"])
+      if has_double_quotes(expr)
+        can_fix = false
+      end
+      result += INTERP_OPEN + expr + INTERP_CLOSE
+    end
+  end
+
+  result += "\""
+
+  if can_fix == false
+    return nil
+  end
+
+  return result
+end
+
+# Reconstruct the original concat text from tokenized parts.
+def build_concat_text(parts)
+  result = ""
+  for i, part in parts
+    if i > 0
+      result += " + "
+    end
+    result += part["value"]
+  end
+  return result
+end
+
+# Quick pre-filter for string concatenation markers.
+def has_concat_marker(line)
+  return str.contains(line, "\" + ") || str.contains(line, " + \"")
+end
+
+# Analyze a source line for fixable concat patterns.
+# Returns a result hash with {concat_text, interpolated} or nil.
+def analyze_line(line)
+  trimmed = str.trim(line)
+
+  if has_concat_marker(trimmed) == false
+    return nil
+  end
+
+  if str.starts_with(trimmed, "#")
+    return nil
+  end
+
+  # First try tokenizing the whole line (handles bare exprs and assignments)
+  parts = tokenize_concat(trimmed)
+  if parts != nil && len(parts) >= 2
+    chain = extract_chain(parts)
+    if chain != nil
+      return chain
+    end
+  end
+
+  # If that didn't work, check for concat inside function call parens:
+  # func("..." + expr) or func(expr + "...")
+  inner = extract_func_call_inner(trimmed)
+  if inner != nil
+    inner_parts = tokenize_concat(inner["content"])
+    if inner_parts != nil && len(inner_parts) >= 2
+      chain = extract_chain(inner_parts)
+      if chain != nil
+        concat_text = chain["concat_text"]
+        interpolated = chain["interpolated"]
+        if interpolated != nil
+          # Replace the concat within the inner content, then reconstruct full line
+          fixed_content = str.replace(inner["content"], concat_text, interpolated)
+          full_fixed = inner["prefix"] + fixed_content + inner["suffix"]
+          return {concat_text: trimmed, interpolated: full_fixed}
+        else
+          return {concat_text: trimmed, interpolated: nil}
+        end
+      end
+    end
+  end
+
+  return nil
+end
+
+# Extract the concat chain from tokenized parts.
+# Returns {concat_text, interpolated} or nil.
+def extract_chain(parts)
+  has_string = false
+  for part in parts
+    if part["type"] == "string"
+      has_string = true
+    end
+  end
+  if has_string == false
+    return nil
+  end
+
+  chain_start = -1
+  chain_end = -1
+  i = 0
+  for part in parts
+    if part["connected"] == true
+      if chain_start == -1
+        if i > 0
+          chain_start = i - 1
+        else
+          chain_start = i
+        end
+      end
+      chain_end = i
+    end
+    i += 1
+  end
+
+  if chain_start == -1
+    return nil
+  end
+
+  chain_parts = parts[chain_start, chain_end - chain_start + 1]
+  if len(chain_parts) < 2
+    return nil
+  end
+
+  # Verify chain has at least one string
+  has_str = false
+  for p in chain_parts
+    if p["type"] == "string"
+      has_str = true
+    end
+  end
+  if has_str == false
+    return nil
+  end
+
+  concat_text = build_concat_text(chain_parts)
+  interpolated = build_interpolated(chain_parts)
+  return {concat_text: concat_text, interpolated: interpolated}
+end
+
+# Extract the inner content of a function call for concat analysis.
+# Handles: func(arg, "..." + expr, arg) — finds the argument with concat.
+# Returns {prefix, content, suffix} or nil.
+def extract_func_call_inner(line)
+  paren_pos = str.index(line, "(")
+  if paren_pos == -1
+    return nil
+  end
+
+  # Find the matching closing paren
+  depth = 0
+  close_pos = -1
+  i = paren_pos
+  slen = len(line)
+  while i < slen
+    ch = line[i, 1]
+    if ch == "("
+      depth += 1
+    end
+    if ch == ")"
+      depth -= 1
+      if depth == 0
+        close_pos = i
+        break
+      end
+    end
+    if ch == "\""
+      i += 1
+      while i < slen
+        ch2 = line[i, 1]
+        if ch2 == "\\"
+          i += 2
+          next
+        end
+        if ch2 == "\""
+          break
+        end
+        i += 1
+      end
+    end
+    i += 1
+  end
+
+  if close_pos == -1
+    return nil
+  end
+
+  all_content = line[paren_pos + 1, close_pos - paren_pos - 1]
+
+  # Split arguments on top-level commas (not inside parens or strings)
+  args = []
+  arg_start = 0
+  pdepth = 0
+  i = 0
+  clen = len(all_content)
+  while i < clen
+    ch = all_content[i, 1]
+    if ch == "("
+      pdepth += 1
+    end
+    if ch == ")"
+      pdepth -= 1
+    end
+    if ch == "\""
+      i += 1
+      while i < clen
+        ch2 = all_content[i, 1]
+        if ch2 == "\\"
+          i += 2
+          next
+        end
+        if ch2 == "\""
+          break
+        end
+        i += 1
+      end
+    end
+    if ch == "," && pdepth == 0
+      append args, all_content[arg_start, i - arg_start]
+      arg_start = i + 1
+      # Skip space after comma
+      if arg_start < clen && all_content[arg_start, 1] == " "
+        arg_start += 1
+      end
+      i += 1
+      next
+    end
+    i += 1
+  end
+  # Last argument
+  if arg_start < clen
+    append args, all_content[arg_start, clen - arg_start]
+  end
+
+  # Find the argument that contains concat markers
+  concat_arg_idx = -1
+  ai = 0
+  for arg in args
+    if has_concat_marker(arg)
+      concat_arg_idx = ai
+    end
+    ai += 1
+  end
+
+  if concat_arg_idx == -1
+    return nil
+  end
+
+  content = args[concat_arg_idx]
+
+  # Reconstruct prefix (everything before this arg) and suffix (everything after)
+  pre_args = ""
+  pi = 0
+  while pi < concat_arg_idx
+    if pre_args != ""
+      pre_args += ", "
+    end
+    pre_args += args[pi]
+    pi += 1
+  end
+
+  post_args = ""
+  pi = concat_arg_idx + 1
+  while pi < len(args)
+    if post_args != ""
+      post_args += ", "
+    end
+    post_args += args[pi]
+    pi += 1
+  end
+
+  prefix = line[0, paren_pos + 1]
+  if pre_args != ""
+    prefix += pre_args + ", "
+  end
+
+  suffix = ""
+  if post_args != ""
+    suffix = ", " + post_args
+  end
+  suffix += line[close_pos, slen - close_pos]
+
+  return {prefix: prefix, content: content, suffix: suffix}
+end
+
+# Build a warning hash.
+def make_warning(path, line_num, source, fixed)
+  return {path: path, line: line_num, source: source, fixed: fixed}
+end
+
+# Recursively scan a statement for string concatenation.
+def scan_statement(warnings, prog, stmt, path)
+  lines = ast.source_lines(prog, stmt)
+  if len(lines) > 0
+    line = lines[0]
+    result = analyze_line(line)
+    if result != nil
+      concat_text = result["concat_text"]
+      if result["interpolated"] != nil
+        fixed = str.replace(str.trim(line), concat_text, result["interpolated"])
+        append warnings, make_warning(path, stmt["line"], str.trim(line), fixed)
+      else
+        append warnings, make_warning(path, stmt["line"], str.trim(line), "# cannot auto-fix: expression contains double quotes")
+      end
+    end
+  end
+
+  # Recurse into block-bearing statements
+  if stmt["type"] == "def"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "if"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+    if stmt["else_body"] != nil
+      for s in stmt["else_body"]
+        warnings = scan_statement(warnings, prog, s, path)
+      end
+    end
+  end
+
+  if stmt["type"] == "for"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "while"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "try"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+    if stmt["rescue_body"] != nil
+      for s in stmt["rescue_body"]
+        warnings = scan_statement(warnings, prog, s, path)
+      end
+    end
+  end
+
+  if stmt["type"] == "spawn"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  if stmt["type"] == "test"
+    for s in stmt["body"]
+      warnings = scan_statement(warnings, prog, s, path)
+    end
+  end
+
+  return warnings
+end
+
+# Lint a single file. Returns array of warning hashes.
+def lint(path)
+  warnings = []
+
+  prog = try ast.parse_file(path) or e
+    nil
+  end
+
+  if prog == nil
+    puts "error: could not parse #{path}"
+    return warnings
+  end
+
+  for stmt in prog["statements"]
+    warnings = scan_statement(warnings, prog, stmt, path)
+  end
+
+  return warnings
+end
+
+# Replace the concatenation in a source line with the interpolated string.
+def replace_concat_in_line(line, source, fixed)
+  if str.starts_with(fixed, "# cannot")
+    return line
+  end
+
+  trimmed = str.trim(line)
+  indent_len = str.index(line, trimmed)
+  indent = ""
+  if indent_len > 0
+    indent = line[0, indent_len]
+  end
+
+  new_line = str.replace(trimmed, source, fixed)
+  return indent + new_line
+end
+
+# Apply fixes to a file by rewriting matching lines.
+def fix(path, warnings)
+  content = `cat '#{path}'`
+  lines = str.split(content, "\n")
+
+  fix_map = {}
+  for w in warnings
+    if str.starts_with(w["fixed"], "# cannot") == false
+      fix_map[conv.to_s(w["line"])] = w
+    end
+  end
+
+  new_lines = []
+  i = 0
+  for line in lines
+    line_num = conv.to_s(i + 1)
+    if fix_map[line_num] != nil
+      w = fix_map[line_num]
+      append new_lines, replace_concat_in_line(line, w["source"], w["fixed"])
+    else
+      append new_lines, line
+    end
+    i += 1
+  end
+
+  new_content = str.join(new_lines, "\n")
+  os.exec("cat > #{path} << 'RUGO_LINTER_EOF'\n#{new_content}\nRUGO_LINTER_EOF")
+end
