@@ -5,12 +5,14 @@
 #
 # Usage:
 #   rugo runmd <file.md> [file2.md ...]
+#   rugo runmd -i <file.md>         # interactive mode
 #
 # Exit code 0 if all snippets compile, 1 if any fail.
 
 use "cli"
 use "os"
 use "str"
+use "color"
 use "test"
 import "os" as go_os
 
@@ -18,7 +20,10 @@ TmpName = "runmd_check.rugo"
 
 cli.name "rugo-runmd"
 cli.about "Verify ruby code blocks in markdown files compile as valid Rugo"
+cli.bool_flag("", "interactive", "i", "Show each snippet and prompt to run it")
 cli.parse()
+
+Interactive = cli.get("interactive")
 
 args = cli.args()
 if len(args) == 0
@@ -29,9 +34,35 @@ end
 failures = 0
 total = 0
 passed = 0
+skipped = 0
 tmp_dir = os.exec("mktemp -d")
 tmp_file = "#{tmp_dir}/#{TmpName}"
 tmp_bin = "#{tmp_file}.bin"
+
+# Check if bat is available for syntax highlighting.
+def has_bat()
+  result = test.run("command -v bat")
+  return result.status == 0
+end
+
+UseBat = has_bat()
+
+# Display a code snippet with syntax highlighting.
+# Uses bat when available, otherwise prints with color.
+def show_snippet(code)
+  if UseBat
+    tmp = "#{tmp_dir}/snippet_display.rugo"
+    go_os.write_file(tmp, code, 420)
+    output = try os.exec("bat --language=ruby --style=plain --paging=never --force-colorization " + tmp) or ""
+    if output != ""
+      puts output
+    else
+      puts code
+    end
+  else
+    puts code
+  end
+end
 
 # Extract ```ruby code blocks from markdown content.
 # Returns an array of hashes with "code" and "line" keys.
@@ -64,6 +95,42 @@ def extract_ruby_blocks(content)
   return blocks
 end
 
+# Draw a box around text using Unicode box-drawing characters.
+def draw_box(text, styler)
+  lines = str.split(text, "\n")
+  max_w = 0
+  for line in lines
+    w = str.rune_count(line)
+    if w > max_w
+      max_w = w
+    end
+  end
+
+  bar = ""
+  n = max_w + 2
+  while n > 0
+    bar += "─"
+    n -= 1
+  end
+
+  tl = "╭"
+  tr = "╮"
+  bl = "╰"
+  br = "╯"
+  vb = "│"
+  puts styler(tl + bar + tr)
+  for line in lines
+    pad = ""
+    n = max_w - str.rune_count(line)
+    while n > 0
+      pad += " "
+      n -= 1
+    end
+    puts styler(vb) + " #{line}#{pad} " + styler(vb)
+  end
+  puts styler(bl + bar + br)
+end
+
 # Strip temp file paths from rugo build error output.
 def clean_output(raw)
   marker = TmpName + ":"
@@ -93,18 +160,67 @@ for file in args
 
   for block in blocks
     total += 1
-    go_os.write_file(tmp_file, block.code, 420) # 0644
 
-    result = test.run("rugo build #{tmp_file} -o #{tmp_bin}")
-    if result.status == 0
-      passed += 1
-      puts "#{file}:#{block.line}: ok"
+    if Interactive
+      puts ""
+      puts color.cyan("─── ") + color.bold("#{file}:#{block.line}") + color.cyan(" ───")
+      puts ""
+      show_snippet(block.code)
+      puts ""
+      answer = os.read_line(color.yellow("Run? [y/N/q] "))
+      answer = str.lower(str.trim(answer))
+      puts ""
+
+      if answer == "q"
+        go_os.remove_all(tmp_dir)
+        puts ""
+        puts "aborted"
+        os.exit 0
+      end
+
+      if answer != "y"
+        skipped += 1
+        puts color.dim("  skipped")
+        next
+      end
+
+      go_os.write_file(tmp_file, block.code, 420)
+      result = test.run("rugo build #{tmp_file} -o #{tmp_bin}")
+      if result.status != 0
+        failures += 1
+        output = clean_output(result.output)
+        if output != ""
+          draw_box(output, fn(s) color.red(s) end)
+        else
+          draw_box("build failed", fn(s) color.red(s) end)
+        end
+        next
+      end
+
+      run_result = test.run(tmp_bin)
+      if run_result.output != ""
+        draw_box(run_result.output, fn(s) color.green(s) end)
+      end
+      if run_result.status != 0
+        failures += 1
+        puts color.red("  exit status: #{run_result.status}")
+      else
+        passed += 1
+      end
     else
-      failures += 1
-      puts "#{file}:#{block.line}: FAIL"
-      output = clean_output(result.output)
-      if output != ""
-        puts "  #{output}"
+      go_os.write_file(tmp_file, block.code, 420)
+
+      result = test.run("rugo build #{tmp_file} -o #{tmp_bin}")
+      if result.status == 0
+        passed += 1
+        puts "#{file}:#{block.line}: ok"
+      else
+        failures += 1
+        puts "#{file}:#{block.line}: FAIL"
+        output = clean_output(result.output)
+        if output != ""
+          puts "  #{output}"
+        end
       end
     end
   end
@@ -113,7 +229,11 @@ end
 go_os.remove_all(tmp_dir)
 
 puts ""
-puts "#{total} snippet(s), #{passed} passed, #{failures} failed"
+if Interactive
+  puts "#{total} snippet(s), #{passed} ran, #{skipped} skipped, #{failures} failed"
+else
+  puts "#{total} snippet(s), #{passed} passed, #{failures} failed"
+end
 
 if failures > 0
   os.exit 1
