@@ -287,3 +287,22 @@ rats "linter empty directory shows no files"
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "No .rugo files found.")
 end
+
+rats "linter fix assignment with expr + string"
+  script = <<~SCRIPT
+    def tmpdir()
+      return "/tmp/mydir"
+    end
+    tooldir = tmpdir() + "/tools"
+    puts(tooldir)
+  SCRIPT
+  target = test.tmpdir() + "/target.rugo"
+  test.write_file(target, script)
+  result = test.run("rugo run tools/linter/main.rugo -- string-interp --fix " + target)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1 issue(s) fixed.")
+
+  result2 = test.run("rugo run " + target)
+  test.assert_eq(result2["status"], 0)
+  test.assert_eq(result2["lines"][0], "/tmp/mydir/tools")
+end

@@ -255,6 +255,62 @@ def has_concat_marker(line)
   return str.contains(line, "\" + ") || str.contains(line, " + \"")
 end
 
+# Extract the RHS of a simple assignment: "var = <rhs>" or "var += <rhs>".
+# Returns {prefix, rhs} or nil.
+def extract_assign_rhs(line)
+  # Look for " = " (assignment) not inside strings
+  i = 0
+  slen = len(line)
+  while i < slen
+    ch = line[i, 1]
+    # Skip strings
+    if ch == "\""
+      i += 1
+      while i < slen
+        ch2 = line[i, 1]
+        if ch2 == "\\"
+          i += 2
+          next
+        end
+        if ch2 == "\""
+          break
+        end
+        i += 1
+      end
+      i += 1
+      next
+    end
+    # Check for " = " but not " == "
+    if ch == "=" && i > 0 && (i + 1) < slen
+      before = line[i - 1, 1]
+      after = line[i + 1, 1]
+      if before == " " && after == " "
+        # Make sure it's not == (check char before space)
+        if i >= 2
+          before2 = line[i - 2, 1]
+          if before2 == "!" || before2 == "<" || before2 == ">"
+            i += 1
+            next
+          end
+        end
+        # Check it's not ==
+        if after == "="
+          i += 1
+          next
+        end
+        prefix = line[0, i + 2]
+        rhs = line[i + 2, slen - i - 2]
+        if has_concat_marker(rhs)
+          return {prefix: prefix, rhs: rhs}
+        end
+        return nil
+      end
+    end
+    i += 1
+  end
+  return nil
+end
+
 # Analyze a source line for fixable concat patterns.
 # Returns a result hash with {concat_text, interpolated} or nil.
 def analyze_line(line)
@@ -268,12 +324,32 @@ def analyze_line(line)
     return nil
   end
 
-  # First try tokenizing the whole line (handles bare exprs and assignments)
+  # First try tokenizing the whole line (handles bare concat exprs)
   parts = tokenize_concat(trimmed)
   if parts != nil && len(parts) >= 2
     chain = extract_chain(parts)
     if chain != nil
       return chain
+    end
+  end
+
+  # Try extracting RHS of assignment: var = <rhs with concat>
+  assign_rhs = extract_assign_rhs(trimmed)
+  if assign_rhs != nil
+    rhs_parts = tokenize_concat(assign_rhs["rhs"])
+    if rhs_parts != nil && len(rhs_parts) >= 2
+      chain = extract_chain(rhs_parts)
+      if chain != nil
+        concat_text = chain["concat_text"]
+        interpolated = chain["interpolated"]
+        if interpolated != nil
+          fixed_rhs = str.replace(assign_rhs["rhs"], concat_text, interpolated)
+          full_fixed = assign_rhs["prefix"] + fixed_rhs
+          return {concat_text: trimmed, interpolated: full_fixed}
+        else
+          return {concat_text: trimmed, interpolated: nil}
+        end
+      end
     end
   end
 
@@ -322,7 +398,13 @@ def extract_chain(parts)
     if part["connected"] == true
       if chain_start == -1
         if i > 0
-          chain_start = i - 1
+          prev = parts[i - 1]
+          # Don't include assignment expressions (contain " = ") in the chain
+          if prev["type"] == "expr" && str.contains(prev["value"], " = ")
+            chain_start = i
+          else
+            chain_start = i - 1
+          end
         else
           chain_start = i
         end
