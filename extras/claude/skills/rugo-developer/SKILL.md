@@ -12,6 +12,7 @@ description: Expert in developing Rugo, a Ruby-inspired language that compiles t
 * Read `preference.md` and `rats.md` in the repo root for current design decisions and pending work before making changes.
 * **Load the `rugo-quickstart` skill** when writing `.rugo` scripts or helping users with Rugo language syntax and features.
 * **Load the `rugo-native-module-writer` when you are writing or debuging a Rugo module written in Rugo lang.
+* **Load the idiomatic-rugo** skill when writing Rugo code.
 
 ## Project Overview
 
