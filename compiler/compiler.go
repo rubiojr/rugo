@@ -118,6 +118,11 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 		return nil, err
 	}
 
+	// Validate sandbox placement in the main file before require resolution.
+	if err := validateSandboxPlacement(prog, displayPath(absPath)); err != nil {
+		return nil, err
+	}
+
 	// Mark the main file as loaded and track it in the require stack
 	// so that self-requires and circular requires are detected.
 	c.loaded[absPath] = ""
@@ -607,6 +612,7 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 				}
 
 				ns := modName
+				modSourceFile := reqProg.SourceFile
 
 				if c.imports[ns] {
 					return nil, fmt.Errorf("%s:%d: require namespace %q (from with) conflicts with use'd stdlib module", prog.SourceFile, req.StmtLine(), ns)
@@ -642,6 +648,7 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 						}
 						c.nsFuncs[nsKey] = req.Path + "/" + modName
 						st.Namespace = ns
+						st.SourceFile = modSourceFile
 						resolved = append(resolved, st)
 					case *ast.AssignStmt:
 						if st.Namespace != "" {
@@ -649,8 +656,10 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 							continue
 						}
 						st.Namespace = ns
+						st.SourceFile = modSourceFile
 						resolved = append(resolved, st)
 					case *ast.ExprStmt:
+						st.SourceFile = modSourceFile
 						resolved = append(resolved, st)
 					}
 				}
@@ -795,14 +804,41 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 				}
 				// Top-level assignments (constants) from required files
 				st.Namespace = ns
+				st.SourceFile = reqSourceFile
 				resolved = append(resolved, st)
 			case *ast.ExprStmt:
+				st.SourceFile = reqSourceFile
 				resolved = append(resolved, st)
 			}
 		}
 	}
 
 	return &ast.Program{Statements: resolved}, nil
+}
+
+// validateSandboxPlacement checks sandbox placement rules on the original
+// (pre-require-resolution) program. This ensures only the user's own
+// statements are considered, not code merged from required files.
+func validateSandboxPlacement(prog *ast.Program, sourceFile string) error {
+	seenSandbox := false
+	seenNonDecl := false
+	for _, s := range prog.Statements {
+		switch st := s.(type) {
+		case *ast.UseStmt, *ast.ImportStmt, *ast.RequireStmt:
+			continue
+		case *ast.SandboxStmt:
+			if seenNonDecl {
+				return fmt.Errorf("%s:%d: sandbox must appear before any other code (only use, import, and require may precede it)", sourceFile, st.SourceLine)
+			}
+			if seenSandbox {
+				return fmt.Errorf("%s:%d: duplicate sandbox directive (only one allowed per program)", sourceFile, st.SourceLine)
+			}
+			seenSandbox = true
+		default:
+			seenNonDecl = true
+		}
+	}
+	return nil
 }
 
 // displayPath returns a relative path for use in error messages.

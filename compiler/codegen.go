@@ -49,7 +49,6 @@ type codeGen struct {
 	lambdaScopeBase []int             // scope index at each lambda entry (stack)
 	lambdaOuterFunc []*ast.FuncDef    // enclosing function at each lambda entry (stack)
 	sandbox         *SandboxConfig    // Landlock sandbox config (nil = no sandbox)
-	cliSandbox      *SandboxConfig    // CLI-provided sandbox (non-nil = override script directive)
 }
 
 // generate produces Go source code from a ast.Program AST.
@@ -71,7 +70,6 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 		testMode:    testMode,
 		typeInfo:    ti,
 		sandbox:     sandbox,
-		cliSandbox:  sandbox,
 	}
 	return g.generate(prog)
 }
@@ -88,11 +86,9 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	var setupFileFunc *ast.FuncDef
 	var teardownFileFunc *ast.FuncDef
 	funcLines := make(map[string]int) // track first definition line per function
-	seenNonDecl := false              // tracks whether sandbox can still appear (only use/import/require allowed before it)
 	for _, s := range prog.Statements {
 		switch st := s.(type) {
 		case *ast.FuncDef:
-			seenNonDecl = true
 			// Detect duplicate function definitions
 			key := st.Name
 			if st.Namespace != "" {
@@ -114,12 +110,10 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			}
 			funcs = append(funcs, st)
 		case *ast.TestDef:
-			seenNonDecl = true
 			if g.testMode {
 				tests = append(tests, st)
 			}
 		case *ast.BenchDef:
-			seenNonDecl = true
 			benches = append(benches, st)
 		case *ast.RequireStmt:
 			continue
@@ -130,15 +124,9 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			g.goImports[st.Package] = st.Alias
 			continue
 		case *ast.SandboxStmt:
-			if seenNonDecl {
-				return "", fmt.Errorf("%s:%d: sandbox must appear before any other code (only use, import, and require may precede it)", g.sourceFile, st.SourceLine)
-			}
-			// Only one sandbox directive allowed in the entire source tree.
-			if g.sandbox != nil && g.sandbox != g.cliSandbox {
-				return "", fmt.Errorf("%s:%d: duplicate sandbox directive (only one allowed per program)", g.sourceFile, st.SourceLine)
-			}
-			// CLI override takes precedence — skip script directive.
-			if g.cliSandbox != nil {
+			// Placement and duplicate checks are done in validateSandboxPlacement.
+			// If sandbox is already set (CLI override), skip the script directive.
+			if g.sandbox != nil {
 				continue
 			}
 			g.sandbox = &SandboxConfig{
@@ -147,7 +135,6 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			}
 			continue
 		default:
-			seenNonDecl = true
 			if assign, ok := s.(*ast.AssignStmt); ok && assign.Namespace != "" {
 				nsVars = append(nsVars, assign)
 			} else {
@@ -955,6 +942,12 @@ func (g *codeGen) emitLineDirective(line int) {
 }
 
 func (g *codeGen) writeStmt(s ast.Statement) error {
+	// Temporarily switch source file for statements from required files.
+	if src := s.StmtSource(); src != "" && src != g.sourceFile {
+		saved := g.sourceFile
+		g.sourceFile = src
+		defer func() { g.sourceFile = saved }()
+	}
 	g.emitLineDirective(s.StmtLine())
 	var err error
 	switch st := s.(type) {

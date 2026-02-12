@@ -11,16 +11,19 @@ type Statement interface {
 	stmt()
 	StmtLine() int
 	StmtEndLine() int
+	StmtSource() string
 }
 
 // BaseStmt provides common fields for all statements.
 type BaseStmt struct {
-	SourceLine int // start line in the original source
-	EndLine    int // end line in the original source (0 if unknown)
+	SourceLine int    // start line in the original source
+	EndLine    int    // end line in the original source (0 if unknown)
+	SourceFile string // original source file (set for statements from require'd files)
 }
 
-func (b BaseStmt) StmtLine() int    { return b.SourceLine }
-func (b BaseStmt) StmtEndLine() int { return b.EndLine }
+func (b BaseStmt) StmtLine() int      { return b.SourceLine }
+func (b BaseStmt) StmtEndLine() int    { return b.EndLine }
+func (b BaseStmt) StmtSource() string  { return b.SourceFile }
 
 // Expr is the interface for expression nodes.
 type Expr interface {
@@ -95,11 +98,10 @@ func (s *SandboxStmt) stmt() {}
 // FuncDef represents def name(params) body end.
 type FuncDef struct {
 	BaseStmt
-	Name       string
-	Params     []string
-	Body       []Statement
-	Namespace  string // set during require resolution for namespaced functions
-	SourceFile string // original source file for //line directives (set for require'd functions)
+	Name      string
+	Params    []string
+	Body      []Statement
+	Namespace string // set during require resolution for namespaced functions
 }
 
 func (f *FuncDef) node() {}
