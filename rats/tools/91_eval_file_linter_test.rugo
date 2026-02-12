@@ -1,6 +1,8 @@
 # RATS: eval-file linter tool
 use "test"
 use "os"
+use "eval"
+use "str"
 
 rats "eval-file detects test.run rugo run with interpolation"
   script = <<~'SCRIPT'
@@ -12,7 +14,7 @@ rats "eval-file detects test.run rugo run with interpolation"
       test.assert_eq(result["status"], 0)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/target.rugo", script)
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
   result = test.run("rugo run tools/linter/main.rugo -- eval-file #{test.tmpdir()}/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "eval.file(target)")
@@ -29,7 +31,7 @@ rats "eval-file detects test.run rugo run with path concat"
       test.assert_eq(result["status"], 0)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/target.rugo", script)
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
   result = test.run("rugo run tools/linter/main.rugo -- eval-file #{test.tmpdir()}/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "1 issue(s) found.")
@@ -43,7 +45,7 @@ rats "eval-file ignores test.run with non-rugo commands"
       test.assert_eq(result["status"], 0)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/target.rugo", script)
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
   result = test.run("rugo run tools/linter/main.rugo -- eval-file #{test.tmpdir()}/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "No issues found.")
@@ -57,7 +59,7 @@ rats "eval-file ignores test.run with extra args"
       test.assert_eq(result["status"], 0)
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/target.rugo", script)
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
   result = test.run("rugo run tools/linter/main.rugo -- eval-file #{test.tmpdir()}/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "No issues found.")
@@ -75,7 +77,7 @@ rats "eval-file fix rewrites to eval.file"
       test.assert_eq(result["lines"][0], "42")
     end
   SCRIPT
-  target = test.tmpdir() + "/target.rugo"
+  target = "#{test.tmpdir()}/target.rugo"
   test.write_file(target, script)
   result = test.run("rugo run tools/linter/main.rugo -- eval-file --fix #{target}")
   test.assert_eq(result["status"], 0)
@@ -97,7 +99,7 @@ rats "eval-file fix is idempotent"
       test.assert_eq(result["status"], 0)
     end
   SCRIPT
-  target = test.tmpdir() + "/target.rugo"
+  target = "#{test.tmpdir()}/target.rugo"
   test.write_file(target, script)
 
   test.run("rugo run tools/linter/main.rugo -- eval-file --fix #{target}")
@@ -120,7 +122,7 @@ rats "eval-file fix preserves indentation"
       end
     end
   SCRIPT
-  target = test.tmpdir() + "/target.rugo"
+  target = "#{test.tmpdir()}/target.rugo"
   test.write_file(target, script)
   test.run("rugo run tools/linter/main.rugo -- eval-file --fix #{target}")
 
@@ -136,8 +138,53 @@ rats "eval-file all command includes eval-file"
       result = test.run("rugo run #{test.tmpdir()}/hello.rugo")
     end
   SCRIPT
-  test.write_file(test.tmpdir() + "/target.rugo", script)
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
   result = test.run("rugo run tools/linter/main.rugo -- all #{test.tmpdir()}/target.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "[eval-file]")
+end
+
+rats "eval-file fix injects use eval when missing"
+  script = <<~'SCRIPT'
+    use "test"
+    rats "example"
+      target = test.tmpdir() + "/hello.rugo"
+      test.write_file(target, "puts 42")
+      result = test.run("rugo run #{target}")
+      test.assert_eq(result["status"], 0)
+      test.assert_eq(result["lines"][0], "42")
+    end
+  SCRIPT
+  target = "#{test.tmpdir()}/target.rugo"
+  test.write_file(target, script)
+  result = test.run("rugo run tools/linter/main.rugo -- eval-file --fix #{target}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1 issue(s) fixed.")
+
+  # Verify use "eval" was injected and fixed file works
+  fixed = `cat '#{target}'`
+  test.assert_contains(fixed, 'use "eval"')
+  result2 = test.run("rugo run #{target}")
+  test.assert_eq(result2["status"], 0)
+end
+
+rats "eval-file fix does not duplicate use eval"
+  script = <<~'SCRIPT'
+    use "test"
+    use "eval"
+    rats "example"
+      target = test.tmpdir() + "/hello.rugo"
+      test.write_file(target, "puts 42")
+      result = test.run("rugo run #{target}")
+      test.assert_eq(result["status"], 0)
+    end
+  SCRIPT
+  target = "#{test.tmpdir()}/target.rugo"
+  test.write_file(target, script)
+  test.run("rugo run tools/linter/main.rugo -- eval-file --fix #{target}")
+
+  # Count occurrences of use "eval" — should be exactly 1
+  fixed = `cat '#{target}'`
+  parts = str.split(fixed, 'use "eval"')
+  test.assert_eq(len(parts), 2)
 end

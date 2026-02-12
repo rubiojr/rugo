@@ -323,10 +323,39 @@ def fix(path, warnings)
   content = `cat '#{path}'`
   lines = str.split(content, "\n")
 
+  # Check if any fixes will actually be applied
+  has_fixes = false
   fix_map = {}
   for w in warnings
     if str.starts_with(w["fixed"], "# cannot") == false
       fix_map[conv.to_s(w["line"])] = w
+      has_fixes = true
+    end
+  end
+
+  if has_fixes == false
+    return
+  end
+
+  # Check if file already has 'use "eval"'
+  needs_eval_import = true
+  for line in lines
+    trimmed = str.trim(line)
+    if trimmed == 'use "eval"'
+      needs_eval_import = false
+    end
+  end
+
+  # Find the last 'use "..."' line to insert after
+  last_use_line = -1
+  if needs_eval_import
+    li = 0
+    for line in lines
+      trimmed = str.trim(line)
+      if str.starts_with(trimmed, "use \"")
+        last_use_line = li
+      end
+      li += 1
     end
   end
 
@@ -347,7 +376,19 @@ def fix(path, warnings)
     else
       append new_lines, line
     end
+
+    # Inject 'use "eval"' after the last use statement
+    if needs_eval_import && i == last_use_line
+      append new_lines, 'use "eval"'
+      needs_eval_import = false
+    end
+
     i += 1
+  end
+
+  # If no use statements were found, prepend at the top
+  if needs_eval_import
+    new_lines = ['use "eval"', ""] + new_lines
   end
 
   new_content = str.join(new_lines, "\n")
