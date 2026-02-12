@@ -1397,9 +1397,33 @@ func TestExpandHashColonSyntax(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := ast.ExpandHashColonSyntax(tt.input)
+			got, err := ast.ExpandHashColonSyntax(tt.input)
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
 			if got != tt.expect {
 				t.Errorf("ast.ExpandHashColonSyntax(%q) =\n  %q\nwant:\n  %q", tt.input, got, tt.expect)
+			}
+		})
+	}
+}
+
+func TestExpandHashColonSyntaxRejectsIntegerKeys(t *testing.T) {
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{"integer colon key", `{1: "one"}`},
+		{"multiple integer colon keys", `{1: "one", 2: "two"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := ast.ExpandHashColonSyntax(tt.input)
+			if err == nil {
+				t.Fatal("expected error for integer colon key, got nil")
+			}
+			if !strings.Contains(err.Error(), "arrow syntax") {
+				t.Errorf("error should mention arrow syntax, got: %v", err)
 			}
 		})
 	}

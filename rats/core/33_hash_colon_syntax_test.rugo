@@ -225,3 +225,19 @@ rats "colon hash compiles to native binary"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Alice")
 end
+
+# ============================================================
+# E. Integer Colon Keys Rejected
+# ============================================================
+
+rats "integer colon key produces clear error"
+  script = <<~SCRIPT
+    h = {1: "one", 2: "two"}
+    puts h[1]
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "arrow syntax")
+  test.assert_contains(result["output"], "1 =>")
+end

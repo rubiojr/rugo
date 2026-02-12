@@ -103,7 +103,10 @@ func StripComments(src string) (string, error) {
 func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// Rewrite hash colon syntax before other transformations:
 	//   {foo: "bar"}  →  {"foo" => "bar"}
-	src = ExpandHashColonSyntax(src)
+	src, err := ExpandHashColonSyntax(src)
+	if err != nil {
+		return "", nil, err
+	}
 
 	// Desugar compound assignment operators before other transformations.
 	src = ExpandCompoundAssign(src)
@@ -113,7 +116,7 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	src = expandDefParens(src)
 
 	// Expand backtick expressions before try sugar (backticks may appear inside try).
-	src, err := expandBackticks(src)
+	src, err = expandBackticks(src)
 	if err != nil {
 		return "", nil, err
 	}
@@ -529,17 +532,23 @@ func expandDefParens(src string) string {
 //
 // Only bare identifiers followed by ": " are rewritten. String contents
 // are left untouched. The arrow syntax {expr => val} is unaffected.
-func ExpandHashColonSyntax(src string) string {
+func ExpandHashColonSyntax(src string) (string, error) {
 	var sb strings.Builder
 	sb.Grow(len(src))
 
 	inDouble := false
 	inSingle := false
 	escaped := false
+	braceDepth := 0
+	line := 1
 
 	i := 0
 	for i < len(src) {
 		ch := src[i]
+
+		if ch == '\n' {
+			line++
+		}
 
 		if escaped {
 			sb.WriteByte(ch)
@@ -569,6 +578,14 @@ func ExpandHashColonSyntax(src string) string {
 			continue
 		}
 
+		if !inDouble && !inSingle {
+			if ch == '{' {
+				braceDepth++
+			} else if ch == '}' && braceDepth > 0 {
+				braceDepth--
+			}
+		}
+
 		// Outside strings, look for ident: pattern
 		if !inDouble && !inSingle && (unicode.IsLetter(rune(ch)) || ch == '_') {
 			start := i
@@ -590,11 +607,25 @@ func ExpandHashColonSyntax(src string) string {
 			continue
 		}
 
+		// Inside hash literal, reject non-identifier colon keys (e.g. {1: "one"})
+		if !inDouble && !inSingle && braceDepth > 0 && unicode.IsDigit(rune(ch)) {
+			start := i
+			for i < len(src) && unicode.IsDigit(rune(src[i])) {
+				i++
+			}
+			digits := src[start:i]
+			if i < len(src) && src[i] == ':' && i+1 < len(src) && (src[i+1] == ' ' || src[i+1] == '\t') {
+				return "", fmt.Errorf("line %d: colon syntax only supports identifier keys — use arrow syntax for integer keys: {%s => ...}", line, digits)
+			}
+			sb.WriteString(digits)
+			continue
+		}
+
 		sb.WriteByte(ch)
 		i++
 	}
 
-	return sb.String()
+	return sb.String(), nil
 }
 
 func isIdent(s string) bool {
