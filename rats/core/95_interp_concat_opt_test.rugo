@@ -1,0 +1,27 @@
+# RATS: String interpolation concat optimization
+# When all interpolated expressions are typed strings, the compiler should emit
+# direct string concatenation instead of fmt.Sprintf for better performance.
+# This test ensures correctness of the optimization path.
+use "test"
+
+rats "string interp with typed string vars uses concat optimization"
+  result = test.run("rugo run rats/fixtures/interp_string_concat_opt.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "hello world")
+  test.assert_eq(lines[1], "prefix-world-suffix")
+  test.assert_eq(lines[2], "world")
+  test.assert_eq(lines[3], "only literal")
+end
+
+rats "string interp with mixed types falls back to Sprintf"
+  result = test.run("rugo run rats/fixtures/interp_mixed_types.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello world, age 25")
+end
+
+rats "string interp emits Sprintf for mixed types"
+  result = test.run("rugo emit rats/fixtures/interp_mixed_types.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "Sprintf")
+end

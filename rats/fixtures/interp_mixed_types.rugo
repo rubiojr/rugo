@@ -1,0 +1,4 @@
+# Fixture: string interpolation with mixed types (falls back to fmt.Sprintf)
+name = "world"
+age = 25
+puts("hello #{name}, age #{age}")

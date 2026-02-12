@@ -1,0 +1,8 @@
+# Fixture: string interpolation with typed string variables
+# Tests that the concat optimization produces correct results
+name = "world"
+greeting = "hello"
+puts("#{greeting} #{name}")
+puts("prefix-#{name}-suffix")
+puts("#{name}")
+puts("only literal")

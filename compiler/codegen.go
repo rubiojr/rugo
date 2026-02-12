@@ -1220,16 +1220,29 @@ func (g *codeGen) stringLiteral(value string, typed bool) (string, error) {
 	if ast.HasInterpolation(value) {
 		format, exprStrs := ast.ProcessInterpolation(value)
 		args := make([]string, len(exprStrs))
+		argTypes := make([]RugoType, len(exprStrs))
 		for i, exprStr := range exprStrs {
-			// Parse the interpolated expression through the rugo pipeline
-			goExpr, err := g.compileInterpolatedExpr(exprStr)
+			goExpr, typ, err := g.compileInterpolatedExpr(exprStr)
 			if err != nil {
 				return "", fmt.Errorf("interpolation error in #{%s}: %w", exprStr, err)
 			}
 			args[i] = goExpr
+			argTypes[i] = typ
 		}
 		escapedFmt := goEscapeString(format)
 		if len(args) > 0 {
+			// Optimization: when all interpolated expressions are typed strings,
+			// emit direct concatenation instead of fmt.Sprintf.
+			allString := true
+			for _, t := range argTypes {
+				if t != TypeString {
+					allString = false
+					break
+				}
+			}
+			if allString {
+				return g.buildStringConcat(escapedFmt, args), nil
+			}
 			return fmt.Sprintf(`fmt.Sprintf("%s", %s)`, escapedFmt, strings.Join(args, ", ")), nil
 		}
 		if typed {
@@ -1244,33 +1257,78 @@ func (g *codeGen) stringLiteral(value string, typed bool) (string, error) {
 	return fmt.Sprintf(`interface{}("%s")`, escaped), nil
 }
 
-// compileInterpolatedExpr parses a rugo expression string and generates Go code.
-func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, error) {
-	// Wrap in a dummy statement so the parser can handle it
+// compileInterpolatedExpr parses a rugo expression string and returns the
+// generated Go code along with the inferred type of the expression.
+func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, RugoType, error) {
 	src := exprStr + "\n"
 	p := &parser.Parser{}
-	// Parse as a full program with just this expression
-	fullSrc := src
-	flatAST, err := p.Parse("<interpolation>", []byte(fullSrc))
+	flatAST, err := p.Parse("<interpolation>", []byte(src))
 	if err != nil {
-		return "", fmt.Errorf("parsing: %w", err)
+		return "", TypeDynamic, fmt.Errorf("parsing: %w", err)
 	}
 	prog, err := ast.Walk(p, flatAST)
 	if err != nil {
-		return "", fmt.Errorf("walking: %w", err)
+		return "", TypeDynamic, fmt.Errorf("walking: %w", err)
 	}
 	if len(prog.Statements) == 0 {
-		return `interface{}("")`, nil
+		return `""`, TypeString, nil
 	}
-	// Extract the expression from the statement
+	var expr ast.Expr
 	switch s := prog.Statements[0].(type) {
 	case *ast.ExprStmt:
-		return g.exprString(s.Expression)
+		expr = s.Expression
 	case *ast.AssignStmt:
-		return g.exprString(s.Value)
+		expr = s.Value
 	default:
-		return "", fmt.Errorf("unexpected statement type in interpolation: %T", s)
+		return "", TypeDynamic, fmt.Errorf("unexpected statement type in interpolation: %T", s)
 	}
+	goExpr, err := g.exprString(expr)
+	if err != nil {
+		return "", TypeDynamic, err
+	}
+	return goExpr, g.interpExprType(expr), nil
+}
+
+// interpExprType infers the type of an interpolated expression.
+// Since interpolated expressions are parsed separately from the main AST,
+// we check the AST node directly and use varType for identifier lookups.
+func (g *codeGen) interpExprType(e ast.Expr) RugoType {
+	switch ex := e.(type) {
+	case *ast.IdentExpr:
+		return g.varType(ex.Name)
+	case *ast.StringLiteral:
+		return TypeString
+	case *ast.IntLiteral:
+		return TypeInt
+	case *ast.FloatLiteral:
+		return TypeFloat
+	case *ast.BoolLiteral:
+		return TypeBool
+	default:
+		return TypeDynamic
+	}
+}
+
+// buildStringConcat emits a Go string concatenation expression from a format
+// string with %v placeholders and corresponding typed string arguments.
+func (g *codeGen) buildStringConcat(escapedFmt string, args []string) string {
+	segments := strings.Split(escapedFmt, "%v")
+	var parts []string
+	for i, seg := range segments {
+		if seg != "" {
+			parts = append(parts, fmt.Sprintf(`"%s"`, seg))
+		}
+		if i < len(args) {
+			parts = append(parts, args[i])
+		}
+	}
+	if len(parts) == 0 {
+		return `""`
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return "(" + strings.Join(parts, " + ") + ")"
 }
 
 func goEscapeString(s string) string {
