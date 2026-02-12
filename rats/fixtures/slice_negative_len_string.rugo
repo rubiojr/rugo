@@ -1,0 +1,2 @@
+s = "hello world"
+puts s[0, -1]

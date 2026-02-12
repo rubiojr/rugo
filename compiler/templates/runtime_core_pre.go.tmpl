@@ -435,6 +435,9 @@ func rugo_type_name(v interface{}) string {
 func rugo_slice(obj, start, length interface{}) interface{} {
 	s := rugo_to_int(start)
 	l := rugo_to_int(length)
+	if l < 0 {
+		l = 0
+	}
 	switch v := obj.(type) {
 	case string:
 		if s >= len(v) {

@@ -110,6 +110,33 @@ rats "slice error on nil shows friendly message"
   test.assert_contains(result["output"], "expected string or array")
 end
 
+# --- Negative length clamping ---
+# Docs say "out-of-bounds slices are clamped silently" so negative length → empty result
+
+rats "array slice with negative length returns empty array"
+  result = test.run("rugo run rats/fixtures/slice_negative_len_array.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[]")
+end
+
+rats "array slice with negative length at offset returns empty array"
+  result = test.run("rugo run rats/fixtures/slice_negative_len_array_mid.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[]")
+end
+
+rats "string slice with negative length returns empty string"
+  result = test.run("rugo run rats/fixtures/slice_negative_len_string.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "")
+end
+
+rats "string slice with negative length at offset returns empty string"
+  result = test.run("rugo run rats/fixtures/slice_negative_len_string_mid.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "")
+end
+
 rats "slice error on hash shows friendly message"
   result = test.run("rugo run rats/fixtures/slice_error_hash.rugo")
   test.assert_neq(result["status"], 0)
