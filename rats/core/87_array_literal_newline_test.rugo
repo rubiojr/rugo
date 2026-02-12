@@ -98,3 +98,267 @@ rats "semicolons inside strings are fine"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello; world")
 end
+
+# ============================================================
+# E. Nested / multi-line arrays
+# ============================================================
+
+rats "nested array in multi-line literal"
+  h = [
+    ["help", "show"]
+  ]
+  test.assert_eq(len(h), 1)
+  test.assert_eq(h[0][0], "help")
+  test.assert_eq(h[0][1], "show")
+end
+
+rats "multi-line array with multiple nested elements"
+  m = [
+    [1, 2],
+    [3, 4],
+    [5, 6]
+  ]
+  test.assert_eq(len(m), 3)
+  test.assert_eq(m[0][0], 1)
+  test.assert_eq(m[1][1], 4)
+  test.assert_eq(m[2][0], 5)
+end
+
+rats "deeply nested multi-line array"
+  d = [
+    [[1, 2], [3, 4]],
+    [[5, 6], [7, 8]]
+  ]
+  test.assert_eq(d[0][0][0], 1)
+  test.assert_eq(d[1][1][1], 8)
+end
+
+# ============================================================
+# F. Trailing comma rejection
+# ============================================================
+
+rats "trailing comma in array is rejected"
+  script = <<~SCRIPT
+    x = [1, 2, 3,]
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "trailing commas are not allowed")
+end
+
+rats "trailing comma in hash is rejected"
+  script = <<~SCRIPT
+    h = {"a" => 1,}
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "trailing commas are not allowed")
+end
+
+rats "trailing comma in multi-line array is rejected"
+  script = <<~SCRIPT
+    x = [
+      1,
+      2,
+    ]
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "trailing commas are not allowed")
+end
+
+rats "commas inside strings are not trailing commas"
+  script = <<~SCRIPT
+    x = ["a,"]
+    puts x[0]
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "a,")
+end
+
+# ============================================================
+# G. Multi-line array edge cases
+# ============================================================
+
+rats "empty multi-line array"
+  x = [
+  ]
+  test.assert_eq(len(x), 0)
+end
+
+rats "single element multi-line array"
+  x = [
+    42
+  ]
+  test.assert_eq(len(x), 1)
+  test.assert_eq(x[0], 42)
+end
+
+rats "multi-line array with mixed types"
+  x = [
+    1,
+    "hello",
+    [2, 3],
+    true
+  ]
+  test.assert_eq(len(x), 4)
+  test.assert_eq(x[0], 1)
+  test.assert_eq(x[1], "hello")
+  test.assert_eq(x[2][0], 2)
+  test.assert_eq(x[3], true)
+end
+
+rats "multi-line array with strings containing brackets"
+  x = [
+    "[hello]",
+    "a]b",
+    "c[d"
+  ]
+  test.assert_eq(len(x), 3)
+  test.assert_eq(x[0], "[hello]")
+  test.assert_eq(x[1], "a]b")
+  test.assert_eq(x[2], "c[d")
+end
+
+rats "multi-line array with comment between elements"
+  x = [
+    1,
+    # this is a comment
+    2,
+    # another comment
+    3
+  ]
+  test.assert_eq(len(x), 3)
+  test.assert_eq(x[0], 1)
+  test.assert_eq(x[1], 2)
+  test.assert_eq(x[2], 3)
+end
+
+rats "multi-line array inside if body"
+  ok = true
+  if ok
+    x = [
+      "a",
+      "b"
+    ]
+    test.assert_eq(len(x), 2)
+    test.assert_eq(x[1], "b")
+  end
+end
+
+rats "multi-line array inside for body"
+  result = []
+  for i in [1, 2]
+    chunk = [
+      i,
+      i * 10
+    ]
+    result = append(result, chunk)
+  end
+  test.assert_eq(len(result), 2)
+  test.assert_eq(result[0][1], 10)
+  test.assert_eq(result[1][1], 20)
+end
+
+def make_grid()
+  return [
+    [1, 2, 3],
+    [4, 5, 6],
+    [7, 8, 9]
+  ]
+end
+
+rats "multi-line array inside function"
+  g = make_grid()
+  test.assert_eq(g[1][1], 5)
+end
+
+rats "multi-line array as function argument"
+  arr = [
+    10,
+    20,
+    30
+  ]
+  test.assert_eq(len(arr), 3)
+  test.assert_eq(arr[0] + arr[1] + arr[2], 60)
+end
+
+rats "empty array on new line is separate statement"
+  x = 99
+  []
+  test.assert_eq(x, 99)
+end
+
+rats "multi-line array with hashes as elements"
+  items = [
+    {"name" => "a", "val" => 1},
+    {"name" => "b", "val" => 2}
+  ]
+  test.assert_eq(len(items), 2)
+  test.assert_eq(items[0]["name"], "a")
+  test.assert_eq(items[1]["val"], 2)
+end
+
+rats "hash with array values across lines"
+  h = {"nums" => [
+    1,
+    2,
+    3
+  ]}
+  test.assert_eq(len(h["nums"]), 3)
+  test.assert_eq(h["nums"][2], 3)
+end
+
+# ============================================================
+# H. Trailing comma edge cases
+# ============================================================
+
+rats "trailing comma in nested inner array is rejected"
+  script = <<~SCRIPT
+    x = [[1,], [2]]
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "trailing commas are not allowed")
+end
+
+rats "trailing comma in multi-line hash is rejected"
+  script = <<~SCRIPT
+    h = {
+      "a" => 1,
+      "b" => 2,
+    }
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "trailing commas are not allowed")
+end
+
+rats "comma before ] inside string is not trailing"
+  script = <<~SCRIPT
+    x = [",]"]
+    puts x[0]
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], ",]")
+end
+
+rats "comma before } inside string is not trailing"
+  script = <<~SCRIPT
+    h = {"k" => ",}"}
+    puts h["k"]
+  SCRIPT
+  test.write_file(test.tmpdir() + "/test.rugo", script)
+  result = test.run("rugo run " + test.tmpdir() + "/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], ",}")
+end

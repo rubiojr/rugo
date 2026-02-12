@@ -107,6 +107,11 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 		return "", nil, err
 	}
 
+	// Reject trailing commas in array and hash literals.
+	if err := RejectTrailingCommas(src); err != nil {
+		return "", nil, err
+	}
+
 	// Rewrite hash colon syntax before other transformations:
 	//   {foo: "bar"}  →  {"foo" => "bar"}
 	src, err := ExpandHashColonSyntax(src)
@@ -2195,17 +2200,100 @@ func RejectSemicolons(src string) error {
 	return nil
 }
 
-// InsertArraySeparators inserts ';' before lines that start with '[' (after
-// optional whitespace) to disambiguate array literals from index suffix
-// operations across line boundaries.
-func InsertArraySeparators(src string) string {
-	lines := strings.Split(src, "\n")
-	for i := 1; i < len(lines); i++ {
-		trimmed := strings.TrimSpace(lines[i])
-		if len(trimmed) > 0 && trimmed[0] == '[' {
-			indent := lines[i][:len(lines[i])-len(strings.TrimLeft(lines[i], " \t"))]
-			lines[i] = indent + ";" + strings.TrimLeft(lines[i], " \t")
+// RejectTrailingCommas scans source for trailing commas before ']' or '}'
+// (outside string literals) and returns an error if found.
+func RejectTrailingCommas(src string) error {
+	inString := false
+	var strChar byte
+	line := 1
+	commaLine := 0
+	seenComma := false
+	for i := 0; i < len(src); i++ {
+		ch := src[i]
+		if ch == '\n' {
+			line++
+		}
+		if inString {
+			if ch == '\\' {
+				i++ // skip escaped character
+			} else if ch == strChar {
+				inString = false
+			}
+			continue
+		}
+		switch ch {
+		case '"', '\'':
+			inString = true
+			strChar = ch
+			seenComma = false
+		case '#':
+			// skip rest of line (comment)
+			for i+1 < len(src) && src[i+1] != '\n' {
+				i++
+			}
+		case ',':
+			seenComma = true
+			commaLine = line
+		case ']', '}':
+			if seenComma {
+				return fmt.Errorf("line %d: trailing commas are not allowed", commaLine)
+			}
+		case ' ', '\t', '\n', '\r':
+			// whitespace doesn't reset seenComma
+		default:
+			seenComma = false
 		}
 	}
+	return nil
+}
+
+// InsertArraySeparators inserts ';' before lines that start with '[' (after
+// optional whitespace) to disambiguate array literals from index suffix
+// operations across line boundaries. It tracks bracket depth so that lines
+// inside a multi-line array (e.g. nested array elements) are not separated.
+func InsertArraySeparators(src string) string {
+	lines := strings.Split(src, "\n")
+	bracketDepth := 0
+	for i := 0; i < len(lines); i++ {
+		if i > 0 && bracketDepth == 0 {
+			trimmed := strings.TrimSpace(lines[i])
+			if len(trimmed) > 0 && trimmed[0] == '[' {
+				indent := lines[i][:len(lines[i])-len(strings.TrimLeft(lines[i], " \t"))]
+				lines[i] = indent + ";" + strings.TrimLeft(lines[i], " \t")
+			}
+		}
+		bracketDepth += countBracketDelta(lines[i])
+	}
 	return strings.Join(lines, "\n")
+}
+
+// countBracketDelta returns the net change in bracket depth for a line,
+// skipping brackets inside string literals.
+func countBracketDelta(line string) int {
+	delta := 0
+	inString := false
+	var strChar byte
+	for j := 0; j < len(line); j++ {
+		ch := line[j]
+		if inString {
+			if ch == '\\' {
+				j++ // skip escaped character
+			} else if ch == strChar {
+				inString = false
+			}
+			continue
+		}
+		switch ch {
+		case '"', '\'':
+			inString = true
+			strChar = ch
+		case '#':
+			return delta // rest of line is a comment
+		case '[':
+			delta++
+		case ']':
+			delta--
+		}
+	}
+	return delta
 }
