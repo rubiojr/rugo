@@ -1,0 +1,8 @@
+# Sandbox example: restrict filesystem and network access using Landlock.
+# This script can only read /tmp and execute binaries from /usr.
+# All other filesystem access and all network access is denied.
+sandbox ro: ["/tmp"], rox: ["/usr", "/lib"]
+
+puts("Running in a Landlock sandbox!")
+puts("Allowed: reading /tmp, executing /usr binaries")
+puts("Denied: everything else (network, writes, other paths)")

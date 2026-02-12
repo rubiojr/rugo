@@ -36,6 +36,7 @@ In a future where code will be written by agents, do we even care about language
 - [Lambdas](docs/quickstart/08b-lambdas.md) — first-class anonymous functions
 - Lightweight, Go-like [OOP](docs/quickstart/17-structs.md)
 - Built-in [testing](docs/quickstart/13-testing.md) and [benchmarking](docs/quickstart/15-benchmarks.md)
+- [Sandboxing](docs/sandbox.md) — opt-in Landlock kernel security, no root needed (Linux only)
 
 ## Influences
 
@@ -50,6 +51,7 @@ Rugo stands on the shoulders of giants:
 * **BATS** (test runner)
 * **Rust** (inline tests alongside code).
 * **Elixir** (Lambdas)
+* **Landlock** (kernel-native sandboxing)
 
 #### Ruby-like syntax
 
@@ -158,6 +160,23 @@ rats "add works"
 end
 ```
 
+#### Sandboxing
+
+```ruby
+# Restrict filesystem and network with Linux Landlock
+sandbox ro: ["/etc"], rox: ["/usr", "/lib"], connect: [443]
+
+result = `cat /etc/os-release`
+puts result
+# Writing to /tmp or connecting to port 80? Denied.
+```
+
+Or from the CLI, without modifying the script:
+
+```bash
+rugo run --sandbox --ro /etc --rox /usr script.rugo
+```
+
 ## Install
 
 ```
@@ -177,6 +196,7 @@ rugo emit script.rugo       # print generated Go code
 
 - [Quickstart Guide](docs/quickstart.md)
 - [Modules Reference](docs/modules.md)
+- [Sandbox (Landlock)](docs/sandbox.md)
 
 ---
 

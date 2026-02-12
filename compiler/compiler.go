@@ -18,6 +18,17 @@ import (
 	"modernc.org/scanner"
 )
 
+// SandboxConfig holds Landlock sandbox permissions for the compiled binary.
+// A non-nil config with all empty fields means maximum restriction (deny everything).
+type SandboxConfig struct {
+	RO      []string // read-only paths
+	RW      []string // read-write paths
+	ROX     []string // read + execute paths
+	RWX     []string // read + write + execute paths
+	Connect []int    // allowed TCP connect ports
+	Bind    []int    // allowed TCP bind ports
+}
+
 // Compiler orchestrates the full compilation pipeline.
 type Compiler struct {
 	// BaseDir is the directory of the main source file (for resolving requires).
@@ -30,6 +41,9 @@ type Compiler struct {
 	ModuleDir string
 	// Frozen errors if the lock file is stale or a new dependency is resolved.
 	Frozen bool
+	// Sandbox, when non-nil, overrides any sandbox directive in the script.
+	// Populated by CLI flags (--sandbox --ro, --rw, etc.).
+	Sandbox *SandboxConfig
 	// Resolver overrides the default remote resolver. When set, the compiler
 	// uses this resolver instead of creating one. Used by mod tidy to share
 	// a single resolver across multiple compilations.
@@ -55,7 +69,8 @@ type Compiler struct {
 type CompileResult struct {
 	GoSource   string
 	Program    *ast.Program
-	SourceFile string // original source filename
+	SourceFile string         // original source filename
+	Sandbox    *SandboxConfig // sandbox config (nil = no sandbox)
 }
 
 // Compile reads a Rugo source file, resolves requires, and produces Go source.
@@ -115,12 +130,12 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	// Generate Go source
-	goSrc, err := generate(resolved, filename, c.TestMode)
+	goSrc, err := generate(resolved, filename, c.TestMode, c.Sandbox)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename}, nil
+	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename, Sandbox: c.Sandbox}, nil
 }
 
 // discoverHelpers finds Rugo files in a helpers/ directory next to the test file
@@ -148,16 +163,27 @@ func (c *Compiler) discoverHelpers() string {
 
 // goModContent generates a go.mod with require lines for any external
 // dependencies declared by the imported modules.
-func goModContent(prog *ast.Program) string {
+func goModContent(prog *ast.Program, sandbox *SandboxConfig) string {
 	var modNames []string
+	hasSandbox := sandbox != nil
 	for _, stmt := range prog.Statements {
 		if imp, ok := stmt.(*ast.UseStmt); ok {
 			modNames = append(modNames, imp.Module)
 		}
+		if _, ok := stmt.(*ast.SandboxStmt); ok {
+			hasSandbox = true
+		}
 	}
 
 	goMod := "module rugo_program\n\ngo 1.22\n"
-	if deps := modules.CollectGoDeps(modNames); len(deps) > 0 {
+	deps := modules.CollectGoDeps(modNames)
+	if hasSandbox {
+		deps = append(deps,
+			"github.com/landlock-lsm/go-landlock v0.0.0-20250303204525-1544bccde3a3",
+			"kernel.org/pub/linux/libs/security/libcap/psx v1.2.70",
+		)
+	}
+	if len(deps) > 0 {
 		goMod += "\nrequire (\n"
 		for _, dep := range deps {
 			goMod += "\t" + dep + "\n"
@@ -253,7 +279,7 @@ func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 		return "", "", fmt.Errorf("writing Go source: %w", err)
 	}
 
-	goMod := goModContent(result.Program)
+	goMod := goModContent(result.Program, result.Sandbox)
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
 		os.RemoveAll(tmpDir)
 		return "", "", fmt.Errorf("writing go.mod: %w", err)
@@ -293,7 +319,7 @@ func (c *Compiler) Build(filename, output string) error {
 	}
 
 	// Create a go.mod so go build works properly
-	goMod := goModContent(result.Program)
+	goMod := goModContent(result.Program, result.Sandbox)
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
 		return fmt.Errorf("writing go.mod: %w", err)
 	}

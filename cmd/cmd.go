@@ -212,15 +212,21 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
 		return fmt.Errorf("usage: rugo run <file.rugo> [args...]")
 	}
-	comp := &compiler.Compiler{}
-	return comp.Run(cmd.Args().First(), cmd.Args().Tail()...)
+	args := cmd.Args().Slice()
+	sandbox, args := parseSandboxFlags(args)
+	if len(args) == 0 {
+		return fmt.Errorf("usage: rugo run [--sandbox flags...] <file.rugo> [args...]")
+	}
+	comp := &compiler.Compiler{Sandbox: sandbox}
+	return comp.Run(args[0], args[1:]...)
 }
 
 func buildAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
-		return fmt.Errorf("usage: rugo build [-o output] [--frozen] <file.rugo>")
+		return fmt.Errorf("usage: rugo build [-o output] [--frozen] [--sandbox flags...] <file.rugo>")
 	}
-	comp := &compiler.Compiler{Frozen: cmd.Bool("frozen")}
+	sandbox, _ := parseSandboxFlags(cmd.Args().Slice())
+	comp := &compiler.Compiler{Frozen: cmd.Bool("frozen"), Sandbox: sandbox}
 	output := cmd.String("output")
 	// Also check if -o was passed after the filename (urfave quirk)
 	if output == "" {
@@ -231,6 +237,66 @@ func buildAction(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 	return comp.Build(cmd.Args().First(), output)
+}
+
+// parseSandboxFlags extracts --sandbox and related flags from args.
+// Returns the SandboxConfig (nil if --sandbox not present) and remaining args.
+func parseSandboxFlags(args []string) (*compiler.SandboxConfig, []string) {
+	hasSandbox := false
+	var ro, rw, rox, rwx []string
+	var connect, bind []int
+	var remaining []string
+
+	for i := 0; i < len(args); i++ {
+		switch args[i] {
+		case "--sandbox":
+			hasSandbox = true
+		case "--ro":
+			if i+1 < len(args) {
+				i++
+				ro = append(ro, args[i])
+			}
+		case "--rw":
+			if i+1 < len(args) {
+				i++
+				rw = append(rw, args[i])
+			}
+		case "--rox":
+			if i+1 < len(args) {
+				i++
+				rox = append(rox, args[i])
+			}
+		case "--rwx":
+			if i+1 < len(args) {
+				i++
+				rwx = append(rwx, args[i])
+			}
+		case "--connect":
+			if i+1 < len(args) {
+				i++
+				if p, err := strconv.Atoi(args[i]); err == nil {
+					connect = append(connect, p)
+				}
+			}
+		case "--bind":
+			if i+1 < len(args) {
+				i++
+				if p, err := strconv.Atoi(args[i]); err == nil {
+					bind = append(bind, p)
+				}
+			}
+		default:
+			remaining = append(remaining, args[i])
+		}
+	}
+
+	if !hasSandbox {
+		return nil, args
+	}
+	return &compiler.SandboxConfig{
+		RO: ro, RW: rw, ROX: rox, RWX: rwx,
+		Connect: connect, Bind: bind,
+	}, remaining
 }
 
 func emitAction(ctx context.Context, cmd *cli.Command) error {

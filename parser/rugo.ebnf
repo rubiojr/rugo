@@ -11,6 +11,7 @@ Program     = { Statement | ';' } .
 Statement   = UseStmt
             | ImportStmt
             | RequireStmt
+            | SandboxStmt
             | FuncDef
             | TestDef
             | BenchDef
@@ -25,6 +26,9 @@ Statement   = UseStmt
 UseStmt     = "use" str_lit .
 ImportStmt  = "import" str_lit [ "as" ident ] .
 RequireStmt = "require" str_lit [ "as" ( str_lit | ident ) | "with" ident { ',' ident } ] .
+SandboxStmt = "sandbox" [ SandboxPerm { ',' SandboxPerm } ] .
+SandboxPerm = ident ':' ( str_lit | integer | SandboxList ) .
+SandboxList = '[' ( str_lit | integer ) { ',' ( str_lit | integer ) } ']' .
 FuncDef     = "def" ident '(' [ ParamList ] ')' Body "end" .
 TestDef     = "rats" str_lit Body "end" .
 BenchDef    = "bench" str_lit Body "end" .

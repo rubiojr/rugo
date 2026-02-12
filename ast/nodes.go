@@ -77,6 +77,21 @@ type RequireStmt struct {
 func (r *RequireStmt) node() {}
 func (r *RequireStmt) stmt() {}
 
+// SandboxStmt represents the sandbox directive for Landlock-based process sandboxing.
+// A bare `sandbox` (all fields empty) means maximum restriction (deny everything).
+type SandboxStmt struct {
+	BaseStmt
+	RO      []string // read-only paths
+	RW      []string // read-write paths
+	ROX     []string // read + execute paths
+	RWX     []string // read + write + execute paths
+	Connect []int    // allowed TCP connect ports
+	Bind    []int    // allowed TCP bind ports
+}
+
+func (s *SandboxStmt) node() {}
+func (s *SandboxStmt) stmt() {}
+
 // FuncDef represents def name(params) body end.
 type FuncDef struct {
 	BaseStmt

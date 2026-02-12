@@ -48,10 +48,11 @@ type codeGen struct {
 	lambdaDepth     int               // nesting depth of lambda bodies (>0 means inside fn)
 	lambdaScopeBase []int             // scope index at each lambda entry (stack)
 	lambdaOuterFunc []*ast.FuncDef    // enclosing function at each lambda entry (stack)
+	sandbox         *SandboxConfig    // Landlock sandbox config (nil = no sandbox)
 }
 
 // generate produces Go source code from a ast.Program AST.
-func generate(prog *ast.Program, sourceFile string, testMode bool) (string, error) {
+func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *SandboxConfig) (string, error) {
 	// Run type inference before code generation.
 	ti := Infer(prog)
 
@@ -68,6 +69,7 @@ func generate(prog *ast.Program, sourceFile string, testMode bool) (string, erro
 		funcDefs:    make(map[string]int),
 		testMode:    testMode,
 		typeInfo:    ti,
+		sandbox:     sandbox,
 	}
 	return g.generate(prog)
 }
@@ -120,6 +122,15 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			continue
 		case *ast.ImportStmt:
 			g.goImports[st.Package] = st.Alias
+			continue
+		case *ast.SandboxStmt:
+			// Collect sandbox from script; CLI override takes precedence (set below)
+			if g.sandbox == nil {
+				g.sandbox = &SandboxConfig{
+					RO: st.RO, RW: st.RW, ROX: st.ROX, RWX: st.RWX,
+					Connect: st.Connect, Bind: st.Bind,
+				}
+			}
 			continue
 		default:
 			if assign, ok := s.(*ast.AssignStmt); ok && assign.Namespace != "" {
@@ -292,6 +303,15 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			g.writef("\"%s\"\n", pkg)
 		}
 	}
+	// Sandbox imports (go-landlock)
+	if g.sandbox != nil {
+		if !emittedImports["runtime"] {
+			g.writeln(`"runtime"`)
+			emittedImports["runtime"] = true
+		}
+		g.writeln(`"github.com/landlock-lsm/go-landlock/landlock"`)
+		g.writeln(`llsyscall "github.com/landlock-lsm/go-landlock/landlock/syscall"`)
+	}
 	g.indent--
 	g.writeln(")")
 	g.writeln("")
@@ -308,6 +328,11 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	}
 	if needsTimeImport {
 		g.writeln("var _ = time.Now")
+	}
+	if g.sandbox != nil {
+		g.writeln("var _ = landlock.V5")
+		g.writeln("var _ = llsyscall.AccessFSExecute")
+		g.writeln("var _ = runtime.GOOS")
 	}
 	g.writeln("")
 
@@ -363,6 +388,9 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	g.writeln("func main() {")
 	g.indent++
 	g.writePanicHandler()
+	if g.sandbox != nil {
+		g.writeSandboxApply()
+	}
 	g.pushScope()
 	for _, s := range topStmts {
 		if err := g.writeStmt(s); err != nil {
@@ -537,6 +565,11 @@ func (g *codeGen) writeRuntime() {
 		g.writeSpawnRuntime()
 	}
 
+	// Sandbox runtime (Landlock self-sandboxing)
+	if g.sandbox != nil {
+		g.writeSandboxRuntime()
+	}
+
 	// Go bridge helpers (only if any Go packages are imported)
 	if len(g.goImports) > 0 {
 		g.writeGoBridgeRuntime()
@@ -545,6 +578,138 @@ func (g *codeGen) writeRuntime() {
 
 func (g *codeGen) writeSpawnRuntime() {
 	g.sb.WriteString(runtimeSpawn)
+}
+
+// writeSandboxRuntime emits helper functions for Landlock-based sandboxing.
+func (g *codeGen) writeSandboxRuntime() {
+	g.sb.WriteString(`
+func rugo_sandbox_fs_ro(dir bool) landlock.AccessFSSet {
+	rights := landlock.AccessFSSet(llsyscall.AccessFSReadFile)
+	if dir { rights |= landlock.AccessFSSet(llsyscall.AccessFSReadDir) }
+	return rights
+}
+
+func rugo_sandbox_fs_rw(dir bool) landlock.AccessFSSet {
+	rights := landlock.AccessFSSet(llsyscall.AccessFSReadFile) |
+		landlock.AccessFSSet(llsyscall.AccessFSWriteFile) |
+		landlock.AccessFSSet(llsyscall.AccessFSTruncate) |
+		landlock.AccessFSSet(llsyscall.AccessFSIoctlDev)
+	if dir {
+		rights |= landlock.AccessFSSet(llsyscall.AccessFSReadDir) |
+			landlock.AccessFSSet(llsyscall.AccessFSRemoveDir) |
+			landlock.AccessFSSet(llsyscall.AccessFSRemoveFile) |
+			landlock.AccessFSSet(llsyscall.AccessFSMakeChar) |
+			landlock.AccessFSSet(llsyscall.AccessFSMakeDir) |
+			landlock.AccessFSSet(llsyscall.AccessFSMakeReg) |
+			landlock.AccessFSSet(llsyscall.AccessFSMakeSock) |
+			landlock.AccessFSSet(llsyscall.AccessFSMakeFifo) |
+			landlock.AccessFSSet(llsyscall.AccessFSMakeBlock) |
+			landlock.AccessFSSet(llsyscall.AccessFSMakeSym) |
+			landlock.AccessFSSet(llsyscall.AccessFSRefer)
+	}
+	return rights
+}
+
+func rugo_sandbox_fs_rox(dir bool) landlock.AccessFSSet {
+	rights := landlock.AccessFSSet(llsyscall.AccessFSExecute) |
+		landlock.AccessFSSet(llsyscall.AccessFSReadFile)
+	if dir { rights |= landlock.AccessFSSet(llsyscall.AccessFSReadDir) }
+	return rights
+}
+
+func rugo_sandbox_fs_rwx(dir bool) landlock.AccessFSSet {
+	rights := rugo_sandbox_fs_rw(dir) | landlock.AccessFSSet(llsyscall.AccessFSExecute)
+	return rights
+}
+
+func rugo_sandbox_is_dir(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && fi.IsDir()
+}
+`)
+}
+
+// writeSandboxApply emits the sandbox enforcement call inside main().
+func (g *codeGen) writeSandboxApply() {
+	g.writeln(`if runtime.GOOS != "linux" {`)
+	g.indent++
+	g.writeln(`fmt.Fprintln(os.Stderr, "rugo: warning: sandbox requires Linux with Landlock support, running unrestricted")`)
+	g.indent--
+	g.writeln("} else {")
+	g.indent++
+	g.writeln("rugo_sandbox_cfg := landlock.V5.BestEffort()")
+
+	cfg := g.sandbox
+	hasFS := len(cfg.RO) > 0 || len(cfg.RW) > 0 || len(cfg.ROX) > 0 || len(cfg.RWX) > 0
+	hasNet := len(cfg.Connect) > 0 || len(cfg.Bind) > 0
+
+	if hasFS {
+		g.writeln("var rugo_sandbox_fs []landlock.Rule")
+		for _, p := range cfg.RO {
+			g.writef("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_ro(rugo_sandbox_is_dir(%q)), %q))\n", p, p)
+		}
+		for _, p := range cfg.RW {
+			g.writef("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rw(rugo_sandbox_is_dir(%q)), %q))\n", p, p)
+		}
+		for _, p := range cfg.ROX {
+			g.writef("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rox(rugo_sandbox_is_dir(%q)), %q))\n", p, p)
+		}
+		for _, p := range cfg.RWX {
+			g.writef("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rwx(rugo_sandbox_is_dir(%q)), %q))\n", p, p)
+		}
+	}
+
+	if hasNet {
+		g.writeln("var rugo_sandbox_net []landlock.Rule")
+		for _, port := range cfg.Connect {
+			g.writef("rugo_sandbox_net = append(rugo_sandbox_net, landlock.ConnectTCP(uint16(%d)))\n", port)
+		}
+		for _, port := range cfg.Bind {
+			g.writef("rugo_sandbox_net = append(rugo_sandbox_net, landlock.BindTCP(uint16(%d)))\n", port)
+		}
+	}
+
+	// Apply restrictions
+	if !hasFS && !hasNet {
+		// Bare sandbox: maximum restriction
+		g.writeln(`if err := rugo_sandbox_cfg.Restrict(); err != nil {`)
+		g.indent++
+		g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox: %v\n", err)`)
+		g.indent--
+		g.writeln("}")
+	} else {
+		if hasFS {
+			g.writeln("if err := rugo_sandbox_cfg.RestrictPaths(rugo_sandbox_fs...); err != nil {")
+			g.indent++
+			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`)
+			g.indent--
+			g.writeln("}")
+		} else {
+			// No FS rules but has net rules — still restrict FS (deny all)
+			g.writeln("if err := rugo_sandbox_cfg.RestrictPaths(); err != nil {")
+			g.indent++
+			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`)
+			g.indent--
+			g.writeln("}")
+		}
+		if hasNet {
+			g.writeln("if err := rugo_sandbox_cfg.RestrictNet(rugo_sandbox_net...); err != nil {")
+			g.indent++
+			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`)
+			g.indent--
+			g.writeln("}")
+		} else {
+			// No net rules but has FS rules — still restrict net (deny all)
+			g.writeln("if err := rugo_sandbox_cfg.RestrictNet(); err != nil {")
+			g.indent++
+			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`)
+			g.indent--
+			g.writeln("}")
+		}
+	}
+
+	g.indent--
+	g.writeln("}")
 }
 
 // writeDispatchMaps generates typed dispatch maps for modules that declare DispatchEntry.

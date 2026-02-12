@@ -43,3 +43,4 @@ rugo doc http             # show module documentation
 19. [Web Server](quickstart/18-web.md)
 20. [Remote Modules](quickstart/19-remote-modules.md)
 21. [Doc Comments](quickstart/20-doc-comments.md)
+22. [Sandbox](quickstart/21-sandbox.md)

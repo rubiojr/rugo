@@ -1,0 +1,83 @@
+# RATS: Sandbox (Landlock) tests
+use "test"
+use "os"
+
+def skip_if_no_landlock()
+  # Landlock requires Linux — skip on other platforms
+  result = test.run("uname -s")
+  if result["status"] != 0 || result["output"] != "Linux"
+    test.skip("Landlock requires Linux")
+  end
+end
+
+rats "sandbox: bare sandbox emits correct code"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/bare.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "landlock.V5.BestEffort()")
+  test.assert_contains(result["output"], "rugo_sandbox_cfg.Restrict()")
+end
+
+rats "sandbox: full permissions emit all rule types"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/full_perms.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "rugo_sandbox_fs_ro")
+  test.assert_contains(result["output"], "rugo_sandbox_fs_rw")
+  test.assert_contains(result["output"], "rugo_sandbox_fs_rox")
+  test.assert_contains(result["output"], "rugo_sandbox_fs_rwx")
+  test.assert_contains(result["output"], "landlock.ConnectTCP")
+  test.assert_contains(result["output"], "landlock.BindTCP")
+end
+
+rats "sandbox: non-linux warning in emit"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/bare.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "runtime.GOOS")
+  test.assert_contains(result["output"], "sandbox requires Linux")
+end
+
+rats "sandbox: bare sandbox runs"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/bare.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox active")
+end
+
+rats "sandbox: allowed read-only path works"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
+  result = test.run("rugo run rats/core/fixtures/sandbox/ro_allowed.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "landlock_ok")
+end
+
+rats "sandbox: denied path is blocked"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
+  result = test.run("rugo run rats/core/fixtures/sandbox/ro_denied.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "Permission denied")
+end
+
+rats "sandbox: CLI --sandbox override blocks script permissions"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
+  # Script allows /tmp but CLI override removes it
+  result = test.run("rugo run --sandbox --rox /usr --rox /lib --rw /dev/null rats/core/fixtures/sandbox/ro_allowed.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "Permission denied")
+end
+
+rats "sandbox: CLI --sandbox with allowed path works"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
+  result = test.run("rugo run --sandbox --ro /tmp --rox /usr --rox /lib --rw /dev/null rats/core/fixtures/sandbox/no_sandbox.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "landlock_ok")
+end
+
+rats "sandbox: no sandbox directive runs unrestricted"
+  test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
+  result = test.run("rugo run rats/core/fixtures/sandbox/no_sandbox.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "landlock_ok")
+end

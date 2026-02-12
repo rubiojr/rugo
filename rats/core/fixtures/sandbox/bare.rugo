@@ -1,0 +1,3 @@
+# Bare sandbox: maximum restriction (deny everything)
+sandbox
+puts("sandbox active")

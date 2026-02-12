@@ -159,6 +159,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		stmt, err = w.walkImportStmt(innerChildren)
 	case parser.RugoRequireStmt:
 		stmt, err = w.walkRequireStmt(innerChildren)
+	case parser.RugoSandboxStmt:
+		stmt, err = w.walkSandboxStmt(innerChildren)
 	case parser.RugoFuncDef:
 		stmt, err = w.walkFuncDef(innerChildren)
 	case parser.RugoTestDef:
@@ -193,6 +195,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		case *ImportStmt:
 			s.SourceLine = line
 		case *RequireStmt:
+			s.SourceLine = line
+		case *SandboxStmt:
 			s.SourceLine = line
 		case *FuncDef:
 			s.SourceLine = line
@@ -248,6 +252,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		case *ImportStmt:
 			s.EndLine = line
 		case *RequireStmt:
+			s.EndLine = line
+		case *SandboxStmt:
 			s.EndLine = line
 		case *BreakStmt:
 			s.EndLine = line
@@ -339,6 +345,156 @@ func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {
 		}
 	}
 	return &RequireStmt{Path: path, Alias: alias, With: with}, nil
+}
+
+func (w *walker) walkSandboxStmt(ast []int32) (Statement, error) {
+	// SandboxStmt = "sandbox" [ SandboxPerm { ',' SandboxPerm } ] .
+	// SandboxPerm  = ident ':' ( str_lit | integer | SandboxList ) .
+	// SandboxList  = '[' ( str_lit | integer ) { ',' ( str_lit | integer ) } ']' .
+	_, ast = w.readToken(ast) // skip "sandbox"
+	stmt := &SandboxStmt{}
+	for len(ast) > 0 {
+		if ast[0] < 0 {
+			// SandboxPerm non-terminal
+			_, permChildren, rest := w.readNonTerminal(ast)
+			if err := w.walkSandboxPerm(permChildren, stmt); err != nil {
+				return nil, err
+			}
+			ast = rest
+		} else {
+			// comma separator
+			tok := w.p.Token(ast[0])
+			if tok.Src() == "," {
+				_, ast = w.readToken(ast)
+				continue
+			}
+			break
+		}
+	}
+	return stmt, nil
+}
+
+func (w *walker) walkSandboxPerm(ast []int32, stmt *SandboxStmt) error {
+	// SandboxPerm = ident ':' ( str_lit | integer | SandboxList ) .
+	keyTok, ast := w.readToken(ast) // ident (ro, rw, rox, rwx, connect, bind)
+	_, ast = w.readToken(ast)       // ':'
+
+	key := keyTok.src
+	switch key {
+	case "ro", "rw", "rox", "rwx":
+		paths, err := w.walkSandboxStrValues(ast)
+		if err != nil {
+			return err
+		}
+		switch key {
+		case "ro":
+			stmt.RO = append(stmt.RO, paths...)
+		case "rw":
+			stmt.RW = append(stmt.RW, paths...)
+		case "rox":
+			stmt.ROX = append(stmt.ROX, paths...)
+		case "rwx":
+			stmt.RWX = append(stmt.RWX, paths...)
+		}
+	case "connect", "bind":
+		ports, err := w.walkSandboxIntValues(ast)
+		if err != nil {
+			return err
+		}
+		switch key {
+		case "connect":
+			stmt.Connect = append(stmt.Connect, ports...)
+		case "bind":
+			stmt.Bind = append(stmt.Bind, ports...)
+		}
+	default:
+		return &UserError{Msg: fmt.Sprintf("unknown sandbox permission %q (expected ro, rw, rox, rwx, connect, or bind)", key)}
+	}
+	return nil
+}
+
+func (w *walker) walkSandboxStrValues(ast []int32) ([]string, error) {
+	// Single str_lit or SandboxList of str_lits
+	if len(ast) > 0 && ast[0] < 0 {
+		// SandboxList non-terminal
+		_, children, _ := w.readNonTerminal(ast)
+		return w.walkSandboxListStr(children)
+	}
+	tok, _ := w.readToken(ast)
+	s, err := unquoteString(tok.src)
+	if err != nil {
+		return nil, err
+	}
+	return []string{s}, nil
+}
+
+func (w *walker) walkSandboxIntValues(ast []int32) ([]int, error) {
+	// Single integer or SandboxList of integers
+	if len(ast) > 0 && ast[0] < 0 {
+		// SandboxList non-terminal
+		_, children, _ := w.readNonTerminal(ast)
+		return w.walkSandboxListInt(children)
+	}
+	tok, _ := w.readToken(ast)
+	n, err := strconv.Atoi(tok.src)
+	if err != nil {
+		return nil, fmt.Errorf("invalid port number: %s", tok.src)
+	}
+	return []int{n}, nil
+}
+
+func (w *walker) walkSandboxListStr(ast []int32) ([]string, error) {
+	// '[' str_lit { ',' str_lit } ']'
+	_, ast = w.readToken(ast) // '['
+	var result []string
+	for len(ast) > 0 {
+		if ast[0] >= 0 {
+			tok := w.p.Token(ast[0])
+			ch := parser.Symbol(tok.Ch)
+			if ch == parser.RugoTOK_005d { // ']'
+				break
+			}
+			if ch == parser.RugoTOK_002c { // ','
+				_, ast = w.readToken(ast)
+				continue
+			}
+		}
+		tok, rest := w.readToken(ast)
+		s, err := unquoteString(tok.src)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, s)
+		ast = rest
+	}
+	return result, nil
+}
+
+func (w *walker) walkSandboxListInt(ast []int32) ([]int, error) {
+	// '[' integer { ',' integer } ']'
+	_, ast = w.readToken(ast) // '['
+	var result []int
+	for len(ast) > 0 {
+		if ast[0] >= 0 {
+			tok := w.p.Token(ast[0])
+			ch := parser.Symbol(tok.Ch)
+			if ch == parser.RugoTOK_005d { // ']'
+				break
+			}
+			if ch == parser.RugoTOK_002c { // ','
+				_, ast = w.readToken(ast)
+				continue
+			}
+		}
+		tok, rest := w.readToken(ast)
+		n, err := strconv.Atoi(tok.src)
+		if err != nil {
+			return nil, fmt.Errorf("invalid port number: %s", tok.src)
+		}
+		result = append(result, n)
+		ast = rest
+	}
+	return result, nil
 }
 
 func (w *walker) walkTestDef(ast []int32) (Statement, error) {

@@ -14,7 +14,7 @@ var RugoKeywords = map[string]bool{
 	"true": true, "false": true, "nil": true, "import": true, "use": true,
 	"rats": true, "try": true, "or": true,
 	"spawn": true, "parallel": true, "bench": true, "fn": true,
-	"struct": true, "with": true,
+	"struct": true, "with": true, "sandbox": true,
 }
 
 var rugoBuiltins = map[string]bool{
@@ -321,6 +321,11 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// Desugar bare append: append(x, ...) → x = append(x, ...)
 	joined = ExpandBareAppend(joined)
 
+	// Insert ';' after sandbox lines to disambiguate from the next statement.
+	// Without this, `sandbox\nputs(...)` would make the parser try to match
+	// `puts` as a SandboxPerm ident.
+	joined = insertSandboxSeparators(joined)
+
 	// Insert ';' before lines starting with '[' to disambiguate array literals
 	// from index suffix operations. Without this, `expr\n[1, 2, 3]` would be
 	// parsed as `expr[1, 2, 3]` (index) instead of two separate statements.
@@ -626,6 +631,14 @@ func ExpandHashColonSyntax(src string) (string, error) {
 
 			// Check for ident followed by ":" then whitespace
 			if i < len(src) && src[i] == ':' && i+1 < len(src) && (src[i+1] == ' ' || src[i+1] == '\t') {
+				// Skip colon rewriting on sandbox lines — the colon is part of
+				// the sandbox permission syntax (e.g. sandbox ro: "/etc").
+				lineStart := strings.LastIndex(src[:start], "\n") + 1
+				linePrefix := strings.TrimSpace(src[lineStart:start])
+				if linePrefix == "sandbox" || strings.HasPrefix(linePrefix, "sandbox ") {
+					sb.WriteString(ident)
+					continue
+				}
 				sb.WriteByte('"')
 				sb.WriteString(ident)
 				sb.WriteString(`" =>`)
@@ -2313,6 +2326,20 @@ func RejectTrailingCommas(src string) error {
 // optional whitespace) to disambiguate array literals from index suffix
 // operations across line boundaries. It tracks bracket depth so that lines
 // inside a multi-line array (e.g. nested array elements) are not separated.
+// insertSandboxSeparators appends a ';' after lines that start with `sandbox`
+// so the parser can distinguish the end of the sandbox statement from the next
+// statement on the following line.
+func insertSandboxSeparators(src string) string {
+	lines := strings.Split(src, "\n")
+	for i := 0; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "sandbox" || strings.HasPrefix(trimmed, "sandbox ") {
+			lines[i] = lines[i] + " ;"
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
 func InsertArraySeparators(src string) string {
 	lines := strings.Split(src, "\n")
 	bracketDepth := 0
