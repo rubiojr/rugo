@@ -63,15 +63,15 @@ rats "runmd reports correct line numbers"
 end
 
 rats "runmd inline snippet passes"
-  test.write_file(test.tmpdir() + "/inline.md", "# Test\n\n```ruby\nputs 42\n```\n")
-  result = test.run("rugo run tools/runmd/main.rugo -- " + test.tmpdir() + "/inline.md")
+  test.write_file("#{test.tmpdir()}/inline.md", "# Test\n\n```ruby\nputs 42\n```\n")
+  result = test.run("rugo run tools/runmd/main.rugo -- #{test.tmpdir()}/inline.md")
   test.assert_eq(result.status, 0)
   test.assert_contains(result.output, "1 snippet(s), 1 passed")
 end
 
 rats "runmd inline snippet fails"
-  test.write_file(test.tmpdir() + "/bad.md", "# Test\n\n```ruby\ndef\n```\n")
-  result = test.run("rugo run tools/runmd/main.rugo -- " + test.tmpdir() + "/bad.md")
+  test.write_file("#{test.tmpdir()}/bad.md", "# Test\n\n```ruby\ndef\n```\n")
+  result = test.run("rugo run tools/runmd/main.rugo -- #{test.tmpdir()}/bad.md")
   test.assert_neq(result.status, 0)
   test.assert_contains(result.output, "FAIL")
 end
