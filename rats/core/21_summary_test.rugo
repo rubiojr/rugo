@@ -17,3 +17,10 @@ rats "multi-file summary aggregates with ANSI colors"
   test.assert_contains(result["output"], "3 passed")
   test.assert_contains(result["output"], "0 failed")
 end
+
+rats "compile error counts as failure in summary"
+  result = test.run("rugo rats rats/fixtures/compile_error/ 2>&1 | grep 'files,'")
+  test.assert_contains(result["output"], "2 files, 2 tests,")
+  test.assert_contains(result["output"], "1 passed")
+  test.assert_contains(result["output"], "1 failed")
+end

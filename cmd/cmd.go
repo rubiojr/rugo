@@ -849,13 +849,11 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 		}
 	}
 
-	// Accumulate totals and print grand summary
-	anyFailed := false
+	// Accumulate totals and print grand summary.
+	// Files that exit non-zero without producing a TAP summary (e.g. compile
+	// errors) are counted as 1 failed test so the summary never lies.
 	grandTests, grandPassed, grandFailed, grandSkipped := 0, 0, 0, 0
 	for _, r := range results {
-		if r.failed {
-			anyFailed = true
-		}
 		if m := summaryRe.FindSubmatch(r.output); m != nil {
 			t, _ := strconv.Atoi(string(m[1]))
 			p, _ := strconv.Atoi(string(m[2]))
@@ -865,6 +863,9 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 			grandPassed += p
 			grandFailed += f
 			grandSkipped += s
+		} else if r.failed {
+			grandTests++
+			grandFailed++
 		}
 	}
 
@@ -881,7 +882,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 			len(files), grandTests, colorOK, grandPassed, colorReset, grandFailed, grandSkipped)
 	}
 
-	if anyFailed {
+	if grandFailed > 0 {
 		os.Exit(1)
 	}
 	return nil

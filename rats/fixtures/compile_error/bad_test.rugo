@@ -1,0 +1,6 @@
+use "test"
+
+rats "this file has a syntax error"
+  x = {
+  test.assert_eq(1, 1)
+end
