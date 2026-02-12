@@ -380,7 +380,7 @@ func (g *codeGen) generateTestHarness(tests []*ast.TestDef, topStmts []ast.State
 	// Emit each test as a function
 	for i, t := range tests {
 		funcName := fmt.Sprintf("rugo_test_%d", i)
-		g.writef("func %s() (passed bool, skipped bool, skipReason string) {\n", funcName)
+		g.writef("func %s() (passed bool, skipped bool, skipReason string, failReason string) {\n", funcName)
 		g.indent++
 		g.writeln("defer func() {")
 		g.indent++
@@ -401,6 +401,7 @@ func (g *codeGen) generateTestHarness(tests []*ast.TestDef, topStmts []ast.State
 		g.writeln(`failReset = ""`)
 		g.indent--
 		g.writeln(`}`)
+		g.writeln(`failReason = fmt.Sprintf("%v", r)`)
 		g.writeln(`fmt.Fprintf(os.Stderr, "  %sFAIL%s: %v\n", failColor, failReset, r)`)
 		g.writeln("passed = false")
 		g.indent--

@@ -121,7 +121,7 @@ var _ = rugo_test_runner
 // rugoTestCase describes a single test for the runner.
 type rugoTestCase struct {
 	Name string
-	Func func() (passed bool, skipped bool, skipReason string)
+	Func func() (passed bool, skipped bool, skipReason string, failReason string)
 }
 
 // rugo_test_runner executes tests and produces TAP output with optional color.
@@ -146,6 +146,14 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown, setupFile, teardown
 	}
 
 	showTiming := os.Getenv("RUGO_TEST_TIMING") != ""
+	showRecap := os.Getenv("RUGO_TEST_RECAP") != ""
+
+	type failedTest struct {
+		num    int
+		name   string
+		reason string
+	}
+	var failures []failedTest
 
 	totalTests := 0
 	totalPassed := 0
@@ -179,7 +187,7 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown, setupFile, teardown
 		}
 
 		testStart := time.Now()
-		passed, skipped, skipReason := rugo_run_test_with_timeout(t.Func, testTimeout)
+		passed, skipped, skipReason, failReason := rugo_run_test_with_timeout(t.Func, testTimeout)
 		testElapsed := time.Since(testStart)
 
 		if teardown != nil {
@@ -204,6 +212,20 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown, setupFile, teardown
 		} else {
 			fmt.Printf("%snot ok%s %d - %s%s\n", colorFail, colorReset, testNum, t.Name, timingSuffix)
 			totalFailed++
+			if showRecap && failReason != "" {
+				failures = append(failures, failedTest{num: testNum, name: t.Name, reason: failReason})
+			}
+		}
+	}
+
+	// Print recap of failures before the summary
+	if len(failures) > 0 {
+		fmt.Fprintf(os.Stderr, "\n%s--- Failed tests ---%s\n", colorFail, colorReset)
+		for _, f := range failures {
+			fmt.Fprintf(os.Stderr, "\n  %snot ok %d - %s%s\n", colorFail, f.num, f.name, colorReset)
+			for _, line := range strings.Split(f.reason, "\n") {
+				fmt.Fprintf(os.Stderr, "    %s\n", line)
+			}
 		}
 	}
 
@@ -224,7 +246,7 @@ func rugo_test_runner(tests []rugoTestCase, setup, teardown, setupFile, teardown
 
 // rugo_run_test_with_timeout runs a test function with an optional timeout.
 // If timeout is 0, the test runs without a deadline.
-func rugo_run_test_with_timeout(fn func() (bool, bool, string), timeout time.Duration) (passed bool, skipped bool, skipReason string) {
+func rugo_run_test_with_timeout(fn func() (bool, bool, string, string), timeout time.Duration) (passed bool, skipped bool, skipReason string, failReason string) {
 	if timeout == 0 {
 		return fn()
 	}
@@ -233,17 +255,18 @@ func rugo_run_test_with_timeout(fn func() (bool, bool, string), timeout time.Dur
 		passed     bool
 		skipped    bool
 		skipReason string
+		failReason string
 	}
 
 	done := make(chan testResult, 1)
 	go func() {
-		p, s, sr := fn()
-		done <- testResult{p, s, sr}
+		p, s, sr, fr := fn()
+		done <- testResult{p, s, sr, fr}
 	}()
 
 	select {
 	case res := <-done:
-		return res.passed, res.skipped, res.skipReason
+		return res.passed, res.skipped, res.skipReason, res.failReason
 	case <-time.After(timeout):
 		failColor := "\033[31m"
 		failReset := "\033[0m"
@@ -251,8 +274,9 @@ func rugo_run_test_with_timeout(fn func() (bool, bool, string), timeout time.Dur
 			failColor = ""
 			failReset = ""
 		}
-		fmt.Fprintf(os.Stderr, "  %sFAIL%s: test timed out after %v\n", failColor, failReset, timeout)
-		return false, false, ""
+		msg := fmt.Sprintf("test timed out after %v", timeout)
+		fmt.Fprintf(os.Stderr, "  %sFAIL%s: %s\n", failColor, failReset, msg)
+		return false, false, "", msg
 	}
 }
 

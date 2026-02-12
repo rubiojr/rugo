@@ -1,0 +1,35 @@
+# RATS: Test the --recap flag
+use "test"
+use "str"
+
+rats "recap shows failure details at the end"
+  result = test.run("rugo rats --recap rats/fixtures/recap/fail_test.rugo 2>&1")
+  test.assert_contains(result["output"], "--- Failed tests ---")
+  test.assert_contains(result["output"], "not ok 1 - this fails")
+  test.assert_contains(result["output"], "assert_eq failed")
+end
+
+rats "recap is absent without flag"
+  result = test.run("RUGO_TEST_RECAP= rugo rats rats/fixtures/recap/fail_test.rugo 2>&1")
+  lines = result["lines"]
+  found = false
+  for line in lines
+    if str.contains(line, "--- Failed tests ---")
+      found = true
+    end
+  end
+  test.assert_false(found)
+end
+
+rats "recap not shown when all tests pass"
+  result = test.run("rugo rats --recap rats/core/08_rats_self_test.rugo 2>&1")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  found = false
+  for line in lines
+    if str.contains(line, "--- Failed tests ---")
+      found = true
+    end
+  end
+  test.assert_false(found)
+end

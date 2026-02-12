@@ -1,0 +1,9 @@
+use "test"
+
+rats "this fails"
+  test.assert_eq(1, 2)
+end
+
+rats "this passes"
+  test.assert_eq(1, 1)
+end

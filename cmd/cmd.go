@@ -118,6 +118,10 @@ func Execute(version string) {
 						Name:  "timing",
 						Usage: "Show per-test and total elapsed time",
 					},
+					&cli.BoolFlag{
+						Name:  "recap",
+						Usage: "Print all failures with details at the end",
+					},
 				},
 				Action: testAction,
 			},
@@ -737,6 +741,11 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	// Timing: propagate via env so subprocesses inherit it
 	if cmd.Bool("timing") {
 		os.Setenv("RUGO_TEST_TIMING", "1")
+	}
+
+	// Recap: propagate via env so subprocesses inherit it
+	if cmd.Bool("recap") {
+		os.Setenv("RUGO_TEST_RECAP", "1")
 	}
 
 	// Collect test files: _test.rugo/_test.rg files and Rugo files with inline rats blocks
