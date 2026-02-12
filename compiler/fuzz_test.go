@@ -148,7 +148,7 @@ func FuzzCodegen(f *testing.F) {
 				}
 			}()
 			var genErr error
-			goSrc, genErr = generate(prog, "fuzz.rugo", false)
+			goSrc, genErr = generate(prog, "fuzz.rugo", false, nil)
 			if genErr != nil {
 				errStr := genErr.Error()
 				if strings.Contains(errStr, "internal compiler error") {
