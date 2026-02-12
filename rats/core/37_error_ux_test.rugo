@@ -324,3 +324,16 @@ rats "nested quotes in interpolation gives clear error"
   test.assert_contains(result["output"], "nested double quotes inside string interpolation")
   test.assert_contains(result["output"], "use a variable instead")
 end
+
+# --- Bug 3d6f44f: Stack overflow produces raw Go runtime dump ---
+
+rats "stack overflow shows friendly error"
+  result = test.run("rugo run rats/fixtures/err_stack_overflow.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "maximum recursion depth exceeded")
+  test.assert_contains(result["output"], "recurse")
+  # Must NOT contain raw Go runtime dump
+  test.assert_false(str.contains(result["output"], "runtime: goroutine stack exceeds"))
+  test.assert_false(str.contains(result["output"], "fatal error: stack overflow"))
+  test.assert_false(str.contains(result["output"], "runtime.throw"))
+end

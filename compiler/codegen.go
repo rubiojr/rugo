@@ -695,6 +695,9 @@ func (g *codeGen) writeFunc(f *ast.FuncDef) error {
 	g.writef("func %s(%s) %s {\n", goName, strings.Join(params, ", "), retType)
 	g.indent++
 	g.pushScope()
+	// Recursion depth guard
+	g.writef("rugo_check_depth(%q)\n", f.Name)
+	g.writef("defer func() { rugo_call_depth-- }()\n")
 	// Mark params as declared
 	for _, p := range f.Params {
 		g.declareVar(p)

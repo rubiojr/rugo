@@ -1,5 +1,16 @@
 // --- Rugo Runtime ---
 
+var rugo_call_depth int
+
+const rugo_max_call_depth = 10000
+
+func rugo_check_depth(name string) {
+	rugo_call_depth++
+	if rugo_call_depth > rugo_max_call_depth {
+		panic(fmt.Sprintf("maximum recursion depth exceeded in %s()", name))
+	}
+}
+
 type rugoShellError struct {
 	code int
 	cmd  string
