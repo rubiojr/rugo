@@ -1,0 +1,64 @@
+# Fixture for array and hash equality comparison tests
+
+# Array equality
+a1 = [1, 2, 3]
+a2 = [1, 2, 3]
+if a1 == a2
+  puts "array_eq_ok"
+end
+
+# Array inequality (different values)
+a3 = [1, 2, 4]
+if a1 != a3
+  puts "array_neq_ok"
+end
+
+# Empty array equality
+e1 = []
+e2 = []
+if e1 == e2
+  puts "empty_array_eq_ok"
+end
+
+# Hash equality
+h1 = {name: "Alice", age: 30}
+h2 = {name: "Alice", age: 30}
+if h1 == h2
+  puts "hash_eq_ok"
+end
+
+# Hash inequality (different values)
+h3 = {name: "Bob", age: 25}
+if h1 != h3
+  puts "hash_neq_ok"
+end
+
+# Empty hash equality
+eh1 = {}
+eh2 = {}
+if eh1 == eh2
+  puts "empty_hash_eq_ok"
+end
+
+# Nested array equality
+n1 = [[1, 2], [3, 4]]
+n2 = [[1, 2], [3, 4]]
+if n1 == n2
+  puts "nested_array_eq_ok"
+end
+
+# Array not equal to different type
+if a1 != "hello"
+  puts "array_neq_string_ok"
+end
+
+# Hash not equal to different type
+if h1 != 42
+  puts "hash_neq_int_ok"
+end
+
+# Array with different lengths
+a4 = [1, 2]
+if a1 != a4
+  puts "array_diff_length_neq_ok"
+end

@@ -126,14 +126,14 @@ func rugo_eq(a, b interface{}) interface{} {
 	if rugo_is_numeric(a) && rugo_is_numeric(b) {
 		return rugo_to_float(a) == rugo_to_float(b)
 	}
-	return a == b
+	return reflect.DeepEqual(a, b)
 }
 
 func rugo_neq(a, b interface{}) interface{} {
 	if rugo_is_numeric(a) && rugo_is_numeric(b) {
 		return rugo_to_float(a) != rugo_to_float(b)
 	}
-	return a != b
+	return !reflect.DeepEqual(a, b)
 }
 
 func rugo_lt(a, b interface{}) interface{} {

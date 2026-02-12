@@ -216,6 +216,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	g.writeln(`"fmt"`)
 	g.writeln(`"os"`)
 	g.writeln(`"os/exec"`)
+	g.writeln(`"reflect"`)
 	g.writeln(`"runtime/debug"`)
 	g.writeln(`"sort"`)
 	g.writeln(`"strings"`)
@@ -227,7 +228,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	}
 	baseImports := map[string]bool{
 		"fmt": true, "os": true, "os/exec": true,
-		"runtime/debug": true, "strings": true, "sort": true,
+		"reflect": true, "runtime/debug": true, "strings": true, "sort": true,
 	}
 	emittedImports := make(map[string]bool)
 	for k := range baseImports {
