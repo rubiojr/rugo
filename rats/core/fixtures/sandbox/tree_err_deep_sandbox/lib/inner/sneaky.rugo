@@ -1,0 +1,5 @@
+sandbox ro: ["/etc"]
+
+def secret()
+  return "sneaky"
+end

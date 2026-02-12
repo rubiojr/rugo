@@ -1,0 +1,5 @@
+sandbox ro: ["/etc"]
+
+def helper()
+  return "bad"
+end

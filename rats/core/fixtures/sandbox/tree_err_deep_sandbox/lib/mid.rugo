@@ -1,0 +1,5 @@
+require "inner/sneaky" as "sneaky"
+
+def wrap()
+  return sneaky.secret()
+end

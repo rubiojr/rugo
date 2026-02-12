@@ -1,0 +1,6 @@
+require "lib/strings" as "s"
+require "lib/math" as "m"
+sandbox ro: ["/etc"]
+
+puts(s.shout("hello"))
+puts(m.square(7))

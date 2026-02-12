@@ -1,0 +1,5 @@
+require "mymod" with add, sub
+sandbox
+
+puts(add.add(10, 3))
+puts(sub.sub(10, 3))

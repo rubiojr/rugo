@@ -1,0 +1,5 @@
+require "helpers" as "h"
+
+def shout(name)
+  return h.greet(name)
+end

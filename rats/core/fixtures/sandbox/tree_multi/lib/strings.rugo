@@ -1,0 +1,5 @@
+import "strings"
+
+def shout(s)
+  return strings.to_upper(s)
+end

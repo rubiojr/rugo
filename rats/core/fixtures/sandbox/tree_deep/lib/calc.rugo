@@ -1,0 +1,5 @@
+require "inner/core" as "core"
+
+def quad(n)
+  return core.double(core.double(n))
+end

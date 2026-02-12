@@ -1,0 +1,5 @@
+require "math" as "m"
+sandbox ro: ["/tmp"]
+
+puts(m.add(2, 3))
+puts(m.mul(4, 5))

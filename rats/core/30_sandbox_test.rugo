@@ -286,3 +286,73 @@ rats "cli: no --sandbox flag means no sandboxing"
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "landlock_ok")
 end
+
+# ── Multi-file source tree tests ────────────────────────────────────
+
+rats "tree: basic require + sandbox"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/tree_basic/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "5")
+  test.assert_contains(result["output"], "20")
+end
+
+rats "tree: nested require (main → lib → helpers) + sandbox"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/tree_nested/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello world")
+end
+
+rats "tree: deep require (3 levels) + bare sandbox"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/tree_deep/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "12")
+end
+
+rats "tree: multiple requires + sandbox"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/tree_multi/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "HELLO")
+  test.assert_contains(result["output"], "49")
+end
+
+rats "tree: require with selective imports + sandbox"
+  skip_if_no_landlock()
+  result = test.run("rugo run rats/core/fixtures/sandbox/tree_with/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "13")
+  test.assert_contains(result["output"], "7")
+end
+
+rats "tree: require + sandbox + shell commands"
+  skip_if_no_landlock()
+  test.write_file("/tmp/rugo_tree_shell_data", "tree_shell_works")
+  result = test.run("rugo run rats/core/fixtures/sandbox/tree_shell/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], ">> tree_shell_works")
+end
+
+rats "tree: emit multi-file sandbox has correct source"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/tree_basic/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "rugo_sandbox_cfg")
+  test.assert_contains(result["output"], "rugons_m_add")
+  test.assert_contains(result["output"], "rugons_m_mul")
+end
+
+rats "tree: error — sandbox in directly required lib"
+  result = test.run("rugo run rats/core/fixtures/sandbox/tree_err_lib_sandbox/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox directive not allowed in required files")
+  test.assert_contains(result["output"], "badlib.rugo")
+end
+
+rats "tree: error — sandbox in deeply nested required lib"
+  result = test.run("rugo run rats/core/fixtures/sandbox/tree_err_deep_sandbox/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "sandbox directive not allowed in required files")
+  test.assert_contains(result["output"], "sneaky.rugo")
+end

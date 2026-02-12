@@ -1,0 +1,4 @@
+require "lib/calc" as "calc"
+sandbox
+
+puts(calc.quad(3))

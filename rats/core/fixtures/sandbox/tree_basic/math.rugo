@@ -1,0 +1,7 @@
+def add(a, b)
+  return a + b
+end
+
+def mul(a, b)
+  return a * b
+end
