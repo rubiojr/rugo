@@ -1,0 +1,89 @@
+# RATS: Test Go module sub-packages
+# A Go module with one go.mod can have multiple packages in subdirectories.
+use "test"
+use "conv"
+
+rats "require Go sub-package with 'with' clause"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_multi #{tmpdir}/go_module_multi")
+  script = <<~SCRIPT
+    require "go_module_multi" with utils
+    use "conv"
+    puts(conv.to_s(utils.double(21)))
+    puts(utils.reverse("abc"))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "42")
+  test.assert_eq(lines[1], "cba")
+end
+
+rats "require Go sub-package via direct path"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_multi #{tmpdir}/go_module_multi")
+  script = <<~SCRIPT
+    require "go_module_multi/utils"
+    use "conv"
+    puts(conv.to_s(utils.double(7)))
+    puts(utils.reverse("hello"))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "14")
+  test.assert_eq(lines[1], "olleh")
+end
+
+rats "require Go root and sub-package together"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_multi #{tmpdir}/go_module_multi")
+  script = <<~SCRIPT
+    require "go_module_multi"
+    require "go_module_multi/utils"
+    use "conv"
+    puts(go_module_multi.hello("world"))
+    puts(conv.to_s(utils.double(5)))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "hello, world")
+  test.assert_eq(lines[1], "10")
+end
+
+rats "require Go sub-package with alias"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_multi #{tmpdir}/go_module_multi")
+  script = <<~SCRIPT
+    require "go_module_multi/utils" as u
+    puts(u.reverse("rugo"))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "ogur")
+end
+
+rats "require Go sub-package build produces working binary"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_multi #{tmpdir}/go_module_multi")
+  script = <<~SCRIPT
+    require "go_module_multi"
+    require "go_module_multi/utils" as u
+    use "conv"
+    puts(go_module_multi.hello("binary"))
+    puts(conv.to_s(u.double(100)))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  build_result = test.run("rugo build #{tmpdir}/main.rugo -o #{tmpdir}/main_bin")
+  test.assert_eq(build_result["status"], 0)
+  result = test.run("#{tmpdir}/main_bin")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "hello, binary")
+  test.assert_eq(lines[1], "200")
+end

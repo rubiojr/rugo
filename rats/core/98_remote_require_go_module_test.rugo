@@ -1,0 +1,168 @@
+# RATS: Test remote require for Go modules from git repositories
+#
+# Starts an in-process git server using web.static + spawn web.listen(0),
+# then verifies that require "localhost:PORT/user/repo@version" fetches,
+# caches, and compiles remote Go modules correctly.
+use "test"
+use "web"
+use "conv"
+use "str"
+
+# --- File-level setup: bare git repo with a Go module + in-process server ---
+
+def setup_file()
+  r = test.run("mkdir -p /tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git /tmp/rats_remote_go_require/work")
+  if r["status"] != 0
+    puts "DEBUG setup mkdir: " + r["output"]
+  end
+  r = test.run("git init --bare /tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git")
+  if r["status"] != 0
+    puts "DEBUG setup git init: " + r["output"]
+  end
+  r = test.run("git clone /tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git /tmp/rats_remote_go_require/work")
+  if r["status"] != 0
+    puts "DEBUG setup git clone: " + r["output"]
+  end
+
+  # Write go.mod
+  test.write_file("/tmp/rats_remote_go_require/work/go.mod", "module example.com/rugo-go-mod\n\ngo 1.22\n")
+
+  # Write Go source with exported functions
+  go_src = <<~GO
+    package rugo_go_mod
+
+    import "strings"
+
+    func Greet(name string) string {
+    	return "hello from remote go, " + name + "!"
+    }
+
+    func Double(n int) int {
+    	return n * 2
+    }
+
+    func Upper(s string) string {
+    	return strings.ToUpper(s)
+    }
+  GO
+  test.write_file("/tmp/rats_remote_go_require/work/rugo_go_mod.go", go_src)
+
+  r = test.run("cd /tmp/rats_remote_go_require/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v0.1.0")
+  if r["status"] != 0
+    puts "DEBUG setup git commit: " + r["output"]
+  end
+  r = test.run("cd /tmp/rats_remote_go_require/work && git push origin HEAD v0.1.0")
+  if r["status"] != 0
+    puts "DEBUG setup git push: " + r["output"]
+  end
+  r = test.run("cd /tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git && git update-server-info")
+  if r["status"] != 0
+    puts "DEBUG setup update-server-info: " + r["output"]
+  end
+
+  web.static("/testuser/rugo-go-mod.git", "/tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git")
+  spawn web.listen(0)
+  p = web.port()
+  test.write_file("/tmp/rats_remote_go_require/port", conv.to_s(p))
+  puts "DEBUG setup complete, port=#{p}"
+end
+
+def teardown_file()
+  test.run("rm -rf /tmp/rats_remote_go_require")
+end
+
+# --- Tests ---
+
+rats "remote Go module require loads bridged functions"
+  tmpdir = test.tmpdir()
+  port = test.run("cat /tmp/rats_remote_go_require/port")["output"]
+  consumer = <<~RG
+    use "conv"
+    require "localhost:PORT/testuser/rugo-go-mod@v0.1.0" as "gomod"
+    puts(gomod.greet("Rugo"))
+    puts(conv.to_s(gomod.double(21)))
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/consumer.rugo")
+  if result["status"] != 0
+    puts "DEBUG test1 port=" + port + " status=" + conv.to_s(result["status"])
+    puts "DEBUG test1 output: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "hello from remote go, Rugo!")
+  test.assert_eq(lines[1], "42")
+end
+
+rats "remote Go module uses default namespace from module path"
+  tmpdir = test.tmpdir()
+  port = test.run("cat /tmp/rats_remote_go_require/port")["output"]
+  consumer = <<~RG
+    require "localhost:PORT/testuser/rugo-go-mod@v0.1.0"
+    puts(rugo_go_mod.upper("hello"))
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/consumer.rugo")
+  if result["status"] != 0
+    puts "DEBUG test2 output: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO")
+end
+
+rats "remote Go module caches immutable versions"
+  tmpdir = test.tmpdir()
+  moddir = "#{tmpdir}/modules"
+  port = test.run("cat /tmp/rats_remote_go_require/port")["output"]
+  consumer = <<~RG
+    require "localhost:PORT/testuser/rugo-go-mod@v0.1.0" as "gomod"
+    puts(gomod.greet("cache"))
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
+
+  # First run: fetches from server
+  result = test.run("RUGO_MODULE_DIR=#{moddir} rugo run #{tmpdir}/consumer.rugo")
+  if result["status"] != 0
+    puts "DEBUG test3 run1 output: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello from remote go, cache!")
+
+  # Verify cache dir was created
+  cache_path = moddir + "/localhost:#{port}/testuser/rugo-go-mod/v0.1.0"
+  result = test.run("test -d #{cache_path}")
+  test.assert_eq(result["status"], 0)
+
+  # Second run: uses cache (immutable version, compiler skips fetch)
+  result = test.run("RUGO_MODULE_DIR=#{moddir} rugo run #{tmpdir}/consumer.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello from remote go, cache!")
+end
+
+rats "remote Go module build produces working binary"
+  tmpdir = test.tmpdir()
+  port = test.run("cat /tmp/rats_remote_go_require/port")["output"]
+  consumer = <<~RG
+    use "conv"
+    require "localhost:PORT/testuser/rugo-go-mod@v0.1.0" as "gomod"
+    puts(gomod.greet("binary"))
+    puts(conv.to_s(gomod.double(5)))
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file("#{tmpdir}/consumer.rugo", consumer)
+  build_result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo build #{tmpdir}/consumer.rugo -o #{tmpdir}/consumer_bin")
+  if build_result["status"] != 0
+    puts "DEBUG test4 build output: " + build_result["output"]
+  end
+  result = test.run("#{tmpdir}/consumer_bin")
+  if result["status"] != 0
+    puts "DEBUG test4 run output: " + result["output"]
+  end
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "hello from remote go, binary!")
+  test.assert_eq(lines[1], "10")
+end

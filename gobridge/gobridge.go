@@ -125,6 +125,10 @@ type Package struct {
 	// ExtraImports lists additional Go import paths needed by runtime helpers.
 	// These are emitted alongside the package's own import (e.g. maps needs "sort").
 	ExtraImports []string
+	// External marks packages discovered via require (Go module introspection)
+	// as opposed to statically registered bridge packages. External packages
+	// need a blank reference (var _ = pkg.Func) to suppress unused import errors.
+	External bool
 }
 
 // registry maps Go package paths to their bridge definitions.

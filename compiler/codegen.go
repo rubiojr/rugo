@@ -337,6 +337,24 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		g.writeln("var _ = llsyscall.AccessFSExecute")
 		g.writeln("var _ = runtime.GOOS")
 	}
+	// Silence unused import warnings for Go module requires.
+	// Stdlib bridge packages are always used by the runtime, but external
+	// Go module packages may be imported without immediate function calls.
+	for _, pkg := range sortedGoBridgeImports(g.goImports) {
+		bp := gobridge.GetPackage(pkg)
+		if bp == nil || !bp.External {
+			continue
+		}
+		for _, sig := range bp.Funcs {
+			alias := g.goImports[pkg]
+			pkgBase := alias
+			if pkgBase == "" {
+				pkgBase = gobridge.DefaultNS(pkg)
+			}
+			g.writef("var _ = %s.%s\n", pkgBase, sig.GoName)
+			break
+		}
+	}
 	g.writeln("")
 
 	// Runtime helpers

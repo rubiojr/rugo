@@ -287,6 +287,94 @@ puts mymod.hello("world")
 See `examples/modules/slug/` for a complete working example that wraps
 the [gosimple/slug](https://github.com/gosimple/slug) Go library.
 
+## Go Modules via `require` (Lightweight)
+
+For simpler cases that don't need state or the full module registration
+system, you can write a standard Go package and `require` it directly.
+The compiler introspects the Go source, classifies exported functions,
+and bridges them automatically — no manifest, no `init()`, no custom binary.
+
+### 1. Write a Go package
+
+```go
+// mymod/go.mod
+module example.com/mymod
+
+go 1.22
+```
+
+```go
+// mymod/mymod.go
+package mymod
+
+func Greet(name string) string {
+    return "hello, " + name
+}
+
+func Add(a int, b int) int {
+    return a + b
+}
+```
+
+### 2. Require it from Rugo
+
+```ruby
+require "mymod"
+
+puts(mymod.greet("world"))   # hello, world
+puts(mymod.add(3, 4))        # 7
+```
+
+### How it works
+
+When `require` encounters a directory with `go.mod` and `.go` files (and no
+`.rugo` entry point), it:
+
+1. Parses the Go source with `go/types` (best-effort type checking)
+2. Classifies exported functions using the same tier system as `bridgegen`
+3. Registers them as a Go bridge package
+4. Adds the module to the generated `go.mod` with a `replace` directive
+
+### Supported types
+
+Functions must use bridgeable parameter and return types:
+
+| Go type    | Bridged as |
+|------------|------------|
+| `string`   | string     |
+| `int`      | integer    |
+| `float64`  | float      |
+| `bool`     | boolean    |
+| `error`    | auto-panic |
+| `[]string` | array      |
+| `[]byte`   | string     |
+
+Functions with non-bridgeable types (pointers, interfaces, channels, maps,
+structs, generics) are automatically excluded. If no functions are bridgeable,
+the compiler reports a clear error listing each function and why it was blocked.
+
+### Remote Go modules
+
+This works with remote repositories too:
+
+```ruby
+require "github.com/user/rugo-slug@v1.0.0" as slug
+slug.make("Hello World!")
+```
+
+### When to use `require` vs custom builds
+
+| Feature | `require` (lightweight) | Custom build (full) |
+|---------|------------------------|---------------------|
+| Setup | None — just write Go | Build custom binary |
+| State | Stateless (package funcs) | Stateful (struct methods) |
+| Types | Basic types only | Any Go type |
+| Dispatch | No | Yes (CLI/web handlers) |
+| Dependencies | Automatic (from go.mod) | Via GoDeps field |
+
+Use `require` for wrapping Go libraries. Use custom builds when you need
+stateful modules, dispatch, or complex type handling.
+
 ## Module Struct Reference
 
 ```go

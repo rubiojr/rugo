@@ -624,7 +624,7 @@ Rugo has three ways to bring in external functionality:
 |---------|---------|---------|
 | `use` | Load Rugo stdlib modules | `use "http"` |
 | `import` | Bridge to Go stdlib packages | `import "strings"` |
-| `require` | Load user `.rugo` files | `require "helpers"` |
+| `require` | Load user `.rugo` files or Go modules | `require "helpers"` |
 
 ### Rugo Stdlib Modules (`use`)
 
@@ -706,6 +706,22 @@ utils.slugify("Hello World")
 Remote modules are shallow-cloned and cached in `~/.rugo/modules/`. Tagged versions (`@v1.0.0`) and commit SHAs are cached forever; branch refs (`@main`) are locked to their resolved SHA on first fetch.
 
 Use `rugo mod tidy` to generate a `rugo.lock` file that records the exact commit SHA for every remote module, making builds reproducible. Use `rugo mod update` to re-resolve mutable dependencies, or `rugo build --frozen` to fail if the lock file is stale.
+
+#### Go Modules via `require`
+
+`require` also supports Go packages with exported functions. When a required path resolves to a directory containing `go.mod` and `.go` files (instead of `.rugo` files), the compiler introspects the Go source, classifies exported functions, and bridges them automatically — no manifest or registration needed:
+
+```ruby
+require "path/to/my_go_module"
+my_go_module.greet("world")
+
+require "github.com/user/rugo-slug@v1.0.0" as slug
+slug.make("Hello World!")
+```
+
+The Go module author writes a standard Go package with exported functions using bridgeable types (`string`, `int`, `float64`, `bool`, `error`, `[]string`, `[]byte`). Functions with non-bridgeable signatures (pointers, interfaces, channels, generics) are automatically excluded with clear compile-time errors.
+
+See [External Modules](mods.md#external-modules-custom-rugo-builds) for details on creating Go modules.
 
 There is no implicit search path — the require string tells you exactly where the code comes from: a relative path is local, a URL-shaped path is remote.
 

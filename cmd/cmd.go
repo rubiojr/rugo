@@ -596,10 +596,23 @@ func docAction(ctx context.Context, cmd *cli.Command) error {
 func docRemote(target, symbol string) error {
 	r := &remote.Resolver{}
 
-	// Fetch repo and resolve entry point
-	entryPath, err := r.ResolveModule(target)
+	// Fetch repo and try to resolve entry point; fall back to Go module
+	entryPath, cacheDir, err := r.ResolveModuleOrDir(target)
 	if err != nil {
 		return fmt.Errorf("fetching %s: %w", target, err)
+	}
+
+	// No .rugo entry point — check if it's a Go module
+	if entryPath == "" {
+		if gobridge.IsGoModuleDir(cacheDir) {
+			result, inspErr := gobridge.InspectSourcePackage(cacheDir)
+			if inspErr != nil {
+				return fmt.Errorf("inspecting Go module %s: %w", target, inspErr)
+			}
+			docOutput(rugodoc.FormatBridgePackage(result.Package))
+			return nil
+		}
+		return fmt.Errorf("no Rugo source files or Go module found in %s", target)
 	}
 
 	dir := filepath.Dir(entryPath)
@@ -625,6 +638,16 @@ func docRemote(target, symbol string) error {
 // It finds the entry point Rugo file and recursively aggregates docs
 // from all non-test Rugo files in the tree.
 func docLocalDir(dir, symbol string) error {
+	// Check if it's a Go module directory first
+	if gobridge.IsGoModuleDir(dir) {
+		result, err := gobridge.InspectSourcePackage(dir)
+		if err != nil {
+			return fmt.Errorf("inspecting Go module %s: %w", dir, err)
+		}
+		docOutput(rugodoc.FormatBridgePackage(result.Package))
+		return nil
+	}
+
 	entryPath, err := compiler.FindLocalEntryPoint(dir)
 	if err != nil {
 		// No entry point found — still try recursive extraction without one

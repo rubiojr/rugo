@@ -117,6 +117,32 @@ func (r *Resolver) FetchRepo(requirePath string) (string, error) {
 	return r.resolveWithLock(rp)
 }
 
+// ResolveModuleOrDir fetches a remote module and tries to find a Rugo entry
+// point. If no entry point is found, returns the cache directory and a nil
+// error with entryPoint set to "". This allows callers to fall back to
+// Go module detection without a redundant fetch.
+func (r *Resolver) ResolveModuleOrDir(requirePath string) (entryPoint, cacheDir string, err error) {
+	rp, err := parseRemotePath(requirePath)
+	if err != nil {
+		return "", "", err
+	}
+
+	cacheDir, err = r.resolveWithLock(rp)
+	if err != nil {
+		return "", "", err
+	}
+
+	ep, epErr := FindEntryPoint(cacheDir, rp)
+	if epErr != nil {
+		// Subpath support: if there's a subpath, check that directory
+		if rp.Subpath != "" {
+			return "", filepath.Join(cacheDir, rp.Subpath), nil
+		}
+		return "", cacheDir, nil
+	}
+	return ep, cacheDir, nil
+}
+
 // UpdateEntry re-resolves a mutable dependency, ignoring the existing
 // lock entry, and updates the lock file. If module is empty, all mutable
 // entries are updated.

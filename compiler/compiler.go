@@ -62,6 +62,9 @@ type Compiler struct {
 	nsFuncs map[string]string // "ns.func" → source file
 	// requireStack tracks files currently being resolved (for cycle detection).
 	requireStack []string
+	// goModuleRequires tracks Go modules discovered via require for go.mod generation.
+	// Maps Go module path → local cache directory.
+	goModuleRequires map[string]string
 	// sourcePrefix is prepended to the main file source before parsing.
 	// Used to auto-inject require statements for test helpers.
 	sourcePrefix string
@@ -73,6 +76,9 @@ type CompileResult struct {
 	Program    *ast.Program
 	SourceFile string         // original source filename
 	Sandbox    *SandboxConfig // sandbox config (nil = no sandbox)
+	// GoModuleRequires maps Go module paths to local cache directories
+	// for Go modules discovered via require. Used by go.mod generation.
+	GoModuleRequires map[string]string
 }
 
 // Compile reads a Rugo source file, resolves requires, and produces Go source.
@@ -90,6 +96,9 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 	if c.nsFuncs == nil {
 		c.nsFuncs = make(map[string]string)
+	}
+	if c.goModuleRequires == nil {
+		c.goModuleRequires = make(map[string]string)
 	}
 	absPath, err := filepath.Abs(filename)
 	if err != nil {
@@ -142,7 +151,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 		return nil, err
 	}
 
-	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename, Sandbox: c.Sandbox}, nil
+	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename, Sandbox: c.Sandbox, GoModuleRequires: c.goModuleRequires}, nil
 }
 
 // discoverHelpers finds Rugo files in a helpers/ directory next to the test file
@@ -170,7 +179,7 @@ func (c *Compiler) discoverHelpers() string {
 
 // goModContent generates a go.mod with require lines for any external
 // dependencies declared by the imported modules.
-func goModContent(prog *ast.Program, sandbox *SandboxConfig) string {
+func goModContent(prog *ast.Program, sandbox *SandboxConfig, goModuleRequires map[string]string) string {
 	var modNames []string
 	hasSandbox := sandbox != nil
 	for _, stmt := range prog.Statements {
@@ -190,6 +199,12 @@ func goModContent(prog *ast.Program, sandbox *SandboxConfig) string {
 			"kernel.org/pub/linux/libs/security/libcap/psx v1.2.70",
 		)
 	}
+
+	// Add Go module requires from require'd Go packages.
+	for modPath := range goModuleRequires {
+		deps = append(deps, modPath+" v0.0.0-00010101000000-000000000000")
+	}
+
 	if len(deps) > 0 {
 		goMod += "\nrequire (\n"
 		for _, dep := range deps {
@@ -203,6 +218,12 @@ func goModContent(prog *ast.Program, sandbox *SandboxConfig) string {
 			goMod += "replace " + r + "\n"
 		}
 	}
+
+	// Add replace directives for Go module requires (point to local cache).
+	for modPath, localDir := range goModuleRequires {
+		goMod += "replace " + modPath + " => " + localDir + "\n"
+	}
+
 	return goMod
 }
 
@@ -286,7 +307,7 @@ func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 		return "", "", fmt.Errorf("writing Go source: %w", err)
 	}
 
-	goMod := goModContent(result.Program, result.Sandbox)
+	goMod := goModContent(result.Program, result.Sandbox, result.GoModuleRequires)
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
 		os.RemoveAll(tmpDir)
 		return "", "", fmt.Errorf("writing go.mod: %w", err)
@@ -326,7 +347,7 @@ func (c *Compiler) Build(filename, output string) error {
 	}
 
 	// Create a go.mod so go build works properly
-	goMod := goModContent(result.Program, result.Sandbox)
+	goMod := goModContent(result.Program, result.Sandbox, result.GoModuleRequires)
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
 		return fmt.Errorf("writing go.mod: %w", err)
 	}
@@ -468,6 +489,81 @@ func (c *Compiler) parseSource(source, displayName string) (*ast.Program, error)
 	return prog, nil
 }
 
+// resolveGoModuleRequire handles a require that targets a Go module directory.
+// It introspects the Go source, registers it as a bridge package, and returns
+// an ImportStmt so codegen treats it like any other Go bridge package.
+func (c *Compiler) resolveGoModuleRequire(req *ast.RequireStmt, dir string, sourceFile string) ([]ast.Statement, error) {
+	result, err := gobridge.InspectSourcePackage(dir)
+	if err != nil {
+		return nil, fmt.Errorf("%s:%d: Go module require %q: %w", sourceFile, req.StmtLine(), req.Path, err)
+	}
+
+	// Warn about skipped functions so module authors know why they're missing.
+	for _, f := range result.Skipped {
+		fmt.Fprintf(os.Stderr, "warning: %s: skipping %s() — %s\n", req.Path, f.GoName, f.Reason)
+	}
+
+	// Determine namespace — same logic as regular Rugo requires:
+	// local uses the directory name, remote uses the repo name.
+	ns := req.Alias
+	if ns == "" {
+		if remote.IsRemoteRequire(req.Path) {
+			ns, _ = remote.DefaultNamespace(req.Path)
+		} else {
+			base := filepath.Base(req.Path)
+			ns = strings.TrimSuffix(base, filepath.Ext(base))
+		}
+	}
+	// Sanitize: hyphens aren't valid in Rugo identifiers
+	ns = strings.ReplaceAll(ns, "-", "_")
+
+	// Check for namespace conflicts
+	if c.imports[ns] {
+		return nil, fmt.Errorf("%s:%d: require namespace %q conflicts with use'd stdlib module", sourceFile, req.StmtLine(), ns)
+	}
+	for pkg, alias := range c.goImports {
+		bridgeNS := alias
+		if bridgeNS == "" {
+			bridgeNS = gobridge.DefaultNS(pkg)
+		}
+		if ns == bridgeNS {
+			return nil, fmt.Errorf("%s:%d: require namespace %q conflicts with imported Go bridge package %q", sourceFile, req.StmtLine(), ns, pkg)
+		}
+	}
+
+	// Register the bridge package so codegen can find it.
+	gobridge.Register(result.Package)
+
+	// Track for go.mod generation — use the root module path and dir
+	// so the replace directive points to the module root (where go.mod is).
+	rootModDir, _ := gobridge.FindGoModDir(dir)
+	if rootModDir == "" {
+		rootModDir = dir
+	}
+	absRootDir, _ := filepath.Abs(rootModDir)
+	rootModPath, _ := gobridge.ReadGoModulePath(filepath.Join(absRootDir, "go.mod"))
+	if rootModPath == "" {
+		rootModPath = result.GoModulePath
+	}
+	c.goModuleRequires[rootModPath] = absRootDir
+
+	// Add to goImports so codegen treats calls as bridge calls.
+	alias := ""
+	if ns != gobridge.DefaultNS(result.GoModulePath) {
+		alias = ns
+	}
+	c.goImports[result.GoModulePath] = alias
+
+	// Synthesize an ImportStmt so the import is emitted in generated Go code.
+	importStmt := &ast.ImportStmt{
+		BaseStmt: ast.BaseStmt{SourceLine: req.StmtLine()},
+		Package:  result.GoModulePath,
+		Alias:    alias,
+	}
+
+	return []ast.Statement{importStmt}, nil
+}
+
 // requireChain returns the circular dependency chain as a human-readable string
 // if absPath is already in the require stack, or empty string if no cycle.
 func (c *Compiler) requireChain(absPath string) string {
@@ -581,6 +677,20 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 					modFile = FindRugoFile(filepath.Join(baseDir, "lib", modName))
 				}
 				if modFile == "" {
+					// Check if it's a Go module sub-package
+					subDir := filepath.Join(baseDir, modName)
+					if gobridge.IsGoPackageDir(subDir) {
+						subReq := &ast.RequireStmt{
+							BaseStmt: ast.BaseStmt{SourceLine: req.StmtLine()},
+							Path:     req.Path + "/" + modName,
+						}
+						goStmts, goErr := c.resolveGoModuleRequire(subReq, subDir, prog.SourceFile)
+						if goErr != nil {
+							return nil, goErr
+						}
+						resolved = append(resolved, goStmts...)
+						continue
+					}
 					return nil, fmt.Errorf("%s:%d: module %q not found in %s (no %s%s)", prog.SourceFile, req.StmtLine(), modName, req.Path, modName, RugoExt)
 				}
 				WarnDeprecatedExt(modFile)
@@ -673,11 +783,24 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 
 		if remote.IsRemoteRequire(req.Path) {
 			// Remote require: fetch from git and resolve entry point
-			localPath, err := c.resolver.ResolveModule(req.Path)
+			entryPoint, cacheDir, err := c.resolver.ResolveModuleOrDir(req.Path)
 			if err != nil {
 				return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, s.StmtLine(), err)
 			}
-			absPath = localPath
+			if entryPoint != "" {
+				absPath = entryPoint
+			} else {
+				// No .rugo entry point — check if it's a Go module
+				if gobridge.IsGoModuleDir(cacheDir) {
+					goStmts, goErr := c.resolveGoModuleRequire(req, cacheDir, prog.SourceFile)
+					if goErr != nil {
+						return nil, goErr
+					}
+					resolved = append(resolved, goStmts...)
+					continue
+				}
+				return nil, fmt.Errorf("%s:%d: no Rugo source files or Go module found in %s", prog.SourceFile, s.StmtLine(), req.Path)
+			}
 		} else {
 			// Local require: resolve relative to calling file
 			reqPath := req.Path
@@ -689,6 +812,15 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 				if found := FindRugoFile(reqPath); found != "" {
 					reqPath = found
 				} else if info, err := os.Stat(reqPath); err == nil && info.IsDir() {
+					// Check if it's a Go module directory first
+					if gobridge.IsGoModuleDir(reqPath) {
+						goStmts, goErr := c.resolveGoModuleRequire(req, reqPath, prog.SourceFile)
+						if goErr != nil {
+							return nil, goErr
+						}
+						resolved = append(resolved, goStmts...)
+						continue
+					}
 					entryPoint, err := FindLocalEntryPoint(reqPath)
 					if err != nil {
 						return nil, fmt.Errorf("%s:%d: %w", prog.SourceFile, req.StmtLine(), err)

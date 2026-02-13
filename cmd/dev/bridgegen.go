@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"unicode"
 
 	"github.com/rubiojr/rugo/gobridge"
 	"github.com/urfave/cli/v3"
@@ -31,45 +30,18 @@ func bridgegenCommand() *cli.Command {
 	}
 }
 
-// bridgeTier classifies how a Go function can be bridged.
-type bridgeTier int
+// bridgeTier is an alias for gobridge.Tier for local use.
+type bridgeTier = gobridge.Tier
 
 const (
-	tierAuto     bridgeTier = iota // fully auto-generatable
-	tierCastable                   // needs int64/[]byte/rune casts
-	tierFunc                       // has function parameters
-	tierBlocked                    // generics, interfaces, channels, etc.
+	tierAuto     = gobridge.TierAuto
+	tierCastable = gobridge.TierCastable
+	tierFunc     = gobridge.TierFunc
+	tierBlocked  = gobridge.TierBlocked
 )
 
-func (t bridgeTier) String() string {
-	switch t {
-	case tierAuto:
-		return "auto"
-	case tierCastable:
-		return "castable"
-	case tierFunc:
-		return "func"
-	case tierBlocked:
-		return "blocked"
-	default:
-		return "unknown"
-	}
-}
-
-// bridgedFunc holds classification results for a Go function.
-type bridgedFunc struct {
-	GoName     string
-	RugoName   string
-	Sig        *types.Signature
-	Tier       bridgeTier
-	Reason     string // why it was blocked
-	Params     []gobridge.GoType
-	Returns    []gobridge.GoType
-	FuncTypes  map[int]*gobridge.GoFuncType  // GoFunc param signatures
-	ArrayTypes map[int]*gobridge.GoArrayType // fixed-size array return metadata
-	Variadic   bool
-	Doc        string
-}
+// bridgedFunc is an alias for gobridge.ClassifiedFunc for local use.
+type bridgedFunc = gobridge.ClassifiedFunc
 
 func bridgegenAction(_ context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
@@ -99,8 +71,8 @@ func bridgegenAction(_ context.Context, cmd *cli.Command) error {
 			if sig.Recv() != nil {
 				continue
 			}
-			rugoName := toSnakeCase(name)
-			bf := classifyFunc(name, rugoName, sig)
+			rugoName := gobridge.ToSnakeCase(name)
+			bf := gobridge.ClassifyFunc(name, rugoName, sig)
 			funcs = append(funcs, bf)
 			continue
 		}
@@ -126,9 +98,9 @@ func bridgegenAction(_ context.Context, cmd *cli.Command) error {
 					sig := m.Type().(*types.Signature)
 					// Build method chain GoName: "VarName.MethodName"
 					goName := name + "." + m.Name()
-					rugoName := toSnakeCase(name) + "_" + toSnakeCase(m.Name())
+					rugoName := gobridge.ToSnakeCase(name) + "_" + gobridge.ToSnakeCase(m.Name())
 					// Strip receiver from signature for classification
-					bf := classifyFunc(goName, rugoName, sig)
+					bf := gobridge.ClassifyFunc(goName, rugoName, sig)
 					funcs = append(funcs, bf)
 				}
 			}
@@ -153,8 +125,8 @@ func bridgegenAction(_ context.Context, cmd *cli.Command) error {
 				}
 				sig := m.Type().(*types.Signature)
 				goName := name + "." + m.Name()
-				rugoName := toSnakeCase(name) + "_" + toSnakeCase(m.Name())
-				bf := classifyFunc(goName, rugoName, sig)
+				rugoName := gobridge.ToSnakeCase(name) + "_" + gobridge.ToSnakeCase(m.Name())
+				bf := gobridge.ClassifyFunc(goName, rugoName, sig)
 				funcs = append(funcs, bf)
 			}
 		}
@@ -172,272 +144,6 @@ func bridgegenAction(_ context.Context, cmd *cli.Command) error {
 	}
 
 	return writeBridgeFile(pkgPath, funcs)
-}
-
-// classifyFunc determines how a Go function can be bridged.
-func classifyFunc(goName, rugoName string, sig *types.Signature) bridgedFunc {
-	bf := bridgedFunc{
-		GoName:   goName,
-		RugoName: rugoName,
-		Sig:      sig,
-		Variadic: sig.Variadic(),
-	}
-
-	// Classify params
-	params := sig.Params()
-	hasCast := false
-	for i := 0; i < params.Len(); i++ {
-		t := params.At(i).Type()
-		// For variadic params, keep the slice type (codegen handles individual arg conversion)
-		gt, tier, reason := classifyGoType(t, true)
-		if tier == tierBlocked {
-			bf.Tier = tierBlocked
-			bf.Reason = fmt.Sprintf("param %d: %s", i, reason)
-			return bf
-		}
-		if tier == tierFunc {
-			// Try to build a FuncType from the function signature
-			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
-			if !ok {
-				bf.Tier = tierFunc
-				bf.Reason = fmt.Sprintf("param %d: func type (not a signature)", i)
-				return bf
-			}
-			ft := classifyFuncType(funcSig)
-			if ft == nil {
-				bf.Tier = tierFunc
-				bf.Reason = fmt.Sprintf("param %d: func with unbridgeable signature", i)
-				return bf
-			}
-			if bf.FuncTypes == nil {
-				bf.FuncTypes = map[int]*gobridge.GoFuncType{}
-			}
-			bf.FuncTypes[i] = ft
-			hasCast = true // func params are at least castable tier
-			bf.Params = append(bf.Params, gt)
-			continue
-		}
-		if tier == tierCastable {
-			hasCast = true
-		}
-		bf.Params = append(bf.Params, gt)
-	}
-
-	// Classify returns
-	results := sig.Results()
-	for i := 0; i < results.Len(); i++ {
-		t := results.At(i).Type()
-		gt, tier, reason := classifyGoType(t, false)
-		if tier == tierBlocked {
-			bf.Tier = tierBlocked
-			bf.Reason = fmt.Sprintf("return %d: %s", i, reason)
-			return bf
-		}
-		if tier == tierCastable {
-			hasCast = true
-		}
-		// Track fixed-size array metadata
-		if arr, ok := t.Underlying().(*types.Array); ok {
-			if bf.ArrayTypes == nil {
-				bf.ArrayTypes = map[int]*gobridge.GoArrayType{}
-			}
-			elemGT, _, _ := classifyGoType(arr.Elem(), false)
-			bf.ArrayTypes[i] = &gobridge.GoArrayType{Elem: elemGT, Size: int(arr.Len())}
-		}
-		bf.Returns = append(bf.Returns, gt)
-	}
-
-	if hasCast {
-		bf.Tier = tierCastable
-	} else {
-		bf.Tier = tierAuto
-	}
-	return bf
-}
-
-// classifyFuncType builds a GoFuncType from a Go function signature.
-// Returns nil if any param/return type is unbridgeable.
-func classifyFuncType(sig *types.Signature) *gobridge.GoFuncType {
-	ft := &gobridge.GoFuncType{}
-
-	params := sig.Params()
-	for i := 0; i < params.Len(); i++ {
-		gt, tier, _ := classifyGoType(params.At(i).Type(), true)
-		if tier == tierBlocked || tier == tierFunc {
-			return nil
-		}
-		ft.Params = append(ft.Params, gt)
-	}
-
-	results := sig.Results()
-	for i := 0; i < results.Len(); i++ {
-		gt, tier, _ := classifyGoType(results.At(i).Type(), false)
-		if tier == tierBlocked || tier == tierFunc {
-			return nil
-		}
-		ft.Returns = append(ft.Returns, gt)
-	}
-
-	return ft
-}
-
-// classifyGoType maps a Go type to a GoType and tier.
-func classifyGoType(t types.Type, isParam bool) (gobridge.GoType, bridgeTier, string) {
-	// Check named types first (error interface)
-	if named, ok := t.(*types.Named); ok {
-		if named.Obj().Pkg() == nil && named.Obj().Name() == "error" {
-			return gobridge.GoError, tierAuto, ""
-		}
-		// Fall through to underlying type
-		t = t.Underlying()
-	}
-
-	switch u := t.(type) {
-	case *types.Basic:
-		switch u.Kind() {
-		case types.String:
-			return gobridge.GoString, tierAuto, ""
-		case types.Int:
-			return gobridge.GoInt, tierAuto, ""
-		case types.Float64:
-			return gobridge.GoFloat64, tierAuto, ""
-		case types.Bool:
-			return gobridge.GoBool, tierAuto, ""
-		case types.Byte:
-			return gobridge.GoByte, tierCastable, ""
-		case types.Int64:
-			return gobridge.GoInt64, tierCastable, ""
-		case types.Int32:
-			if u.Name() == "rune" {
-				return gobridge.GoRune, tierCastable, ""
-			}
-			return gobridge.GoInt32, tierCastable, ""
-		case types.Float32:
-			return gobridge.GoFloat32, tierCastable, ""
-		case types.Int8, types.Int16:
-			return gobridge.GoInt, tierCastable, ""
-		case types.Uint16:
-			return gobridge.GoInt, tierCastable, ""
-		case types.Uint:
-			return gobridge.GoUint, tierCastable, ""
-		case types.Uint32:
-			return gobridge.GoUint32, tierCastable, ""
-		case types.Uint64:
-			return gobridge.GoUint64, tierCastable, ""
-		default:
-			return 0, tierBlocked, fmt.Sprintf("unsupported basic type %s", u.Name())
-		}
-	case *types.Slice:
-		elem := u.Elem()
-		if b, ok := elem.Underlying().(*types.Basic); ok {
-			switch b.Kind() {
-			case types.String:
-				return gobridge.GoStringSlice, tierAuto, ""
-			case types.Byte:
-				return gobridge.GoByteSlice, tierCastable, ""
-			}
-		}
-		return 0, tierBlocked, fmt.Sprintf("unsupported slice type []%s", elem)
-	case *types.Signature:
-		return gobridge.GoFunc, tierFunc, "function parameter"
-	case *types.Interface:
-		return 0, tierBlocked, "interface type"
-	case *types.Pointer:
-		return 0, tierBlocked, fmt.Sprintf("pointer to %s", u.Elem())
-	case *types.Struct:
-		return 0, tierBlocked, "struct type"
-	case *types.Map:
-		return 0, tierBlocked, "map type"
-	case *types.Chan:
-		return 0, tierBlocked, "channel type"
-	case *types.Array:
-		if b, ok := u.Elem().Underlying().(*types.Basic); ok && b.Kind() == types.Byte {
-			return gobridge.GoByteSlice, tierCastable, ""
-		}
-		return 0, tierBlocked, fmt.Sprintf("array type [%d]%s", u.Len(), u.Elem())
-	default:
-		return 0, tierBlocked, fmt.Sprintf("unknown type %T", t)
-	}
-}
-
-// toSnakeCase converts PascalCase to snake_case.
-// Handles consecutive uppercase (e.g., "IsNaN" → "is_nan", "FMA" → "fma").
-func toSnakeCase(s string) string {
-	// Pre-process known abbreviations to avoid splitting them
-	abbreviations := map[string]string{
-		"NaN": "nan", "URL": "url", "URI": "uri", "HTTP": "http",
-		"HTTPS": "https", "JSON": "json", "XML": "xml", "ID": "id",
-		"UTF": "utf", "TCP": "tcp", "UDP": "udp", "IP": "ip",
-		"TLS": "tls", "SSL": "ssl", "API": "api", "SQL": "sql",
-		"DNS": "dns", "EOF": "eof", "FMA": "fma",
-	}
-	for abbr, lower := range abbreviations {
-		s = strings.ReplaceAll(s, abbr, "_"+lower+"_")
-	}
-	// Clean up double underscores and leading/trailing underscores
-	var result []rune
-	runes := []rune(s)
-	for i, r := range runes {
-		if unicode.IsUpper(r) {
-			if i > 0 {
-				prev := runes[i-1]
-				if unicode.IsLower(prev) || unicode.IsDigit(prev) {
-					result = append(result, '_')
-				}
-			}
-			result = append(result, unicode.ToLower(r))
-		} else {
-			result = append(result, r)
-		}
-	}
-	// Clean up: collapse multiple underscores, trim leading/trailing
-	out := strings.Trim(string(result), "_")
-	for strings.Contains(out, "__") {
-		out = strings.ReplaceAll(out, "__", "_")
-	}
-	return out
-}
-
-// goTypeConst returns the Go source for a GoType constant.
-func goTypeConst(t gobridge.GoType) string {
-	switch t {
-	case gobridge.GoString:
-		return "GoString"
-	case gobridge.GoInt:
-		return "GoInt"
-	case gobridge.GoFloat64:
-		return "GoFloat64"
-	case gobridge.GoBool:
-		return "GoBool"
-	case gobridge.GoByte:
-		return "GoByte"
-	case gobridge.GoStringSlice:
-		return "GoStringSlice"
-	case gobridge.GoByteSlice:
-		return "GoByteSlice"
-	case gobridge.GoInt32:
-		return "GoInt32"
-	case gobridge.GoInt64:
-		return "GoInt64"
-	case gobridge.GoUint32:
-		return "GoUint32"
-	case gobridge.GoUint64:
-		return "GoUint64"
-	case gobridge.GoUint:
-		return "GoUint"
-	case gobridge.GoFloat32:
-		return "GoFloat32"
-	case gobridge.GoRune:
-		return "GoRune"
-	case gobridge.GoFunc:
-		return "GoFunc"
-	case gobridge.GoDuration:
-		return "GoDuration"
-	case gobridge.GoError:
-		return "GoError"
-	default:
-		return "GoString"
-	}
 }
 
 func printClassification(pkgPath string, funcs []bridgedFunc) error {
@@ -552,7 +258,7 @@ func formatFuncEntry(f bridgedFunc) string {
 	// Params
 	paramStrs := make([]string, len(f.Params))
 	for i, p := range f.Params {
-		paramStrs[i] = goTypeConst(p)
+		paramStrs[i] = gobridge.GoTypeConst(p)
 	}
 	paramList := "nil"
 	if len(paramStrs) > 0 {
@@ -562,7 +268,7 @@ func formatFuncEntry(f bridgedFunc) string {
 	// Returns
 	retStrs := make([]string, len(f.Returns))
 	for i, r := range f.Returns {
-		retStrs[i] = goTypeConst(r)
+		retStrs[i] = gobridge.GoTypeConst(r)
 	}
 	retList := "nil"
 	if len(retStrs) > 0 {
@@ -581,10 +287,10 @@ func formatFuncEntry(f bridgedFunc) string {
 		for idx, ft := range f.FuncTypes {
 			var fParams, fRets []string
 			for _, p := range ft.Params {
-				fParams = append(fParams, goTypeConst(p))
+				fParams = append(fParams, gobridge.GoTypeConst(p))
 			}
 			for _, r := range ft.Returns {
-				fRets = append(fRets, goTypeConst(r))
+				fRets = append(fRets, gobridge.GoTypeConst(r))
 			}
 			pList := "nil"
 			if len(fParams) > 0 {
@@ -603,7 +309,7 @@ func formatFuncEntry(f bridgedFunc) string {
 		// Emit ArrayTypes metadata
 		var parts []string
 		for idx, at := range f.ArrayTypes {
-			parts = append(parts, fmt.Sprintf("%d: {Elem: %s, Size: %d}", idx, goTypeConst(at.Elem), at.Size))
+			parts = append(parts, fmt.Sprintf("%d: {Elem: %s, Size: %d}", idx, gobridge.GoTypeConst(at.Elem), at.Size))
 		}
 		sb.WriteString(fmt.Sprintf(", ArrayTypes: map[int]*GoArrayType{%s}", strings.Join(parts, ", ")))
 	}

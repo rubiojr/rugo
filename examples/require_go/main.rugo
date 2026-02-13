@@ -1,0 +1,11 @@
+# Require a Go module — no manifest, no custom build needed.
+# The compiler introspects the Go source and bridges exported functions.
+require "mymath"
+use "conv"
+
+puts("=== Go Module via require ===")
+puts("add(3, 4) = " + conv.to_s(mymath.add(3, 4)))
+puts("multiply(6, 7) = " + conv.to_s(mymath.multiply(6, 7)))
+puts("sqrt(16.0) = " + conv.to_s(mymath.sqrt(16.0)))
+puts("is_positive(42) = " + conv.to_s(mymath.is_positive(42)))
+puts("is_positive(-1) = " + conv.to_s(mymath.is_positive(-1)))
