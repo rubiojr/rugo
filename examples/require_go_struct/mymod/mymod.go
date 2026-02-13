@@ -15,3 +15,8 @@ func NewConfig(name string, port int) *Config {
 func Describe(c *Config) string {
 	return c.Name + " server"
 }
+
+// Summary returns a summary string.
+func (c *Config) Summary() string {
+	return c.Name + " config"
+}

@@ -23,6 +23,8 @@ type InspectedPackage struct {
 	Skipped []ClassifiedFunc
 	// KnownStructs maps Go struct type names to true for reclassification.
 	KnownStructs map[string]bool
+	// NamedTypes maps Go struct type names to their *types.Named for method discovery.
+	NamedTypes map[string]*types.Named
 }
 
 // InspectSourcePackage introspects a Go source directory and returns a bridge
@@ -89,21 +91,24 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 
 	var allFuncs []ClassifiedFunc
 	var structInfos []GoStructInfo
-	knownStructs := make(map[string]bool) // Go type name → true
+	knownStructs := make(map[string]bool)    // Go type name → true
+	namedTypes := make(map[string]*types.Named) // Go type name → Named type (for method discovery)
 	scope := typePkg.Scope()
 	for _, name := range scope.Names() {
 		obj := scope.Lookup(name)
 
 		// Discover exported struct types.
 		if tn, ok := obj.(*types.TypeName); ok && tn.Exported() {
+			named, isNamed := tn.Type().(*types.Named)
 			st, ok := tn.Type().Underlying().(*types.Struct)
 			if !ok {
 				continue
 			}
 			si := classifyStructFields(name, st)
-			if si != nil {
-				structInfos = append(structInfos, *si)
-				knownStructs[name] = true
+			structInfos = append(structInfos, *si)
+			knownStructs[name] = true
+			if isNamed {
+				namedTypes[name] = named
 			}
 			continue
 		}
@@ -168,10 +173,11 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 	}
 
 	return &InspectedPackage{
-		Package:      pkg,
-		GoModulePath: modulePath,
-		Skipped:      skipped,
-		KnownStructs: knownStructs,
+		Package:       pkg,
+		GoModulePath:  modulePath,
+		Skipped:       skipped,
+		KnownStructs:  knownStructs,
+		NamedTypes:    namedTypes,
 	}, nil
 }
 
@@ -241,8 +247,8 @@ func ReadGoModulePath(path string) (string, error) {
 }
 
 // classifyStructFields examines an exported struct and returns a GoStructInfo
-// with all exported fields that have bridgeable types. Returns nil if no
-// fields are bridgeable.
+// with all exported fields that have bridgeable types. Structs with no
+// bridgeable fields are still returned as opaque handles (empty Fields slice).
 func classifyStructFields(goName string, st *types.Struct) *GoStructInfo {
 	var fields []GoStructFieldInfo
 	for i := 0; i < st.NumFields(); i++ {
@@ -259,9 +265,6 @@ func classifyStructFields(goName string, st *types.Struct) *GoStructInfo {
 			RugoName: ToSnakeCase(f.Name()),
 			Type:     gt,
 		})
-	}
-	if len(fields) == 0 {
-		return nil
 	}
 	return &GoStructInfo{
 		GoName:   goName,
@@ -283,10 +286,23 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 	// Build a lookup from Go struct name to wrapper type name.
 	structWrappers := make(map[string]string) // GoName → wrapper type name
 	for _, si := range pkg.Structs {
-		wrapType := StructWrapperTypeName(ns, si.GoName)
-		structWrappers[si.GoName] = wrapType
+		structWrappers[si.GoName] = StructWrapperTypeName(ns, si.GoName)
+	}
 
-		// Generate wrapper RuntimeHelper.
+	// Discover methods on struct types before generating wrappers.
+	for i := range pkg.Structs {
+		si := &pkg.Structs[i]
+		named, ok := result.NamedTypes[si.GoName]
+		if !ok {
+			continue
+		}
+		si.Methods = discoverMethods(named, structWrappers, result.KnownStructs)
+	}
+
+	// Generate wrappers and register constructors (after methods are populated).
+	for i, si := range pkg.Structs {
+		_ = i
+		wrapType := structWrappers[si.GoName]
 		helper := GenerateStructWrapper(ns, pkgAlias, si)
 
 		// Register zero-value constructor: mymod.config() → &rugo_struct_mymod_Config{v: &pkg.Config{}}
@@ -437,4 +453,90 @@ func needsWrapper(sig *GoFuncSig, wrapType string) bool {
 		}
 	}
 	return false
+}
+
+// discoverMethods finds bridgeable methods on a named struct type.
+// Uses pointer method set to cover both value and pointer receivers.
+func discoverMethods(named *types.Named, structWrappers map[string]string, knownStructs map[string]bool) []GoStructMethodInfo {
+	mset := types.NewMethodSet(types.NewPointer(named))
+	var methods []GoStructMethodInfo
+	for i := 0; i < mset.Len(); i++ {
+		sel := mset.At(i)
+		fn, ok := sel.Obj().(*types.Func)
+		if !ok || !fn.Exported() {
+			continue
+		}
+		sig, ok := fn.Type().(*types.Signature)
+		if !ok {
+			continue
+		}
+
+		mi := classifyMethod(fn.Name(), sig, structWrappers, knownStructs)
+		if mi != nil {
+			methods = append(methods, *mi)
+		}
+	}
+	return methods
+}
+
+// classifyMethod classifies a single method's params and returns (excluding receiver).
+// Returns nil if any param/return is unbridgeable.
+func classifyMethod(goName string, sig *types.Signature, structWrappers map[string]string, knownStructs map[string]bool) *GoStructMethodInfo {
+	mi := &GoStructMethodInfo{
+		GoName:   goName,
+		RugoName: ToSnakeCase(goName),
+		Variadic: sig.Variadic(),
+	}
+
+	// Classify params (sig.Params() excludes the receiver for methods).
+	params := sig.Params()
+	for i := 0; i < params.Len(); i++ {
+		t := params.At(i).Type()
+		gt, tier, _ := ClassifyGoType(t, true)
+		if tier == TierBlocked {
+			structName := extractStructName(t, knownStructs)
+			if structName == "" {
+				return nil
+			}
+			wrapType, ok := structWrappers[structName]
+			if !ok {
+				return nil
+			}
+			mi.Params = append(mi.Params, GoString) // placeholder
+			if mi.StructCasts == nil {
+				mi.StructCasts = make(map[int]string)
+			}
+			mi.StructCasts[i] = wrapType
+		} else if tier == TierFunc {
+			return nil
+		} else {
+			mi.Params = append(mi.Params, gt)
+		}
+	}
+
+	// Classify returns.
+	results := sig.Results()
+	for i := 0; i < results.Len(); i++ {
+		t := results.At(i).Type()
+		gt, tier, _ := ClassifyGoType(t, false)
+		if tier == TierBlocked {
+			structName := extractStructName(t, knownStructs)
+			if structName == "" {
+				return nil
+			}
+			wrapType, ok := structWrappers[structName]
+			if !ok {
+				return nil
+			}
+			mi.Returns = append(mi.Returns, GoString) // placeholder
+			if mi.StructReturnWraps == nil {
+				mi.StructReturnWraps = make(map[int]string)
+			}
+			mi.StructReturnWraps[i] = wrapType
+		} else {
+			mi.Returns = append(mi.Returns, gt)
+		}
+	}
+
+	return mi
 }

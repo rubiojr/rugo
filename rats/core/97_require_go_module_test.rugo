@@ -76,21 +76,20 @@ rats "require Go module fails on non-Go non-Rugo directory"
   test.assert_contains(result["output"], "no Rugo source files")
 end
 
-rats "require Go module error does not leak cache paths"
+rats "require Go module with opaque struct works"
   tmpdir = test.tmpdir()
   test.run("mkdir -p #{tmpdir}/badmod")
   test.write_file("#{tmpdir}/badmod/go.mod", "module example.com/badmod\n\ngo 1.22\n")
   test.write_file("#{tmpdir}/badmod/badmod.go", "package badmod\ntype Foo struct{}\nfunc New() *Foo { return &Foo{} }\n")
   script = <<~SCRIPT
     require "badmod"
+    f = badmod.new()
+    puts(type_of(f))
   SCRIPT
   test.write_file("#{tmpdir}/main.rugo", script)
   result = test.run("rugo run #{tmpdir}/main.rugo")
-  test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "example.com/badmod")
-  test.assert_contains(result["output"], "no bridgeable functions")
-  # The module error must use go.mod path, not a cache/local directory path
-  test.assert_eq(str.contains(result["output"], "badmod/badmod.go"), false)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Foo")
 end
 
 rats "require Go module namespace conflicts with use'd stdlib module"

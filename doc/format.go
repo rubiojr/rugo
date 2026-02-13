@@ -156,13 +156,22 @@ func FormatBridgePackage(pkg *gobridge.Package) string {
 
 	// Show structs first
 	for _, si := range pkg.Structs {
-		sb.WriteString(fmt.Sprintf("struct %s { ", si.GoName))
-		var fields []string
-		for _, f := range si.Fields {
-			fields = append(fields, fmt.Sprintf("%s: %s", f.RugoName, gobridge.GoTypeName(f.Type)))
+		if len(si.Fields) > 0 {
+			sb.WriteString(fmt.Sprintf("struct %s { ", si.GoName))
+			var fields []string
+			for _, f := range si.Fields {
+				fields = append(fields, fmt.Sprintf("%s: %s", f.RugoName, gobridge.GoTypeName(f.Type)))
+			}
+			sb.WriteString(strings.Join(fields, ", "))
+			sb.WriteString(" }\n")
+		} else {
+			sb.WriteString(fmt.Sprintf("struct %s {}\n", si.GoName))
 		}
-		sb.WriteString(strings.Join(fields, ", "))
-		sb.WriteString(" }\n")
+		// Show methods indented under the struct
+		for _, m := range si.Methods {
+			sb.WriteString(fmt.Sprintf("  .%s", formatMethodSig(m)))
+			sb.WriteString("\n")
+		}
 	}
 	if len(pkg.Structs) > 0 {
 		sb.WriteString("\n")
@@ -327,4 +336,38 @@ func structNameFromWrapper(wrapType string) string {
 		return parts[len(parts)-1]
 	}
 	return wrapType
+}
+
+// formatMethodSig formats a struct method signature for doc display.
+func formatMethodSig(m gobridge.GoStructMethodInfo) string {
+	var params []string
+	for i, p := range m.Params {
+		if m.StructCasts != nil {
+			if wrapType, ok := m.StructCasts[i]; ok {
+				params = append(params, structNameFromWrapper(wrapType))
+				continue
+			}
+		}
+		params = append(params, gobridge.GoTypeName(p))
+	}
+
+	var returns []string
+	for i, r := range m.Returns {
+		if r == gobridge.GoError {
+			continue
+		}
+		if m.StructReturnWraps != nil {
+			if wrapType, ok := m.StructReturnWraps[i]; ok {
+				returns = append(returns, structNameFromWrapper(wrapType))
+				continue
+			}
+		}
+		returns = append(returns, gobridge.GoTypeName(r))
+	}
+
+	result := fmt.Sprintf("%s(%s)", m.RugoName, strings.Join(params, ", "))
+	if len(returns) > 0 {
+		result += " -> " + strings.Join(returns, ", ")
+	}
+	return result
 }

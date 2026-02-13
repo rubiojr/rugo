@@ -163,3 +163,116 @@ rats "struct describe function uses struct fields"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "production config")
 end
+
+# --- Method tests ---
+
+rats "method returning string"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_config("myapp", 8080)
+    puts(c.summary())
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "myapp config")
+end
+
+rats "void method mutates struct"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_config("app", 80)
+    c.set_port(9090)
+    puts(c.port)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "9090")
+end
+
+rats "method returning struct pointer"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_config("orig", 80)
+    c2 = c.clone()
+    c2.name = "copy"
+    puts(c.name)
+    puts(c2.name)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "orig")
+  test.assert_eq(lines[1], "copy")
+end
+
+rats "method with bool param"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    s = sm.new_server("host", 443)
+    s.set_debug(true)
+    puts(s.debug)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "opaque struct methods (no exported fields)"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_counter()
+    c.inc()
+    c.inc()
+    c.add(3)
+    puts(c.value())
+    c.reset()
+    puts(c.value())
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "5")
+  test.assert_eq(lines[1], "0")
+end
+
+rats "opaque struct type_of"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_counter()
+    puts(type_of(c))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Counter")
+end
+
+rats "rugo doc shows struct methods"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/go_module_struct")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], ".summary() -> string")
+  test.assert_contains(result["output"], ".set_port(int)")
+  test.assert_contains(result["output"], ".clone() -> Config")
+  test.assert_contains(result["output"], "struct Counter {}")
+  test.assert_contains(result["output"], ".inc()")
+  test.assert_contains(result["output"], ".value() -> int")
+end

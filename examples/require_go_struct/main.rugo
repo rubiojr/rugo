@@ -9,6 +9,9 @@ puts(c.port)                          # 8080
 # Pass the struct to a Go function
 puts(mymod.describe(c))               # app server
 
+# Call methods on the struct
+puts(c.summary())                     # app config
+
 # Create a zero-value struct and set fields
 c2 = mymod.config()
 c2.name = "dev"

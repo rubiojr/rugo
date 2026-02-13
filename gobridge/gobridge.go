@@ -69,6 +69,7 @@ type GoStructInfo struct {
 	GoName   string              // PascalCase struct name (e.g., "Config")
 	RugoName string              // snake_case name for constructor (e.g., "config")
 	Fields   []GoStructFieldInfo // exported fields with bridgeable types
+	Methods  []GoStructMethodInfo // bridgeable methods
 }
 
 // GoStructFieldInfo describes a single exported field of a Go struct.
@@ -76,6 +77,17 @@ type GoStructFieldInfo struct {
 	GoName   string // PascalCase field name (e.g., "Name")
 	RugoName string // snake_case field name (e.g., "name")
 	Type     GoType // field type for conversion
+}
+
+// GoStructMethodInfo describes a bridgeable method on a Go struct.
+type GoStructMethodInfo struct {
+	GoName            string         // PascalCase method name (e.g., "Add")
+	RugoName          string         // snake_case method name (e.g., "add")
+	Params            []GoType       // parameter types (excluding receiver)
+	Returns           []GoType       // return types
+	Variadic          bool           // last param is variadic
+	StructCasts       map[int]string // param index → wrapper type for struct handles
+	StructReturnWraps map[int]string // return index → wrapper type for struct handles
 }
 
 // RuntimeHelper describes a Go helper function emitted into the generated code.
