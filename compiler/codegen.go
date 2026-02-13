@@ -230,6 +230,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	g.writeln("import (")
 	g.indent++
 	g.writeln(`"fmt"`)
+	g.writeln(`"math"`)
 	g.writeln(`"os"`)
 	g.writeln(`"os/exec"`)
 	g.writeln(`"reflect"`)
@@ -243,7 +244,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		g.writeln(`"time"`)
 	}
 	baseImports := map[string]bool{
-		"fmt": true, "os": true, "os/exec": true,
+		"fmt": true, "math": true, "os": true, "os/exec": true,
 		"reflect": true, "runtime/debug": true, "strings": true, "sort": true,
 	}
 	emittedImports := make(map[string]bool)

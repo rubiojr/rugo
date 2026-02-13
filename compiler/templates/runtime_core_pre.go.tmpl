@@ -111,7 +111,15 @@ func rugo_div(a, b interface{}) interface{} {
 }
 
 func rugo_mod(a, b interface{}) interface{} {
-	return rugo_to_int(a) % rugo_to_int(b)
+	switch av := a.(type) {
+	case int:
+		if bv, ok := b.(int); ok { return av % bv }
+		if bv, ok := b.(float64); ok { return math.Mod(float64(av), bv) }
+	case float64:
+		if bv, ok := b.(float64); ok { return math.Mod(av, bv) }
+		if bv, ok := b.(int); ok { return math.Mod(av, float64(bv)) }
+	}
+	panic(fmt.Sprintf("cannot modulo %T and %T", a, b))
 }
 
 func rugo_negate(a interface{}) interface{} {
