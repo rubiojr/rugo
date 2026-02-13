@@ -1,0 +1,89 @@
+use "test"
+import "strings"
+import "path/filepath"
+import "strconv"
+
+# --- Multi-return as array ---
+
+rats "strings.cut returns array of 3 elements"
+  result = strings.cut("hello-world", "-")
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], "hello")
+  test.assert_eq(result[1], "world")
+  test.assert_eq(result[2], true)
+end
+
+rats "strings.cut not found returns empty after and false"
+  result = strings.cut("hello", "-")
+  test.assert_eq(result[0], "hello")
+  test.assert_eq(result[1], "")
+  test.assert_eq(result[2], false)
+end
+
+rats "strings.cut with empty separator"
+  result = strings.cut("hello", "")
+  test.assert_eq(result[0], "")
+  test.assert_eq(result[1], "hello")
+  test.assert_eq(result[2], true)
+end
+
+rats "strings.cut multiple separators returns first"
+  result = strings.cut("a-b-c", "-")
+  test.assert_eq(result[0], "a")
+  test.assert_eq(result[1], "b-c")
+  test.assert_eq(result[2], true)
+end
+
+rats "filepath.split returns array of 2 elements"
+  result = filepath.split("/home/user/file.txt")
+  test.assert_eq(len(result), 2)
+  test.assert_eq(result[0], "/home/user/")
+  test.assert_eq(result[1], "file.txt")
+end
+
+rats "filepath.split bare filename"
+  result = filepath.split("file.txt")
+  test.assert_eq(result[0], "")
+  test.assert_eq(result[1], "file.txt")
+end
+
+rats "filepath.split directory only"
+  result = filepath.split("/home/user/")
+  test.assert_eq(result[0], "/home/user/")
+  test.assert_eq(result[1], "")
+end
+
+rats "multi-return array is indexable"
+  parts = strings.cut("key=value", "=")
+  key = parts[0]
+  val = parts[1]
+  found = parts[2]
+  test.assert_eq(key, "key")
+  test.assert_eq(val, "value")
+  test.assert_eq(found, true)
+end
+
+rats "multi-return with try/or on error-returning functions still works"
+  result = try strconv.atoi("notanumber") or 0
+  test.assert_eq(result, 0)
+end
+
+rats "cut_prefix returns array (T, bool pattern)"
+  result = strings.cut_prefix("hello world", "hello ")
+  test.assert_eq(result, "world")
+end
+
+rats "cut_prefix not found returns nil (T, bool pattern)"
+  result = strings.cut_prefix("hello world", "xyz")
+  test.assert_eq(result, nil)
+end
+
+rats "cut_suffix returns trimmed string"
+  result = strings.cut_suffix("hello.txt", ".txt")
+  test.assert_eq(result, "hello")
+end
+
+rats "cut_suffix not found returns nil"
+  result = strings.cut_suffix("hello.txt", ".pdf")
+  test.assert_eq(result, nil)
+end

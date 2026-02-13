@@ -105,7 +105,14 @@ type GoFuncSig struct {
 | `(error)` | `func() interface{} { if err := ...; err != nil { panic(err.Error()) }; return nil }()` |
 | `(T, error)` | IIFE with error check → panic on error, return T |
 | `(T, bool)` | IIFE → return nil if false, return T if true |
-| `(T1, T2)` tuple | Package-specific: `filepath.Split` returns as `[]interface{}{dir, file}` |
+| `(T1, T2, ...)` multi | IIFE → collect all values into `[]interface{}` array |
+
+Multi-return functions return arrays that can be destructured:
+
+```ruby
+before, after, found = strings.cut("key=value", "=")
+# or accessed by index: result = strings.cut("a-b", "-"); result[0]
+```
 
 ### Name conversion
 
@@ -325,12 +332,13 @@ filepath.Join(rugo_to_string(a), rugo_to_string(b), rugo_to_string(c))
 
 ### filepath.Split
 
-Returns `(dir, file)` tuple — mapped to Rugo array:
+Returns `(dir, file)` tuple — handled by the generic multi-return codegen,
+no custom `Codegen` needed:
 
 ```go
 func() interface{} {
-    _d, _f := filepath.Split(path)
-    return interface{}([]interface{}{interface{}(_d), interface{}(_f)})
+    _v0, _v1 := filepath.Split(path)
+    return []interface{}{interface{}(_v0), interface{}(_v1)}
 }()
 ```
 

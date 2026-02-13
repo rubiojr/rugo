@@ -77,5 +77,27 @@ end
 
 See [For Loops](07-for-loops.md) for more iteration patterns.
 
+## Destructuring
+
+Unpack an array into individual variables with comma-separated targets:
+
+```ruby
+a, b, c = [10, 20, 30]
+puts a   # 10
+puts b   # 20
+puts c   # 30
+```
+
+This works with any expression that returns an array, including Go bridge functions that return multiple values:
+
+```ruby
+import "strings"
+
+before, after, found = strings.cut("key=value", "=")
+puts before   # key
+puts after    # value
+puts found    # true
+```
+
 ---
 Next: [Hashes](05-hashes.md)

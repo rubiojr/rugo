@@ -1,0 +1,117 @@
+use "test"
+import "strings"
+import "path/filepath"
+
+# --- Array destructuring ---
+
+rats "destructure strings.cut into 3 variables"
+  before, after, found = strings.cut("hello-world", "-")
+  test.assert_eq(before, "hello")
+  test.assert_eq(after, "world")
+  test.assert_eq(found, true)
+end
+
+rats "destructure strings.cut when not found"
+  before, after, found = strings.cut("hello", "-")
+  test.assert_eq(before, "hello")
+  test.assert_eq(after, "")
+  test.assert_eq(found, false)
+end
+
+rats "destructure filepath.split into 2 variables"
+  dir, file = filepath.split("/home/user/test.txt")
+  test.assert_eq(dir, "/home/user/")
+  test.assert_eq(file, "test.txt")
+end
+
+rats "destructure array literal"
+  a, b, c = [10, 20, 30]
+  test.assert_eq(a, 10)
+  test.assert_eq(b, 20)
+  test.assert_eq(c, 30)
+end
+
+rats "destructure 2-element array"
+  x, y = [1, 2]
+  test.assert_eq(x, 1)
+  test.assert_eq(y, 2)
+end
+
+rats "destructure works with mixed types"
+  name, age, active = ["Alice", 30, true]
+  test.assert_eq(name, "Alice")
+  test.assert_eq(age, 30)
+  test.assert_eq(active, true)
+end
+
+def get_first()
+  a, b, c = strings.cut("John Doe", " ")
+  return a
+end
+
+rats "destructure inside function"
+  test.assert_eq(get_first(), "John")
+end
+
+def make_pair()
+  return [1, 2]
+end
+
+rats "destructure from function return"
+  a, b = make_pair()
+  test.assert_eq(a, 1)
+  test.assert_eq(b, 2)
+end
+
+rats "destructure with string variables"
+  data = ["hello", "world"]
+  x, y = data
+  test.assert_eq(x, "hello")
+  test.assert_eq(y, "world")
+end
+
+rats "destructure does not break for-in loops"
+  h = {"a" => 1, "b" => 2}
+  keys = []
+  for k, v in h
+    append keys, k
+  end
+  test.assert_eq(len(keys), 2)
+end
+
+rats "destructure does not break normal assignment"
+  x = 42
+  test.assert_eq(x, 42)
+end
+
+rats "destructure does not break comparisons"
+  a = 1
+  b = 2
+  test.assert_eq(a == 1, true)
+  test.assert_eq(b == 2, true)
+end
+
+rats "destructure overwrites existing variables"
+  a = 100
+  b = 200
+  a, b = [1, 2]
+  test.assert_eq(a, 1)
+  test.assert_eq(b, 2)
+end
+
+rats "destructure with nil elements"
+  a, b, c = [1, nil, 3]
+  test.assert_eq(a, 1)
+  test.assert_eq(b, nil)
+  test.assert_eq(c, 3)
+end
+
+rats "destructure go bridge multi-return in conditional"
+  before, after, found = strings.cut("a=b", "=")
+  if found
+    test.assert_eq(before, "a")
+    test.assert_eq(after, "b")
+  else
+    test.fail("should have found separator")
+  end
+end

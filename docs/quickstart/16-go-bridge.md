@@ -56,6 +56,28 @@ go_os.setenv("APP", "rugo")
 puts go_os.getenv("APP")    # rugo
 ```
 
+## Multi-Return Functions
+
+Go functions that return multiple values are bridged as arrays. Use
+destructuring to unpack them:
+
+```ruby
+import "strings"
+
+before, after, found = strings.cut("key=value", "=")
+puts before   # key
+puts after    # value
+puts found    # true
+```
+
+You can also access elements by index:
+
+```ruby
+result = strings.cut("hello-world", "-")
+puts result[0]   # hello
+puts result[1]   # world
+```
+
 ## Available Packages
 
 | Package | Key Functions |

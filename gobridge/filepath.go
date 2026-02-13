@@ -1,7 +1,5 @@
 package gobridge
 
-import "fmt"
-
 func init() {
 	Register(&Package{
 		Path: "path/filepath",
@@ -18,14 +16,7 @@ func init() {
 			"to_slash":   {GoName: "ToSlash", Params: []GoType{GoString}, Returns: []GoType{GoString}, Doc: "Replaces OS path separators with slashes."},
 			"from_slash": {GoName: "FromSlash", Params: []GoType{GoString}, Returns: []GoType{GoString}, Doc: "Replaces slashes with OS path separators."},
 			"abs":        {GoName: "Abs", Params: []GoType{GoString}, Returns: []GoType{GoString, GoError}, Doc: "Returns an absolute representation of path."},
-			"split": {
-				GoName: "Split", Params: []GoType{GoString}, Returns: []GoType{GoString, GoString},
-				Doc: "Splits path into directory and file components.",
-				Codegen: func(pkgBase string, args []string, _ string) string {
-					return fmt.Sprintf("func() interface{} { _d, _f := %s.Split(%s); return interface{}([]interface{}{interface{}(_d), interface{}(_f)}) }()",
-						pkgBase, TypeConvToGo(args[0], GoString))
-				},
-			},
+			"split": {GoName: "Split", Params: []GoType{GoString}, Returns: []GoType{GoString, GoString}, Doc: "Splits path into directory and file components."},
 		},
 	})
 }

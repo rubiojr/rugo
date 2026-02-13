@@ -2564,8 +2564,19 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			call, gobridge.TypeWrapReturn("_v", sig.Returns[0]))
 	}
 
-	// Default: just wrap first return
-	return gobridge.TypeWrapReturn(call, sig.Returns[0])
+	// Multi-return: collect all values into []interface{} array
+	n := len(sig.Returns)
+	vars := make([]string, n)
+	for i := range vars {
+		vars[i] = fmt.Sprintf("_v%d", i)
+	}
+	assign := strings.Join(vars, ", ")
+	var elems []string
+	for i, v := range vars {
+		elems = append(elems, gobridge.TypeWrapReturn(v, sig.Returns[i]))
+	}
+	arr := "[]interface{}{" + strings.Join(elems, ", ") + "}"
+	return fmt.Sprintf("func() interface{} { %s := %s; return %s }()", assign, call, arr)
 }
 
 // writeGoBridgeRuntime emits helper functions needed by Go bridge calls.

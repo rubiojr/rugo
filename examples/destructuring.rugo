@@ -1,0 +1,32 @@
+# Array Destructuring
+#
+# Unpack arrays into individual variables using comma-separated targets.
+# Works with array literals, function returns, and Go bridge multi-return.
+
+# Basic array destructuring
+a, b, c = [10, 20, 30]
+puts "a=#{a} b=#{b} c=#{c}"
+
+# Destructure Go bridge multi-return
+import "strings"
+
+before, after, found = strings.cut("user=admin", "=")
+puts "key: #{before}"
+puts "val: #{after}"
+puts "found: #{found}"
+
+# Destructure filepath.split
+import "path/filepath"
+
+dir, file = filepath.split("/home/user/config.yaml")
+puts "dir: #{dir}"
+puts "file: #{file}"
+
+# Use in conditional logic
+input = "name=Rugo"
+key, value, ok = strings.cut(input, "=")
+if ok
+  puts "#{key} is #{value}"
+else
+  puts "no separator found"
+end

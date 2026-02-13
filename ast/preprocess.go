@@ -128,6 +128,9 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// Desugar compound assignment operators before other transformations.
 	src = ExpandCompoundAssign(src)
 
+	// Desugar array destructuring: a, b, c = expr → temp + index assignments.
+	src = expandDestructuring(src)
+
 	// Normalize "def name" (no parens) to "def name()" so the parser sees
 	// a consistent form. "def name(params)" is left unchanged.
 	src = expandDefParens(src)
@@ -1782,6 +1785,132 @@ func findTopLevelOr(s string) int {
 		}
 		if depth == 0 && i+3 < len(s) && s[i:i+4] == " or " {
 			return i + 1 // return index of 'o' in "or"
+		}
+	}
+	return -1
+}
+
+// expandDestructuring desugars array destructuring assignments.
+//
+//	a, b = expr       → __destr__ = expr; a = __destr__[0]; b = __destr__[1]
+//	a, b, c = expr    → __destr__ = expr; a = __destr__[0]; b = __destr__[1]; c = __destr__[2]
+//
+// Only matches lines where the LHS is two or more comma-separated identifiers
+// followed by `=`. Does not match inside strings, and skips lines starting with
+// keywords (for, def, etc.).
+func expandDestructuring(src string) string {
+	lines := strings.Split(src, "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			result = append(result, line)
+			continue
+		}
+		indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+
+		// Skip keywords that use commas (for k, v in ...; def foo(a, b); etc.)
+		first, _ := scanFirstToken(trimmed)
+		if RugoKeywords[first] {
+			result = append(result, line)
+			continue
+		}
+
+		// Look for the pattern: ident, ident [, ident]* = expr
+		// Find the top-level `=` that is not `==`
+		eqIdx := findDestructAssign(trimmed)
+		if eqIdx < 0 {
+			result = append(result, line)
+			continue
+		}
+
+		lhs := strings.TrimSpace(trimmed[:eqIdx])
+		rhs := strings.TrimSpace(trimmed[eqIdx+1:])
+
+		// LHS must contain at least one comma
+		if !strings.Contains(lhs, ",") {
+			result = append(result, line)
+			continue
+		}
+
+		// Split LHS into identifiers and validate each one
+		parts := strings.Split(lhs, ",")
+		if len(parts) < 2 {
+			result = append(result, line)
+			continue
+		}
+		targets := make([]string, 0, len(parts))
+		valid := true
+		for _, p := range parts {
+			p = strings.TrimSpace(p)
+			if !isIdent(p) {
+				valid = false
+				break
+			}
+			targets = append(targets, p)
+		}
+		if !valid {
+			result = append(result, line)
+			continue
+		}
+
+		// Emit: __destr__ = expr
+		result = append(result, indent+"__destr__ = "+rhs)
+		// Emit: target = __destr__[i] for each target
+		for i, t := range targets {
+			result = append(result, fmt.Sprintf("%s%s = __destr__[%d]", indent, t, i))
+		}
+	}
+	return strings.Join(result, "\n")
+}
+
+// findDestructAssign finds a top-level `=` (not `==`, `!=`, `<=`, `>=`, `=>`)
+// in a line, skipping content inside strings, parens, and brackets.
+// Returns the index of `=` or -1.
+func findDestructAssign(s string) int {
+	inDouble := false
+	inSingle := false
+	escaped := false
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
+			continue
+		}
+		if ch == '(' || ch == '[' || ch == '{' {
+			depth++
+		} else if ch == ')' || ch == ']' || ch == '}' {
+			depth--
+		}
+		if depth > 0 {
+			continue
+		}
+		if ch == '=' {
+			// Skip ==, !=, <=, >=, =>
+			if i+1 < len(s) && (s[i+1] == '=' || s[i+1] == '>') {
+				i++
+				continue
+			}
+			if i > 0 && (s[i-1] == '!' || s[i-1] == '<' || s[i-1] == '>') {
+				continue
+			}
+			return i
 		}
 	}
 	return -1

@@ -96,6 +96,19 @@ Bare `append` is also preprocessor sugar — the assignment is implicit:
 append fruits, "date"     # desugared to: fruits = append(fruits, "date")
 ```
 
+Array destructuring unpacks an array into multiple variables:
+
+```ruby
+a, b, c = [10, 20, 30]   # desugared to: __destr__ = [10, 20, 30]; a = __destr__[0]; ...
+```
+
+This is preprocessor sugar. The right-hand side must be a single expression returning an array. Works with Go bridge multi-return functions:
+
+```ruby
+import "strings"
+before, after, found = strings.cut("key=value", "=")
+```
+
 ### Constants
 
 Identifiers starting with an uppercase letter are constants (Ruby convention). They can be assigned once but never reassigned — attempting to do so is a compile-time error.
