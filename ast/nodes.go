@@ -22,8 +22,8 @@ type BaseStmt struct {
 }
 
 func (b BaseStmt) StmtLine() int      { return b.SourceLine }
-func (b BaseStmt) StmtEndLine() int    { return b.EndLine }
-func (b BaseStmt) StmtSource() string  { return b.SourceFile }
+func (b BaseStmt) StmtEndLine() int   { return b.EndLine }
+func (b BaseStmt) StmtSource() string { return b.SourceFile }
 
 // Expr is the interface for expression nodes.
 type Expr interface {

@@ -3,6 +3,7 @@ package compiler
 import (
 	"github.com/rubiojr/rugo/ast"
 )
+
 type RugoType int
 
 const (

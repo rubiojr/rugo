@@ -1,7 +1,6 @@
 package compiler
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"

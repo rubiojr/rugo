@@ -1,10 +1,10 @@
 package compiler
 
 import (
-	"github.com/rubiojr/rugo/ast"
 	"bytes"
 	"errors"
 	"fmt"
+	"github.com/rubiojr/rugo/ast"
 	"os"
 	"os/exec"
 	"path/filepath"

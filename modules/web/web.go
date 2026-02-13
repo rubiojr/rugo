@@ -34,9 +34,9 @@ func init() {
 			{Name: "redirect", Args: []modules.ArgType{modules.String}, Variadic: true, Doc: "Send a redirect response to the given URL."},
 			{Name: "status", Args: []modules.ArgType{modules.Int}, Doc: "Set the HTTP status code for the response."},
 		},
-		GoImports:     []string{"encoding/json", "fmt", "io", "log", "math", "net", "net/http", "os", "path/filepath", "strings", "sync", "time"},
-		DispatchEntry: "listen",
+		GoImports:         []string{"encoding/json", "fmt", "io", "log", "math", "net", "net/http", "os", "path/filepath", "strings", "sync", "time"},
+		DispatchEntry:     "listen",
 		DispatchTransform: func(s string) string { return s },
-		Runtime:       modules.CleanRuntime(runtime),
+		Runtime:           modules.CleanRuntime(runtime),
 	})
 }

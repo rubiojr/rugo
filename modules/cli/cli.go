@@ -33,6 +33,6 @@ func init() {
 		DispatchTransform: func(s string) string {
 			return strings.NewReplacer(":", "_", "-", "_", " ", "_").Replace(s)
 		},
-		Runtime:       modules.CleanRuntime(runtime),
+		Runtime: modules.CleanRuntime(runtime),
 	})
 }

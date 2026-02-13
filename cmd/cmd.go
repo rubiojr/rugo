@@ -16,8 +16,8 @@ import (
 
 	"github.com/rubiojr/rugo/cmd/dev"
 	"github.com/rubiojr/rugo/compiler"
-	"github.com/rubiojr/rugo/gobridge"
 	rugodoc "github.com/rubiojr/rugo/doc"
+	"github.com/rubiojr/rugo/gobridge"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/remote"
 	"github.com/urfave/cli/v3"
@@ -1053,12 +1053,12 @@ func formatError(msg string) string {
 
 // formatTestDuration formats a duration in a human-friendly way for test output.
 func formatTestDuration(d time.Duration) string {
-switch {
-case d < time.Millisecond:
-return fmt.Sprintf("%dµs", d.Microseconds())
-case d < time.Second:
-return fmt.Sprintf("%dms", d.Milliseconds())
-default:
-return fmt.Sprintf("%.2fs", d.Seconds())
-}
+	switch {
+	case d < time.Millisecond:
+		return fmt.Sprintf("%dµs", d.Microseconds())
+	case d < time.Second:
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	default:
+		return fmt.Sprintf("%.2fs", d.Seconds())
+	}
 }

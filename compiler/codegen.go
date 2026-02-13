@@ -1,9 +1,9 @@
 package compiler
 
 import (
-	"github.com/rubiojr/rugo/ast"
 	_ "embed"
 	"fmt"
+	"github.com/rubiojr/rugo/ast"
 	"sort"
 	"strings"
 
@@ -42,7 +42,7 @@ type codeGen struct {
 	handlerVars     map[string]bool   // top-level vars promoted to package-level for handler access
 	testMode        bool              // include rats blocks in output
 	typeInfo        *TypeInfo         // inferred type information (nil disables typed codegen)
-	currentFunc     *ast.FuncDef          // current function being generated (for type lookups)
+	currentFunc     *ast.FuncDef      // current function being generated (for type lookups)
 	varTypeScope    string            // override scope key for varType lookups (test/bench blocks)
 	inSpawn         int               // nesting depth of spawn blocks (>0 means inside spawn)
 	lambdaDepth     int               // nesting depth of lambda bodies (>0 means inside fn)
