@@ -1,2 +1,0 @@
-go test fuzz v1
-string("0def o(A0)end\ndef o\nend")
