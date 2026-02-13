@@ -22,6 +22,7 @@ puts resp.body
 
 | Module | Description |
 |--------|-------------|
+| [ast](modules/ast.md) | Parse and inspect Rugo source files |
 | [cli](modules/cli.md) | CLI app builder with commands, flags, and dispatch |
 | [color](modules/color.md) | ANSI terminal colors and styles |
 | [conv](modules/conv.md) | Type conversions |
