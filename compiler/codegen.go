@@ -1394,7 +1394,10 @@ func (g *codeGen) exprString(e ast.Expr) (string, error) {
 
 func (g *codeGen) stringLiteral(value string, typed bool) (string, error) {
 	if ast.HasInterpolation(value) {
-		format, exprStrs := ast.ProcessInterpolation(value)
+		format, exprStrs, err := ast.ProcessInterpolation(value)
+		if err != nil {
+			return "", err
+		}
 		args := make([]string, len(exprStrs))
 		argTypes := make([]RugoType, len(exprStrs))
 		for i, exprStr := range exprStrs {
@@ -2287,7 +2290,10 @@ func collectIdentsFromExpr(e ast.Expr, names map[string]bool) {
 		}
 	case *ast.StringLiteral:
 		if ast.HasInterpolation(ex.Value) {
-			_, exprStrs := ast.ProcessInterpolation(ex.Value)
+			_, exprStrs, err := ast.ProcessInterpolation(ex.Value)
+			if err != nil {
+				break
+			}
 			for _, exprStr := range exprStrs {
 				p := &parser.Parser{}
 				flatAST, err := p.Parse("<ident-scan>", []byte(exprStr+"\n"))

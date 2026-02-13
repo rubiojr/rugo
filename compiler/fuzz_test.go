@@ -139,11 +139,6 @@ func FuzzCodegen(f *testing.F) {
 		func() {
 			defer func() {
 				if r := recover(); r != nil {
-					errStr := fmt.Sprintf("%v", r)
-					// Skip known issue: ProcessInterpolation slice bounds
-					if strings.Contains(errStr, "slice bounds out of range") {
-						return
-					}
 					t.Errorf("codegen panic on input:\n%s\npanic: %v", src, r)
 				}
 			}()

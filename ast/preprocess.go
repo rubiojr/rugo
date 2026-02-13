@@ -967,8 +967,8 @@ func ExpandStructDefs(src string) (string, []int, []StructInfo) {
 
 // processInterpolation converts "Hello #{expr}" to format string + args.
 // Returns the format string and a list of expression strings.
-func ProcessInterpolation(s string) (format string, exprs []string) {
-	var fmt strings.Builder
+func ProcessInterpolation(s string) (format string, exprs []string, err error) {
+	var buf strings.Builder
 	i := 0
 	for i < len(s) {
 		if i+1 < len(s) && s[i] == '#' && s[i+1] == '{' {
@@ -983,16 +983,19 @@ func ProcessInterpolation(s string) (format string, exprs []string) {
 				}
 				j++
 			}
+			if depth > 0 {
+				return "", nil, fmt.Errorf("unterminated string interpolation — missing closing '}'")
+			}
 			expr := s[i+2 : j-1]
 			exprs = append(exprs, expr)
-			fmt.WriteString("%v")
+			buf.WriteString("%v")
 			i = j
 		} else {
-			fmt.WriteByte(s[i])
+			buf.WriteByte(s[i])
 			i++
 		}
 	}
-	return fmt.String(), exprs
+	return buf.String(), exprs, nil
 }
 
 // hasInterpolation checks if a string contains #{} interpolation.

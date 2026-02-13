@@ -159,7 +159,10 @@ func TestHasInterpolation(t *testing.T) {
 }
 
 func TestProcessInterpolation(t *testing.T) {
-	format, exprs := ast.ProcessInterpolation("Hello #{name}, age #{age}")
+	format, exprs, err := ast.ProcessInterpolation("Hello #{name}, age #{age}")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if format != "Hello %v, age %v" {
 		t.Errorf("format = %q, want %q", format, "Hello %v, age %v")
 	}

@@ -1,4 +1,6 @@
 # Bug 1315a5c: Malformed interpolation should not expose Go runtime panics.
+# Note: the original fixture now hits the unterminated interpolation path
+# (f0d9c90 fix) which catches it earlier with a clean error.
 
 use "test"
 use "str"
@@ -8,5 +10,15 @@ rats "malformed interpolation does not expose Go runtime error"
   test.assert_neq(result["status"], 0)
   test.assert_false(str.contains(result["output"], "runtime error"))
   test.assert_false(str.contains(result["output"], "index out of range"))
-  test.assert_contains(result["output"], "syntax error in expression")
+  test.assert_contains(result["output"], "unterminated string interpolation")
+end
+
+# Bug f0d9c90: Unterminated interpolation should not panic.
+
+rats "unterminated interpolation shows clean error"
+  result = test.run("rugo run rats/fixtures/err_interp_unterminated.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_false(str.contains(result["output"], "panic"))
+  test.assert_false(str.contains(result["output"], "slice bounds out of range"))
+  test.assert_contains(result["output"], "unterminated string interpolation")
 end
