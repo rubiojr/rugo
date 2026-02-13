@@ -151,7 +151,7 @@ end
 rats ".wait on non-task is a runtime error"
   result = test.run("rugo run rats/fixtures/err_spawn_wait_non_task.rugo")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot call .wait() on int")
+  test.assert_contains(result["output"], "undefined method .wait() on int")
   test.assert_contains(result["output"], "err_spawn_wait_non_task.rugo:2")
 end
 

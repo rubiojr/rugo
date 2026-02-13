@@ -2,6 +2,7 @@
 # require can load Go modules with exported structs and bridge them
 use "test"
 use "conv"
+use "str"
 
 rats "struct zero-value constructor and field set/get"
   tmpdir = test.tmpdir()
@@ -275,4 +276,106 @@ rats "rugo doc shows struct methods"
   test.assert_contains(result["output"], "struct Counter {}")
   test.assert_contains(result["output"], ".inc()")
   test.assert_contains(result["output"], ".value() -> int")
+end
+
+# --- Error message tests ---
+
+rats "undefined method error shows struct name not Go type"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_counter()
+    c.nope()
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "undefined method .nope() on Counter")
+  test.assert_false(str.contains(result["output"], "rugo_struct"))
+end
+
+rats "undefined field error shows struct name not Go type"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_counter()
+    puts(c.nope)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "Counter")
+  test.assert_false(str.contains(result["output"], "rugo_struct"))
+end
+
+rats "PascalCase method call gives clean error"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_counter()
+    c.Add(1)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "undefined method .Add() on Counter")
+end
+
+rats "set field on opaque struct gives clean error"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_counter()
+    c.count = 5
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "Counter")
+  test.assert_false(str.contains(result["output"], "rugo_struct"))
+end
+
+rats "method on struct with fields works alongside field access"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_config("app", 80)
+    puts(c.name)
+    puts(c.summary())
+    c.set_port(9090)
+    puts(c.port)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "app")
+  test.assert_eq(lines[1], "app config")
+  test.assert_eq(lines[2], "9090")
+end
+
+rats "struct build produces working binary"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  script = <<~SCRIPT
+    require "go_module_struct" as sm
+    c = sm.new_counter()
+    c.add(10)
+    puts(c.value())
+    cfg = sm.new_config("prod", 443)
+    puts(cfg.summary())
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  build_result = test.run("rugo build #{tmpdir}/main.rugo -o #{tmpdir}/main_bin")
+  test.assert_eq(build_result["status"], 0)
+  result = test.run("#{tmpdir}/main_bin")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "10")
+  test.assert_eq(lines[1], "prod config")
 end
