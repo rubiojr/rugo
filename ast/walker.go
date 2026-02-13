@@ -47,6 +47,14 @@ func (w *walker) tokenLine(idx int32) int {
 	return line
 }
 
+// resolvedLine maps a preprocessed line number to the original source line.
+func (w *walker) resolvedLine(line int) int {
+	if w.lineMap != nil && line > 0 && line <= len(w.lineMap) {
+		return w.lineMap[line-1]
+	}
+	return line
+}
+
 // firstTokenLine returns the original source line from the first terminal token
 // found by recursively traversing into non-terminals.
 func (w *walker) firstTokenLine(ast []int32) int {
@@ -60,6 +68,28 @@ func (w *walker) firstTokenLine(ast []int32) int {
 			if count > 0 {
 				inner := ast[i+2 : i+2+count]
 				if line := w.firstTokenLine(inner); line > 0 {
+					return line
+				}
+			}
+			i += 1 + count
+		}
+	}
+	return 0
+}
+
+// firstTokenRawLine returns the raw (pre-lineMap) parser line from the first
+// terminal token. Used for same-line detection where preprocessor-expanded
+// lines must not be confused with user-written same-line tokens.
+func (w *walker) firstTokenRawLine(ast []int32) int {
+	for i := 0; i < len(ast); i++ {
+		if ast[i] >= 0 {
+			return w.p.Token(ast[i]).Position().Line
+		}
+		if i+1 < len(ast) {
+			count := int(ast[i+1])
+			if count > 0 {
+				inner := ast[i+2 : i+2+count]
+				if line := w.firstTokenRawLine(inner); line > 0 {
 					return line
 				}
 			}
@@ -116,6 +146,7 @@ func (w *walker) walkProgram() (*Program, error) {
 		return nil, fmt.Errorf("expected Program, got %v", sym)
 	}
 	prog := &Program{}
+	prevRawLine := 0
 	for len(children) > 0 {
 		// Skip EOF token
 		if children[0] >= 0 {
@@ -130,12 +161,17 @@ func (w *walker) walkProgram() (*Program, error) {
 				continue
 			}
 		}
+		rawLine := w.firstTokenRawLine(children)
 		var stmt Statement
 		var err error
 		stmt, children, err = w.walkStatement(children)
 		if err != nil {
 			return nil, err
 		}
+		if prevRawLine > 0 && rawLine == prevRawLine {
+			return nil, &UserError{Msg: fmt.Sprintf("line %d: syntax error: unexpected token on same line as previous statement", w.resolvedLine(stmt.StmtLine()))}
+		}
+		prevRawLine = rawLine
 		prog.Statements = append(prog.Statements, stmt)
 	}
 	return prog, nil
@@ -600,6 +636,7 @@ func (w *walker) walkParamList(ast []int32) []string {
 func (w *walker) walkBody(ast []int32) ([]Statement, error) {
 	// Body = { Statement | ';' } .
 	var stmts []Statement
+	prevRawLine := 0
 	for len(ast) > 0 {
 		// Skip ';' statement separators (injected by preprocessor)
 		if ast[0] >= 0 {
@@ -609,10 +646,15 @@ func (w *walker) walkBody(ast []int32) ([]Statement, error) {
 				continue
 			}
 		}
+		rawLine := w.firstTokenRawLine(ast)
 		stmt, rest, err := w.walkStatement(ast)
 		if err != nil {
 			return nil, err
 		}
+		if prevRawLine > 0 && rawLine == prevRawLine {
+			return nil, &UserError{Msg: fmt.Sprintf("line %d: syntax error: unexpected token on same line as previous statement", w.resolvedLine(stmt.StmtLine()))}
+		}
+		prevRawLine = rawLine
 		stmts = append(stmts, stmt)
 		ast = rest
 	}
