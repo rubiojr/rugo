@@ -88,6 +88,7 @@ type GoStructMethodInfo struct {
 	Variadic          bool           // last param is variadic
 	StructCasts       map[int]string // param index → wrapper type for struct handles
 	StructReturnWraps map[int]string // return index → wrapper type for struct handles
+	StructReturnValue map[int]bool   // return index → true if value type (not pointer)
 }
 
 // RuntimeHelper describes a Go helper function emitted into the generated code.

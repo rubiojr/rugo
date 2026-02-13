@@ -533,6 +533,13 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 				mi.StructReturnWraps = make(map[int]string)
 			}
 			mi.StructReturnWraps[i] = wrapType
+			// Track if the return is a value type (not pointer) — needs &addr.
+			if _, isPtr := t.(*types.Pointer); !isPtr {
+				if mi.StructReturnValue == nil {
+					mi.StructReturnValue = make(map[int]bool)
+				}
+				mi.StructReturnValue[i] = true
+			}
 		} else {
 			mi.Returns = append(mi.Returns, gt)
 		}

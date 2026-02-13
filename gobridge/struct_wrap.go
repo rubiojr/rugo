@@ -133,6 +133,10 @@ func writeMethodCase(sb *strings.Builder, m GoStructMethodInfo, ns string) {
 func wrapMethodReturn(expr string, idx int, m GoStructMethodInfo) string {
 	if m.StructReturnWraps != nil {
 		if wrapType, ok := m.StructReturnWraps[idx]; ok {
+			// Value-type struct returns need address-of for the pointer wrapper.
+			if m.StructReturnValue != nil && m.StructReturnValue[idx] {
+				return fmt.Sprintf("func() interface{} { _sv := %s; return interface{}(&%s{v: &_sv}) }()", expr, wrapType)
+			}
 			return fmt.Sprintf("interface{}(&%s{v: %s})", wrapType, expr)
 		}
 	}

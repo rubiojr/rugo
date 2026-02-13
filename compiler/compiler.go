@@ -202,7 +202,13 @@ func goModContent(prog *ast.Program, sandbox *SandboxConfig, goModuleRequires ma
 
 	// Add Go module requires from require'd Go packages.
 	for modPath := range goModuleRequires {
-		deps = append(deps, modPath+" v0.0.0-00010101000000-000000000000")
+		// The placeholder version must match the major version suffix.
+		// e.g., github.com/foo/bar/v3 needs v3.0.0-..., not v0.0.0-...
+		placeholder := "v0.0.0-00010101000000-000000000000"
+		if major := goModMajorVersion(modPath); major > 1 {
+			placeholder = fmt.Sprintf("v%d.0.0-00010101000000-000000000000", major)
+		}
+		deps = append(deps, modPath+" "+placeholder)
 	}
 
 	if len(deps) > 0 {
@@ -225,6 +231,24 @@ func goModContent(prog *ast.Program, sandbox *SandboxConfig, goModuleRequires ma
 	}
 
 	return goMod
+}
+
+// goModMajorVersion extracts the major version from a Go module path suffix.
+// "github.com/foo/bar/v3" → 3, "github.com/foo/bar" → 1.
+func goModMajorVersion(modPath string) int {
+	parts := strings.Split(modPath, "/")
+	last := parts[len(parts)-1]
+	if len(last) >= 2 && last[0] == 'v' && last[1] >= '2' && last[1] <= '9' {
+		n := 0
+		for _, c := range last[1:] {
+			if c < '0' || c > '9' {
+				return 1
+			}
+			n = n*10 + int(c-'0')
+		}
+		return n
+	}
+	return 1
 }
 
 // Run compiles and runs a Rugo source file, passing extraArgs to the compiled binary.
