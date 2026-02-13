@@ -1,0 +1,41 @@
+use "test"
+import "path"
+
+rats "path.base"
+  test.assert_eq(path.base("/foo/bar/baz.txt"), "baz.txt")
+  test.assert_eq(path.base("/foo/bar/"), "bar")
+end
+
+rats "path.dir"
+  test.assert_eq(path.dir("/foo/bar/baz.txt"), "/foo/bar")
+end
+
+rats "path.ext"
+  test.assert_eq(path.ext("/foo/bar/baz.txt"), ".txt")
+  test.assert_eq(path.ext("noext"), "")
+end
+
+rats "path.is_abs"
+  test.assert_eq(path.is_abs("/foo"), true)
+  test.assert_eq(path.is_abs("foo"), false)
+end
+
+rats "path.join"
+  test.assert_eq(path.join("a", "b", "c"), "a/b/c")
+  test.assert_eq(path.join("/", "foo"), "/foo")
+end
+
+rats "path.clean"
+  test.assert_eq(path.clean("/foo/../bar/./baz"), "/bar/baz")
+end
+
+rats "path.match"
+  test.assert_eq(path.match("*.txt", "hello.txt"), true)
+  test.assert_eq(path.match("*.txt", "hello.go"), false)
+end
+
+rats "path.split"
+  dir, file = path.split("/foo/bar/baz.txt")
+  test.assert_eq(dir, "/foo/bar/")
+  test.assert_eq(file, "baz.txt")
+end

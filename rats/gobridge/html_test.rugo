@@ -1,0 +1,25 @@
+use "test"
+import "html"
+
+rats "html.escape_string"
+  test.assert_eq(html.escape_string("<b>bold</b>"), "&lt;b&gt;bold&lt;/b&gt;")
+end
+
+rats "html.escape_string special chars"
+  test.assert_eq(html.escape_string("a&b"), "a&amp;b")
+  test.assert_eq(html.escape_string("\"hello\""), "&#34;hello&#34;")
+end
+
+rats "html.unescape_string"
+  test.assert_eq(html.unescape_string("&lt;b&gt;bold&lt;/b&gt;"), "<b>bold</b>")
+end
+
+rats "html.unescape_string ampersand"
+  test.assert_eq(html.unescape_string("a&amp;b"), "a&b")
+end
+
+rats "html round-trip"
+  original = "<script>alert('xss')</script>"
+  escaped = html.escape_string(original)
+  test.assert_eq(html.unescape_string(escaped), original)
+end

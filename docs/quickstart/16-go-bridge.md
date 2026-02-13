@@ -82,9 +82,10 @@ puts result[1]   # world
 
 | Package | Key Functions |
 |---------|--------------|
-| `strings` | contains, has_prefix, has_suffix, to_upper, to_lower, trim_space, split, join, replace, repeat, index, count, fields |
+| `strings` | contains, has_prefix, has_suffix, to_upper, to_lower, trim_space, split, join, replace, repeat, index, count, fields, contains_func, index_func, map |
 | `strconv` | atoi, itoa, format_float, parse_float, format_bool, parse_bool |
 | `math` | abs, ceil, floor, round, sqrt, pow, log, max, min, sin, cos, tan |
+| `path` | base, clean, dir, ext, is_abs, join, match, split |
 | `path/filepath` | join, base, dir, ext, clean, is_abs, rel, split |
 | `sort` | strings, ints |
 | `os` | getenv, setenv, read_file, write_file, mkdir_all, remove, getwd |
@@ -96,6 +97,7 @@ puts result[1]   # world
 | `crypto/md5` | sum |
 | `net/url` | parse, path_escape, path_unescape, query_escape, query_unescape |
 | `unicode` | is_letter, is_digit, is_space, is_upper, is_lower, is_punct, to_upper, to_lower |
+| `html` | escape_string, unescape_string |
 | `slices` | contains, index, reverse, compact |
 | `maps` | keys, values, clone, equal |
 
