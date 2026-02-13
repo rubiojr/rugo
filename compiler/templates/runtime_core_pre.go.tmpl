@@ -23,15 +23,10 @@ func rugo_to_bool(v interface{}) bool {
 	switch val := v.(type) {
 	case bool:
 		return val
-	case int:
-		return val != 0
-	case float64:
-		return val != 0
-	case string:
-		return val != ""
 	case nil:
 		return false
 	default:
+		_ = val
 		return true
 	}
 }
