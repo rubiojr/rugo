@@ -1,10 +1,12 @@
 # RATS: Test Go bridge — crypto/sha256 and crypto/md5 packages
+# NOTE: crypto functions return raw bytes. Use hex.encode() for hex output.
 use "test"
 
 rats "sha256.sum256 known hash"
   script = <<~SCRIPT
     import "crypto/sha256"
-    puts sha256.sum256("hello")
+    import "encoding/hex"
+    puts hex.encode(sha256.sum256("hello"))
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
@@ -15,7 +17,8 @@ end
 rats "md5.sum known hash"
   script = <<~SCRIPT
     import "crypto/md5"
-    puts md5.sum("hello")
+    import "encoding/hex"
+    puts hex.encode(md5.sum("hello"))
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
@@ -26,7 +29,8 @@ end
 rats "sha256 empty string"
   script = <<~SCRIPT
     import "crypto/sha256"
-    puts sha256.sum256("")
+    import "encoding/hex"
+    puts hex.encode(sha256.sum256(""))
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
@@ -37,7 +41,8 @@ end
 rats "md5 empty string"
   script = <<~SCRIPT
     import "crypto/md5"
-    puts md5.sum("")
+    import "encoding/hex"
+    puts hex.encode(md5.sum(""))
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
@@ -75,8 +80,9 @@ rats "sha256 and md5 together"
   script = <<~SCRIPT
     import "crypto/sha256"
     import "crypto/md5"
-    puts sha256.sum256("test")
-    puts md5.sum("test")
+    import "encoding/hex"
+    puts hex.encode(sha256.sum256("test"))
+    puts hex.encode(md5.sum("test"))
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")

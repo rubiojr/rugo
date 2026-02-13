@@ -2530,7 +2530,14 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 					continue
 				}
 			}
-			convertedArgs = append(convertedArgs, gobridge.TypeConvToGo(arg, sig.Params[i]))
+			conv := gobridge.TypeConvToGo(arg, sig.Params[i])
+			// Apply named type cast if specified
+			if sig.TypeCasts != nil {
+				if cast, ok := sig.TypeCasts[i]; ok {
+					conv = fmt.Sprintf("%s(%s)", cast, conv)
+				}
+			}
+			convertedArgs = append(convertedArgs, conv)
 		}
 	}
 
@@ -2547,24 +2554,11 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 		return gobridge.TypeWrapReturn(call, sig.Returns[0])
 	}
 
-	// Handle special method-chain calls (e.g. time.Now().Unix())
-	// Note: base64/time method-chains now handled by Codegen callbacks.
-	// This is a generic fallback for future method-chain packages.
-	if strings.Contains(sig.GoName, ".") {
-		call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(convertedArgs, ", "))
-		if len(sig.Returns) == 0 {
-			return call
-		}
-		if sig.Returns[0] == gobridge.GoInt {
-			return fmt.Sprintf("interface{}(int(%s))", call)
-		}
-		return gobridge.TypeWrapReturn(call, sig.Returns[0])
-	}
+	// Build call expression (supports method-chain GoNames like "StdEncoding.EncodeToString")
+	call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(convertedArgs, ", "))
 
 	// Error panic format with Rugo function name
 	panicFmt := fmt.Sprintf(`panic(rugo_bridge_err("%s", _err))`, rugoName)
-
-	call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(convertedArgs, ", "))
 
 	// Handle return types
 	if len(sig.Returns) == 0 {
@@ -2572,10 +2566,27 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 		return fmt.Sprintf("func() interface{} { %s; return nil }()", call)
 	}
 
+	// Helper: wrap return expression, handling fixed-size arrays by slicing
+	wrapRet := func(expr string, retIdx int, t gobridge.GoType) string {
+		if sig.ArrayTypes != nil {
+			if _, ok := sig.ArrayTypes[retIdx]; ok {
+				// Slice fixed array to dynamic slice: _v[:] then wrap
+				return gobridge.TypeWrapReturn(expr+"[:]", t)
+			}
+		}
+		return gobridge.TypeWrapReturn(expr, t)
+	}
+
 	if len(sig.Returns) == 1 {
 		// Single error return: panic on error, return nil
 		if sig.Returns[0] == gobridge.GoError {
 			return fmt.Sprintf("func() interface{} { if _err := %s; _err != nil { %s }; return nil }()", call, panicFmt)
+		}
+		// Fixed-size array returns need IIFE for slicing
+		if sig.ArrayTypes != nil {
+			if _, ok := sig.ArrayTypes[0]; ok {
+				return fmt.Sprintf("func() interface{} { _v := %s; return %s }()", call, wrapRet("_v", 0, sig.Returns[0]))
+			}
 		}
 		return gobridge.TypeWrapReturn(call, sig.Returns[0])
 	}
@@ -2583,7 +2594,7 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 	// (T, error): panic on error
 	if len(sig.Returns) == 2 && sig.Returns[1] == gobridge.GoError {
 		return fmt.Sprintf("func() interface{} { _v, _err := %s; if _err != nil { %s }; return %s }()",
-			call, panicFmt, gobridge.TypeWrapReturn("_v", sig.Returns[0]))
+			call, panicFmt, wrapRet("_v", 0, sig.Returns[0]))
 	}
 
 	// (T, bool): return nil if false

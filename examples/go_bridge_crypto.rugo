@@ -1,12 +1,13 @@
 # Hashing with SHA-256 and MD5
 import "crypto/sha256"
 import "crypto/md5"
+import "encoding/hex"
 
 message = "Hello, Rugo!"
 
-puts "SHA-256: " + sha256.sum256(message)
-puts "MD5:     " + md5.sum(message)
+puts "SHA-256: " + hex.encode(sha256.sum256(message))
+puts "MD5:     " + hex.encode(md5.sum(message))
 
 # File checksum
 content = "some file content"
-puts "Content SHA-256: " + sha256.sum256(content)
+puts "Content SHA-256: " + hex.encode(sha256.sum256(content))

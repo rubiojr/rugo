@@ -65,11 +65,12 @@ type bridgedFunc struct {
 	RugoName string
 	Sig      *types.Signature
 	Tier     bridgeTier
-	Reason   string // why it was blocked
-	Params   []gobridge.GoType
-	Returns  []gobridge.GoType
-	Variadic bool
-	Doc      string
+	Reason     string // why it was blocked
+	Params     []gobridge.GoType
+	Returns    []gobridge.GoType
+	ArrayTypes map[int]*gobridge.GoArrayType // fixed-size array return metadata
+	Variadic   bool
+	Doc        string
 }
 
 func bridgegenAction(_ context.Context, cmd *cli.Command) error {
@@ -180,6 +181,14 @@ func classifyFunc(goName, rugoName string, sig *types.Signature) bridgedFunc {
 		if tier == tierCastable {
 			hasCast = true
 		}
+		// Track fixed-size array metadata
+		if arr, ok := t.Underlying().(*types.Array); ok {
+			if bf.ArrayTypes == nil {
+				bf.ArrayTypes = map[int]*gobridge.GoArrayType{}
+			}
+			elemGT, _, _ := classifyGoType(arr.Elem(), false)
+			bf.ArrayTypes[i] = &gobridge.GoArrayType{Elem: elemGT, Size: int(arr.Len())}
+		}
 		bf.Returns = append(bf.Returns, gt)
 	}
 
@@ -252,6 +261,9 @@ func classifyGoType(t types.Type, isParam bool) (gobridge.GoType, bridgeTier, st
 	case *types.Chan:
 		return 0, tierBlocked, "channel type"
 	case *types.Array:
+		if b, ok := u.Elem().Underlying().(*types.Basic); ok && b.Kind() == types.Byte {
+			return gobridge.GoByteSlice, tierCastable, ""
+		}
 		return 0, tierBlocked, fmt.Sprintf("array type [%d]%s", u.Len(), u.Elem())
 	default:
 		return 0, tierBlocked, fmt.Sprintf("unknown type %T", t)
@@ -319,6 +331,8 @@ func goTypeConst(t gobridge.GoType) string {
 		return "GoRune"
 	case gobridge.GoFunc:
 		return "GoFunc"
+	case gobridge.GoDuration:
+		return "GoDuration"
 	case gobridge.GoError:
 		return "GoError"
 	default:
@@ -468,6 +482,15 @@ func formatFuncEntry(f bridgedFunc) string {
 
 	if f.Variadic {
 		sb.WriteString(", Variadic: true")
+	}
+
+	if len(f.ArrayTypes) > 0 {
+		// Emit ArrayTypes metadata
+		var parts []string
+		for idx, at := range f.ArrayTypes {
+			parts = append(parts, fmt.Sprintf("%d: {Elem: %s, Size: %d}", idx, goTypeConst(at.Elem), at.Size))
+		}
+		sb.WriteString(fmt.Sprintf(", ArrayTypes: map[int]*GoArrayType{%s}", strings.Join(parts, ", ")))
 	}
 
 	if f.Doc != "" {

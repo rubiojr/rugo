@@ -7,10 +7,10 @@ rats "sort.strings"
   script = <<~SCRIPT
     import "sort"
     arr = ["banana", "apple", "cherry"]
-    sorted = sort.strings(arr)
-    puts(sorted[0])
-    puts(sorted[1])
-    puts(sorted[2])
+    sort.strings(arr)
+    puts(arr[0])
+    puts(arr[1])
+    puts(arr[2])
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
@@ -23,10 +23,10 @@ rats "sort.ints"
     import "sort"
     use "conv"
     arr = [3, 1, 2]
-    sorted = sort.ints(arr)
-    puts(conv.to_s(sorted[0]))
-    puts(conv.to_s(sorted[1]))
-    puts(conv.to_s(sorted[2]))
+    sort.ints(arr)
+    puts(conv.to_s(arr[0]))
+    puts(conv.to_s(arr[1]))
+    puts(conv.to_s(arr[2]))
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")

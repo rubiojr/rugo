@@ -15,7 +15,7 @@ import (
 type GoType int
 
 const (
-	GoString GoType = iota
+	GoString    GoType = iota
 	GoInt
 	GoFloat64
 	GoBool
@@ -25,6 +25,7 @@ const (
 	GoInt64       // int64 — bridged as int in Rugo
 	GoRune        // rune — bridged as first char of string in Rugo
 	GoFunc        // func param — Rugo lambda adapted to typed Go func
+	GoDuration    // time.Duration — bridged as int (milliseconds) in Rugo
 	GoError       // error (panics on non-nil, invisible to Rugo)
 )
 
@@ -47,6 +48,13 @@ type GoStructField struct {
 type GoStructReturn struct {
 	Fields  []GoStructField
 	Pointer bool // true if the return is a pointer (emit nil check)
+}
+
+// GoArrayType describes a fixed-size Go array for codegen (e.g., [32]byte).
+// Size is known at registration time from the Go function signature.
+type GoArrayType struct {
+	Elem GoType // element type (e.g., GoByte)
+	Size int    // compile-time array size (e.g., 32)
 }
 
 // RuntimeHelper describes a Go helper function emitted into the generated code.
@@ -80,8 +88,14 @@ type GoFuncSig struct {
 	// StructReturn describes how to decompose a struct return into a Rugo hash.
 	// When set, the generic codegen uses this instead of the normal return handling.
 	StructReturn *GoStructReturn
+	// ArrayTypes maps return indices to fixed-size array metadata.
+	// Codegen slices [N]T → []T then uses existing GoType handling.
+	ArrayTypes map[int]*GoArrayType
 	// Variadic indicates the last param is variadic.
 	Variadic bool
+	// TypeCasts maps param indices to Go named type casts (e.g., {1: "os.FileMode"}).
+	// The codegen wraps the converted arg: os.FileMode(rugo_to_int(arg)).
+	TypeCasts map[int]string
 	// Doc is the documentation string shown by `rugo doc`.
 	Doc string
 	// Codegen, when set, overrides the default code generation for this function.
@@ -222,6 +236,8 @@ func TypeConvToGo(argExpr string, t GoType) string {
 		return "int64(rugo_to_int(" + argExpr + "))"
 	case GoRune:
 		return "rugo_first_rune(rugo_to_string(" + argExpr + "))"
+	case GoDuration:
+		return "time.Duration(rugo_to_int(" + argExpr + ")) * time.Millisecond"
 	default:
 		return argExpr
 	}
@@ -318,6 +334,8 @@ func TypeWrapReturn(expr string, t GoType) string {
 		return "interface{}(int(" + expr + "))"
 	case GoRune:
 		return "func() interface{} { _r := " + expr + "; if _r == 0 { return interface{}(\"\") }; return interface{}(string(_r)) }()"
+	case GoDuration:
+		return "interface{}(int(" + expr + " / time.Millisecond))"
 	default:
 		return "interface{}(" + expr + ")"
 	}
@@ -346,6 +364,8 @@ func GoTypeName(t GoType) string {
 		return "rune"
 	case GoFunc:
 		return "func"
+	case GoDuration:
+		return "duration"
 	case GoError:
 		return "error"
 	default:

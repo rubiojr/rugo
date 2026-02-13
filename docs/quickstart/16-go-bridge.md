@@ -134,9 +134,10 @@ puts hex.decode(h)               # Hello!
 ```ruby
 import "crypto/sha256"
 import "crypto/md5"
+import "encoding/hex"
 
-puts sha256.sum256("hello")      # hex-encoded SHA-256
-puts md5.sum("hello")            # hex-encoded MD5
+puts hex.encode(sha256.sum256("hello"))   # SHA-256 hex digest
+puts hex.encode(md5.sum("hello"))         # MD5 hex digest
 ```
 
 ## URL Parsing
