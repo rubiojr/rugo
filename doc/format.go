@@ -185,7 +185,8 @@ func FormatAllModules() string {
 		m, _ := modules.Get(name)
 		line := fmt.Sprintf("  %-12s", name)
 		if m.Doc != "" {
-			line += " " + m.Doc
+			first, _, _ := strings.Cut(m.Doc, "\n")
+			line += " " + first
 		}
 		sb.WriteString(line)
 		sb.WriteString("\n")
@@ -197,7 +198,8 @@ func FormatAllModules() string {
 		pkg := gobridge.GetPackage(path)
 		line := fmt.Sprintf("  %-12s", ns)
 		if pkg != nil && pkg.Doc != "" {
-			line += " " + pkg.Doc
+			first, _, _ := strings.Cut(pkg.Doc, "\n")
+			line += " " + first
 		}
 		sb.WriteString(line)
 		sb.WriteString("\n")
