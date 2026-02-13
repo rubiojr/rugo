@@ -1,0 +1,56 @@
+use "test"
+import "strings"
+import "unicode"
+
+# --- GoFunc: strings.contains_func ---
+
+rats "contains_func with digit predicate"
+  test.assert_eq(strings.contains_func("hello123", fn(r) unicode.is_digit(r) end), true)
+end
+
+rats "contains_func with no match"
+  test.assert_eq(strings.contains_func("hello", fn(r) unicode.is_digit(r) end), false)
+end
+
+rats "contains_func with letter predicate"
+  test.assert_eq(strings.contains_func("123abc", fn(r) unicode.is_letter(r) end), true)
+end
+
+# --- GoFunc: strings.index_func ---
+
+rats "index_func finds first digit"
+  result = strings.index_func("hello1world", fn(r) unicode.is_digit(r) end)
+  test.assert_eq(result, 5)
+end
+
+rats "index_func returns -1 when not found"
+  result = strings.index_func("hello", fn(r) unicode.is_digit(r) end)
+  test.assert_eq(result, -1)
+end
+
+# --- GoFunc: strings.map ---
+
+rats "map with to_upper"
+  result = strings.map(fn(r) unicode.to_upper(r) end, "hello")
+  test.assert_eq(result, "HELLO")
+end
+
+rats "map with to_lower"
+  result = strings.map(fn(r) unicode.to_lower(r) end, "HELLO")
+  test.assert_eq(result, "hello")
+end
+
+rats "map with identity lambda"
+  result = strings.map(fn(r) r end, "hello")
+  test.assert_eq(result, "hello")
+end
+
+rats "map with empty string"
+  result = strings.map(fn(r) unicode.to_upper(r) end, "")
+  test.assert_eq(result, "")
+end
+
+rats "contains_func with inline lambda"
+  result = strings.contains_func("abc!", fn(r) unicode.is_punct(r) end)
+  test.assert_eq(result, true)
+end

@@ -36,6 +36,21 @@ func init() {
 			"fields":         {GoName: "Fields", Params: []GoType{GoString}, Returns: []GoType{GoStringSlice}, Doc: "Splits s around whitespace into an array of substrings.", RuntimeHelpers: stringSliceHelpers},
 			"index_any":      {GoName: "IndexAny", Params: []GoType{GoString, GoString}, Returns: []GoType{GoInt}, Doc: "Returns the index of the first char from chars found in s, or -1."},
 			"last_index_any": {GoName: "LastIndexAny", Params: []GoType{GoString, GoString}, Returns: []GoType{GoInt}, Doc: "Returns the index of the last char from chars found in s, or -1."},
+			"contains_func": {
+				GoName: "ContainsFunc", Params: []GoType{GoString, GoFunc}, Returns: []GoType{GoBool},
+				Doc:       "Reports whether any character in s satisfies the predicate f.",
+				FuncTypes: map[int]*GoFuncType{1: {Params: []GoType{GoRune}, Returns: []GoType{GoBool}}},
+			},
+			"index_func": {
+				GoName: "IndexFunc", Params: []GoType{GoString, GoFunc}, Returns: []GoType{GoInt},
+				Doc:       "Returns the index of the first character satisfying the predicate f, or -1.",
+				FuncTypes: map[int]*GoFuncType{1: {Params: []GoType{GoRune}, Returns: []GoType{GoBool}}},
+			},
+			"map": {
+				GoName: "Map", Params: []GoType{GoFunc, GoString}, Returns: []GoType{GoString},
+				Doc:       "Returns a copy of s with all characters modified by the mapping function.",
+				FuncTypes: map[int]*GoFuncType{0: {Params: []GoType{GoRune}, Returns: []GoType{GoRune}}},
+			},
 		},
 	})
 }

@@ -6,6 +6,7 @@
 package gobridge
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 )
@@ -20,8 +21,33 @@ const (
 	GoBool
 	GoByte
 	GoStringSlice // []string
+	GoByteSlice   // []byte — bridged as string in Rugo
+	GoInt64       // int64 — bridged as int in Rugo
+	GoRune        // rune — bridged as first char of string in Rugo
+	GoFunc        // func param — Rugo lambda adapted to typed Go func
 	GoError       // error (panics on non-nil, invisible to Rugo)
 )
+
+// GoFuncType describes a Go function signature for lambda adapter generation.
+type GoFuncType struct {
+	Params  []GoType
+	Returns []GoType
+}
+
+// GoStructField describes a single field to extract from a Go struct return.
+type GoStructField struct {
+	GoField  string // Go field name (e.g., "Scheme") or method name (e.g., "Hostname")
+	RugoKey  string // Rugo hash key (e.g., "scheme")
+	Type     GoType // For return wrapping
+	IsMethod bool   // true → call as _v.GoField()
+	Expr     string // if set, raw Go expression using _v (overrides GoField/IsMethod)
+}
+
+// GoStructReturn describes how to decompose a Go struct return into a Rugo hash.
+type GoStructReturn struct {
+	Fields  []GoStructField
+	Pointer bool // true if the return is a pointer (emit nil check)
+}
 
 // RuntimeHelper describes a Go helper function emitted into the generated code.
 // Multiple functions can share a helper via the same Key — it will only be emitted once.
@@ -48,6 +74,12 @@ type GoFuncSig struct {
 	// (T, error) → auto-panics on error, returns T.
 	// (T, bool) → returns T if true, nil if false.
 	Returns []GoType
+	// FuncTypes maps param indices to their Go function signatures.
+	// Only used when the corresponding Params[i] is GoFunc.
+	FuncTypes map[int]*GoFuncType
+	// StructReturn describes how to decompose a struct return into a Rugo hash.
+	// When set, the generic codegen uses this instead of the normal return handling.
+	StructReturn *GoStructReturn
 	// Variadic indicates the last param is variadic.
 	Variadic bool
 	// Doc is the documentation string shown by `rugo doc`.
@@ -184,9 +216,95 @@ func TypeConvToGo(argExpr string, t GoType) string {
 		return "byte(rugo_to_int(" + argExpr + "))"
 	case GoStringSlice:
 		return "rugo_go_to_string_slice(" + argExpr + ")"
+	case GoByteSlice:
+		return "[]byte(rugo_to_string(" + argExpr + "))"
+	case GoInt64:
+		return "int64(rugo_to_int(" + argExpr + "))"
+	case GoRune:
+		return "rugo_first_rune(rugo_to_string(" + argExpr + "))"
 	default:
 		return argExpr
 	}
+}
+
+// GoTypeGoName returns the raw Go type name for code generation.
+func GoTypeGoName(t GoType) string {
+	switch t {
+	case GoString:
+		return "string"
+	case GoInt:
+		return "int"
+	case GoFloat64:
+		return "float64"
+	case GoBool:
+		return "bool"
+	case GoByte:
+		return "byte"
+	case GoInt64:
+		return "int64"
+	case GoRune:
+		return "rune"
+	default:
+		return "interface{}"
+	}
+}
+
+// FuncAdapterConv generates a Go adapter that wraps a Rugo lambda into a typed Go function.
+// argExpr is the Go expression for the Rugo lambda (interface{}).
+// ft describes the target Go function signature.
+func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
+	// Build param list: _p0 type0, _p1 type1, ...
+	var params []string
+	for i, t := range ft.Params {
+		params = append(params, fmt.Sprintf("_p%d %s", i, GoTypeGoName(t)))
+	}
+
+	// Build return type
+	retType := ""
+	if len(ft.Returns) == 1 {
+		retType = " " + GoTypeGoName(ft.Returns[0])
+	}
+
+	// Build args to pass to lambda: interface{}(wrap each param back to Rugo)
+	var callArgs []string
+	for i, t := range ft.Params {
+		pName := fmt.Sprintf("_p%d", i)
+		switch t {
+		case GoRune:
+			callArgs = append(callArgs, "interface{}(string([]rune{"+pName+"}))")
+		case GoByteSlice:
+			callArgs = append(callArgs, "interface{}(string("+pName+"))")
+		default:
+			callArgs = append(callArgs, "interface{}("+pName+")")
+		}
+	}
+
+	// Build return conversion
+	retExpr := fmt.Sprintf("_fn(%s)", strings.Join(callArgs, ", "))
+	if len(ft.Returns) == 1 {
+		retExpr = TypeConvToGo(retExpr, ft.Returns[0])
+	}
+
+	return fmt.Sprintf("func(%s)%s { _fn := %s.(func(...interface{}) interface{}); return %s }",
+		strings.Join(params, ", "), retType, argExpr, retExpr)
+}
+
+// StructDecompCode generates the Go hash literal for struct decomposition.
+// varName is the Go variable holding the struct (e.g., "_v").
+func StructDecompCode(varName string, sr *GoStructReturn) string {
+	var entries []string
+	for _, f := range sr.Fields {
+		var valExpr string
+		if f.Expr != "" {
+			valExpr = strings.ReplaceAll(f.Expr, "_v", varName)
+		} else if f.IsMethod {
+			valExpr = fmt.Sprintf("%s.%s()", varName, f.GoField)
+		} else {
+			valExpr = fmt.Sprintf("%s.%s", varName, f.GoField)
+		}
+		entries = append(entries, fmt.Sprintf("\t\t%q: %s,", f.RugoKey, TypeWrapReturn(valExpr, f.Type)))
+	}
+	return "map[interface{}]interface{}{\n" + strings.Join(entries, "\n") + "\n\t}"
 }
 
 // TypeWrapReturn returns the Go expression to wrap a Go return value to interface{}.
@@ -194,6 +312,12 @@ func TypeWrapReturn(expr string, t GoType) string {
 	switch t {
 	case GoStringSlice:
 		return "rugo_go_from_string_slice(" + expr + ")"
+	case GoByteSlice:
+		return "interface{}(string(" + expr + "))"
+	case GoInt64:
+		return "interface{}(int(" + expr + "))"
+	case GoRune:
+		return "func() interface{} { _r := " + expr + "; if _r == 0 { return interface{}(\"\") }; return interface{}(string(_r)) }()"
 	default:
 		return "interface{}(" + expr + ")"
 	}
@@ -214,6 +338,14 @@ func GoTypeName(t GoType) string {
 		return "byte"
 	case GoStringSlice:
 		return "[]string"
+	case GoByteSlice:
+		return "[]byte"
+	case GoInt64:
+		return "int64"
+	case GoRune:
+		return "rune"
+	case GoFunc:
+		return "func"
 	case GoError:
 		return "error"
 	default:
@@ -225,6 +357,44 @@ func GoTypeName(t GoType) string {
 // Used by Codegen callbacks: `if _err != nil { <panicOnErr> }`.
 func PanicOnErr(rugoName string) string {
 	return `panic(rugo_bridge_err("` + rugoName + `", _err))`
+}
+
+// RuneHelper is a shared runtime helper for GoRune params.
+// Bridge files using GoRune should include this in RuntimeHelpers.
+var RuneHelper = RuntimeHelper{
+	Key: "rugo_first_rune",
+	Code: `func rugo_first_rune(s string) rune {
+	for _, r := range s { return r }
+	return 0
+}
+
+`,
+}
+
+// PackageNeedsRuneHelper reports whether any function in a package uses GoRune params,
+// including GoRune inside GoFunc adapter signatures.
+func PackageNeedsRuneHelper(pkg string) bool {
+	funcs := PackageFuncs(pkg)
+	for _, sig := range funcs {
+		for _, p := range sig.Params {
+			if p == GoRune {
+				return true
+			}
+		}
+		for _, ft := range sig.FuncTypes {
+			for _, p := range ft.Params {
+				if p == GoRune {
+					return true
+				}
+			}
+			for _, r := range ft.Returns {
+				if r == GoRune {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // AllRuntimeHelpers returns deduplicated runtime helpers from all functions in a package.

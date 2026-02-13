@@ -2498,10 +2498,38 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 		return sig.Codegen(pkgBase, argExprs, rugoName)
 	}
 
+	// Struct return decomposition — auto-generate hash from struct fields
+	if sig.StructReturn != nil {
+		var convertedArgs []string
+		for i, arg := range argExprs {
+			if i < len(sig.Params) {
+				convertedArgs = append(convertedArgs, gobridge.TypeConvToGo(arg, sig.Params[i]))
+			}
+		}
+		call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(convertedArgs, ", "))
+		hashCode := gobridge.StructDecompCode("_v", sig.StructReturn)
+		panicFmt := fmt.Sprintf(`panic(rugo_bridge_err("%s", _err))`, rugoName)
+
+		// Determine return pattern: struct alone, (struct, error), etc.
+		hasError := len(sig.Returns) >= 2 && sig.Returns[len(sig.Returns)-1] == gobridge.GoError
+		if hasError {
+			return fmt.Sprintf("func() interface{} {\n\t_v, _err := %s\n\tif _err != nil { %s }\n\treturn %s\n}()",
+				call, panicFmt, hashCode)
+		}
+		return fmt.Sprintf("func() interface{} {\n\t_v := %s\n\treturn %s\n}()",
+			call, hashCode)
+	}
+
 	// Build converted args
 	var convertedArgs []string
 	for i, arg := range argExprs {
 		if i < len(sig.Params) {
+			if sig.Params[i] == gobridge.GoFunc && sig.FuncTypes != nil {
+				if ft, ok := sig.FuncTypes[i]; ok {
+					convertedArgs = append(convertedArgs, gobridge.FuncAdapterConv(arg, ft))
+					continue
+				}
+			}
 			convertedArgs = append(convertedArgs, gobridge.TypeConvToGo(arg, sig.Params[i]))
 		}
 	}
@@ -2592,6 +2620,11 @@ func (g *codeGen) writeGoBridgeRuntime() {
 				emitted[h.Key] = true
 				g.sb.WriteString(h.Code)
 			}
+		}
+		// Auto-emit rugo_first_rune when GoRune params are used
+		if !emitted[gobridge.RuneHelper.Key] && gobridge.PackageNeedsRuneHelper(pkg) {
+			emitted[gobridge.RuneHelper.Key] = true
+			g.sb.WriteString(gobridge.RuneHelper.Code)
 		}
 	}
 }

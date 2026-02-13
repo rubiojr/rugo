@@ -1,0 +1,92 @@
+use "test"
+import "encoding/hex"
+import "strconv"
+import "unicode"
+import "os"
+
+# --- GoByteSlice tests ---
+
+rats "hex.encode uses GoByteSlice param"
+  result = hex.encode("Hello!")
+  test.assert_eq(result, "48656c6c6f21")
+end
+
+rats "hex.decode returns GoByteSlice as string"
+  result = hex.decode("48656c6c6f21")
+  test.assert_eq(result, "Hello!")
+end
+
+rats "os.read_file uses GoByteSlice return"
+  dir = test.tmpdir()
+  path = dir + "/test.txt"
+  os.write_file(path, "hello world", 420)
+  content = os.read_file(path)
+  test.assert_eq(content, "hello world")
+end
+
+rats "os.write_file uses GoByteSlice param"
+  dir = test.tmpdir()
+  path = dir + "/write_test.txt"
+  os.write_file(path, "binary safe: \x00\n", 420)
+  content = os.read_file(path)
+  test.assert_contains(content, "binary safe")
+end
+
+# --- GoInt64 tests ---
+
+rats "strconv.format_int uses GoInt64 param"
+  result = strconv.format_int(255, 16)
+  test.assert_eq(result, "ff")
+end
+
+rats "strconv.format_int base 2"
+  result = strconv.format_int(10, 2)
+  test.assert_eq(result, "1010")
+end
+
+rats "strconv.parse_int returns GoInt64 as int"
+  result = strconv.parse_int("ff", 16, 64)
+  test.assert_eq(result, 255)
+end
+
+rats "strconv.parse_int base 2"
+  result = strconv.parse_int("1010", 2, 64)
+  test.assert_eq(result, 10)
+end
+
+rats "strconv.parse_int error with try/or"
+  result = try strconv.parse_int("xyz", 10, 64) or -1
+  test.assert_eq(result, -1)
+end
+
+# --- GoRune tests ---
+
+rats "unicode.is_letter with GoRune param"
+  test.assert_eq(unicode.is_letter("A"), true)
+  test.assert_eq(unicode.is_letter("1"), false)
+end
+
+rats "unicode.to_upper with GoRune return"
+  result = unicode.to_upper("a")
+  test.assert_eq(result, "A")
+end
+
+rats "unicode.to_lower with GoRune return"
+  result = unicode.to_lower("Z")
+  test.assert_eq(result, "z")
+end
+
+rats "unicode GoRune empty string returns false for predicates"
+  test.assert_eq(unicode.is_letter(""), false)
+  test.assert_eq(unicode.is_digit(""), false)
+end
+
+rats "unicode GoRune empty string returns empty for conversions"
+  test.assert_eq(unicode.to_upper(""), "")
+  test.assert_eq(unicode.to_lower(""), "")
+end
+
+rats "unicode GoRune multibyte UTF-8"
+  test.assert_eq(unicode.is_letter("é"), true)
+  test.assert_eq(unicode.is_letter("日"), true)
+end
