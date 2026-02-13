@@ -1,0 +1,4 @@
+require "visibility_lib"
+puts visibility_lib.greet("world")
+puts visibility_lib.public_func()
+puts visibility_lib.my_func()

@@ -1,0 +1,14 @@
+# Module visibility example
+#
+# Functions prefixed with _ are private to the module.
+# The compiler rejects calls to them from outside.
+
+require "greeter"
+
+# Public API works fine
+puts greeter.hello("World")
+puts greeter.goodbye("World")
+
+# This would fail at compile time:
+# puts greeter._format("World")
+# error: '_format' is private to module 'greeter'

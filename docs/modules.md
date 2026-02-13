@@ -201,3 +201,29 @@ from.
 - `use` and `require` must be at the top level (not inside `def`, `if`, etc.)
 - A namespace can only be claimed once — if `use "os"` is loaded, `import "os"` must be aliased: `import "os" as go_os`
 - Each module can only be imported/used once
+
+## Module Visibility
+
+Functions prefixed with `_` are private to their module. The compiler rejects
+calls to `_`-prefixed functions from outside the module:
+
+```ruby
+# helpers.rugo
+def _internal()
+  return "secret"
+end
+
+def public()
+  return _internal()   # OK: same module
+end
+```
+
+```ruby
+# main.rugo
+require "helpers"
+puts helpers.public()      # OK
+puts helpers._internal()   # compile error: '_internal' is private to module 'helpers'
+```
+
+This applies to all `require` forms (`as`, `with`) and to struct methods
+(`def Dog._validate()`).

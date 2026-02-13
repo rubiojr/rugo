@@ -1,0 +1,185 @@
+# RATS: Test module visibility — underscore-prefixed functions are private
+use "test"
+
+rats "public function is callable from outside module"
+  result = test.run("rugo run rats/fixtures/visibility_main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "helped: world")
+  test.assert_contains(result["output"], "public")
+end
+
+rats "underscore function not at start is public (my_func)"
+  result = test.run("rugo run rats/fixtures/visibility_main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "not private")
+end
+
+rats "private function called from outside fails"
+  result = test.run("rugo run rats/fixtures/visibility_call_private.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "private")
+  test.assert_contains(result["output"], "visibility_lib")
+end
+
+rats "error message includes function and module name"
+  result = test.run("rugo run rats/fixtures/visibility_call_private.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "'_secret'")
+  test.assert_contains(result["output"], "'visibility_lib'")
+end
+
+rats "private helper with args called from outside fails"
+  result = test.run("rugo run rats/fixtures/visibility_call_private_helper.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "'_helper'")
+  test.assert_contains(result["output"], "private")
+end
+
+rats "module can call its own private functions internally"
+  result = test.run("rugo run rats/fixtures/visibility_main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "helped: world")
+end
+
+rats "private function via alias is blocked"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "def _secret()\n  return \"hidden\"\nend\n\ndef public()\n  return _secret()\nend\n")
+  script = <<~SCRIPT
+    require "mymod" as m
+    puts m._secret()
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "'_secret'")
+  test.assert_contains(result["output"], "private")
+end
+
+rats "public function via alias works"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "def _secret()\n  return \"hidden\"\nend\n\ndef public()\n  return _secret()\nend\n")
+  script = <<~SCRIPT
+    require "mymod" as m
+    puts m.public()
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hidden")
+end
+
+rats "require with: private function is blocked"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mylib")
+  test.write_file("#{tmpdir}/mylib/helpers.rugo", "def _internal()\n  return \"internal\"\nend\n\ndef public()\n  return _internal()\nend\n")
+  script = <<~SCRIPT
+    require "mylib" with helpers
+    puts helpers._internal()
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "'_internal'")
+  test.assert_contains(result["output"], "private")
+end
+
+rats "require with: public function works"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mylib")
+  test.write_file("#{tmpdir}/mylib/helpers.rugo", "def _internal()\n  return \"internal\"\nend\n\ndef public()\n  return _internal()\nend\n")
+  script = <<~SCRIPT
+    require "mylib" with helpers
+    puts helpers.public()
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "internal")
+end
+
+rats "multiple private functions: only the called one errors"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "def _a()\n  return \"a\"\nend\n\ndef _b()\n  return \"b\"\nend\n\ndef public()\n  return _a() + _b()\nend\n")
+  script = <<~SCRIPT
+    require "mymod"
+    puts mymod._b()
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "'_b'")
+end
+
+rats "module with only private functions: public wrapper works"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "def _a()\n  return \"a\"\nend\n\ndef _b()\n  return \"b\"\nend\n\ndef public()\n  return _a() + _b()\nend\n")
+  script = <<~SCRIPT
+    require "mymod"
+    puts mymod.public()
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "ab")
+end
+
+rats "struct method with underscore prefix is private"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mymod")
+  mod = <<~MOD
+    struct Dog
+      name
+    end
+
+    def Dog._internal()
+      return "secret: " + self.name
+    end
+
+    def Dog.speak()
+      return _internal(self)
+    end
+  MOD
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", mod)
+  script = <<~SCRIPT
+    require "mymod"
+    rex = mymod.new("Rex")
+    puts mymod._internal(rex)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "'_internal'")
+  test.assert_contains(result["output"], "private")
+end
+
+rats "struct public method calling private method works"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mymod")
+  mod = <<~MOD
+    struct Dog
+      name
+    end
+
+    def Dog._internal()
+      return "secret: " + self.name
+    end
+
+    def Dog.speak()
+      return _internal(self)
+    end
+  MOD
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", mod)
+  script = <<~SCRIPT
+    require "mymod"
+    rex = mymod.new("Rex")
+    puts mymod.speak(rex)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "secret: Rex")
+end

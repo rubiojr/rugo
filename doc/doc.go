@@ -211,6 +211,14 @@ func Extract(src, path string) *FileDoc {
 		}
 		// Check if the original source line has a method definition (Dog.bark)
 		name, params, defLine := funcDocFromRawLine(lines, fn)
+		// Skip private functions (underscore-prefixed)
+		funcName := name
+		if i := strings.LastIndex(funcName, "."); i >= 0 {
+			funcName = funcName[i+1:]
+		}
+		if strings.HasPrefix(funcName, "_") {
+			continue
+		}
 		fd.Funcs = append(fd.Funcs, FuncDoc{
 			Name:   name,
 			Params: params,
@@ -240,14 +248,23 @@ func extractFuncsFromLines(fd *FileDoc, lines []string) {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "def ") {
 			name, params := parseDef(trimmed)
-			if name != "" {
-				fd.Funcs = append(fd.Funcs, FuncDoc{
-					Name:   name,
-					Params: params,
-					Doc:    extractDocComment(lines, i+1),
-					Line:   i + 1,
-				})
+			if name == "" {
+				continue
 			}
+			// Skip private functions (underscore-prefixed)
+			funcName := name
+			if j := strings.LastIndex(funcName, "."); j >= 0 {
+				funcName = funcName[j+1:]
+			}
+			if strings.HasPrefix(funcName, "_") {
+				continue
+			}
+			fd.Funcs = append(fd.Funcs, FuncDoc{
+				Name:   name,
+				Params: params,
+				Doc:    extractDocComment(lines, i+1),
+				Line:   i + 1,
+			})
 		}
 		if strings.HasPrefix(trimmed, "struct ") {
 			parts := strings.Fields(trimmed)

@@ -709,6 +709,30 @@ Use `rugo mod tidy` to generate a `rugo.lock` file that records the exact commit
 
 There is no implicit search path — the require string tells you exactly where the code comes from: a relative path is local, a URL-shaped path is remote.
 
+### Module Visibility
+
+Functions prefixed with `_` are private to their module. The compiler rejects any attempt to call them from outside:
+
+```ruby
+# mylib.rugo
+def _helper()       # private — only callable within mylib
+  return "internal"
+end
+
+def greet()          # public — callable from anywhere
+  return _helper()   # OK: same module
+end
+```
+
+```ruby
+# main.rugo
+require "mylib"
+puts mylib.greet()     # OK
+puts mylib._helper()   # compile error: '_helper' is private to module 'mylib'
+```
+
+Functions without the `_` prefix are public. This applies to all `require` forms: plain, `as`, and `with`.
+
 ## Built-in Functions
 
 These functions are always available without any `use` or `import`:

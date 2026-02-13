@@ -279,6 +279,101 @@ rats "rugo doc hides undocumented functions"
   test.assert_false(str.contains(result["output"], "also_undocumented"))
 end
 
+# Test: documented private functions are hidden from listing
+rats "rugo doc hides documented private functions"
+  tmpdir = test.tmpdir()
+  src = <<~SRC
+    # Public API.
+    def greet(name)
+      return _format(name)
+    end
+
+    # Internal formatter.
+    def _format(name)
+      return "Hello, " + name
+    end
+  SRC
+  test.write_file("#{tmpdir}/lib.rugo", src)
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/lib.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "def greet(name)")
+  test.assert_contains(result["output"], "Public API.")
+  test.assert_false(str.contains(result["output"], "_format"))
+  test.assert_false(str.contains(result["output"], "Internal formatter."))
+end
+
+# Test: documented private struct method is hidden
+rats "rugo doc hides private struct methods"
+  tmpdir = test.tmpdir()
+  src = <<~SRC
+    struct Dog
+      name
+    end
+
+    # Internal validation.
+    def Dog._validate()
+      return self.name != ""
+    end
+
+    # Make the dog speak.
+    def Dog.speak()
+      return self.name + " says woof!"
+    end
+  SRC
+  test.write_file("#{tmpdir}/lib.rugo", src)
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/lib.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "def Dog.speak")
+  test.assert_false(str.contains(result["output"], "_validate"))
+  test.assert_false(str.contains(result["output"], "Internal validation."))
+end
+
+# Test: private function not found via symbol lookup
+rats "rugo doc symbol lookup rejects private function"
+  tmpdir = test.tmpdir()
+  src = <<~SRC
+    # Secret helper.
+    def _secret()
+      return "hidden"
+    end
+
+    # Public API.
+    def public()
+      return _secret()
+    end
+  SRC
+  test.write_file("#{tmpdir}/lib.rugo", src)
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/lib.rugo _secret")
+  test.assert_neq(result["status"], 0)
+end
+
+# Test: private functions hidden in directory mode
+rats "rugo doc directory hides private functions"
+  tmpdir = test.tmpdir()
+  test.run("mkdir -p #{tmpdir}/mymod")
+  test.write_file("#{tmpdir}/mymod/mymod.rugo", "# My module.\n\n# Public API.\ndef public()\nend\n\n# Private helper.\ndef _helper()\nend\n")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/mymod")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "def public")
+  test.assert_false(str.contains(result["output"], "_helper"))
+end
+
+# Test: public function with underscore in name (not at start) is shown
+rats "rugo doc shows functions with mid-name underscores"
+  tmpdir = test.tmpdir()
+  src = <<~SRC
+    # Formats a name.
+    def format_name(name)
+      return name
+    end
+  SRC
+  test.write_file("#{tmpdir}/lib.rugo", src)
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/lib.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "def format_name(name)")
+  test.assert_contains(result["output"], "Formats a name.")
+end
+
 # Test: undocumented structs are hidden from file listing
 rats "rugo doc hides undocumented structs"
   tmpdir = test.tmpdir()

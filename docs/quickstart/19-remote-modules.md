@@ -98,7 +98,8 @@ my-lib/
 
 - Each `.rugo` file at the repo root becomes a loadable module
 - Function names are the public API — there's no `export` keyword
-- Prefix private helpers with `_` by convention (e.g., `def _internal()`)
+- Functions prefixed with `_` are **private** — the compiler rejects calls to
+  them from outside the module (e.g., `mymod._helper()` is a compile error)
 - If your library has inter-module dependencies (e.g., `helpers.rugo` calls
   `client.get()`), document the required load order
 - Add a `main.rugo` if you want `require "..." ` (without `with`) to work

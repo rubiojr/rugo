@@ -1,0 +1,13 @@
+# Private helper — only callable within this module
+def _format(name)
+  return "dear " + name
+end
+
+# Public API
+def hello(name)
+  return "Hello, " + _format(name) + "!"
+end
+
+def goodbye(name)
+  return "Goodbye, " + _format(name) + "!"
+end

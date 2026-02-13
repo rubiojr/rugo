@@ -1,0 +1,19 @@
+def _secret()
+  return "secret"
+end
+
+def _helper(x)
+  return "helped: " + x
+end
+
+def greet(name)
+  return _helper(name)
+end
+
+def public_func()
+  return "public"
+end
+
+def my_func()
+  return "not private"
+end

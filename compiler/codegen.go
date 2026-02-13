@@ -1773,6 +1773,9 @@ func (g *codeGen) callExpr(e *ast.CallExpr) (string, error) {
 				}
 				// Known require namespace
 				if g.namespaces[nsName] {
+					if strings.HasPrefix(dot.Field, "_") {
+						return "", fmt.Errorf("'%s' is private to module '%s'", dot.Field, nsName)
+					}
 					nsKey := nsName + "." + dot.Field
 					if expected, ok := g.funcDefs[nsKey]; ok {
 						if len(e.Args) != expected {

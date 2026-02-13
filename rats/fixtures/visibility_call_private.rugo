@@ -1,0 +1,2 @@
+require "visibility_lib"
+puts visibility_lib._secret()
