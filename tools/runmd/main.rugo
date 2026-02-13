@@ -1,11 +1,13 @@
 # tool: Verify Rugo code blocks in markdown files compile correctly
 #
-# Parses markdown files for ```ruby code blocks and tries to build
-# each one with `rugo build`. Every ruby block is expected to be valid Rugo.
+# Parses markdown files for ```ruby code blocks and validates each snippet.
+# By default it checks snippets build; with --verify it also runs snippets
+# and compares output against an immediately following ```text block.
 #
 # Usage:
 #   rugo runmd <file.md> [file2.md ...]
 #   rugo runmd -i <file.md>         # interactive mode
+#   rugo runmd --verify <file.md>   # verify runtime output against ```text
 #
 # Exit code 0 if all snippets compile, 1 if any fail.
 
@@ -21,9 +23,11 @@ TmpName = "runmd_check.rugo"
 cli.name "rugo-runmd"
 cli.about "Verify ruby code blocks in markdown files compile as valid Rugo"
 cli.bool_flag("", "interactive", "i", "Show each snippet and prompt to run it")
+cli.bool_flag("", "verify", "v", "Run snippets and verify output against following ```text blocks")
 cli.parse()
 
 Interactive = cli.get("interactive")
+Verify = cli.get("verify")
 
 args = cli.args()
 if len(args) == 0
@@ -64,32 +68,62 @@ def show_snippet(code)
   end
 end
 
-# Extract ```ruby code blocks from markdown content.
-# Returns an array of hashes with "code" and "line" keys.
+# Normalize output for stable comparisons.
+def normalize_output(raw)
+  normalized = str.replace(raw, "\r\n", "\n")
+  normalized = str.replace(normalized, "\r", "\n")
+  lines = str.split(normalized, "\n")
+  while len(lines) > 0 && str.trim(lines[len(lines) - 1]) == ""
+    lines = lines[0, len(lines) - 1]
+  end
+  return str.join(lines, "\n")
+end
+
+# Extract ```ruby code blocks and optional following ```text expected output blocks.
+# Returns an array of hashes with "code", "line", "expected", and "has_expected" keys.
 def extract_ruby_blocks(content)
   lines = str.split(content, "\n")
-  blocks = []
+  code_blocks = []
   in_block = false
+  block_lang = ""
   block_lines = []
   block_start = 0
 
   for i, line in lines
     trimmed = str.trim(line)
     if in_block == false
-      if trimmed == "```ruby"
+      if str.starts_with(trimmed, "```") && trimmed != "```"
         in_block = true
+        block_lang = str.trim(trimmed[3, len(trimmed) - 3])
         block_lines = []
         block_start = i + 2
       end
     else
       if trimmed == "```"
         in_block = false
-        code = str.join(block_lines, "\n")
-        blocks = append(blocks, {code: code, line: block_start})
+        code_blocks = append(code_blocks, {lang: block_lang, code: str.join(block_lines, "\n"), line: block_start})
       else
         block_lines = append(block_lines, line)
       end
     end
+  end
+
+  blocks = []
+  i = 0
+  while i < len(code_blocks)
+    block = code_blocks[i]
+    if block.lang == "ruby"
+      ruby_block = {code: block.code, line: block.line, expected: "", has_expected: false}
+      if i + 1 < len(code_blocks)
+        next_block = code_blocks[i + 1]
+        if next_block.lang == "text"
+          ruby_block.expected = next_block.code
+          ruby_block.has_expected = true
+        end
+      end
+      blocks = append(blocks, ruby_block)
+    end
+    i += 1
   end
 
   return blocks
@@ -204,6 +238,18 @@ for file in args
       if run_result.status != 0
         failures += 1
         puts color.red("  exit status: #{run_result.status}")
+      elsif Verify && block.has_expected
+        actual_output = normalize_output(run_result.output)
+        expected_output = normalize_output(block.expected)
+        if actual_output == expected_output
+          passed += 1
+          puts color.green("  output matches")
+        else
+          failures += 1
+          puts color.red("  output mismatch")
+          draw_box("expected:\n#{expected_output}", fn(s) color.yellow(s) end)
+          draw_box("actual:\n#{actual_output}", fn(s) color.red(s) end)
+        end
       else
         passed += 1
       end
@@ -211,16 +257,39 @@ for file in args
       go_os.write_file(tmp_file, block.code, 420)
 
       result = test.run("rugo build #{tmp_file} -o #{tmp_bin}")
-      if result.status == 0
-        passed += 1
-        puts "#{file}:#{block.line}: ok"
-      else
+      if result.status != 0
         failures += 1
         puts "#{file}:#{block.line}: FAIL"
         output = clean_output(result.output)
         if output != ""
           puts "  #{output}"
         end
+        next
+      end
+
+      if Verify && block.has_expected
+        run_result = test.run(tmp_bin)
+        if run_result.status != 0
+          failures += 1
+          puts "#{file}:#{block.line}: FAIL"
+          puts "  exit status: #{run_result.status}"
+          next
+        end
+
+        actual_output = normalize_output(run_result.output)
+        expected_output = normalize_output(block.expected)
+        if actual_output == expected_output
+          passed += 1
+          puts "#{file}:#{block.line}: ok"
+        else
+          failures += 1
+          puts "#{file}:#{block.line}: FAIL"
+          puts "  expected: #{expected_output}"
+          puts "  actual:   #{actual_output}"
+        end
+      else
+        passed += 1
+        puts "#{file}:#{block.line}: ok"
       end
     end
   end

@@ -26,6 +26,26 @@ rats "runmd mixed pass and fail"
   test.assert_contains(result.output, "3 snippet(s), 2 passed, 1 failed")
 end
 
+rats "runmd ignores documented output by default"
+  result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/output_mismatch.md")
+  test.assert_eq(result.status, 0)
+  test.assert_contains(result.output, "1 snippet(s), 1 passed, 0 failed")
+end
+
+rats "runmd validates documented output with --verify"
+  result = test.run("rugo run tools/runmd/main.rugo -- --verify rats/fixtures/runmd/output_match.md")
+  test.assert_eq(result.status, 0)
+  test.assert_contains(result.output, "1 snippet(s), 1 passed, 0 failed")
+end
+
+rats "runmd detects documented output mismatch with --verify"
+  result = test.run("rugo run tools/runmd/main.rugo -- --verify rats/fixtures/runmd/output_mismatch.md")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "FAIL")
+  test.assert_contains(result.output, "expected:")
+  test.assert_contains(result.output, "actual:")
+end
+
 rats "runmd no ruby blocks exits cleanly"
   result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/no_ruby.md")
   test.assert_eq(result.status, 0)
