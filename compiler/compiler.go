@@ -27,6 +27,8 @@ type SandboxConfig struct {
 	RWX     []string // read + write + execute paths
 	Connect []int    // allowed TCP connect ports
 	Bind    []int    // allowed TCP bind ports
+	Env     []string // allowed environment variable names
+	EnvSet  bool     // true when env: was explicitly specified (even if empty)
 }
 
 // Compiler orchestrates the full compilation pipeline.

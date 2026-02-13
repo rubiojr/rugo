@@ -1,0 +1,4 @@
+# Sandbox with env + filesystem permissions
+sandbox ro: ["/tmp"], env: ["RUGO_TEST_ENV_COMBO"]
+import "os"
+puts(os.getenv("RUGO_TEST_ENV_COMBO"))

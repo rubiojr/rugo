@@ -1,0 +1,9 @@
+# Bare sandbox does NOT clear env (env filtering is opt-in)
+sandbox
+import "os"
+val = os.getenv("RUGO_TEST_ENV_BARE")
+if val == ""
+  puts("bare_env_cleared")
+else
+  puts("bare_env_kept")
+end

@@ -1,0 +1,9 @@
+# Sandbox with env filtering: denied env var should be empty
+sandbox env: ["RUGO_TEST_ENV_ALLOWED"]
+import "os"
+val = os.getenv("RUGO_TEST_ENV_DENIED")
+if val == ""
+  puts("denied_empty")
+else
+  puts("LEAKED:" + val)
+end

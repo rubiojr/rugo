@@ -1,0 +1,4 @@
+# Sandbox with env filtering: allow specific env vars
+sandbox env: ["RUGO_TEST_ENV_ALLOWED"]
+import "os"
+puts(os.getenv("RUGO_TEST_ENV_ALLOWED"))

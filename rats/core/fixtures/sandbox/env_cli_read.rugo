@@ -1,0 +1,3 @@
+# No sandbox directive — reads env var via CLI sandbox override
+import "os"
+puts(os.getenv("RUGO_TEST_ENV_CLI"))

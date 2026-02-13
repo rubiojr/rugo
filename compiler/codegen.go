@@ -131,7 +131,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			}
 			g.sandbox = &SandboxConfig{
 				RO: st.RO, RW: st.RW, ROX: st.ROX, RWX: st.RWX,
-				Connect: st.Connect, Bind: st.Bind,
+				Connect: st.Connect, Bind: st.Bind, Env: st.Env, EnvSet: st.EnvSet,
 			}
 			continue
 		default:
@@ -634,6 +634,29 @@ func rugo_sandbox_is_dir(path string) bool {
 
 // writeSandboxApply emits the sandbox enforcement call inside main().
 func (g *codeGen) writeSandboxApply() {
+	// Environment variable filtering (works on all platforms, runs before Landlock).
+	// Only active when env: was explicitly specified in the sandbox directive or CLI.
+	cfg := g.sandbox
+	if cfg.EnvSet {
+		if len(cfg.Env) > 0 {
+			// Save allowed env vars, clear all, restore allowed
+			for i, name := range cfg.Env {
+				g.writef("rugo_sandbox_env_%d := os.Getenv(%q)\n", i, name)
+			}
+			g.writeln("os.Clearenv()")
+			for i, name := range cfg.Env {
+				g.writef("if rugo_sandbox_env_%d != \"\" {\n", i)
+				g.indent++
+				g.writef("os.Setenv(%q, rugo_sandbox_env_%d)\n", name, i)
+				g.indent--
+				g.writeln("}")
+			}
+		} else {
+			// env: [] — clear all environment variables
+			g.writeln("os.Clearenv()")
+		}
+	}
+
 	g.writeln(`if runtime.GOOS != "linux" {`)
 	g.indent++
 	g.writeln(`fmt.Fprintln(os.Stderr, "rugo: warning: sandbox requires Linux with Landlock support, running unrestricted")`)
@@ -642,7 +665,6 @@ func (g *codeGen) writeSandboxApply() {
 	g.indent++
 	g.writeln("rugo_sandbox_cfg := landlock.V5.BestEffort()")
 
-	cfg := g.sandbox
 	hasFS := len(cfg.RO) > 0 || len(cfg.RW) > 0 || len(cfg.ROX) > 0 || len(cfg.RWX) > 0
 	hasNet := len(cfg.Connect) > 0 || len(cfg.Bind) > 0
 

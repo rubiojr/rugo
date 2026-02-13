@@ -245,6 +245,7 @@ func parseSandboxFlags(args []string) (*compiler.SandboxConfig, []string) {
 	hasSandbox := false
 	var ro, rw, rox, rwx []string
 	var connect, bind []int
+	var env []string
 	var remaining []string
 
 	for i := 0; i < len(args); i++ {
@@ -285,6 +286,11 @@ func parseSandboxFlags(args []string) (*compiler.SandboxConfig, []string) {
 					bind = append(bind, p)
 				}
 			}
+		case "--env":
+			if i+1 < len(args) {
+				i++
+				env = append(env, args[i])
+			}
 		default:
 			remaining = append(remaining, args[i])
 		}
@@ -295,7 +301,7 @@ func parseSandboxFlags(args []string) (*compiler.SandboxConfig, []string) {
 	}
 	return &compiler.SandboxConfig{
 		RO: ro, RW: rw, ROX: rox, RWX: rwx,
-		Connect: connect, Bind: bind,
+		Connect: connect, Bind: bind, Env: env, EnvSet: len(env) > 0,
 	}, remaining
 }
 

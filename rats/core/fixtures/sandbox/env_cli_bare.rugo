@@ -1,0 +1,8 @@
+# No sandbox directive — reads env var via CLI sandbox override (bare)
+import "os"
+val = os.getenv("RUGO_TEST_ENV_CLI_BARE")
+if val == ""
+  puts("cli_bare_cleared")
+else
+  puts("cli_bare_kept")
+end

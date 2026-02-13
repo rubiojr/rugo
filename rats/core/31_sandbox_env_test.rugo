@@ -1,0 +1,115 @@
+# RATS: Sandbox environment variable filtering tests
+use "test"
+use "str"
+import "os" as go_os
+
+# ── Codegen / emit tests ────────────────────────────────────────────
+
+rats "emit: env filtering generates Clearenv call"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/env_allow.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "os.Clearenv()")
+  test.assert_contains(result["output"], "os.Setenv")
+  test.assert_contains(result["output"], "RUGO_TEST_ENV_ALLOWED")
+end
+
+rats "emit: bare sandbox does NOT generate Clearenv"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/env_bare.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_false(str.contains(result["output"], "os.Clearenv"))
+end
+
+rats "emit: env single value generates Clearenv + restore"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/env_single.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "os.Clearenv()")
+  test.assert_contains(result["output"], "RUGO_TEST_ENV_SINGLE")
+end
+
+rats "emit: env combined with fs permissions"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/env_with_fs.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "os.Clearenv()")
+  test.assert_contains(result["output"], "RUGO_TEST_ENV_COMBO")
+  test.assert_contains(result["output"], "rugo_sandbox_fs_ro")
+end
+
+rats "emit: full perms with env generates all rule types"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/env_full_perms.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "os.Clearenv()")
+  test.assert_contains(result["output"], "rugo_sandbox_fs_ro")
+  test.assert_contains(result["output"], "rugo_sandbox_fs_rw")
+  test.assert_contains(result["output"], "rugo_sandbox_fs_rox")
+  test.assert_contains(result["output"], "rugo_sandbox_fs_rwx")
+  test.assert_contains(result["output"], "landlock.ConnectTCP")
+  test.assert_contains(result["output"], "landlock.BindTCP")
+end
+
+rats "emit: no sandbox means no Clearenv"
+  result = test.run("rugo emit rats/core/fixtures/sandbox/no_sandbox.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_false(str.contains(result["output"], "os.Clearenv"))
+end
+
+# ── Runtime enforcement tests ───────────────────────────────────────
+
+rats "enforce: env allowed var is preserved"
+  go_os.setenv("RUGO_TEST_ENV_ALLOWED", "visible_value")
+  result = test.run("rugo run rats/core/fixtures/sandbox/env_allow.rugo")
+  go_os.unsetenv("RUGO_TEST_ENV_ALLOWED")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "visible_value")
+end
+
+rats "enforce: env denied var is cleared"
+  go_os.setenv("RUGO_TEST_ENV_ALLOWED", "ok")
+  go_os.setenv("RUGO_TEST_ENV_DENIED", "secret_value")
+  result = test.run("rugo run rats/core/fixtures/sandbox/env_deny.rugo")
+  go_os.unsetenv("RUGO_TEST_ENV_ALLOWED")
+  go_os.unsetenv("RUGO_TEST_ENV_DENIED")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "denied_empty")
+end
+
+rats "enforce: bare sandbox does NOT clear env vars"
+  go_os.setenv("RUGO_TEST_ENV_BARE", "should_be_kept")
+  result = test.run("rugo run rats/core/fixtures/sandbox/env_bare.rugo")
+  go_os.unsetenv("RUGO_TEST_ENV_BARE")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "bare_env_kept")
+end
+
+rats "enforce: env single value is preserved"
+  go_os.setenv("RUGO_TEST_ENV_SINGLE", "single_ok")
+  result = test.run("rugo run rats/core/fixtures/sandbox/env_single.rugo")
+  go_os.unsetenv("RUGO_TEST_ENV_SINGLE")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "single_ok")
+end
+
+rats "enforce: env combined with fs works"
+  go_os.setenv("RUGO_TEST_ENV_COMBO", "combo_ok")
+  result = test.run("rugo run rats/core/fixtures/sandbox/env_with_fs.rugo")
+  go_os.unsetenv("RUGO_TEST_ENV_COMBO")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "combo_ok")
+end
+
+# ── CLI flag tests ──────────────────────────────────────────────────
+
+rats "cli: --env flag allows specified var"
+  go_os.setenv("RUGO_TEST_ENV_CLI", "cli_visible")
+  result = test.run("rugo run --sandbox --env RUGO_TEST_ENV_CLI rats/core/fixtures/sandbox/env_cli_read.rugo")
+  go_os.unsetenv("RUGO_TEST_ENV_CLI")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "cli_visible")
+end
+
+rats "cli: --sandbox without --env does NOT clear env"
+  go_os.setenv("RUGO_TEST_ENV_CLI_BARE", "should_stay")
+  result = test.run("rugo run --sandbox rats/core/fixtures/sandbox/env_cli_bare.rugo")
+  go_os.unsetenv("RUGO_TEST_ENV_CLI_BARE")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "cli_bare_kept")
+end

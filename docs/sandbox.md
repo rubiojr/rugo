@@ -69,7 +69,7 @@ sandbox ro: "/etc", rw: "/tmp"
 sandbox ro: ["/etc", "/usr/share"], rw: ["/tmp", "/var/log"]
 
 # Full example with all permission types
-sandbox ro: ["/etc"], rw: ["/tmp"], rox: ["/usr/bin"], rwx: ["/var/data"], connect: [80, 443], bind: 8080
+sandbox ro: ["/etc"], rw: ["/tmp"], rox: ["/usr/bin"], rwx: ["/var/data"], connect: [80, 443], bind: 8080, env: ["PATH", "HOME"]
 ```
 
 ### Permission Types
@@ -82,6 +82,7 @@ sandbox ro: ["/etc"], rw: ["/tmp"], rox: ["/usr/bin"], rwx: ["/var/data"], conne
 | `rwx` | Read + write + execute | Plugin dirs, build dirs |
 | `connect` | TCP connect to port | HTTP clients, database connections |
 | `bind` | TCP bind to port | Servers, listeners |
+| `env` | Environment variable allowlist | Restrict env var access |
 
 ### Filesystem Permissions Detail
 
@@ -102,6 +103,23 @@ Each permission type maps to specific Landlock access rights:
 **`rwx` (read + write + execute)**
 - All `rw` rights plus `Execute`
 
+### Environment Variable Filtering
+
+The `env` permission restricts which environment variables the sandboxed process can access. This is a **userspace** mechanism (not Landlock) — it works on all platforms.
+
+- `env: ["PATH", "HOME"]` — clears all env vars, then restores only the listed ones
+- `env: "PATH"` — single value form
+- Environment filtering is **opt-in** — if `env` is not specified, all env vars are inherited
+- Env clearing runs before Landlock restrictions and before any user code
+
+```ruby
+# Only allow PATH and HOME
+sandbox env: ["PATH", "HOME"]
+
+# Combine with filesystem and network restrictions
+sandbox ro: ["/etc"], env: ["PATH", "HOME", "LANG"], connect: [443]
+```
+
 ### CLI Flags
 
 You can apply sandbox restrictions from the command line without modifying the script:
@@ -112,6 +130,9 @@ rugo run --sandbox script.rugo
 
 # With permissions (repeatable flags)
 rugo run --sandbox --ro /etc --ro /usr/share --rw /tmp --connect 443 script.rugo
+
+# With environment variable filtering
+rugo run --sandbox --env PATH --env HOME --ro /etc script.rugo
 
 # Build a sandboxed binary
 rugo build --sandbox --ro /etc --rox /usr -o mybinary script.rugo
@@ -128,6 +149,7 @@ Available flags (all repeatable):
 | `--rwx PATH` | Allow read + write + execute access |
 | `--connect PORT` | Allow TCP connections to port |
 | `--bind PORT` | Allow TCP bind to port |
+| `--env NAME` | Allow environment variable (clears all others) |
 
 ### CLI Override
 
@@ -260,6 +282,19 @@ end
 web.run(8080)
 ```
 
+### Script with restricted environment variables
+
+```ruby
+sandbox ro: ["/etc"], env: ["PATH", "HOME", "LANG"]
+import "os"
+
+# Only PATH, HOME, and LANG are available
+puts(os.getenv("HOME"))
+
+# All other env vars return empty string
+# API keys, tokens, secrets are not accessible
+```
+
 ## Troubleshooting
 
 ### "Permission denied" errors
@@ -296,7 +331,7 @@ If restrictions don't seem to apply:
 The sandbox implementation touches these parts of the Rugo codebase:
 
 - **Grammar**: `parser/rugo.ebnf` — `SandboxStmt`, `SandboxPerm`, `SandboxList` rules
-- **AST**: `ast/nodes.go` — `SandboxStmt` node with `RO`, `RW`, `ROX`, `RWX`, `Connect`, `Bind` fields
+- **AST**: `ast/nodes.go` — `SandboxStmt` node with `RO`, `RW`, `ROX`, `RWX`, `Connect`, `Bind`, `Env` fields
 - **Walker**: `ast/walker.go` — `walkSandboxStmt()` and permission parsing helpers
 - **Preprocessor**: `ast/preprocess.go` — `sandbox` keyword registration, colon syntax exemption, semicolon separator injection
 - **Codegen**: `compiler/codegen.go` — `writeSandboxRuntime()` (helper functions) and `writeSandboxApply()` (main() injection)
@@ -323,6 +358,11 @@ func rugo_sandbox_is_dir(path string) bool { ... }
 
 func main() {
     defer func() { /* panic handler */ }()
+
+    // Environment filtering (only when env: is specified)
+    saved_0 := os.Getenv("PATH")
+    os.Clearenv()
+    if saved_0 != "" { os.Setenv("PATH", saved_0) }
 
     if runtime.GOOS != "linux" {
         // warn and continue unrestricted

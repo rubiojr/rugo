@@ -1,0 +1,3 @@
+# Full sandbox with all permission types including env
+sandbox ro: "/etc", rw: "/tmp", rox: "/usr/bin", rwx: "/var/tmp", connect: [80, 443], bind: 8080, env: ["PATH", "HOME"]
+puts("full sandbox with env")

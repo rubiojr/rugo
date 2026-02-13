@@ -443,8 +443,15 @@ func (w *walker) walkSandboxPerm(ast []int32, stmt *SandboxStmt) error {
 		case "bind":
 			stmt.Bind = append(stmt.Bind, ports...)
 		}
+	case "env":
+		names, err := w.walkSandboxStrValues(ast)
+		if err != nil {
+			return err
+		}
+		stmt.Env = append(stmt.Env, names...)
+		stmt.EnvSet = true
 	default:
-		return &UserError{Msg: fmt.Sprintf("unknown sandbox permission %q (expected ro, rw, rox, rwx, connect, or bind)", key)}
+		return &UserError{Msg: fmt.Sprintf("unknown sandbox permission %q (expected ro, rw, rox, rwx, connect, bind, or env)", key)}
 	}
 	return nil
 }

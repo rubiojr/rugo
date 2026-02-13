@@ -1,13 +1,16 @@
-# Sandbox example: restrict filesystem and network access using Landlock.
+# Sandbox example: restrict filesystem, network, and environment access.
 # This script can only read /tmp and execute binaries from /usr.
-# All other filesystem access and all network access is denied.
-sandbox ro: ["/tmp"], rox: ["/usr", "/lib"]
+# Only PATH and HOME environment variables are available.
+# All other filesystem access, network access, and env vars are denied.
+sandbox ro: ["/tmp"], rox: ["/usr", "/lib"], env: ["PATH", "HOME"]
 
 import "os"
 
 puts("Running in a Landlock sandbox!")
 puts("Allowed: reading /tmp, executing /usr binaries")
-puts("Denied: everything else (network, writes, other paths)")
+puts("Allowed env vars: PATH, HOME")
+puts("Denied: everything else (network, writes, other paths, other env vars)")
+puts("HOME = " + os.getenv("HOME"))
 
 try echo "foo" > "bar" or err
   puts "Couldn't write! #{err}"

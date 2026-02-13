@@ -522,7 +522,7 @@ Node (interface)
 │   ├── UseStmt           — use "module" (Rugo stdlib)
 │   ├── ImportStmt        — import "go/pkg" [as alias] (Go bridge)
 │   ├── RequireStmt       — require "path" [as alias | with mod1, mod2, ...]
-│   ├── SandboxStmt      — sandbox [ro: [...], rw: [...], ...] (Landlock)
+│   ├── SandboxStmt      — sandbox [ro: [...], rw: [...], env: [...], ...] (Landlock + env)
 │   ├── FuncDef           — def name(params) body end
 │   ├── TestDef           — rats "name" body end
 │   ├── IfStmt            — if/elsif/else/end

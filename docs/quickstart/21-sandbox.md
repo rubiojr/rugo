@@ -25,13 +25,14 @@ sandbox connect: [80, 443], bind: 8080
 | `rwx` | Read + write + execute | Plugin dirs |
 | `connect` | TCP connect | HTTP clients |
 | `bind` | TCP bind | Servers |
+| `env` | Env var allowlist | Restrict env access |
 
 ## CLI Flags
 
 Apply sandbox restrictions without modifying the script:
 
 ```bash
-rugo run --sandbox --ro /etc --rox /usr --connect 443 script.rugo
+rugo run --sandbox --ro /etc --rox /usr --connect 443 --env PATH script.rugo
 ```
 
 CLI flags **override** any `sandbox` directive in the script.
@@ -42,6 +43,17 @@ CLI flags **override** any `sandbox` directive in the script.
 - **No auto-allows**: You must explicitly allow every path. Shell commands typically need `rox: ["/usr", "/lib"]` and `rw: ["/dev/null"]`.
 - **Symlinks**: Landlock restricts the **target** path. Check with `readlink -f`.
 - **stat() is not restricted**: `os.file_exists()` always works regardless of sandbox.
+
+## Environment Variable Filtering
+
+Restrict which env vars are visible (opt-in, works on all platforms):
+
+```ruby
+sandbox env: ["PATH", "HOME"]
+import "os"
+puts(os.getenv("HOME"))   # works
+puts(os.getenv("SECRET"))  # empty string
+```
 
 ## Shell Commands Example
 

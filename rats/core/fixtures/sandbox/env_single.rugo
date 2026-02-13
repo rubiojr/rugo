@@ -1,0 +1,4 @@
+# Sandbox with env single value (not array)
+sandbox env: "RUGO_TEST_ENV_SINGLE"
+import "os"
+puts(os.getenv("RUGO_TEST_ENV_SINGLE"))
