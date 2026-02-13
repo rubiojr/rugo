@@ -145,23 +145,90 @@ Exported functions must use types that can be bridged to Rugo:
 | `error`    | —         | auto-panics on non-nil |
 | `[]string` | array     | |
 | `[]byte`   | string    | cast |
+| `*Struct`  | opaque handle | field get/set via dot syntax |
 
-Functions with non-bridgeable types (pointers, interfaces, channels, maps,
-structs, generics) are automatically excluded. The compiler emits a warning
-for each skipped function so module authors know what's not available:
+Functions with non-bridgeable types (interfaces, channels, maps, generics)
+are automatically excluded. The compiler emits a warning for each skipped
+function so module authors know what's not available:
 
 ```
-warning: mymod: skipping Fail() — param 0: pointer to mymod.Foo
+warning: mymod: skipping Fail() — param 0: interface type
 ```
 
-If no functions are bridgeable, the compiler reports an error listing each
-function and why it was blocked.
+If no functions or structs are bridgeable, the compiler reports an error
+listing each function and why it was blocked.
+
+## Struct Support
+
+Exported structs with bridgeable field types are automatically discovered.
+The compiler generates a zero-value constructor and bridges functions that
+take or return struct pointers.
+
+**Go module:**
+
+```go
+package mymod
+
+type Config struct {
+    Name string
+    Port int
+}
+
+func NewConfig(name string, port int) *Config {
+    return &Config{Name: name, Port: port}
+}
+
+func Describe(c *Config) string {
+    return c.Name + " server"
+}
+```
+
+**Rugo script:**
+
+```ruby
+require "mymod"
+
+# Zero-value constructor (snake_case of struct name)
+c = mymod.config()
+c.name = "app"
+c.port = 8080
+
+# Go constructor that returns *Config
+c2 = mymod.new_config("app", 8080)
+
+# Pass struct to Go function
+puts(mymod.describe(c2))   # app server
+
+# Field access
+puts(c2.name)              # app
+puts(c2.port)              # 8080
+
+# Type introspection
+puts(type_of(c2))          # Config
+```
+
+### What works
+
+- Exported structs with `string`, `int`, `float64`, `bool` fields
+- Zero-value constructors: `mymod.config()` → `&Config{}`
+- `New*` constructors: `NewConfig(...)` → `mymod.new_config(...)`
+- Functions taking `*Struct` params
+- Functions returning `*Struct`
+- Field get (`c.name`) and set (`c.name = "x"`)
+- `type_of(c)` returns the Go struct name
+
+### Limitations
+
+- Struct methods (`c.describe()`) are not bridged — use package-level functions
+  that take the struct as a parameter instead
+- Nested structs (struct fields that are other structs) are skipped
+- Struct fields with non-bridgeable types are skipped (the struct is still
+  bridgeable with the remaining fields)
 
 ## Limitations
 
-- **Only exported package-level functions are bridged.** Methods on structs,
-  struct types, variables, and constants are not exposed. If you need
-  stateful objects, use a [custom build](14-custom-modules.md) instead.
+- **Only exported package-level functions are bridged.** Methods on structs
+  are not exposed. Use package-level functions that take struct pointers instead.
 - **Only top-level `.go` files are inspected.** Sub-packages in subdirectories
   are not automatically included. Use the `with` clause or require sub-packages
   directly:
@@ -188,14 +255,14 @@ function and why it was blocked.
 | | Go modules via `require` | Custom builds (`use`) |
 |---|---|---|
 | **Setup** | None — just write Go | Build custom binary |
-| **State** | Stateless (package-level funcs) | Stateful (struct with fields) |
+| **State** | Structs with field access | Full struct methods |
 | **Types** | Bridgeable types only | Any Go type |
 | **Dispatch** | No | Yes (CLI/web handlers) |
 | **Dependencies** | Automatic (from go.mod) | Via GoDeps field |
 
 Use `require` for wrapping Go libraries. Use [custom builds](14-custom-modules.md)
-when you need stateful modules, dispatch, or complex type handling.
+when you need struct methods, dispatch, or complex type handling.
 
 ---
 
-See `examples/require_go/` for a working example.
+See `examples/require_go/` and `examples/require_go_struct/` for working examples.

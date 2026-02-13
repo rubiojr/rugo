@@ -719,7 +719,21 @@ require "github.com/user/rugo-slug@v1.0.0" as slug
 slug.make("Hello World!")
 ```
 
-The Go module author writes a standard Go package with exported functions using bridgeable types (`string`, `int`, `float64`, `bool`, `error`, `[]string`, `[]byte`). Functions with non-bridgeable signatures (pointers, interfaces, channels, generics) are automatically excluded with clear compile-time errors.
+The Go module author writes a standard Go package with exported functions using bridgeable types (`string`, `int`, `float64`, `bool`, `error`, `[]string`, `[]byte`). Functions with non-bridgeable signatures (interfaces, channels, generics) are automatically excluded with clear compile-time warnings.
+
+Exported structs with bridgeable field types are also supported — the compiler generates wrapper types so struct values can be created, have fields read/set via dot syntax, and be passed to Go functions:
+
+```ruby
+require "mymod"
+
+c = mymod.config()             # zero-value constructor
+c.name = "app"                 # field set
+c.port = 8080
+c2 = mymod.new_config("x", 3) # Go constructor returning *Config
+puts(mymod.describe(c2))       # pass struct to Go function
+```
+
+See [Go Modules](quickstart/22-go-modules.md) for full details on struct support.
 
 See [External Modules](mods.md#external-modules-custom-rugo-builds) for details on creating Go modules.
 

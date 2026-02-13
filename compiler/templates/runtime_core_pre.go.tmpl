@@ -338,6 +338,12 @@ func rugo_type_of(args ...interface{}) interface{} {
 	case func(...interface{}) interface{}:
 		return "Lambda"
 	default:
+		// Struct wrappers with DotGet support (Go bridge structs)
+		if dg, ok := v.(interface{ DotGet(string) (interface{}, bool) }); ok {
+			if t, ok := dg.DotGet("__type__"); ok {
+				return t
+			}
+		}
 		return "Unknown"
 	}
 }

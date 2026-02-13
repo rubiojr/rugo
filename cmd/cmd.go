@@ -609,6 +609,8 @@ func docRemote(target, symbol string) error {
 			if inspErr != nil {
 				return fmt.Errorf("inspecting Go module %s: %w", target, inspErr)
 			}
+			ns := gobridge.DefaultNS(result.GoModulePath)
+			gobridge.FinalizeStructs(result, ns, ns)
 			docOutput(rugodoc.FormatBridgePackage(result.Package))
 			return nil
 		}
@@ -644,6 +646,8 @@ func docLocalDir(dir, symbol string) error {
 		if err != nil {
 			return fmt.Errorf("inspecting Go module %s: %w", dir, err)
 		}
+		ns := gobridge.DefaultNS(result.GoModulePath)
+		gobridge.FinalizeStructs(result, ns, ns)
 		docOutput(rugodoc.FormatBridgePackage(result.Package))
 		return nil
 	}

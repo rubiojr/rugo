@@ -498,11 +498,6 @@ func (c *Compiler) resolveGoModuleRequire(req *ast.RequireStmt, dir string, sour
 		return nil, fmt.Errorf("%s:%d: Go module require %q: %w", sourceFile, req.StmtLine(), req.Path, err)
 	}
 
-	// Warn about skipped functions so module authors know why they're missing.
-	for _, f := range result.Skipped {
-		fmt.Fprintf(os.Stderr, "warning: %s: skipping %s() — %s\n", req.Path, f.GoName, f.Reason)
-	}
-
 	// Determine namespace — same logic as regular Rugo requires:
 	// local uses the directory name, remote uses the repo name.
 	ns := req.Alias
@@ -529,6 +524,18 @@ func (c *Compiler) resolveGoModuleRequire(req *ast.RequireStmt, dir string, sour
 		if ns == bridgeNS {
 			return nil, fmt.Errorf("%s:%d: require namespace %q conflicts with imported Go bridge package %q", sourceFile, req.StmtLine(), ns, pkg)
 		}
+	}
+
+	// Finalize struct support: generate wrappers, constructors, reclassify blocked funcs.
+	pkgAlias := ns
+	if alias := gobridge.DefaultNS(result.GoModulePath); alias == ns {
+		pkgAlias = alias
+	}
+	gobridge.FinalizeStructs(result, ns, pkgAlias)
+
+	// Warn about skipped functions so module authors know why they're missing.
+	for _, f := range result.Skipped {
+		fmt.Fprintf(os.Stderr, "warning: %s: skipping %s() — %s\n", req.Path, f.GoName, f.Reason)
 	}
 
 	// Register the bridge package so codegen can find it.

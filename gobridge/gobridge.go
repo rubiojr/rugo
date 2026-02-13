@@ -62,6 +62,22 @@ type GoArrayType struct {
 	Size int    // compile-time array size (e.g., 32)
 }
 
+// GoStructInfo describes a discovered Go struct type for wrapper generation.
+// Used by the inspector to record struct metadata and by codegen to emit
+// type-safe DotGet/DotSet wrapper structs.
+type GoStructInfo struct {
+	GoName   string              // PascalCase struct name (e.g., "Config")
+	RugoName string              // snake_case name for constructor (e.g., "config")
+	Fields   []GoStructFieldInfo // exported fields with bridgeable types
+}
+
+// GoStructFieldInfo describes a single exported field of a Go struct.
+type GoStructFieldInfo struct {
+	GoName   string // PascalCase field name (e.g., "Name")
+	RugoName string // snake_case field name (e.g., "name")
+	Type     GoType // field type for conversion
+}
+
 // RuntimeHelper describes a Go helper function emitted into the generated code.
 // Multiple functions can share a helper via the same Key — it will only be emitted once.
 type RuntimeHelper struct {
@@ -109,6 +125,12 @@ type GoFuncSig struct {
 	// RuntimeHelpers lists Go helper functions this bridge function needs.
 	// Helpers are deduped by Key and emitted once into the generated code.
 	RuntimeHelpers []RuntimeHelper
+	// StructCasts maps param indices to wrapper type names for struct handle unwrapping.
+	// Codegen emits: arg.(*WrapperType).v
+	StructCasts map[int]string
+	// StructReturnWraps maps return indices to wrapper type names for struct handle wrapping.
+	// Codegen emits: &WrapperType{v: returnVal}
+	StructReturnWraps map[int]string
 }
 
 // Package holds the registry of bridgeable functions for a Go package.
@@ -129,6 +151,9 @@ type Package struct {
 	// as opposed to statically registered bridge packages. External packages
 	// need a blank reference (var _ = pkg.Func) to suppress unused import errors.
 	External bool
+	// Structs holds metadata about discovered Go struct types in external packages.
+	// Used by codegen to emit wrapper types with DotGet/DotSet methods.
+	Structs []GoStructInfo
 }
 
 // registry maps Go package paths to their bridge definitions.

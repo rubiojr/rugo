@@ -21,6 +21,8 @@ type InspectedPackage struct {
 	GoModulePath string
 	// Skipped lists functions that were found but not bridgeable, with reasons.
 	Skipped []ClassifiedFunc
+	// KnownStructs maps Go struct type names to true for reclassification.
+	KnownStructs map[string]bool
 }
 
 // InspectSourcePackage introspects a Go source directory and returns a bridge
@@ -86,9 +88,25 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 	}
 
 	var allFuncs []ClassifiedFunc
+	var structInfos []GoStructInfo
+	knownStructs := make(map[string]bool) // Go type name → true
 	scope := typePkg.Scope()
 	for _, name := range scope.Names() {
 		obj := scope.Lookup(name)
+
+		// Discover exported struct types.
+		if tn, ok := obj.(*types.TypeName); ok && tn.Exported() {
+			st, ok := tn.Type().Underlying().(*types.Struct)
+			if !ok {
+				continue
+			}
+			si := classifyStructFields(name, st)
+			if si != nil {
+				structInfos = append(structInfos, *si)
+				knownStructs[name] = true
+			}
+			continue
+		}
 
 		fn, ok := obj.(*types.Func)
 		if !ok || !fn.Exported() {
@@ -133,7 +151,7 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 		}
 	}
 
-	if len(funcs) == 0 {
+	if len(funcs) == 0 && len(structInfos) == 0 {
 		reasons := make([]string, 0, len(skipped))
 		for _, f := range skipped {
 			reasons = append(reasons, fmt.Sprintf("  %s: %s (%s)", f.GoName, f.Reason, f.Tier))
@@ -146,12 +164,14 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 		Funcs:    funcs,
 		Doc:      fmt.Sprintf("Functions from Go module %s.", modulePath),
 		External: true,
+		Structs:  structInfos,
 	}
 
 	return &InspectedPackage{
 		Package:      pkg,
 		GoModulePath: modulePath,
 		Skipped:      skipped,
+		KnownStructs: knownStructs,
 	}, nil
 }
 
@@ -218,4 +238,203 @@ func ReadGoModulePath(path string) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("no module directive found in %s", path)
+}
+
+// classifyStructFields examines an exported struct and returns a GoStructInfo
+// with all exported fields that have bridgeable types. Returns nil if no
+// fields are bridgeable.
+func classifyStructFields(goName string, st *types.Struct) *GoStructInfo {
+	var fields []GoStructFieldInfo
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		if !f.Exported() || f.Embedded() {
+			continue
+		}
+		gt, tier, _ := ClassifyGoType(f.Type(), true)
+		if tier == TierBlocked || tier == TierFunc {
+			continue
+		}
+		fields = append(fields, GoStructFieldInfo{
+			GoName:   f.Name(),
+			RugoName: ToSnakeCase(f.Name()),
+			Type:     gt,
+		})
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	return &GoStructInfo{
+		GoName:   goName,
+		RugoName: ToSnakeCase(goName),
+		Fields:   fields,
+	}
+}
+
+// FinalizeStructs enriches an InspectedPackage with struct constructors and
+// reclassifies skipped functions that use known struct types as params/returns.
+// ns is the Rugo namespace, pkgAlias is the Go package alias for generated code.
+// Must be called before gobridge.Register().
+func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
+	pkg := result.Package
+	if len(pkg.Structs) == 0 {
+		return
+	}
+
+	// Build a lookup from Go struct name to wrapper type name.
+	structWrappers := make(map[string]string) // GoName → wrapper type name
+	for _, si := range pkg.Structs {
+		wrapType := StructWrapperTypeName(ns, si.GoName)
+		structWrappers[si.GoName] = wrapType
+
+		// Generate wrapper RuntimeHelper.
+		helper := GenerateStructWrapper(ns, pkgAlias, si)
+
+		// Register zero-value constructor: mymod.config() → &rugo_struct_mymod_Config{v: &pkg.Config{}}
+		constructorName := si.RugoName
+		// Avoid collision with existing functions.
+		if _, exists := pkg.Funcs[constructorName]; exists {
+			constructorName = "new_" + constructorName
+		}
+		wt := wrapType
+		pa := pkgAlias
+		gn := si.GoName
+		pkg.Funcs[constructorName] = GoFuncSig{
+			GoName:  si.GoName,
+			Returns: []GoType{GoString}, // placeholder — actual return is opaque handle
+			Doc:     fmt.Sprintf("Creates a new zero-value %s struct.", si.GoName),
+			Codegen: func(pkgBase string, args []string, rugoName string) string {
+				return fmt.Sprintf("interface{}(&%s{v: &%s.%s{}})", wt, pa, gn)
+			},
+			RuntimeHelpers: []RuntimeHelper{helper},
+		}
+	}
+
+	// Reclassify skipped functions that are blocked only by known struct pointer types.
+	var stillSkipped []ClassifiedFunc
+	for _, f := range result.Skipped {
+		if f.Tier != TierBlocked {
+			stillSkipped = append(stillSkipped, f)
+			continue
+		}
+		sig := reclassifyWithStructs(f, structWrappers, pkgAlias, result.KnownStructs)
+		if sig != nil {
+			// Attach struct wrapper RuntimeHelpers so they're emitted.
+			for _, si := range pkg.Structs {
+				wt := structWrappers[si.GoName]
+				if needsWrapper(sig, wt) {
+					sig.RuntimeHelpers = append(sig.RuntimeHelpers, GenerateStructWrapper(ns, pkgAlias, si))
+				}
+			}
+			pkg.Funcs[f.RugoName] = *sig
+		} else {
+			stillSkipped = append(stillSkipped, f)
+		}
+	}
+	result.Skipped = stillSkipped
+}
+
+// reclassifyWithStructs attempts to build a GoFuncSig for a blocked function
+// by resolving struct pointer params/returns to wrapper types.
+// Returns nil if the function can't be reclassified.
+func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, pkgAlias string, knownStructs map[string]bool) *GoFuncSig {
+	if f.Sig == nil {
+		return nil
+	}
+
+	sig := &GoFuncSig{
+		GoName:   f.GoName,
+		Variadic: f.Sig.Variadic(),
+	}
+
+	// Classify params.
+	params := f.Sig.Params()
+	for i := 0; i < params.Len(); i++ {
+		t := params.At(i).Type()
+		gt, tier, _ := ClassifyGoType(t, true)
+		if tier == TierBlocked {
+			// Check if it's a pointer to a known struct.
+			structName := extractStructName(t, knownStructs)
+			if structName == "" {
+				return nil
+			}
+			wrapType, ok := structWrappers[structName]
+			if !ok {
+				return nil
+			}
+			// Param is an opaque struct handle — use GoString as placeholder type.
+			sig.Params = append(sig.Params, GoString)
+			if sig.StructCasts == nil {
+				sig.StructCasts = make(map[int]string)
+			}
+			sig.StructCasts[i] = wrapType
+		} else if tier == TierFunc {
+			return nil // Can't handle func params in reclassification
+		} else {
+			sig.Params = append(sig.Params, gt)
+		}
+	}
+
+	// Classify returns.
+	results := f.Sig.Results()
+	for i := 0; i < results.Len(); i++ {
+		t := results.At(i).Type()
+		gt, tier, _ := ClassifyGoType(t, false)
+		if tier == TierBlocked {
+			structName := extractStructName(t, knownStructs)
+			if structName == "" {
+				return nil
+			}
+			wrapType, ok := structWrappers[structName]
+			if !ok {
+				return nil
+			}
+			// Return is wrapped into an opaque struct handle.
+			sig.Returns = append(sig.Returns, GoString) // placeholder
+			if sig.StructReturnWraps == nil {
+				sig.StructReturnWraps = make(map[int]string)
+			}
+			sig.StructReturnWraps[i] = wrapType
+		} else {
+			sig.Returns = append(sig.Returns, gt)
+		}
+	}
+
+	return sig
+}
+
+// extractStructName checks if a type is a pointer to a known struct and returns
+// the struct name, or empty string if not.
+func extractStructName(t types.Type, knownStructs map[string]bool) string {
+	// Handle *Struct (pointer to struct).
+	if ptr, ok := t.(*types.Pointer); ok {
+		if named, ok := ptr.Elem().(*types.Named); ok {
+			name := named.Obj().Name()
+			if knownStructs[name] {
+				return name
+			}
+		}
+	}
+	// Handle Struct directly (value type).
+	if named, ok := t.(*types.Named); ok {
+		name := named.Obj().Name()
+		if knownStructs[name] {
+			return name
+		}
+	}
+	return ""
+}
+
+// needsWrapper checks if a GoFuncSig references a given wrapper type.
+func needsWrapper(sig *GoFuncSig, wrapType string) bool {
+	for _, w := range sig.StructCasts {
+		if w == wrapType {
+			return true
+		}
+	}
+	for _, w := range sig.StructReturnWraps {
+		if w == wrapType {
+			return true
+		}
+	}
+	return false
 }

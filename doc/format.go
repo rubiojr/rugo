@@ -154,6 +154,20 @@ func FormatBridgePackage(pkg *gobridge.Package) string {
 	}
 	sb.WriteString("\n")
 
+	// Show structs first
+	for _, si := range pkg.Structs {
+		sb.WriteString(fmt.Sprintf("struct %s { ", si.GoName))
+		var fields []string
+		for _, f := range si.Fields {
+			fields = append(fields, fmt.Sprintf("%s: %s", f.RugoName, gobridge.GoTypeName(f.Type)))
+		}
+		sb.WriteString(strings.Join(fields, ", "))
+		sb.WriteString(" }\n")
+	}
+	if len(pkg.Structs) > 0 {
+		sb.WriteString("\n")
+	}
+
 	// Sort function names for stable output
 	names := make([]string, 0, len(pkg.Funcs))
 	for name := range pkg.Funcs {
@@ -258,7 +272,14 @@ func formatModuleFuncSig(modName string, f modules.FuncDef) string {
 
 func formatBridgeFuncSig(ns, name string, sig gobridge.GoFuncSig) string {
 	var params []string
-	for _, p := range sig.Params {
+	for i, p := range sig.Params {
+		// Show struct type name instead of placeholder for struct params.
+		if sig.StructCasts != nil {
+			if wrapType, ok := sig.StructCasts[i]; ok {
+				params = append(params, structNameFromWrapper(wrapType))
+				continue
+			}
+		}
 		params = append(params, gobridge.GoTypeName(p))
 	}
 	if sig.Variadic {
@@ -269,11 +290,25 @@ func formatBridgeFuncSig(ns, name string, sig gobridge.GoFuncSig) string {
 	}
 
 	var returns []string
-	for _, r := range sig.Returns {
+	for i, r := range sig.Returns {
 		if r == gobridge.GoError {
 			continue // errors are auto-panicked, not visible to Rugo
 		}
+		// Show struct type name instead of placeholder for struct returns.
+		if sig.StructReturnWraps != nil {
+			if wrapType, ok := sig.StructReturnWraps[i]; ok {
+				returns = append(returns, structNameFromWrapper(wrapType))
+				continue
+			}
+		}
 		returns = append(returns, gobridge.GoTypeName(r))
+	}
+
+	// Hide constructors with Codegen (zero-value constructors show their return type).
+	if sig.Codegen != nil {
+		result := fmt.Sprintf("%s.%s(%s)", ns, name, strings.Join(params, ", "))
+		result += " -> " + sig.GoName
+		return result
 	}
 
 	result := fmt.Sprintf("%s.%s(%s)", ns, name, strings.Join(params, ", "))
@@ -282,4 +317,14 @@ func formatBridgeFuncSig(ns, name string, sig gobridge.GoFuncSig) string {
 	}
 
 	return result
+}
+
+// structNameFromWrapper extracts the Go struct name from a wrapper type name.
+// "rugo_struct_mymod_Config" → "Config"
+func structNameFromWrapper(wrapType string) string {
+	parts := strings.Split(wrapType, "_")
+	if len(parts) >= 4 {
+		return parts[len(parts)-1]
+	}
+	return wrapType
 }

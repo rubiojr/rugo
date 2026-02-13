@@ -2,7 +2,10 @@ package doc
 
 import (
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/rubiojr/rugo/gobridge"
 )
 
 func TestExtract_FileDoc(t *testing.T) {
@@ -254,5 +257,154 @@ func writeFile(t *testing.T, dir, name, content string) {
 	t.Helper()
 	if err := os.WriteFile(dir+"/"+name, []byte(content), 0644); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestFormatBridgePackage_WithStructs(t *testing.T) {
+	pkg := &gobridge.Package{
+		Path: "example.com/mymod",
+		Doc:  "Test module.",
+		Funcs: map[string]gobridge.GoFuncSig{
+			"greet": {GoName: "Greet", Params: []gobridge.GoType{gobridge.GoString}, Returns: []gobridge.GoType{gobridge.GoString}},
+		},
+		Structs: []gobridge.GoStructInfo{
+			{
+				GoName:   "Config",
+				RugoName: "config",
+				Fields: []gobridge.GoStructFieldInfo{
+					{GoName: "Name", RugoName: "name", Type: gobridge.GoString},
+					{GoName: "Port", RugoName: "port", Type: gobridge.GoInt},
+				},
+			},
+		},
+	}
+
+	out := FormatBridgePackage(pkg)
+
+	// Struct definition appears
+	if !strings.Contains(out, "struct Config") {
+		t.Errorf("missing struct Config in output:\n%s", out)
+	}
+	if !strings.Contains(out, "name: string") {
+		t.Errorf("missing field name: string in output:\n%s", out)
+	}
+	if !strings.Contains(out, "port: int") {
+		t.Errorf("missing field port: int in output:\n%s", out)
+	}
+	// Function still appears
+	if !strings.Contains(out, "mymod.greet(string) -> string") {
+		t.Errorf("missing greet function in output:\n%s", out)
+	}
+}
+
+func TestFormatBridgePackage_NoStructs(t *testing.T) {
+	pkg := &gobridge.Package{
+		Path: "strings",
+		Doc:  "String functions.",
+		Funcs: map[string]gobridge.GoFuncSig{
+			"to_upper": {GoName: "ToUpper", Params: []gobridge.GoType{gobridge.GoString}, Returns: []gobridge.GoType{gobridge.GoString}},
+		},
+	}
+
+	out := FormatBridgePackage(pkg)
+
+	if strings.Contains(out, "struct") {
+		t.Errorf("unexpected struct in output:\n%s", out)
+	}
+	if !strings.Contains(out, "strings.to_upper(string) -> string") {
+		t.Errorf("missing to_upper function in output:\n%s", out)
+	}
+}
+
+func TestFormatBridgeFuncSig_StructParams(t *testing.T) {
+	sig := gobridge.GoFuncSig{
+		GoName:      "GetName",
+		Params:      []gobridge.GoType{gobridge.GoString}, // placeholder
+		Returns:     []gobridge.GoType{gobridge.GoString},
+		StructCasts: map[int]string{0: "rugo_struct_mymod_Config"},
+	}
+
+	out := formatBridgeFuncSig("mymod", "get_name", sig)
+
+	if !strings.Contains(out, "mymod.get_name(Config)") {
+		t.Errorf("expected struct type name in params, got: %s", out)
+	}
+	if !strings.Contains(out, "-> string") {
+		t.Errorf("expected string return, got: %s", out)
+	}
+}
+
+func TestFormatBridgeFuncSig_StructReturn(t *testing.T) {
+	sig := gobridge.GoFuncSig{
+		GoName:            "NewConfig",
+		Params:            []gobridge.GoType{gobridge.GoString, gobridge.GoInt},
+		Returns:           []gobridge.GoType{gobridge.GoString}, // placeholder
+		StructReturnWraps: map[int]string{0: "rugo_struct_mymod_Config"},
+	}
+
+	out := formatBridgeFuncSig("mymod", "new_config", sig)
+
+	if !strings.Contains(out, "-> Config") {
+		t.Errorf("expected struct type name in return, got: %s", out)
+	}
+	if !strings.Contains(out, "mymod.new_config(string, int)") {
+		t.Errorf("expected normal params, got: %s", out)
+	}
+}
+
+func TestFormatBridgeFuncSig_Constructor(t *testing.T) {
+	sig := gobridge.GoFuncSig{
+		GoName:  "Config",
+		Returns: []gobridge.GoType{gobridge.GoString},
+		Codegen: func(pkgBase string, args []string, rugoName string) string { return "" },
+	}
+
+	out := formatBridgeFuncSig("mymod", "config", sig)
+
+	if !strings.Contains(out, "-> Config") {
+		t.Errorf("expected struct name from GoName in constructor return, got: %s", out)
+	}
+}
+
+func TestFormatBridgePackage_MultipleStructs(t *testing.T) {
+	pkg := &gobridge.Package{
+		Path: "example.com/multi",
+		Doc:  "Multi-struct module.",
+		Funcs: map[string]gobridge.GoFuncSig{},
+		Structs: []gobridge.GoStructInfo{
+			{GoName: "Config", RugoName: "config", Fields: []gobridge.GoStructFieldInfo{
+				{GoName: "Name", RugoName: "name", Type: gobridge.GoString},
+			}},
+			{GoName: "Server", RugoName: "server", Fields: []gobridge.GoStructFieldInfo{
+				{GoName: "Host", RugoName: "host", Type: gobridge.GoString},
+				{GoName: "Debug", RugoName: "debug", Type: gobridge.GoBool},
+			}},
+		},
+	}
+
+	out := FormatBridgePackage(pkg)
+
+	if !strings.Contains(out, "struct Config { name: string }") {
+		t.Errorf("missing Config struct in output:\n%s", out)
+	}
+	if !strings.Contains(out, "struct Server { host: string, debug: bool }") {
+		t.Errorf("missing Server struct in output:\n%s", out)
+	}
+}
+
+func TestStructNameFromWrapper(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"rugo_struct_mymod_Config", "Config"},
+		{"rugo_struct_sm_Server", "Server"},
+		{"short", "short"},
+	}
+	for _, tt := range tests {
+		got := structNameFromWrapper(tt.input)
+		if got != tt.want {
+			t.Errorf("structNameFromWrapper(%q) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }

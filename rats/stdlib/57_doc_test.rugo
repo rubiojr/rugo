@@ -421,3 +421,46 @@ rats "rugo doc recursive excludes test files"
   test.assert_contains(result["output"], "def api")
   test.assert_false(str.contains(result["output"], "test_api"))
 end
+
+# Test: rugo doc on Go module with structs shows struct definitions
+rats "rugo doc Go module shows struct definitions"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/go_module_struct")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "struct Config")
+  test.assert_contains(result["output"], "name: string")
+  test.assert_contains(result["output"], "port: int")
+  test.assert_contains(result["output"], "struct Server")
+  test.assert_contains(result["output"], "debug: bool")
+end
+
+# Test: rugo doc on Go module with structs shows constructors
+rats "rugo doc Go module shows struct constructors"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/go_module_struct")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "structmod.config() -> Config")
+  test.assert_contains(result["output"], "structmod.server() -> Server")
+end
+
+# Test: rugo doc on Go module shows struct type in function signatures
+rats "rugo doc Go module shows struct types in signatures"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/go_module_struct")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "structmod.get_name(Config) -> string")
+  test.assert_contains(result["output"], "structmod.new_config(string, int) -> Config")
+  test.assert_contains(result["output"], "structmod.set_name(Config, string) -> Config")
+end
+
+# Test: rugo doc on Go module still shows plain functions alongside structs
+rats "rugo doc Go module shows plain functions with structs"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_struct #{tmpdir}/go_module_struct")
+  result = test.run("NO_COLOR=1 rugo doc #{tmpdir}/go_module_struct")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "structmod.greet(string) -> string")
+end

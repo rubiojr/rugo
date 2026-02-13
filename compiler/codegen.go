@@ -346,6 +346,10 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			continue
 		}
 		for _, sig := range bp.Funcs {
+			// Skip struct constructors (their GoName is a type, not a function).
+			if sig.Codegen != nil {
+				continue
+			}
 			alias := g.goImports[pkg]
 			pkgBase := alias
 			if pkgBase == "" {
@@ -2545,6 +2549,13 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 	var convertedArgs []string
 	for i, arg := range argExprs {
 		if i < len(sig.Params) {
+			// Struct handle unwrapping: extract the inner Go struct from the wrapper.
+			if sig.StructCasts != nil {
+				if wrapType, ok := sig.StructCasts[i]; ok {
+					convertedArgs = append(convertedArgs, fmt.Sprintf("%s.(*%s).v", arg, wrapType))
+					continue
+				}
+			}
 			if sig.Params[i] == gobridge.GoFunc && sig.FuncTypes != nil {
 				if ft, ok := sig.FuncTypes[i]; ok {
 					convertedArgs = append(convertedArgs, gobridge.FuncAdapterConv(arg, ft))
@@ -2587,8 +2598,14 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 		return fmt.Sprintf("func() interface{} { %s; return nil }()", call)
 	}
 
-	// Helper: wrap return expression, handling fixed-size arrays by slicing
+	// Helper: wrap return expression, handling fixed-size arrays and struct wrapping
 	wrapRet := func(expr string, retIdx int, t gobridge.GoType) string {
+		// Struct return wrapping: wrap Go struct pointer into opaque wrapper.
+		if sig.StructReturnWraps != nil {
+			if wrapType, ok := sig.StructReturnWraps[retIdx]; ok {
+				return fmt.Sprintf("interface{}(&%s{v: %s})", wrapType, expr)
+			}
+		}
 		if sig.ArrayTypes != nil {
 			if _, ok := sig.ArrayTypes[retIdx]; ok {
 				// Slice fixed array to dynamic slice: _v[:] then wrap
@@ -2603,7 +2620,12 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 		if sig.Returns[0] == gobridge.GoError {
 			return fmt.Sprintf("func() interface{} { if _err := %s; _err != nil { %s }; return nil }()", call, panicFmt)
 		}
-		// Fixed-size array returns need IIFE for slicing
+		// Struct return wrapping or fixed-size array returns need IIFE
+		if sig.StructReturnWraps != nil {
+			if _, ok := sig.StructReturnWraps[0]; ok {
+				return fmt.Sprintf("func() interface{} { _v := %s; return %s }()", call, wrapRet("_v", 0, sig.Returns[0]))
+			}
+		}
 		if sig.ArrayTypes != nil {
 			if _, ok := sig.ArrayTypes[0]; ok {
 				return fmt.Sprintf("func() interface{} { _v := %s; return %s }()", call, wrapRet("_v", 0, sig.Returns[0]))
@@ -2621,7 +2643,7 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 	// (T, bool): return nil if false
 	if len(sig.Returns) == 2 && sig.Returns[1] == gobridge.GoBool {
 		return fmt.Sprintf("func() interface{} { _v, _ok := %s; if !_ok { return nil }; return %s }()",
-			call, gobridge.TypeWrapReturn("_v", sig.Returns[0]))
+			call, wrapRet("_v", 0, sig.Returns[0]))
 	}
 
 	// Multi-return: collect all values into []interface{} array

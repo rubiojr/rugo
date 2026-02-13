@@ -72,6 +72,12 @@ func rugo_dot_get(obj interface{}, field string) interface{} {
 }
 
 func rugo_dot_set(obj interface{}, field string, val interface{}) {
+	// Struct wrappers: check for DotSet interface
+	if ds, ok := obj.(interface{ DotSet(string, interface{}) bool }); ok {
+		if ds.DotSet(field, val) {
+			return
+		}
+	}
 	if m, ok := obj.(map[interface{}]interface{}); ok {
 		m[field] = val
 		return
