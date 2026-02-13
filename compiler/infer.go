@@ -16,14 +16,18 @@ func Infer(prog *ast.Program) *TypeInfo {
 		VarTypes:  make(map[string]map[string]RugoType),
 	}
 
-	// Collect all function definitions.
+	// Collect all function definitions (skip duplicates — codegen validates them).
 	var funcs []*ast.FuncDef
 	var topStmts []ast.Statement
 	for _, s := range prog.Statements {
 		switch st := s.(type) {
 		case *ast.FuncDef:
+			key := funcKey(st)
+			if _, exists := ti.FuncTypes[key]; exists {
+				continue // duplicate — codegen will report the error
+			}
 			funcs = append(funcs, st)
-			ti.FuncTypes[funcKey(st)] = &FuncTypeInfo{
+			ti.FuncTypes[key] = &FuncTypeInfo{
 				ParamTypes: make([]RugoType, len(st.Params)),
 				ReturnType: TypeUnknown,
 			}

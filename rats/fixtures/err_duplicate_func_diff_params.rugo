@@ -1,0 +1,7 @@
+def calc(a)
+  return a * 2
+end
+
+def calc()
+  return 42
+end

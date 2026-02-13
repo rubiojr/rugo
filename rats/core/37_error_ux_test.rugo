@@ -101,6 +101,15 @@ rats "duplicate function does not leak Go internals"
   test.assert_false(str.contains(result["output"], "main.go"))
 end
 
+rats "duplicate function with different param counts does not panic"
+  result = test.run("rugo run rats/fixtures/err_duplicate_func_diff_params.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "already defined")
+  # Must NOT contain panic or Go stack trace
+  test.assert_false(str.contains(result["output"], "panic"))
+  test.assert_false(str.contains(result["output"], "goroutine"))
+end
+
 # --- Bug 606c5a5: Go build errors translated ---
 
 rats "break outside loop uses Rugo terminology"
