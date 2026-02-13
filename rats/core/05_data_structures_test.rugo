@@ -2,48 +2,23 @@
 use "test"
 
 rats "array creation and access"
-  script = <<~SCRIPT
-    arr = [1, 2, 3]
-    puts(arr[0])
-    puts(arr[2])
-    puts(len(arr))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "1")
-  test.assert_eq(lines[1], "3")
-  test.assert_eq(lines[2], "3")
+  arr = [1, 2, 3]
+  test.assert_eq(arr[0], 1)
+  test.assert_eq(arr[2], 3)
+  test.assert_eq(len(arr), 3)
 end
 
 rats "array append"
-  script = <<~SCRIPT
-    arr = [1, 2]
-    arr = append(arr, 3)
-    puts(len(arr))
-    puts(arr[2])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "3")
-  test.assert_eq(lines[1], "3")
+  arr = [1, 2]
+  arr = append(arr, 3)
+  test.assert_eq(len(arr), 3)
+  test.assert_eq(arr[2], 3)
 end
 
 rats "hash creation and access"
-  script = <<~SCRIPT
-    h = {"a" => 1, "b" => 2}
-    puts(h["a"])
-    puts(h["b"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "1")
-  test.assert_eq(lines[1], "2")
+  h = {"a" => 1, "b" => 2}
+  test.assert_eq(h["a"], 1)
+  test.assert_eq(h["b"], 2)
 end
 
 rats "arrays and hashes example"

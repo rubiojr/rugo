@@ -17,37 +17,17 @@ rats "negative index assignment"
 end
 
 rats "negative index -1 returns last element"
-  script = <<~SCRIPT
-    arr = ["a", "b", "c"]
-    puts(arr[-1])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "c")
+  arr = ["a", "b", "c"]
+  test.assert_eq(arr[-1], "c")
 end
 
 rats "positive indices still work"
-  script = <<~SCRIPT
-    arr = [10, 20, 30]
-    puts(arr[0])
-    puts(arr[2])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "10")
-  test.assert_eq(lines[1], "30")
+  arr = [10, 20, 30]
+  test.assert_eq(arr[0], 10)
+  test.assert_eq(arr[2], 30)
 end
 
 rats "hash with negative integer key still works"
-  script = <<~SCRIPT
-    h = {-1 => "neg"}
-    puts(h[-1])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "neg")
+  h = {-1 => "neg"}
+  test.assert_eq(h[-1], "neg")
 end

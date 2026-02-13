@@ -39,96 +39,55 @@ rats "lambda with zero args rejects args"
 end
 
 rats "lambda with correct arg count works"
-  script = <<~SCRIPT
-    f = fn(x, y) x + y end
-    puts(f(3, 4))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "7")
+  f = fn(x, y) x + y end
+  test.assert_eq(f(3, 4), 7)
 end
 
 rats "lambda with zero params and zero args works"
-  script = <<~SCRIPT
-    f = fn() 42 end
-    puts(f())
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "42")
+  f = fn() 42 end
+  test.assert_eq(f(), 42)
 end
 
 rats "lambda single arg works"
-  script = <<~SCRIPT
-    double = fn(x) x * 2 end
-    puts(double(5))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "10")
+  double = fn(x) x * 2 end
+  test.assert_eq(double(5), 10)
 end
 
 rats "lambda passed to .map still works"
-  script = <<~SCRIPT
-    arr = [1, 2, 3]
-    result = arr.map(fn(x) x * 10 end)
-    puts(result)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "[10 20 30]")
+  arr = [1, 2, 3]
+  result = arr.map(fn(x) x * 10 end)
+  test.assert_eq(result[0], 10)
+  test.assert_eq(result[1], 20)
+  test.assert_eq(result[2], 30)
 end
 
 rats "lambda passed to .filter still works"
-  script = <<~SCRIPT
-    arr = [1, 2, 3, 4, 5]
-    result = arr.filter(fn(x) x > 3 end)
-    puts(result)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "[4 5]")
+  arr = [1, 2, 3, 4, 5]
+  result = arr.filter(fn(x) x > 3 end)
+  test.assert_eq(len(result), 2)
+  test.assert_eq(result[0], 4)
+  test.assert_eq(result[1], 5)
 end
 
 rats "lambda passed to .each still works"
-  script = <<~SCRIPT
-    arr = [1, 2, 3]
-    arr.each(fn(x) puts(x) end)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "1")
-  test.assert_eq(lines[1], "2")
-  test.assert_eq(lines[2], "3")
+  arr = [1, 2, 3]
+  collected = []
+  arr.each(fn(x) append collected, x end)
+  test.assert_eq(len(collected), 3)
+  test.assert_eq(collected[0], 1)
+  test.assert_eq(collected[1], 2)
+  test.assert_eq(collected[2], 3)
 end
 
 rats "lambda passed to .reduce still works"
-  script = <<~SCRIPT
-    arr = [1, 2, 3, 4]
-    sum = arr.reduce(0, fn(acc, x) acc + x end)
-    puts(sum)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "10")
+  arr = [1, 2, 3, 4]
+  sum = arr.reduce(0, fn(acc, x) acc + x end)
+  test.assert_eq(sum, 10)
 end
 
 rats "lambda passed to hash .each still works"
-  script = <<~SCRIPT
-    h = {a: 1, b: 2}
-    h.each(fn(k, v) puts(k + "=" + v) end)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "a=1")
-  test.assert_contains(result["output"], "b=2")
+  h = {a: 1, b: 2}
+  keys = []
+  h.each(fn(k, v) append keys, k end)
+  test.assert_eq(len(keys), 2)
 end

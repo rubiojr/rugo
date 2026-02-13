@@ -1,5 +1,7 @@
 # RATS: Test stdlib modules (os, conv, str)
 use "test"
+use "conv"
+use "str"
 
 rats "os.exec runs commands"
   script = <<~SCRIPT
@@ -24,101 +26,41 @@ rats "os.exit sets exit code"
 end
 
 rats "conv.to_i converts string to int"
-  script = <<~SCRIPT
-    use "conv"
-    x = conv.to_i("42")
-    puts(x + 1)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "43")
+  x = conv.to_i("42")
+  test.assert_eq(x + 1, 43)
 end
 
 rats "conv.to_s converts int to string"
-  script = <<~SCRIPT
-    use "conv"
-    x = conv.to_s(42)
-    puts(x)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "42")
+  x = conv.to_s(42)
+  test.assert_eq(x, "42")
 end
 
 rats "str.contains works"
-  script = <<~SCRIPT
-    use "str"
-    puts(str.contains("hello world", "world"))
-    puts(str.contains("hello", "xyz"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "true")
-  test.assert_eq(lines[1], "false")
+  test.assert_eq(str.contains("hello world", "world"), true)
+  test.assert_eq(str.contains("hello", "xyz"), false)
 end
 
 rats "str.split works"
-  script = <<~SCRIPT
-    use "str"
-    arr = str.split("a,b,c", ",")
-    puts(arr[0])
-    puts(arr[1])
-    puts(arr[2])
-    puts(len(arr))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "a")
-  test.assert_eq(lines[1], "b")
-  test.assert_eq(lines[2], "c")
-  test.assert_eq(lines[3], "3")
+  arr = str.split("a,b,c", ",")
+  test.assert_eq(arr[0], "a")
+  test.assert_eq(arr[1], "b")
+  test.assert_eq(arr[2], "c")
+  test.assert_eq(len(arr), 3)
 end
 
 rats "str.trim works"
-  script = <<~SCRIPT
-    use "str"
-    puts(str.trim("  hello  "))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "hello")
+  test.assert_eq(str.trim("  hello  "), "hello")
 end
 
 rats "str.upper and str.lower"
-  script = <<~SCRIPT
-    use "str"
-    puts(str.upper("hello"))
-    puts(str.lower("WORLD"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "HELLO")
-  test.assert_eq(lines[1], "world")
+  test.assert_eq(str.upper("hello"), "HELLO")
+  test.assert_eq(str.lower("WORLD"), "world")
 end
 
 rats "str.join works"
-  script = <<~SCRIPT
-    use "str"
-    puts(str.join(["a", "b", "c"], ","))
-    puts(str.join([], "-"))
-    puts(str.join([1, 2, 3], " + "))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "a,b,c")
-  test.assert_eq(lines[1], "")
-  test.assert_eq(lines[2], "1 + 2 + 3")
+  test.assert_eq(str.join(["a", "b", "c"], ","), "a,b,c")
+  test.assert_eq(str.join([], "-"), "")
+  test.assert_eq(str.join([1, 2, 3], " + "), "1 + 2 + 3")
 end
 
 rats "unknown module import fails"

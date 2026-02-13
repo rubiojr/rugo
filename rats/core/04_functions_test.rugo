@@ -1,34 +1,33 @@
 # RATS: Test functions
 use "test"
+use "eval"
 
 rats "user defined function"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def greet(name)
       puts("hi " + name)
     end
     greet("rugo")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hi rugo")
 end
 
 rats "function with return value"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def double(x)
       return x * 2
     end
     puts(double(21))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
 rats "function calling another function"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def add(a, b)
       return a + b
     end
@@ -36,9 +35,8 @@ rats "function calling another function"
       return add(add(a, b), c)
     end
     puts(add3(1, 2, 3))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "6")
 end
@@ -49,68 +47,64 @@ rats "paren-free function calls"
 end
 
 rats "bare function name as expression calls the function"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def greet
       return "hello"
     end
     puts greet
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end
 
 rats "bare function name in assignment calls the function"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def greet
       return "hello"
     end
     x = greet
     puts x
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end
 
 rats "bare function name in expression calls the function"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def greet
       return "hello"
     end
     x = greet + " world"
     puts x
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello world")
 end
 
 rats "local variable shadows function name"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def greet
       return "hello"
     end
     greet = "world"
     puts greet
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "world")
 end
 
 rats "bare function name with wrong arity errors"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def greet(name)
       return "hello " + name
     end
     puts greet
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  RUGO
+  test.write_file("#{test.tmpdir()}/test.rugo", source)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
 end

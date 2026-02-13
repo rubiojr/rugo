@@ -1,78 +1,74 @@
 # RATS: Test that def functions can access top-level variables
 use "test"
+use "eval"
 
 rats "def function can access top-level constant"
-  script = <<~SCRIPT
+  source = <<~RUGO
     GREETING = "hello"
     def greet()
       return GREETING
     end
     puts greet()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end
 
 rats "def function can access top-level variable"
-  script = <<~SCRIPT
+  source = <<~RUGO
     count = 42
     def get_count()
       return count
     end
     puts get_count()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
 rats "def function can access top-level hash"
-  script = <<~SCRIPT
+  source = <<~RUGO
     config = {greeting: "hello"}
     def get_greeting()
       return config["greeting"]
     end
     puts get_greeting()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end
 
 rats "def function can access top-level array"
-  script = <<~SCRIPT
+  source = <<~RUGO
     items = [1, 2, 3]
     def first_item()
       return items[0]
     end
     puts first_item()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "1")
 end
 
 rats "def function with params still works alongside top-level vars"
-  script = <<~SCRIPT
+  source = <<~RUGO
     PREFIX = "Hello"
     def greet(name)
       return PREFIX + ", " + name + "!"
     end
     puts greet("world")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, world!")
 end
 
 rats "local assignment shadows top-level var (no promotion)"
-  script = <<~SCRIPT
+  source = <<~RUGO
     name = "top"
     def shadow()
       name = "local"
@@ -80,16 +76,15 @@ rats "local assignment shadows top-level var (no promotion)"
     end
     puts shadow()
     puts name
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "local")
   test.assert_eq(result["lines"][1], "top")
 end
 
 rats "multiple functions share same promoted var"
-  script = <<~SCRIPT
+  source = <<~RUGO
     BASE = "/api"
     def route_a()
       return BASE + "/a"
@@ -99,16 +94,15 @@ rats "multiple functions share same promoted var"
     end
     puts route_a()
     puts route_b()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "/api/a")
   test.assert_eq(result["lines"][1], "/api/b")
 end
 
 rats "promoted var used in condition inside def"
-  script = <<~SCRIPT
+  source = <<~RUGO
     LIMIT = 10
     def check(n)
       if n > LIMIT
@@ -118,16 +112,15 @@ rats "promoted var used in condition inside def"
     end
     puts check(5)
     puts check(15)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "under")
   test.assert_eq(result["lines"][1], "over")
 end
 
 rats "promoted var used in loop inside def"
-  script = <<~SCRIPT
+  source = <<~RUGO
     items = ["a", "b", "c"]
     def joined()
       result = ""
@@ -137,29 +130,27 @@ rats "promoted var used in loop inside def"
       return result
     end
     puts joined()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "abc")
 end
 
 rats "function without top-level refs still works"
-  script = <<~SCRIPT
+  source = <<~RUGO
     UNUSED = "never read"
     def add(a, b)
       return a + b
     end
     puts add(3, 4)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "7")
 end
 
 rats "assigning top-level var inside def creates local shadow"
-  script = <<~SCRIPT
+  source = <<~RUGO
     counter = 0
     def bump()
       counter = 99
@@ -167,11 +158,9 @@ rats "assigning top-level var inside def creates local shadow"
     end
     puts bump()
     puts counter
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
-  # bump() gets a local shadow, main keeps original value
   test.assert_eq(result["lines"][0], "99")
   test.assert_eq(result["lines"][1], "0")
 end

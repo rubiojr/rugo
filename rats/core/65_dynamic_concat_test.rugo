@@ -1,57 +1,40 @@
 # RATS: Test string concat with dynamic variables
 # Regression: codegen emitted raw Go + for interface{} variables
 use "test"
+use "eval"
 
 rats "string concat with reassigned variable in if block"
-  script = <<~SCRIPT
-    arr = ["a", "b"]
-    base = "start"
-    if len(arr) > 0
-      base = base + ", " + arr[0]
-    end
-    puts(base)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "start, a")
+  arr = ["a", "b"]
+  base = "start"
+  if len(arr) > 0
+    base = base + ", " + arr[0]
+  end
+  test.assert_eq(base, "start, a")
 end
 
 rats "string concat in loop with dynamic source"
-  script = <<~SCRIPT
-    items = ["x", "y", "z"]
-    result = ""
-    for item in items
-      if result != ""
-        result = result + ", "
-      end
-      result = result + item
+  items = ["x", "y", "z"]
+  result = ""
+  for item in items
+    if result != ""
+      result = result + ", "
     end
-    puts(result)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "x, y, z")
+    result = result + item
+  end
+  test.assert_eq(result, "x, y, z")
 end
 
 rats "int arithmetic with reassigned variable in if block"
-  script = <<~SCRIPT
-    arr = [10, 20]
-    total = 0
-    if len(arr) > 0
-      total = total + arr[0]
-    end
-    puts(total)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "10")
+  arr = [10, 20]
+  total = 0
+  if len(arr) > 0
+    total = total + arr[0]
+  end
+  test.assert_eq(total, 10)
 end
 
 rats "compound concat in function with dynamic variable"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def build(parts)
       s = "SELECT "
       s = s + parts[0]
@@ -61,9 +44,8 @@ rats "compound concat in function with dynamic variable"
       return s
     end
     puts(build(["a", "b"]))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "SELECT a, b")
 end

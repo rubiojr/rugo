@@ -5,304 +5,190 @@ use "test"
 # --- Integer zero is truthy ---
 
 rats "0 is truthy in if condition"
-  script = <<~SCRIPT
-    if 0
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if 0
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "0 is truthy in variable condition"
-  script = <<~SCRIPT
-    x = 0
-    if x
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  x = 0
+  result = "falsy"
+  if x
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 # --- Float zero is truthy ---
 
 rats "0.0 is truthy in if condition"
-  script = <<~SCRIPT
-    if 0.0
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if 0.0
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "0.0 is truthy in variable condition"
-  script = <<~SCRIPT
-    x = 0.0
-    if x
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  x = 0.0
+  result = "falsy"
+  if x
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 # --- Empty string is truthy ---
 
 rats "empty string is truthy in if condition"
-  script = <<~SCRIPT
-    if ""
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if ""
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "empty string is truthy in variable condition"
-  script = <<~SCRIPT
-    s = ""
-    if s
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  s = ""
+  result = "falsy"
+  if s
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 # --- nil and false are still falsy ---
 
 rats "nil is falsy"
-  script = <<~SCRIPT
-    if nil
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "falsy")
+  result = "truthy"
+  if nil
+    result = "truthy"
+  else
+    result = "falsy"
+  end
+  test.assert_eq(result, "falsy")
 end
 
 rats "false is falsy"
-  script = <<~SCRIPT
-    if false
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "falsy")
+  result = "truthy"
+  if false
+    result = "truthy"
+  else
+    result = "falsy"
+  end
+  test.assert_eq(result, "falsy")
 end
 
 # --- Other values remain truthy ---
 
 rats "true is truthy"
-  script = <<~SCRIPT
-    if true
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if true
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "non-zero int is truthy"
-  script = <<~SCRIPT
-    if 42
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if 42
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "non-empty string is truthy"
-  script = <<~SCRIPT
-    if "hello"
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if "hello"
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "empty array is truthy"
-  script = <<~SCRIPT
-    if []
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if []
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "empty hash is truthy"
-  script = <<~SCRIPT
-    if {}
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if {}
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 # --- Boolean operators with truthiness ---
 
 rats "0 is truthy in && expression"
-  script = <<~SCRIPT
-    if 0 && true
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if 0 && true
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "0 is truthy in || expression"
-  script = <<~SCRIPT
-    if false || 0
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if false || 0
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 rats "empty string is truthy in && expression"
-  script = <<~SCRIPT
-    if "" && true
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if "" && true
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 # --- Not operator with truthiness ---
 
 rats "!0 is false (since 0 is truthy)"
-  script = <<~SCRIPT
-    if !0
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "falsy")
+  result = "truthy"
+  if !0
+    result = "truthy"
+  else
+    result = "falsy"
+  end
+  test.assert_eq(result, "falsy")
 end
 
 rats "!nil is true"
-  script = <<~SCRIPT
-    if !nil
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if !nil
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end
 
 # --- While loop with truthiness ---
 
 rats "while with 0 condition runs (0 is truthy, use break)"
-  script = <<~SCRIPT
-    count = 0
-    x = 0
-    while x
-      count += 1
-      if count == 3
-        break
-      end
+  count = 0
+  x = 0
+  while x
+    count += 1
+    if count == 3
+      break
     end
-    puts(count)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "3")
+  end
+  test.assert_eq(count, 3)
 end
 
 # --- Negative int is truthy ---
 
 rats "negative int is truthy"
-  script = <<~SCRIPT
-    if -1
-      puts("truthy")
-    else
-      puts("falsy")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "truthy")
+  result = "falsy"
+  if -1
+    result = "truthy"
+  end
+  test.assert_eq(result, "truthy")
 end

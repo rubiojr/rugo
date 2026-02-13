@@ -2,91 +2,39 @@
 # NOTE: crypto functions return raw bytes. Use hex.encode() for hex output.
 use "test"
 
+import "crypto/sha256"
+import "crypto/md5"
+import "encoding/hex"
+
 rats "sha256.sum256 known hash"
-  script = <<~SCRIPT
-    import "crypto/sha256"
-    import "encoding/hex"
-    puts hex.encode(sha256.sum256("hello"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+  test.assert_eq(hex.encode(sha256.sum256("hello")), "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
 end
 
 rats "md5.sum known hash"
-  script = <<~SCRIPT
-    import "crypto/md5"
-    import "encoding/hex"
-    puts hex.encode(md5.sum("hello"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "5d41402abc4b2a76b9719d911017c592")
+  test.assert_eq(hex.encode(md5.sum("hello")), "5d41402abc4b2a76b9719d911017c592")
 end
 
 rats "sha256 empty string"
-  script = <<~SCRIPT
-    import "crypto/sha256"
-    import "encoding/hex"
-    puts hex.encode(sha256.sum256(""))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+  test.assert_eq(hex.encode(sha256.sum256("")), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 end
 
 rats "md5 empty string"
-  script = <<~SCRIPT
-    import "crypto/md5"
-    import "encoding/hex"
-    puts hex.encode(md5.sum(""))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "d41d8cd98f00b204e9800998ecf8427e")
+  test.assert_eq(hex.encode(md5.sum("")), "d41d8cd98f00b204e9800998ecf8427e")
 end
 
 rats "sha256 consistency"
-  script = <<~SCRIPT
-    import "crypto/sha256"
-    a = sha256.sum256("test")
-    b = sha256.sum256("test")
-    puts a == b
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
+  a = sha256.sum256("test")
+  b = sha256.sum256("test")
+  test.assert_eq(a, b)
 end
 
 rats "sha256 different inputs"
-  script = <<~SCRIPT
-    import "crypto/sha256"
-    a = sha256.sum256("hello")
-    b = sha256.sum256("world")
-    puts a == b
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "false")
+  a = sha256.sum256("hello")
+  b = sha256.sum256("world")
+  test.assert_neq(a, b)
 end
 
 rats "sha256 and md5 together"
-  script = <<~SCRIPT
-    import "crypto/sha256"
-    import "crypto/md5"
-    import "encoding/hex"
-    puts hex.encode(sha256.sum256("test"))
-    puts hex.encode(md5.sum("test"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
-  test.assert_contains(result["output"], "098f6bcd4621d373cade4e832627b4f6")
+  test.assert_eq(hex.encode(sha256.sum256("test")), "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+  test.assert_eq(hex.encode(md5.sum("test")), "098f6bcd4621d373cade4e832627b4f6")
 end

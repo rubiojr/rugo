@@ -1,115 +1,52 @@
 # RATS: Test Go bridge — unicode package
 use "test"
 
+import "unicode"
+
 rats "unicode.is_letter"
-  script = <<~SCRIPT
-    import "unicode"
-    puts unicode.is_letter("A")
-    puts unicode.is_letter("5")
-    puts unicode.is_letter(" ")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "false")
+  test.assert_true(unicode.is_letter("A"))
+  test.assert_false(unicode.is_letter("5"))
+  test.assert_false(unicode.is_letter(" "))
 end
 
 rats "unicode.is_digit"
-  script = <<~SCRIPT
-    import "unicode"
-    puts unicode.is_digit("9")
-    puts unicode.is_digit("a")
-    puts unicode.is_digit(" ")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "false")
+  test.assert_true(unicode.is_digit("9"))
+  test.assert_false(unicode.is_digit("a"))
+  test.assert_false(unicode.is_digit(" "))
 end
 
 rats "unicode.is_space"
-  script = <<~SCRIPT
-    import "unicode"
-    puts unicode.is_space(" ")
-    puts unicode.is_space("a")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "false")
+  test.assert_true(unicode.is_space(" "))
+  test.assert_false(unicode.is_space("a"))
 end
 
 rats "unicode.is_upper and is_lower"
-  script = <<~SCRIPT
-    import "unicode"
-    puts unicode.is_upper("A")
-    puts unicode.is_upper("a")
-    puts unicode.is_lower("a")
-    puts unicode.is_lower("A")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "false")
+  test.assert_true(unicode.is_upper("A"))
+  test.assert_false(unicode.is_upper("a"))
+  test.assert_true(unicode.is_lower("a"))
+  test.assert_false(unicode.is_lower("A"))
 end
 
 rats "unicode.is_punct"
-  script = <<~SCRIPT
-    import "unicode"
-    puts unicode.is_punct("!")
-    puts unicode.is_punct("a")
-    puts unicode.is_punct(".")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "false")
+  test.assert_true(unicode.is_punct("!"))
+  test.assert_false(unicode.is_punct("a"))
+  test.assert_true(unicode.is_punct("."))
 end
 
 rats "unicode.to_upper and to_lower"
-  script = <<~SCRIPT
-    import "unicode"
-    puts unicode.to_upper("a")
-    puts unicode.to_upper("z")
-    puts unicode.to_lower("A")
-    puts unicode.to_lower("Z")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "A")
-  test.assert_contains(result["output"], "Z")
-  test.assert_contains(result["output"], "a")
-  test.assert_contains(result["output"], "z")
+  test.assert_eq(unicode.to_upper("a"), "A")
+  test.assert_eq(unicode.to_upper("z"), "Z")
+  test.assert_eq(unicode.to_lower("A"), "a")
+  test.assert_eq(unicode.to_lower("Z"), "z")
 end
 
 rats "unicode empty string"
-  script = <<~SCRIPT
-    import "unicode"
-    puts unicode.is_letter("")
-    puts unicode.to_upper("")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "false")
+  test.assert_false(unicode.is_letter(""))
+  test.assert_eq(unicode.to_upper(""), "")
 end
 
 rats "unicode first char only"
-  script = <<~SCRIPT
-    import "unicode"
-    puts unicode.is_letter("abc")
-    puts unicode.is_digit("3abc")
-    puts unicode.to_upper("abc")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "A")
+  test.assert_true(unicode.is_letter("abc"))
+  test.assert_true(unicode.is_digit("3abc"))
+  test.assert_eq(unicode.to_upper("abc"), "A")
 end

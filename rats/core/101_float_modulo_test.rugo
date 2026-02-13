@@ -3,75 +3,33 @@
 use "test"
 
 rats "float % int returns float"
-  script = <<~SCRIPT
-    puts(10.5 % 3)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "1.5")
+  test.assert_eq(10.5 % 3, 1.5)
 end
 
 rats "float % float returns float"
-  script = <<~SCRIPT
-    puts(10.5 % 3.0)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "1.5")
+  test.assert_eq(10.5 % 3.0, 1.5)
 end
 
 rats "int % float returns float"
-  script = <<~SCRIPT
-    puts(10 % 3.5)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "3")
+  test.assert_eq(10 % 3.5, 3.0)
 end
 
 rats "int % int still returns int"
-  script = <<~SCRIPT
-    puts(10 % 3)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "1")
+  test.assert_eq(10 % 3, 1)
 end
 
 rats "float modulo with variable operands"
-  script = <<~SCRIPT
-    a = 10.5
-    b = 3
-    puts(a % b)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "1.5")
+  a = 10.5
+  b = 3
+  test.assert_eq(a % b, 1.5)
 end
 
 rats "float modulo with compound assignment"
-  script = <<~SCRIPT
-    x = 10.5
-    x %= 3
-    puts(x)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "1.5")
+  x = 10.5
+  x %= 3
+  test.assert_eq(x, 1.5)
 end
 
 rats "negative float modulo"
-  script = <<~SCRIPT
-    puts(-10.5 % 3)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "-1.5")
+  test.assert_eq(-10.5 % 3, -1.5)
 end

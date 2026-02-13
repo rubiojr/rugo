@@ -7,31 +7,15 @@ use "test"
 # ============================================================
 
 rats "hash with positive integer keys"
-  script = <<~SCRIPT
-    h = {404 => "Not Found", 500 => "Server Error"}
-    puts(h[404])
-    puts(h[500])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "Not Found")
-  test.assert_eq(lines[1], "Server Error")
+  h = {404 => "Not Found", 500 => "Server Error"}
+  test.assert_eq(h[404], "Not Found")
+  test.assert_eq(h[500], "Server Error")
 end
 
 rats "hash with mixed numeric and string keys"
-  script = <<~SCRIPT
-    h = {1 => "one", "two" => 2}
-    puts(h[1])
-    puts(h["two"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "one")
-  test.assert_eq(lines[1], "2")
+  h = {1 => "one", "two" => 2}
+  test.assert_eq(h[1], "one")
+  test.assert_eq(h["two"], 2)
 end
 
 # ============================================================
@@ -51,23 +35,14 @@ rats "hash with string interpolation key"
 end
 
 rats "building reverse mapping with variable keys"
-  script = <<~SCRIPT
-    names = ["alice", "bob", "carol"]
-    index = {}
-    for i, name in names
-      index[name] = i
-    end
-    puts(index["alice"])
-    puts(index["bob"])
-    puts(index["carol"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "0")
-  test.assert_eq(lines[1], "1")
-  test.assert_eq(lines[2], "2")
+  names = ["alice", "bob", "carol"]
+  index = {}
+  for i, name in names
+    index[name] = i
+  end
+  test.assert_eq(index["alice"], 0)
+  test.assert_eq(index["bob"], 1)
+  test.assert_eq(index["carol"], 2)
 end
 
 # ============================================================
@@ -75,28 +50,14 @@ end
 # ============================================================
 
 rats "hash with boolean keys"
-  script = <<~SCRIPT
-    h = {true => "yes", false => "no"}
-    puts(h[true])
-    puts(h[false])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "yes")
-  test.assert_eq(lines[1], "no")
+  h = {true => "yes", false => "no"}
+  test.assert_eq(h[true], "yes")
+  test.assert_eq(h[false], "no")
 end
 
 rats "hash with nil key"
-  script = <<~SCRIPT
-    h = {nil => "nothing"}
-    puts(h[nil])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "nothing")
+  h = {nil => "nothing"}
+  test.assert_eq(h[nil], "nothing")
 end
 
 # ============================================================
@@ -104,46 +65,26 @@ end
 # ============================================================
 
 rats "for k, v in hash iterates all pairs"
-  script = <<~SCRIPT
-    h = {"a" => 1, "b" => 2}
-    keys = []
-    vals = []
-    for k, v in h
-      keys = append(keys, k)
-      vals = append(vals, v)
-    end
-    puts(len(keys))
-    puts(len(vals))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "2")
-  test.assert_eq(lines[1], "2")
+  h = {"a" => 1, "b" => 2}
+  keys = []
+  vals = []
+  for k, v in h
+    keys = append(keys, k)
+    vals = append(vals, v)
+  end
+  test.assert_eq(len(keys), 2)
+  test.assert_eq(len(vals), 2)
 end
 
 rats "for single var in hash iterates keys"
-  script = <<~SCRIPT
-    h = {"x" => 10, "y" => 20}
-    keys = []
-    for k in h
-      keys = append(keys, k)
-    end
-    puts(len(keys))
-    # Verify we got keys, not values
-    for k in h
-      puts(type_of(k))
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "2")
-  # Keys are strings, not integers
-  test.assert_eq(lines[1], "String")
-  test.assert_eq(lines[2], "String")
+  h = {"x" => 10, "y" => 20}
+  keys = []
+  for k in h
+    keys = append(keys, k)
+  end
+  test.assert_eq(len(keys), 2)
+  test.assert_eq(type_of(keys[0]), "String")
+  test.assert_eq(type_of(keys[1]), "String")
 end
 
 # ============================================================
@@ -151,47 +92,27 @@ end
 # ============================================================
 
 rats "hash bracket assignment sets value"
-  script = <<~SCRIPT
-    h = {"x" => 1}
-    h["x"] = 99
-    puts(h["x"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "99")
+  h = {"x" => 1}
+  h["x"] = 99
+  test.assert_eq(h["x"], 99)
 end
 
 rats "hash bracket assignment adds new key"
-  script = <<~SCRIPT
-    h = {}
-    h["new"] = "value"
-    puts(h["new"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "value")
+  h = {}
+  h["new"] = "value"
+  test.assert_eq(h["new"], "value")
 end
 
 rats "incremental hash building in loop"
-  script = <<~SCRIPT
-    words = ["hello", "world", "hello", "hello", "world"]
-    counts = {}
-    for word in words
-      if counts[word]
-        counts[word] += 1
-      else
-        counts[word] = 1
-      end
+  words = ["hello", "world", "hello", "hello", "world"]
+  counts = {}
+  for word in words
+    if counts[word]
+      counts[word] += 1
+    else
+      counts[word] = 1
     end
-    puts(counts["hello"])
-    puts(counts["world"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "3")
-  test.assert_eq(lines[1], "2")
+  end
+  test.assert_eq(counts["hello"], 3)
+  test.assert_eq(counts["world"], 2)
 end

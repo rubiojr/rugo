@@ -90,13 +90,8 @@ rats "user semicolons produce clear error"
 end
 
 rats "semicolons inside strings are fine"
-  script = <<~SCRIPT
-    puts "hello; world"
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "hello; world")
+  x = "hello; world"
+  test.assert_eq(x, "hello; world")
 end
 
 # ============================================================
@@ -171,14 +166,8 @@ rats "trailing comma in multi-line array is rejected"
 end
 
 rats "commas inside strings are not trailing commas"
-  script = <<~SCRIPT
-    x = ["a,"]
-    puts x[0]
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "a,")
+  x = ["a,"]
+  test.assert_eq(x[0], "a,")
 end
 
 # ============================================================
@@ -342,23 +331,11 @@ rats "trailing comma in multi-line hash is rejected"
 end
 
 rats "comma before ] inside string is not trailing"
-  script = <<~SCRIPT
-    x = [",]"]
-    puts x[0]
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], ",]")
+  x = [",]"]
+  test.assert_eq(x[0], ",]")
 end
 
 rats "comma before } inside string is not trailing"
-  script = <<~SCRIPT
-    h = {"k" => ",}"}
-    puts h["k"]
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], ",}")
+  h = {"k" => ",}"}
+  test.assert_eq(h["k"], ",}")
 end

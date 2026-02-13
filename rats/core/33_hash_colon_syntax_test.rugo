@@ -1,86 +1,43 @@
 # RATS: Hash colon syntax (ident: value shorthand)
 use "test"
-use "conv"
+use "eval"
 
 # ============================================================
 # A. Basic Colon Syntax
 # ============================================================
 
 rats "colon syntax with string value"
-  script = <<~SCRIPT
-    h = {name: "Alice"}
-    puts(h["name"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "Alice")
+  h = {name: "Alice"}
+  test.assert_eq(h["name"], "Alice")
 end
 
 rats "colon syntax with integer value"
-  script = <<~SCRIPT
-    h = {age: 30}
-    puts(h["age"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "30")
+  h = {age: 30}
+  test.assert_eq(h["age"], 30)
 end
 
 rats "colon syntax multiple keys"
-  script = <<~SCRIPT
-    h = {name: "Alice", age: 30, city: "NYC"}
-    puts(h["name"])
-    puts(h["age"])
-    puts(h["city"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "Alice")
-  test.assert_eq(lines[1], "30")
-  test.assert_eq(lines[2], "NYC")
+  h = {name: "Alice", age: 30, city: "NYC"}
+  test.assert_eq(h["name"], "Alice")
+  test.assert_eq(h["age"], 30)
+  test.assert_eq(h["city"], "NYC")
 end
 
 rats "colon syntax with dot access"
-  script = <<~SCRIPT
-    h = {name: "Alice", age: 30}
-    puts(h.name)
-    puts(h.age)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "Alice")
-  test.assert_eq(lines[1], "30")
+  h = {name: "Alice", age: 30}
+  test.assert_eq(h.name, "Alice")
+  test.assert_eq(h.age, 30)
 end
 
 rats "colon syntax with boolean value"
-  script = <<~SCRIPT
-    h = {enabled: true, debug: false}
-    puts(h.enabled)
-    puts(h.debug)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "true")
-  test.assert_eq(lines[1], "false")
+  h = {enabled: true, debug: false}
+  test.assert_eq(h.enabled, true)
+  test.assert_eq(h.debug, false)
 end
 
 rats "colon syntax with nil value"
-  script = <<~SCRIPT
-    h = {val: nil}
-    puts(h.val == nil)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "true")
+  h = {val: nil}
+  test.assert_eq(h.val == nil, true)
 end
 
 # ============================================================
@@ -88,17 +45,9 @@ end
 # ============================================================
 
 rats "mixed colon and arrow keys"
-  script = <<~SCRIPT
-    h = {name: "Alice", "age" => 30}
-    puts(h.name)
-    puts(h.age)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "Alice")
-  test.assert_eq(lines[1], "30")
+  h = {name: "Alice", "age" => 30}
+  test.assert_eq(h.name, "Alice")
+  test.assert_eq(h.age, 30)
 end
 
 rats "arrow syntax still works unchanged"
@@ -112,59 +61,34 @@ end
 # ============================================================
 
 rats "nested colon hashes"
-  script = <<~SCRIPT
-    h = {user: {name: "Alice", email: "alice@test.com"}}
-    puts(h.user.name)
-    puts(h.user.email)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "Alice")
-  test.assert_eq(lines[1], "alice@test.com")
+  h = {user: {name: "Alice", email: "alice@test.com"}}
+  test.assert_eq(h.user.name, "Alice")
+  test.assert_eq(h.user.email, "alice@test.com")
 end
 
 rats "colon hash in array"
-  script = <<~SCRIPT
-    items = [{name: "a"}, {name: "b"}]
-    puts(items[0].name)
-    puts(items[1].name)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "a")
-  test.assert_eq(lines[1], "b")
+  items = [{name: "a"}, {name: "b"}]
+  test.assert_eq(items[0].name, "a")
+  test.assert_eq(items[1].name, "b")
 end
 
 rats "colon hash returned from function"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def make()
       return {name: "Alice", age: 30}
     end
     h = make()
     puts(h.name)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Alice")
 end
 
 rats "colon syntax with underscore key"
-  script = <<~SCRIPT
-    h = {first_name: "Alice", last_name: "Smith"}
-    puts(h.first_name)
-    puts(h.last_name)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "Alice")
-  test.assert_eq(lines[1], "Smith")
+  h = {first_name: "Alice", last_name: "Smith"}
+  test.assert_eq(h.first_name, "Alice")
+  test.assert_eq(h.last_name, "Smith")
 end
 
 # ============================================================
@@ -172,45 +96,27 @@ end
 # ============================================================
 
 rats "colon hash in if condition"
-  script = <<~SCRIPT
-    config = {enabled: true}
-    result = "no"
-    if config.enabled
-      result = "yes"
-    end
-    puts(result)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "yes")
+  config = {enabled: true}
+  result = "no"
+  if config.enabled
+    result = "yes"
+  end
+  test.assert_eq(result, "yes")
 end
 
 rats "colon hash with for iteration"
-  script = <<~SCRIPT
-    h = {x: 10, y: 20}
-    total = 0
-    for k, v in h
-      total += v
-    end
-    puts(total)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "30")
+  h = {x: 10, y: 20}
+  total = 0
+  for k, v in h
+    total += v
+  end
+  test.assert_eq(total, 30)
 end
 
 rats "colon hash with dot-set"
-  script = <<~SCRIPT
-    h = {count: 0}
-    h.count = 42
-    puts(h.count)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "42")
+  h = {count: 0}
+  h.count = 42
+  test.assert_eq(h.count, 42)
 end
 
 rats "colon hash compiles to native binary"

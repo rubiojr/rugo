@@ -5,6 +5,7 @@
 # interface{} but the parameter was inferred as string.
 
 use "test"
+use "str"
 
 # Core bug: reassigning a module call result to the same string variable
 rats "str.trim result reassigned to same variable"
@@ -75,34 +76,22 @@ end
 
 # Module call result assigned to same variable at top level (not in function)
 rats "module call reassigned to same variable at top level"
-  script = <<~SCRIPT
-    use "str"
-    s = "  hello  "
-    s = str.trim(s)
-    puts s
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "hello")
+  s = "  hello  "
+  s = str.trim(s)
+  test.assert_eq(s, "hello")
 end
 
 # Module call in a loop with reassignment
 rats "module call reassigned in a loop"
-  script = <<~SCRIPT
-    use "str"
-    words = ["  foo  ", "  bar  ", "  baz  "]
-    for w in words
-      w = str.trim(w)
-      puts w
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "foo")
-  test.assert_contains(result["output"], "bar")
-  test.assert_contains(result["output"], "baz")
+  words = ["  foo  ", "  bar  ", "  baz  "]
+  results = []
+  for w in words
+    w = str.trim(w)
+    append results, w
+  end
+  test.assert_eq(results[0], "foo")
+  test.assert_eq(results[1], "bar")
+  test.assert_eq(results[2], "baz")
 end
 
 # Multiple variables, only one reassigned from module call

@@ -1,132 +1,59 @@
 # RATS: Test json module (parse, encode)
 use "test"
 use "conv"
+use "json"
 
 rats "json.parse parses object"
-  script = <<~SCRIPT
-    use "json"
-    use "conv"
-    data = json.parse("{\"name\": \"rugo\", \"version\": 1}")
-    puts(data["name"])
-    puts(conv.to_s(data["version"]))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "rugo")
-  test.assert_eq(lines[1], "1")
+  data = json.parse("{\"name\": \"rugo\", \"version\": 1}")
+  test.assert_eq(data["name"], "rugo")
+  test.assert_eq(conv.to_s(data["version"]), "1")
 end
 
 rats "json.parse parses array"
-  script = <<~SCRIPT
-    use "json"
-    use "conv"
-    arr = json.parse("[1, 2, 3]")
-    puts(conv.to_s(len(arr)))
-    puts(conv.to_s(arr[0]))
-    puts(conv.to_s(arr[2]))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "3")
-  test.assert_eq(lines[1], "1")
-  test.assert_eq(lines[2], "3")
+  arr = json.parse("[1, 2, 3]")
+  test.assert_eq(len(arr), 3)
+  test.assert_eq(conv.to_s(arr[0]), "1")
+  test.assert_eq(conv.to_s(arr[2]), "3")
 end
 
 rats "json.parse converts whole numbers to int"
-  script = <<~SCRIPT
-    use "json"
-    use "conv"
-    data = json.parse("{\"id\": 12345}")
-    puts(conv.to_s(data["id"]))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "12345")
+  data = json.parse("{\"id\": 12345}")
+  test.assert_eq(conv.to_s(data["id"]), "12345")
 end
 
 rats "json.parse preserves floats"
-  script = <<~SCRIPT
-    use "json"
-    use "conv"
-    data = json.parse("{\"pi\": 3.14}")
-    puts(conv.to_s(data["pi"]))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "3.14")
+  data = json.parse("{\"pi\": 3.14}")
+  test.assert_eq(conv.to_s(data["pi"]), "3.14")
 end
 
 rats "json.parse handles nested objects"
-  script = <<~SCRIPT
-    use "json"
-    data = json.parse("{\"user\": {\"name\": \"rugo\"}}")
-    puts(data["user"]["name"])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "rugo")
+  data = json.parse("{\"user\": {\"name\": \"rugo\"}}")
+  test.assert_eq(data["user"]["name"], "rugo")
 end
 
 rats "json.parse handles booleans and null"
-  script = <<~SCRIPT
-    use "json"
-    use "conv"
-    data = json.parse("{\"ok\": true, \"err\": null}")
-    puts(conv.to_s(data["ok"]))
-    puts(data["err"] == nil)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "true")
-  test.assert_eq(lines[1], "true")
+  data = json.parse("{\"ok\": true, \"err\": null}")
+  test.assert_eq(conv.to_s(data["ok"]), "true")
+  test.assert_eq(data["err"] == nil, true)
 end
 
 rats "json.encode converts hash to JSON"
-  script = <<~SCRIPT
-    use "json"
-    h = {"a" => 1}
-    puts(json.encode(h))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "\"a\"")
-  test.assert_contains(result["output"], "1")
+  h = {"a" => 1}
+  result = json.encode(h)
+  test.assert_contains(result, "\"a\"")
+  test.assert_contains(result, "1")
 end
 
 rats "json.encode converts array to JSON"
-  script = <<~SCRIPT
-    use "json"
-    arr = [1, "two", true]
-    puts(json.encode(arr))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "[1,\"two\",true]")
+  arr = [1, "two", true]
+  test.assert_eq(json.encode(arr), "[1,\"two\",true]")
 end
 
 rats "json.parse roundtrip"
-  script = <<~SCRIPT
-    use "json"
-    original = "[1,2,3]"
-    parsed = json.parse(original)
-    result = json.encode(parsed)
-    puts(result)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "[1,2,3]")
+  original = "[1,2,3]"
+  parsed = json.parse(original)
+  result = json.encode(parsed)
+  test.assert_eq(result, "[1,2,3]")
 end
 
 rats "json.parse panics on invalid JSON"

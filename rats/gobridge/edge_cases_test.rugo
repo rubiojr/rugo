@@ -1,5 +1,11 @@
 # RATS: Test Go bridge — error handling and edge cases
 use "test"
+use "eval"
+use "conv"
+
+import "strings"
+import "strconv"
+import "math"
 
 rats "import conflict with use errors"
   script = <<~SCRIPT
@@ -61,33 +67,20 @@ rats "wrong arg count for Go bridge errors"
 end
 
 rats "multiple Go bridge packages in one script"
-  script = <<~SCRIPT
-    import "strings"
-    import "strconv"
-    import "math"
-    use "conv"
-    puts(strings.to_upper("hello"))
-    puts(strconv.itoa(42))
-    puts(conv.to_s(math.sqrt(9.0)))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "HELLO")
-  test.assert_contains(result["output"], "42")
-  test.assert_contains(result["output"], "3")
+  test.assert_eq(strings.to_upper("hello"), "HELLO")
+  test.assert_eq(strconv.itoa(42), "42")
+  test.assert_eq(conv.to_s(math.sqrt(9.0)), "3")
 end
 
 rats "Go bridge works with user modules"
-  script = <<~SCRIPT
+  source = <<~RUGO
     import "strings"
     def greet(name)
       return strings.to_upper("hello " + name)
     end
     puts(greet("world"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "HELLO WORLD")
 end

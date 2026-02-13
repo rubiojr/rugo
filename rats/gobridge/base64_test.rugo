@@ -1,33 +1,21 @@
 # RATS: Test Go bridge — encoding/base64 package
 use "test"
 
+import "encoding/base64"
+
 rats "base64.encode and decode"
-  script = <<~SCRIPT
-    import "encoding/base64"
-    encoded = base64.encode("Hello, Rugo!")
-    puts encoded
-    puts base64.decode(encoded)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "SGVsbG8sIFJ1Z28h")
-  test.assert_contains(result["output"], "Hello, Rugo!")
+  encoded = base64.encode("Hello, Rugo!")
+  test.assert_eq(encoded, "SGVsbG8sIFJ1Z28h")
+  test.assert_eq(base64.decode(encoded), "Hello, Rugo!")
 end
 
 rats "base64.url_encode and url_decode"
-  script = <<~SCRIPT
-    import "encoding/base64"
-    encoded = base64.url_encode("hello world+test")
-    puts encoded
-    puts base64.url_decode(encoded)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "hello world+test")
+  encoded = base64.url_encode("hello world+test")
+  decoded = base64.url_decode(encoded)
+  test.assert_eq(decoded, "hello world+test")
 end
 
+# Subprocess: tests exit code on unhandled error
 rats "base64.decode error"
   script = <<~SCRIPT
     import "encoding/base64"
@@ -40,38 +28,17 @@ rats "base64.decode error"
 end
 
 rats "base64 empty string"
-  script = <<~SCRIPT
-    import "encoding/base64"
-    puts base64.encode("")
-    puts base64.decode("")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
+  test.assert_eq(base64.encode(""), "")
+  test.assert_eq(base64.decode(""), "")
 end
 
 rats "base64 round-trip"
-  script = <<~SCRIPT
-    import "encoding/base64"
-    original = "The quick brown fox jumps over the lazy dog"
-    puts base64.decode(base64.encode(original))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "The quick brown fox jumps over the lazy dog")
+  original = "The quick brown fox jumps over the lazy dog"
+  test.assert_eq(base64.decode(base64.encode(original)), original)
 end
 
 rats "base64 special characters"
-  script = <<~SCRIPT
-    import "encoding/base64"
-    original = "hello+world/test=foo"
-    encoded = base64.encode(original)
-    decoded = base64.decode(encoded)
-    puts decoded
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "hello+world/test=foo")
+  original = "hello+world/test=foo"
+  decoded = base64.decode(base64.encode(original))
+  test.assert_eq(decoded, "hello+world/test=foo")
 end

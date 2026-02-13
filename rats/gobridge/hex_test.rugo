@@ -1,31 +1,19 @@
 # RATS: Test Go bridge — encoding/hex package
 use "test"
 
+import "encoding/hex"
+
 rats "hex.encode and decode"
-  script = <<~SCRIPT
-    import "encoding/hex"
-    encoded = hex.encode("Hello!")
-    puts encoded
-    puts hex.decode(encoded)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "48656c6c6f21")
-  test.assert_contains(result["output"], "Hello!")
+  encoded = hex.encode("Hello!")
+  test.assert_eq(encoded, "48656c6c6f21")
+  test.assert_eq(hex.decode(encoded), "Hello!")
 end
 
 rats "hex.encode known value"
-  script = <<~SCRIPT
-    import "encoding/hex"
-    puts hex.encode("abc")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "616263")
+  test.assert_eq(hex.encode("abc"), "616263")
 end
 
+# Subprocess: tests exit code on unhandled error
 rats "hex.decode error"
   script = <<~SCRIPT
     import "encoding/hex"
@@ -38,24 +26,11 @@ rats "hex.decode error"
 end
 
 rats "hex empty string"
-  script = <<~SCRIPT
-    import "encoding/hex"
-    puts hex.encode("")
-    puts hex.decode("")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
+  test.assert_eq(hex.encode(""), "")
+  test.assert_eq(hex.decode(""), "")
 end
 
 rats "hex round-trip"
-  script = <<~SCRIPT
-    import "encoding/hex"
-    original = "Rugo is great!"
-    puts hex.decode(hex.encode(original))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "Rugo is great!")
+  original = "Rugo is great!"
+  test.assert_eq(hex.decode(hex.encode(original)), "Rugo is great!")
 end

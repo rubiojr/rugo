@@ -2,61 +2,44 @@
 use "test"
 
 rats "if statement true branch"
-  script = <<~SCRIPT
-    if true
-      puts("yes")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "yes")
+  result = nil
+  if true
+    result = "yes"
+  end
+  test.assert_eq(result, "yes")
 end
 
 rats "if/else false branch"
-  script = <<~SCRIPT
-    if false
-      puts("yes")
-    else
-      puts("no")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "no")
+  result = nil
+  if false
+    result = "yes"
+  else
+    result = "no"
+  end
+  test.assert_eq(result, "no")
 end
 
 rats "if/elsif/else chain"
-  script = <<~SCRIPT
-    x = 2
-    if x == 1
-      puts("one")
-    elsif x == 2
-      puts("two")
-    else
-      puts("other")
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "two")
+  x = 2
+  result = nil
+  if x == 1
+    result = "one"
+  elsif x == 2
+    result = "two"
+  else
+    result = "other"
+  end
+  test.assert_eq(result, "two")
 end
 
 rats "while loop"
-  script = <<~SCRIPT
-    i = 0
-    while i < 3
-      puts(i)
-      i = i + 1
-    end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "0")
-  test.assert_eq(lines[1], "1")
-  test.assert_eq(lines[2], "2")
+  i = 0
+  results = []
+  while i < 3
+    results = append(results, i)
+    i = i + 1
+  end
+  test.assert_eq(results[0], 0)
+  test.assert_eq(results[1], 1)
+  test.assert_eq(results[2], 2)
 end
