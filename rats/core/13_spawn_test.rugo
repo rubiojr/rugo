@@ -213,12 +213,12 @@ rats "spawn return in nested spawn"
 end
 
 rats "spawn return compiles to native binary"
-  result = test.run("rugo build rats/fixtures/spawn_return_build.rugo -o /tmp/spawn_return_build_test")
+  bin = test.tmpdir() + "/spawn_return_build_test"
+  result = test.run("rugo build rats/fixtures/spawn_return_build.rugo -o #{bin}")
   test.assert_eq(result["status"], 0)
-  result = test.run("/tmp/spawn_return_build_test")
+  result = test.run(bin)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
-  test.run("rm -f /tmp/spawn_return_build_test")
 end
 
 rats "spawn reassigns outer typed variable"

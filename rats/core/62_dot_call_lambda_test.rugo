@@ -74,10 +74,10 @@ rats "fn dot-call: error calling non-function value"
 end
 
 rats "fn dot-call: compiles to native binary"
-  result = test.run("rugo build rats/fixtures/fn_dot_call_basic.rugo -o /tmp/fn_dot_call_test")
+  bin = test.tmpdir() + "/fn_dot_call_test"
+  result = test.run("rugo build rats/fixtures/fn_dot_call_basic.rugo -o #{bin}")
   test.assert_eq(result["status"], 0)
-  result = test.run("/tmp/fn_dot_call_test")
+  result = test.run(bin)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "hello test")
-  test.run("rm -f /tmp/fn_dot_call_test")
 end

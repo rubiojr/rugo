@@ -11,17 +11,18 @@ use "test"
 use "web"
 use "conv"
 use "str"
+import "os" as go_os
+
+TEST_TMPDIR = `mktemp -d -t rats-lockfile-XXXXXXXX`
 
 def base_dir()
-  return "/tmp/rats_lockfile"
+  return TEST_TMPDIR
 end
 
 def setup_file()
-  bd = base_dir()
-  r = test.run("mkdir -p #{bd}/repos/lockuser/lock-mod.git #{bd}/work")
-  if r["status"] != 0
-    puts "DEBUG setup mkdir: " + r["output"]
-  end
+  bd = TEST_TMPDIR
+  go_os.mkdir_all("#{bd}/repos/lockuser/lock-mod.git", 0755)
+  go_os.mkdir_all("#{bd}/work", 0755)
   r = test.run("git init --bare #{bd}/repos/lockuser/lock-mod.git")
   if r["status"] != 0
     puts "DEBUG setup git init: " + r["output"]
@@ -72,7 +73,7 @@ def setup_file()
 end
 
 def teardown_file()
-  test.run("rm -rf #{base_dir()}")
+  go_os.remove_all(TEST_TMPDIR)
 end
 
 # --- Tests ---
@@ -534,7 +535,7 @@ rats "mod tidy does not scan subdirectories"
   port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
 
   # Put a remote-dep file only in a subdirectory
-  test.run("mkdir -p #{tmpdir}/sub")
+  go_os.mkdir_all("#{tmpdir}/sub", 0755)
   consumer = <<~RG
     require "localhost:PORT/lockuser/lock-mod@v1.0.0" as "mod"
     puts mod.greet("Rugo")

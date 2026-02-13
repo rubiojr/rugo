@@ -7,19 +7,25 @@ use "test"
 use "web"
 use "conv"
 use "str"
+import "os" as go_os
 
 # --- File-level setup: bare git repo + in-process server ---
 
+TEST_TMPDIR = `mktemp -d -t rats-remote-require-XXXXXXXX`
+
+def base_dir()
+  return TEST_TMPDIR
+end
+
 def setup_file()
-  r = test.run("mkdir -p /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git /tmp/rats_remote_require/work")
-  if r["status"] != 0
-    puts "DEBUG setup mkdir: " + r["output"]
-  end
-  r = test.run("git init --bare /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git")
+  bd = TEST_TMPDIR
+  go_os.mkdir_all("#{bd}/repos/testuser/rugo-test-mod.git", 0755)
+  go_os.mkdir_all("#{bd}/work", 0755)
+  r = test.run("git init --bare #{bd}/repos/testuser/rugo-test-mod.git")
   if r["status"] != 0
     puts "DEBUG setup git init: " + r["output"]
   end
-  r = test.run("git clone /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git /tmp/rats_remote_require/work")
+  r = test.run("git clone #{bd}/repos/testuser/rugo-test-mod.git #{bd}/work")
   if r["status"] != 0
     puts "DEBUG setup git clone: " + r["output"]
   end
@@ -33,37 +39,37 @@ def setup_file()
       return n * 2
     end
   RG
-  test.write_file("/tmp/rats_remote_require/work/rugo-test-mod.rugo", mod_src)
+  test.write_file("#{bd}/work/rugo-test-mod.rugo", mod_src)
 
-  r = test.run("cd /tmp/rats_remote_require/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v0.1.0")
+  r = test.run("cd #{bd}/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v0.1.0")
   if r["status"] != 0
     puts "DEBUG setup git commit: " + r["output"]
   end
-  r = test.run("cd /tmp/rats_remote_require/work && git push origin HEAD v0.1.0")
+  r = test.run("cd #{bd}/work && git push origin HEAD v0.1.0")
   if r["status"] != 0
     puts "DEBUG setup git push: " + r["output"]
   end
-  r = test.run("cd /tmp/rats_remote_require/repos/testuser/rugo-test-mod.git && git update-server-info")
+  r = test.run("cd #{bd}/repos/testuser/rugo-test-mod.git && git update-server-info")
   if r["status"] != 0
     puts "DEBUG setup update-server-info: " + r["output"]
   end
 
-  web.static("/testuser/rugo-test-mod.git", "/tmp/rats_remote_require/repos/testuser/rugo-test-mod.git")
+  web.static("/testuser/rugo-test-mod.git", "#{bd}/repos/testuser/rugo-test-mod.git")
   spawn web.listen(0)
   p = web.port()
-  test.write_file("/tmp/rats_remote_require/port", conv.to_s(p))
+  test.write_file("#{bd}/port", conv.to_s(p))
   puts "DEBUG setup complete, port=#{p}"
 end
 
 def teardown_file()
-  test.run("rm -rf /tmp/rats_remote_require")
+  go_os.remove_all(TEST_TMPDIR)
 end
 
 # --- Tests ---
 
 rats "remote require loads functions from git repo"
   tmpdir = test.tmpdir()
-  port = test.run("cat /tmp/rats_remote_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     use "conv"
     require "localhost:PORT/testuser/rugo-test-mod@v0.1.0" as "mod"
@@ -85,7 +91,7 @@ end
 
 rats "remote require uses default namespace from repo name"
   tmpdir = test.tmpdir()
-  port = test.run("cat /tmp/rats_remote_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     require "localhost:PORT/testuser/rugo-test-mod@v0.1.0"
     puts(rugo_test_mod.greet("world"))
@@ -103,7 +109,7 @@ end
 rats "remote require caches immutable versions"
   tmpdir = test.tmpdir()
   moddir = "#{tmpdir}/modules"
-  port = test.run("cat /tmp/rats_remote_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     require "localhost:PORT/testuser/rugo-test-mod@v0.1.0" as "mod"
     puts(mod.greet("cache"))
@@ -132,7 +138,7 @@ end
 
 rats "remote require fails gracefully on bad repo"
   tmpdir = test.tmpdir()
-  port = test.run("cat /tmp/rats_remote_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     require "localhost:PORT/nobody/nonexistent@v1.0.0" as "bad"
     puts(bad.foo())
@@ -146,7 +152,7 @@ end
 
 rats "remote require with build produces working binary"
   tmpdir = test.tmpdir()
-  port = test.run("cat /tmp/rats_remote_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     use "conv"
     require "localhost:PORT/testuser/rugo-test-mod@v0.1.0" as "mod"

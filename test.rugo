@@ -1,8 +1,0 @@
-use "ast"
-prog = ast.parse_file("lib.rugo")
-    for stmt in prog.statements
-      puts stmt
-      if stmt["type"] == "def"
-        puts(stmt["name"])
-      end
-    end

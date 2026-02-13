@@ -7,25 +7,31 @@ use "test"
 use "web"
 use "conv"
 use "str"
+import "os" as go_os
 
 # --- File-level setup: bare git repo with a Go module + in-process server ---
 
+TEST_TMPDIR = `mktemp -d -t rats-remote-go-require-XXXXXXXX`
+
+def base_dir()
+  return TEST_TMPDIR
+end
+
 def setup_file()
-  r = test.run("mkdir -p /tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git /tmp/rats_remote_go_require/work")
-  if r["status"] != 0
-    puts "DEBUG setup mkdir: " + r["output"]
-  end
-  r = test.run("git init --bare /tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git")
+  bd = TEST_TMPDIR
+  go_os.mkdir_all("#{bd}/repos/testuser/rugo-go-mod.git", 0755)
+  go_os.mkdir_all("#{bd}/work", 0755)
+  r = test.run("git init --bare #{bd}/repos/testuser/rugo-go-mod.git")
   if r["status"] != 0
     puts "DEBUG setup git init: " + r["output"]
   end
-  r = test.run("git clone /tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git /tmp/rats_remote_go_require/work")
+  r = test.run("git clone #{bd}/repos/testuser/rugo-go-mod.git #{bd}/work")
   if r["status"] != 0
     puts "DEBUG setup git clone: " + r["output"]
   end
 
   # Write go.mod
-  test.write_file("/tmp/rats_remote_go_require/work/go.mod", "module example.com/rugo-go-mod\n\ngo 1.22\n")
+  test.write_file("#{bd}/work/go.mod", "module example.com/rugo-go-mod\n\ngo 1.22\n")
 
   # Write Go source with exported functions
   go_src = <<~GO
@@ -45,37 +51,37 @@ def setup_file()
     	return strings.ToUpper(s)
     }
   GO
-  test.write_file("/tmp/rats_remote_go_require/work/rugo_go_mod.go", go_src)
+  test.write_file("#{bd}/work/rugo_go_mod.go", go_src)
 
-  r = test.run("cd /tmp/rats_remote_go_require/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v0.1.0")
+  r = test.run("cd #{bd}/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v0.1.0")
   if r["status"] != 0
     puts "DEBUG setup git commit: " + r["output"]
   end
-  r = test.run("cd /tmp/rats_remote_go_require/work && git push origin HEAD v0.1.0")
+  r = test.run("cd #{bd}/work && git push origin HEAD v0.1.0")
   if r["status"] != 0
     puts "DEBUG setup git push: " + r["output"]
   end
-  r = test.run("cd /tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git && git update-server-info")
+  r = test.run("cd #{bd}/repos/testuser/rugo-go-mod.git && git update-server-info")
   if r["status"] != 0
     puts "DEBUG setup update-server-info: " + r["output"]
   end
 
-  web.static("/testuser/rugo-go-mod.git", "/tmp/rats_remote_go_require/repos/testuser/rugo-go-mod.git")
+  web.static("/testuser/rugo-go-mod.git", "#{bd}/repos/testuser/rugo-go-mod.git")
   spawn web.listen(0)
   p = web.port()
-  test.write_file("/tmp/rats_remote_go_require/port", conv.to_s(p))
+  test.write_file("#{bd}/port", conv.to_s(p))
   puts "DEBUG setup complete, port=#{p}"
 end
 
 def teardown_file()
-  test.run("rm -rf /tmp/rats_remote_go_require")
+  go_os.remove_all(TEST_TMPDIR)
 end
 
 # --- Tests ---
 
 rats "remote Go module require loads bridged functions"
   tmpdir = test.tmpdir()
-  port = test.run("cat /tmp/rats_remote_go_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     use "conv"
     require "localhost:PORT/testuser/rugo-go-mod@v0.1.0" as "gomod"
@@ -97,7 +103,7 @@ end
 
 rats "remote Go module uses default namespace from module path"
   tmpdir = test.tmpdir()
-  port = test.run("cat /tmp/rats_remote_go_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     require "localhost:PORT/testuser/rugo-go-mod@v0.1.0"
     puts(rugo_go_mod.upper("hello"))
@@ -115,7 +121,7 @@ end
 rats "remote Go module caches immutable versions"
   tmpdir = test.tmpdir()
   moddir = "#{tmpdir}/modules"
-  port = test.run("cat /tmp/rats_remote_go_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     require "localhost:PORT/testuser/rugo-go-mod@v0.1.0" as "gomod"
     puts(gomod.greet("cache"))
@@ -144,7 +150,7 @@ end
 
 rats "remote Go module build produces working binary"
   tmpdir = test.tmpdir()
-  port = test.run("cat /tmp/rats_remote_go_require/port")["output"]
+  port = test.run("cat #{base_dir()}/port")["output"]
   consumer = <<~RG
     use "conv"
     require "localhost:PORT/testuser/rugo-go-mod@v0.1.0" as "gomod"

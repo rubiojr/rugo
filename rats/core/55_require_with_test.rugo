@@ -7,20 +7,21 @@ use "test"
 use "web"
 use "conv"
 use "str"
+import "os" as go_os
 
 # --- File-level setup: multi-file bare git repo + in-process server ---
 
+TEST_TMPDIR = `mktemp -d -t rats-req-with-XXXXXXXX`
+
 def setup_file()
-  test.run("rm -rf /tmp/rats_req_with")
-  r = test.run("mkdir -p /tmp/rats_req_with/repos/testuser/multimod.git /tmp/rats_req_with/work")
-  if r["status"] != 0
-    puts "DEBUG setup mkdir: " + r["output"]
-  end
-  r = test.run("git init --bare /tmp/rats_req_with/repos/testuser/multimod.git")
+  bd = TEST_TMPDIR
+  go_os.mkdir_all("#{bd}/repos/testuser/multimod.git", 0755)
+  go_os.mkdir_all("#{bd}/work", 0755)
+  r = test.run("git init --bare #{bd}/repos/testuser/multimod.git")
   if r["status"] != 0
     puts "DEBUG setup git init: " + r["output"]
   end
-  r = test.run("git clone /tmp/rats_req_with/repos/testuser/multimod.git /tmp/rats_req_with/work")
+  r = test.run("git clone #{bd}/repos/testuser/multimod.git #{bd}/work")
   if r["status"] != 0
     puts "DEBUG setup git clone: " + r["output"]
   end
@@ -37,7 +38,7 @@ def setup_file()
       return "GET " + gh["api_base"] + path
     end
   RG
-  test.write_file("/tmp/rats_req_with/work/client.rugo", client_src)
+  test.write_file("#{bd}/work/client.rugo", client_src)
 
   # math_helpers.rugo — standalone module
   math_src = <<~RG
@@ -49,7 +50,7 @@ def setup_file()
       return n * 3
     end
   RG
-  test.write_file("/tmp/rats_req_with/work/math_helpers.rugo", math_src)
+  test.write_file("#{bd}/work/math_helpers.rugo", math_src)
 
   # greeter.rugo — standalone module
   greeter_src = <<~RG
@@ -57,34 +58,34 @@ def setup_file()
       return "Hello, " + name + "!"
     end
   RG
-  test.write_file("/tmp/rats_req_with/work/greeter.rugo", greeter_src)
+  test.write_file("#{bd}/work/greeter.rugo", greeter_src)
 
-  r = test.run("cd /tmp/rats_req_with/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v1.0.0")
+  r = test.run("cd #{bd}/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git tag v1.0.0")
   if r["status"] != 0
     puts "DEBUG setup git commit: " + r["output"]
   end
-  r = test.run("cd /tmp/rats_req_with/work && git push origin HEAD v1.0.0")
+  r = test.run("cd #{bd}/work && git push origin HEAD v1.0.0")
   if r["status"] != 0
     puts "DEBUG setup git push: " + r["output"]
   end
-  r = test.run("cd /tmp/rats_req_with/repos/testuser/multimod.git && git update-server-info")
+  r = test.run("cd #{bd}/repos/testuser/multimod.git && git update-server-info")
   if r["status"] != 0
     puts "DEBUG setup update-server-info: " + r["output"]
   end
 
-  web.static("/testuser/multimod.git", "/tmp/rats_req_with/repos/testuser/multimod.git")
+  web.static("/testuser/multimod.git", "#{bd}/repos/testuser/multimod.git")
   spawn web.listen(0)
   p = web.port()
-  test.write_file("/tmp/rats_req_with/port", conv.to_s(p))
+  test.write_file("#{bd}/port", conv.to_s(p))
 end
 
 def teardown_file()
-  test.run("rm -rf /tmp/rats_req_with")
+  go_os.remove_all(TEST_TMPDIR)
 end
 
 # --- Helper ---
 def port()
-  return test.run("cat /tmp/rats_req_with/port")["output"]
+  return test.run("cat #{TEST_TMPDIR}/port")["output"]
 end
 
 # --- Tests ---

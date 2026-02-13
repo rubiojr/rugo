@@ -63,14 +63,12 @@ rats "os bridge temp_dir"
 end
 
 rats "os bridge read_file"
-  go_os.mkdir_all("/tmp/rugo_test_bridge", 493)
-  content = go_os.read_file("/tmp/rugo_test_bridge/../rugo_test_bridge/../../etc/os-release")
+  content = go_os.read_file("/etc/os-release")
   test.assert_neq(content, "")
-  go_os.remove_all("/tmp/rugo_test_bridge")
 end
 
 rats "os bridge write_file"
-  path = "/tmp/rugo_test_write_file.txt"
+  path = test.tmpdir() + "/rugo_test_write_file.txt"
   go_os.write_file(path, "hello from rugo", 0644)
   content = go_os.read_file(path)
   test.assert_eq(str.trim(content), "hello from rugo")
