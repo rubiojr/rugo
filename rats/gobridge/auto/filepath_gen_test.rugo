@@ -1,0 +1,137 @@
+# Auto-generated smoke tests by rugo dev bridgegen; DO NOT EDIT.
+use "test"
+import "path/filepath"
+
+rats "filepath.abs is callable"
+  result = try filepath.abs("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.base is callable"
+  result = try filepath.base("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.clean is callable"
+  result = try filepath.clean("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.dir is callable"
+  result = try filepath.dir("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.eval_symlinks is callable"
+  result = try filepath.eval_symlinks("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.ext is callable"
+  result = try filepath.ext("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.from_slash is callable"
+  result = try filepath.from_slash("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.glob is callable"
+  result = try filepath.glob("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Array")
+  end
+end
+
+rats "filepath.has_prefix is callable"
+  result = try filepath.has_prefix("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "filepath.is_abs is callable"
+  result = try filepath.is_abs("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "filepath.is_local is callable"
+  result = try filepath.is_local("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "filepath.join is callable"
+  result = try filepath.join(["a"]) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.localize is callable"
+  result = try filepath.localize("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.match is callable"
+  result = try filepath.match("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "filepath.rel is callable"
+  result = try filepath.rel("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.split is callable"
+  result = try filepath.split("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Array")
+  end
+end
+
+rats "filepath.split_list is callable"
+  result = try filepath.split_list("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Array")
+  end
+end
+
+rats "filepath.to_slash is callable"
+  result = try filepath.to_slash("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "filepath.volume_name is callable"
+  result = try filepath.volume_name("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+

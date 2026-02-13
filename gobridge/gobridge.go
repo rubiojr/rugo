@@ -22,7 +22,12 @@ const (
 	GoByte
 	GoStringSlice // []string
 	GoByteSlice   // []byte — bridged as string in Rugo
+	GoInt32       // int32 — bridged as int in Rugo
 	GoInt64       // int64 — bridged as int in Rugo
+	GoUint32      // uint32 — bridged as int in Rugo
+	GoUint64      // uint64 — bridged as int in Rugo
+	GoUint        // uint — bridged as int in Rugo
+	GoFloat32     // float32 — bridged as float in Rugo
 	GoRune        // rune — bridged as first char of string in Rugo
 	GoFunc        // func param — Rugo lambda adapted to typed Go func
 	GoDuration    // time.Duration — bridged as int (milliseconds) in Rugo
@@ -126,9 +131,30 @@ type Package struct {
 var registry = map[string]*Package{}
 
 // Register adds a Go package to the bridge registry.
-// Called from init() in each mapping file.
+// If Extend() was called first (init ordering), merges the extended funcs.
 func Register(pkg *Package) {
+	if existing, ok := registry[pkg.Path]; ok {
+		// Merge extended functions into the full package
+		for name, sig := range existing.Funcs {
+			pkg.Funcs[name] = sig
+		}
+	}
 	registry[pkg.Path] = pkg
+}
+
+// Extend merges additional functions into an already-registered package.
+// If the package isn't registered yet (init order), it creates a placeholder
+// that Register() will merge into later.
+func Extend(path string, funcs map[string]GoFuncSig) {
+	pkg, ok := registry[path]
+	if !ok {
+		// Package not yet registered — create a stub that Register will merge into
+		registry[path] = &Package{Path: path, Funcs: funcs}
+		return
+	}
+	for name, sig := range funcs {
+		pkg.Funcs[name] = sig
+	}
 }
 
 // IsPackage returns true if the package is whitelisted for Go bridge.
@@ -232,8 +258,18 @@ func TypeConvToGo(argExpr string, t GoType) string {
 		return "rugo_go_to_string_slice(" + argExpr + ")"
 	case GoByteSlice:
 		return "[]byte(rugo_to_string(" + argExpr + "))"
+	case GoInt32:
+		return "int32(rugo_to_int(" + argExpr + "))"
 	case GoInt64:
 		return "int64(rugo_to_int(" + argExpr + "))"
+	case GoUint32:
+		return "uint32(rugo_to_int(" + argExpr + "))"
+	case GoUint64:
+		return "uint64(rugo_to_int(" + argExpr + "))"
+	case GoUint:
+		return "uint(rugo_to_int(" + argExpr + "))"
+	case GoFloat32:
+		return "float32(rugo_to_float(" + argExpr + "))"
 	case GoRune:
 		return "rugo_first_rune(rugo_to_string(" + argExpr + "))"
 	case GoDuration:
@@ -256,8 +292,18 @@ func GoTypeGoName(t GoType) string {
 		return "bool"
 	case GoByte:
 		return "byte"
+	case GoInt32:
+		return "int32"
 	case GoInt64:
 		return "int64"
+	case GoUint32:
+		return "uint32"
+	case GoUint64:
+		return "uint64"
+	case GoUint:
+		return "uint"
+	case GoFloat32:
+		return "float32"
 	case GoRune:
 		return "rune"
 	default:
@@ -330,8 +376,18 @@ func TypeWrapReturn(expr string, t GoType) string {
 		return "rugo_go_from_string_slice(" + expr + ")"
 	case GoByteSlice:
 		return "interface{}(string(" + expr + "))"
+	case GoInt32:
+		return "interface{}(int(" + expr + "))"
 	case GoInt64:
 		return "interface{}(int(" + expr + "))"
+	case GoUint32:
+		return "interface{}(int(" + expr + "))"
+	case GoUint64:
+		return "interface{}(int(" + expr + "))"
+	case GoUint:
+		return "interface{}(int(" + expr + "))"
+	case GoFloat32:
+		return "interface{}(float64(" + expr + "))"
 	case GoRune:
 		return "func() interface{} { _r := " + expr + "; if _r == 0 { return interface{}(\"\") }; return interface{}(string(_r)) }()"
 	case GoDuration:
@@ -358,8 +414,18 @@ func GoTypeName(t GoType) string {
 		return "[]string"
 	case GoByteSlice:
 		return "[]byte"
+	case GoInt32:
+		return "int32"
 	case GoInt64:
 		return "int64"
+	case GoUint32:
+		return "uint32"
+	case GoUint64:
+		return "uint64"
+	case GoUint:
+		return "uint"
+	case GoFloat32:
+		return "float32"
 	case GoRune:
 		return "rune"
 	case GoFunc:
@@ -381,40 +447,47 @@ func PanicOnErr(rugoName string) string {
 
 // RuneHelper is a shared runtime helper for GoRune params.
 // Bridge files using GoRune should include this in RuntimeHelpers.
-var RuneHelper = RuntimeHelper{
-	Key: "rugo_first_rune",
-	Code: `func rugo_first_rune(s string) rune {
-	for _, r := range s { return r }
-	return 0
-}
+// RuneHelper is loaded from helpers/rune.go via embed.
+var RuneHelper = helperFromFile("rugo_first_rune", runeHelperSrc)
 
-`,
-}
+// StringSliceHelper is loaded from helpers/string_slice.go via embed.
+var StringSliceHelper = helperFromFile("rugo_go_to_string_slice", stringSliceHelperSrc)
 
-// PackageNeedsRuneHelper reports whether any function in a package uses GoRune params,
-// including GoRune inside GoFunc adapter signatures.
-func PackageNeedsRuneHelper(pkg string) bool {
+// PackageNeedsHelper reports whether any function in a package uses the given GoType
+// in params or returns, including inside GoFunc adapter signatures.
+func PackageNeedsHelper(pkg string, target GoType) bool {
 	funcs := PackageFuncs(pkg)
 	for _, sig := range funcs {
 		for _, p := range sig.Params {
-			if p == GoRune {
+			if p == target {
+				return true
+			}
+		}
+		for _, r := range sig.Returns {
+			if r == target {
 				return true
 			}
 		}
 		for _, ft := range sig.FuncTypes {
 			for _, p := range ft.Params {
-				if p == GoRune {
+				if p == target {
 					return true
 				}
 			}
 			for _, r := range ft.Returns {
-				if r == GoRune {
+				if r == target {
 					return true
 				}
 			}
 		}
 	}
 	return false
+}
+
+// PackageNeedsRuneHelper reports whether any function in a package uses GoRune params,
+// including GoRune inside GoFunc adapter signatures.
+func PackageNeedsRuneHelper(pkg string) bool {
+	return PackageNeedsHelper(pkg, GoRune)
 }
 
 // AllRuntimeHelpers returns deduplicated runtime helpers from all functions in a package.

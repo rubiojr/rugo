@@ -3,6 +3,7 @@ package dev
 import (
 	"context"
 	"fmt"
+	"go/format"
 	"go/importer"
 	"go/types"
 	"os"
@@ -18,16 +19,12 @@ import (
 func bridgegenCommand() *cli.Command {
 	return &cli.Command{
 		Name:      "bridgegen",
-		Usage:     "Scaffold a Go bridge package",
+		Usage:     "Generate a Go bridge package (_gen.go file, always overwritten)",
 		ArgsUsage: "<go-package>",
 		Flags: []cli.Flag{
 			&cli.BoolFlag{
 				Name:  "dry-run",
 				Usage: "Preview classification without writing files",
-			},
-			&cli.BoolFlag{
-				Name:  "expand",
-				Usage: "Add new functions to an existing bridge file (skip already registered)",
 			},
 		},
 		Action: bridgegenAction,
@@ -64,10 +61,11 @@ type bridgedFunc struct {
 	GoName   string
 	RugoName string
 	Sig      *types.Signature
-	Tier     bridgeTier
+	Tier       bridgeTier
 	Reason     string // why it was blocked
 	Params     []gobridge.GoType
 	Returns    []gobridge.GoType
+	FuncTypes  map[int]*gobridge.GoFuncType  // GoFunc param signatures
 	ArrayTypes map[int]*gobridge.GoArrayType // fixed-size array return metadata
 	Variadic   bool
 	Doc        string
@@ -79,7 +77,6 @@ func bridgegenAction(_ context.Context, cmd *cli.Command) error {
 	}
 	pkgPath := cmd.Args().First()
 	dryRun := cmd.Bool("dry-run")
-	expand := cmd.Bool("expand")
 
 	imp := importer.Default()
 	pkg, err := imp.Import(pkgPath)
@@ -87,39 +84,80 @@ func bridgegenAction(_ context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("importing %s: %w", pkgPath, err)
 	}
 
-	// Collect existing bridge functions if expanding
-	existing := map[string]bool{}
-	if expand {
-		if funcs := gobridge.PackageFuncs(pkgPath); funcs != nil {
-			for name := range funcs {
-				existing[name] = true
-			}
-		}
-	}
-
 	// Enumerate and classify exported functions
 	scope := pkg.Scope()
 	var funcs []bridgedFunc
 	for _, name := range scope.Names() {
 		obj := scope.Lookup(name)
-		fn, ok := obj.(*types.Func)
-		if !ok {
+
+		// Package-level functions
+		if fn, ok := obj.(*types.Func); ok {
+			if !fn.Exported() {
+				continue
+			}
+			sig := fn.Type().(*types.Signature)
+			if sig.Recv() != nil {
+				continue
+			}
+			rugoName := toSnakeCase(name)
+			bf := classifyFunc(name, rugoName, sig)
+			funcs = append(funcs, bf)
 			continue
 		}
-		// Skip unexported functions
-		if !fn.Exported() {
-			continue
+
+		// Package-level vars — enumerate their methods (e.g., base64.StdEncoding)
+		if v, ok := obj.(*types.Var); ok && v.Exported() {
+			varType := v.Type()
+			// Dereference pointer types
+			if ptr, ok := varType.(*types.Pointer); ok {
+				varType = ptr.Elem()
+			}
+			named, ok := varType.(*types.Named)
+			if !ok {
+				continue
+			}
+			// Check methods on the named type and its pointer
+			for _, base := range []*types.Named{named} {
+				for j := 0; j < base.NumMethods(); j++ {
+					m := base.Method(j)
+					if !m.Exported() {
+						continue
+					}
+					sig := m.Type().(*types.Signature)
+					// Build method chain GoName: "VarName.MethodName"
+					goName := name + "." + m.Name()
+					rugoName := toSnakeCase(name) + "_" + toSnakeCase(m.Name())
+					// Strip receiver from signature for classification
+					bf := classifyFunc(goName, rugoName, sig)
+					funcs = append(funcs, bf)
+				}
+			}
+			// Also check pointer receiver methods
+			ptrMethods := types.NewMethodSet(types.NewPointer(named))
+			for j := 0; j < ptrMethods.Len(); j++ {
+				sel := ptrMethods.At(j)
+				m := sel.Obj().(*types.Func)
+				if !m.Exported() {
+					continue
+				}
+				// Skip if already added from value methods
+				found := false
+				for _, f := range funcs {
+					if f.GoName == name+"."+m.Name() {
+						found = true
+						break
+					}
+				}
+				if found {
+					continue
+				}
+				sig := m.Type().(*types.Signature)
+				goName := name + "." + m.Name()
+				rugoName := toSnakeCase(name) + "_" + toSnakeCase(m.Name())
+				bf := classifyFunc(goName, rugoName, sig)
+				funcs = append(funcs, bf)
+			}
 		}
-		sig := fn.Type().(*types.Signature)
-		if sig.Recv() != nil {
-			continue // skip methods
-		}
-		rugoName := toSnakeCase(name)
-		if expand && existing[rugoName] {
-			continue
-		}
-		bf := classifyFunc(name, rugoName, sig)
-		funcs = append(funcs, bf)
 	}
 
 	sort.Slice(funcs, func(i, j int) bool {
@@ -133,7 +171,7 @@ func bridgegenAction(_ context.Context, cmd *cli.Command) error {
 		return printClassification(pkgPath, funcs)
 	}
 
-	return writeBridgeFile(pkgPath, funcs, expand)
+	return writeBridgeFile(pkgPath, funcs)
 }
 
 // classifyFunc determines how a Go function can be bridged.
@@ -158,9 +196,26 @@ func classifyFunc(goName, rugoName string, sig *types.Signature) bridgedFunc {
 			return bf
 		}
 		if tier == tierFunc {
-			bf.Tier = tierFunc
-			bf.Reason = fmt.Sprintf("param %d: func type", i)
-			return bf
+			// Try to build a FuncType from the function signature
+			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
+			if !ok {
+				bf.Tier = tierFunc
+				bf.Reason = fmt.Sprintf("param %d: func type (not a signature)", i)
+				return bf
+			}
+			ft := classifyFuncType(funcSig)
+			if ft == nil {
+				bf.Tier = tierFunc
+				bf.Reason = fmt.Sprintf("param %d: func with unbridgeable signature", i)
+				return bf
+			}
+			if bf.FuncTypes == nil {
+				bf.FuncTypes = map[int]*gobridge.GoFuncType{}
+			}
+			bf.FuncTypes[i] = ft
+			hasCast = true // func params are at least castable tier
+			bf.Params = append(bf.Params, gt)
+			continue
 		}
 		if tier == tierCastable {
 			hasCast = true
@@ -200,6 +255,32 @@ func classifyFunc(goName, rugoName string, sig *types.Signature) bridgedFunc {
 	return bf
 }
 
+// classifyFuncType builds a GoFuncType from a Go function signature.
+// Returns nil if any param/return type is unbridgeable.
+func classifyFuncType(sig *types.Signature) *gobridge.GoFuncType {
+	ft := &gobridge.GoFuncType{}
+
+	params := sig.Params()
+	for i := 0; i < params.Len(); i++ {
+		gt, tier, _ := classifyGoType(params.At(i).Type(), true)
+		if tier == tierBlocked || tier == tierFunc {
+			return nil
+		}
+		ft.Params = append(ft.Params, gt)
+	}
+
+	results := sig.Results()
+	for i := 0; i < results.Len(); i++ {
+		gt, tier, _ := classifyGoType(results.At(i).Type(), false)
+		if tier == tierBlocked || tier == tierFunc {
+			return nil
+		}
+		ft.Returns = append(ft.Returns, gt)
+	}
+
+	return ft
+}
+
 // classifyGoType maps a Go type to a GoType and tier.
 func classifyGoType(t types.Type, isParam bool) (gobridge.GoType, bridgeTier, string) {
 	// Check named types first (error interface)
@@ -226,14 +307,23 @@ func classifyGoType(t types.Type, isParam bool) (gobridge.GoType, bridgeTier, st
 			return gobridge.GoByte, tierCastable, ""
 		case types.Int64:
 			return gobridge.GoInt64, tierCastable, ""
-		case types.Int32: // rune is int32
-			return gobridge.GoRune, tierCastable, ""
+		case types.Int32:
+			if u.Name() == "rune" {
+				return gobridge.GoRune, tierCastable, ""
+			}
+			return gobridge.GoInt32, tierCastable, ""
 		case types.Float32:
-			return gobridge.GoFloat64, tierCastable, ""
+			return gobridge.GoFloat32, tierCastable, ""
 		case types.Int8, types.Int16:
 			return gobridge.GoInt, tierCastable, ""
-		case types.Uint, types.Uint16, types.Uint32, types.Uint64:
+		case types.Uint16:
 			return gobridge.GoInt, tierCastable, ""
+		case types.Uint:
+			return gobridge.GoUint, tierCastable, ""
+		case types.Uint32:
+			return gobridge.GoUint32, tierCastable, ""
+		case types.Uint64:
+			return gobridge.GoUint64, tierCastable, ""
 		default:
 			return 0, tierBlocked, fmt.Sprintf("unsupported basic type %s", u.Name())
 		}
@@ -325,8 +415,18 @@ func goTypeConst(t gobridge.GoType) string {
 		return "GoStringSlice"
 	case gobridge.GoByteSlice:
 		return "GoByteSlice"
+	case gobridge.GoInt32:
+		return "GoInt32"
 	case gobridge.GoInt64:
 		return "GoInt64"
+	case gobridge.GoUint32:
+		return "GoUint32"
+	case gobridge.GoUint64:
+		return "GoUint64"
+	case gobridge.GoUint:
+		return "GoUint"
+	case gobridge.GoFloat32:
+		return "GoFloat32"
 	case gobridge.GoRune:
 		return "GoRune"
 	case gobridge.GoFunc:
@@ -371,9 +471,9 @@ func printClassification(pkgPath string, funcs []bridgedFunc) error {
 	return nil
 }
 
-func writeBridgeFile(pkgPath string, funcs []bridgedFunc, expand bool) error {
+func writeBridgeFile(pkgPath string, funcs []bridgedFunc) error {
 	ns := gobridge.DefaultNS(pkgPath)
-	fileName := filepath.Join("gobridge", ns+".go")
+	fileName := filepath.Join("gobridge", ns+"_gen.go")
 
 	// Filter to generatable functions (auto + castable)
 	var genFuncs []bridgedFunc
@@ -386,11 +486,8 @@ func writeBridgeFile(pkgPath string, funcs []bridgedFunc, expand bool) error {
 		}
 	}
 
-	if expand {
-		return writeExpandedBridge(fileName, pkgPath, genFuncs, skipped)
-	}
-
 	var sb strings.Builder
+	sb.WriteString("// Code generated by rugo dev bridgegen; DO NOT EDIT.\n\n")
 	sb.WriteString("package gobridge\n\n")
 	sb.WriteString("func init() {\n")
 	sb.WriteString("\tRegister(&Package{\n")
@@ -404,7 +501,7 @@ func writeBridgeFile(pkgPath string, funcs []bridgedFunc, expand bool) error {
 
 	// Add skipped functions as comments
 	if len(skipped) > 0 {
-		sb.WriteString("\t\t\t// --- Skipped (need custom Codegen) ---\n")
+		sb.WriteString("\t\t\t// --- Skipped (need custom Codegen or _custom.go) ---\n")
 		for _, f := range skipped {
 			sb.WriteString(fmt.Sprintf("\t\t\t// %s (%s): %s\n", f.RugoName, f.Tier, f.Reason))
 		}
@@ -414,43 +511,38 @@ func writeBridgeFile(pkgPath string, funcs []bridgedFunc, expand bool) error {
 	sb.WriteString("\t})\n")
 	sb.WriteString("}\n")
 
-	if _, err := os.Stat(fileName); err == nil && !expand {
-		fmt.Printf("File %s already exists. Use --expand to add new functions.\n", fileName)
-		fmt.Println("\nGenerated code (stdout):")
-		fmt.Print(sb.String())
-		return nil
+	formatted, err := format.Source([]byte(sb.String()))
+	if err != nil {
+		return fmt.Errorf("formatting %s: %w", fileName, err)
 	}
 
-	if err := os.WriteFile(fileName, []byte(sb.String()), 0o644); err != nil {
+	if err := os.WriteFile(fileName, formatted, 0o644); err != nil {
 		return fmt.Errorf("writing %s: %w", fileName, err)
 	}
 
-	fmt.Printf("Created %s\n", fileName)
+	fmt.Printf("Generated %s\n", fileName)
 	fmt.Printf("  %d functions generated, %d skipped\n", len(genFuncs), len(skipped))
-	return nil
-}
 
-func writeExpandedBridge(fileName, pkgPath string, genFuncs, skipped []bridgedFunc) error {
-	if len(genFuncs) == 0 && len(skipped) == 0 {
-		fmt.Println("No new functions to add.")
-		return nil
-	}
-
-	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("\n// --- New functions for %s (generated by bridgegen) ---\n", pkgPath))
+	// Generate smoke tests — skip functions overridden by _custom.go
+	customFuncs := gobridge.PackageFuncs(pkgPath)
+	var testFuncs []bridgedFunc
 	for _, f := range genFuncs {
-		sb.WriteString(formatFuncEntry(f))
-	}
-	if len(skipped) > 0 {
-		sb.WriteString("\t\t\t// --- Skipped (need custom Codegen) ---\n")
-		for _, f := range skipped {
-			sb.WriteString(fmt.Sprintf("\t\t\t// %s (%s): %s\n", f.RugoName, f.Tier, f.Reason))
+		if customFuncs != nil {
+			if existing, ok := customFuncs[f.RugoName]; ok {
+				// Custom override exists — skip if signature differs
+				if len(existing.Params) != len(f.Params) {
+					continue
+				}
+			}
 		}
+		testFuncs = append(testFuncs, f)
 	}
+	testFile := filepath.Join("rats", "gobridge", "auto", ns+"_gen_test.rugo")
+	if err := writeTestFile(testFile, pkgPath, ns, testFuncs); err != nil {
+		return fmt.Errorf("writing tests: %w", err)
+	}
+	fmt.Printf("Generated %s\n", testFile)
 
-	fmt.Printf("Add these entries to %s:\n\n", fileName)
-	fmt.Print(sb.String())
-	fmt.Printf("\n  %d functions generated, %d skipped\n", len(genFuncs), len(skipped))
 	return nil
 }
 
@@ -484,6 +576,29 @@ func formatFuncEntry(f bridgedFunc) string {
 		sb.WriteString(", Variadic: true")
 	}
 
+	if len(f.FuncTypes) > 0 {
+		var parts []string
+		for idx, ft := range f.FuncTypes {
+			var fParams, fRets []string
+			for _, p := range ft.Params {
+				fParams = append(fParams, goTypeConst(p))
+			}
+			for _, r := range ft.Returns {
+				fRets = append(fRets, goTypeConst(r))
+			}
+			pList := "nil"
+			if len(fParams) > 0 {
+				pList = "[]GoType{" + strings.Join(fParams, ", ") + "}"
+			}
+			rList := "nil"
+			if len(fRets) > 0 {
+				rList = "[]GoType{" + strings.Join(fRets, ", ") + "}"
+			}
+			parts = append(parts, fmt.Sprintf("%d: {Params: %s, Returns: %s}", idx, pList, rList))
+		}
+		sb.WriteString(fmt.Sprintf(", FuncTypes: map[int]*GoFuncType{%s}", strings.Join(parts, ", ")))
+	}
+
 	if len(f.ArrayTypes) > 0 {
 		// Emit ArrayTypes metadata
 		var parts []string
@@ -499,4 +614,142 @@ func formatFuncEntry(f bridgedFunc) string {
 
 	sb.WriteString("},\n")
 	return sb.String()
+}
+
+// writeTestFile generates smoke tests for all bridged functions.
+func writeTestFile(path, pkgPath, ns string, funcs []bridgedFunc) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+
+	var sb strings.Builder
+	sb.WriteString("# Auto-generated smoke tests by rugo dev bridgegen; DO NOT EDIT.\n")
+	sb.WriteString("use \"test\"\n")
+	sb.WriteString(fmt.Sprintf("import %q\n\n", pkgPath))
+
+	for _, f := range funcs {
+		// Skip void functions and functions with complex return types
+		if len(f.Returns) == 0 {
+			continue
+		}
+		// Skip functions whose only return is error (void semantics)
+		if len(f.Returns) == 1 && f.Returns[0] == gobridge.GoError {
+			continue
+		}
+		// Skip GoFunc params — need lambda args we can't auto-generate
+		// Skip GoError params — can't construct error values in Rugo
+		hasFunc := false
+		for _, p := range f.Params {
+			if p == gobridge.GoFunc || p == gobridge.GoError {
+				hasFunc = true
+			}
+		}
+		if hasFunc {
+			continue
+		}
+
+		args := testArgs(f)
+		expectedType := testReturnType(f)
+		if expectedType == "" {
+			continue
+		}
+
+		sb.WriteString(fmt.Sprintf("rats \"%s.%s is callable\"\n", ns, f.RugoName))
+		if f.Variadic && len(f.Params) == 1 {
+			sb.WriteString(fmt.Sprintf("  result = try %s.%s(%s) or nil\n", ns, f.RugoName, args[0]))
+		} else {
+			sb.WriteString(fmt.Sprintf("  result = try %s.%s(%s) or nil\n", ns, f.RugoName, strings.Join(args, ", ")))
+		}
+		sb.WriteString(fmt.Sprintf("  if result != nil\n"))
+		sb.WriteString(fmt.Sprintf("    test.assert_eq(type_of(result), %q)\n", expectedType))
+		sb.WriteString(fmt.Sprintf("  end\n"))
+		sb.WriteString("end\n\n")
+	}
+
+	return os.WriteFile(path, []byte(sb.String()), 0o644)
+}
+
+// testArgs generates safe zero-value arguments for a function call.
+func testArgs(f bridgedFunc) []string {
+	var args []string
+	for _, p := range f.Params {
+		args = append(args, testZeroValue(p))
+	}
+	return args
+}
+
+// testZeroValue returns a safe Rugo literal for a GoType.
+func testZeroValue(t gobridge.GoType) string {
+	switch t {
+	case gobridge.GoString:
+		return `"a"`
+	case gobridge.GoInt:
+		return "1"
+	case gobridge.GoFloat64:
+		return "1.0"
+	case gobridge.GoBool:
+		return "false"
+	case gobridge.GoByte:
+		return "0"
+	case gobridge.GoStringSlice:
+		return `["a"]`
+	case gobridge.GoByteSlice:
+		return `"a"`
+	case gobridge.GoInt64:
+		return "1"
+	case gobridge.GoInt32:
+		return "1"
+	case gobridge.GoUint32:
+		return "1"
+	case gobridge.GoUint64:
+		return "1"
+	case gobridge.GoUint:
+		return "1"
+	case gobridge.GoFloat32:
+		return "1.0"
+	case gobridge.GoRune:
+		return `"a"`
+	case gobridge.GoDuration:
+		return "1"
+	default:
+		return "nil"
+	}
+}
+
+// testReturnType returns the expected Rugo type_of() string for a return pattern.
+func testReturnType(f bridgedFunc) string {
+	returns := f.Returns
+	// (T, error) → T
+	if len(returns) >= 2 && returns[len(returns)-1] == gobridge.GoError {
+		returns = returns[:len(returns)-1]
+	}
+	// (T, bool) → T or nil
+	if len(returns) == 2 && returns[1] == gobridge.GoBool {
+		return "" // can't predict nil vs value
+	}
+	// Multi-return → Array
+	if len(returns) > 1 {
+		return "Array"
+	}
+	if len(returns) == 0 {
+		return ""
+	}
+	switch returns[0] {
+	case gobridge.GoString, gobridge.GoByteSlice:
+		return "String"
+	case gobridge.GoInt, gobridge.GoInt32, gobridge.GoInt64, gobridge.GoUint32, gobridge.GoUint64, gobridge.GoUint:
+		return "Integer"
+	case gobridge.GoFloat64, gobridge.GoFloat32:
+		return "Float"
+	case gobridge.GoBool:
+		return "Bool"
+	case gobridge.GoRune:
+		return "String"
+	case gobridge.GoStringSlice:
+		return "Array"
+	case gobridge.GoDuration:
+		return "Integer"
+	default:
+		return ""
+	}
 }

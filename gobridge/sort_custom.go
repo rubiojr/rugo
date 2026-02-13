@@ -1,42 +1,6 @@
 package gobridge
 
-var stringSliceHelpers = []RuntimeHelper{
-	{Key: "rugo_go_to_string_slice", Code: `func rugo_go_to_string_slice(v interface{}) []string {
-	arr, ok := v.([]interface{})
-	if !ok { panic(fmt.Sprintf("expected array, got %T", v)) }
-	r := make([]string, len(arr))
-	for i, s := range arr { r[i] = rugo_to_string(s) }
-	return r
-}
-
-func rugo_go_from_string_slice(v []string) interface{} {
-	r := make([]interface{}, len(v))
-	for i, s := range v { r[i] = interface{}(s) }
-	return interface{}(r)
-}
-
-`},
-}
-
-var sortHelpers = []RuntimeHelper{
-	{Key: "rugo_sort_in_place", Code: `func rugo_sort_in_place(v interface{}) {
-	arr, ok := v.([]interface{})
-	if !ok { panic(fmt.Sprintf("expected array, got %T", v)) }
-	sort.Slice(arr, func(i, j int) bool {
-		return rugo_compare(arr[i], arr[j]) < 0
-	})
-}
-
-func rugo_sort_is_sorted(v interface{}) bool {
-	arr, ok := v.([]interface{})
-	if !ok { panic(fmt.Sprintf("expected array, got %T", v)) }
-	return sort.SliceIsSorted(arr, func(i, j int) bool {
-		return rugo_compare(arr[i], arr[j]) < 0
-	})
-}
-
-`},
-}
+var sortHelpers = []RuntimeHelper{helperFromFile("rugo_sort_in_place", sortHelperSrc)}
 
 func init() {
 	Register(&Package{

@@ -1,0 +1,18 @@
+# Auto-generated smoke tests by rugo dev bridgegen; DO NOT EDIT.
+use "test"
+import "crypto/sha256"
+
+rats "sha256.sum224 is callable"
+  result = try sha256.sum224("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "sha256.sum256 is callable"
+  result = try sha256.sum256("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+

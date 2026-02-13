@@ -1,0 +1,25 @@
+# Auto-generated smoke tests by rugo dev bridgegen; DO NOT EDIT.
+use "test"
+import "time"
+
+rats "time.local_string is callable"
+  result = try time.local_string() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "time.utc_string is callable"
+  result = try time.utc_string() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "time.parse_duration is callable"
+  result = try time.parse_duration("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+

@@ -14,4 +14,4 @@ YOU KNOW NOTHING ABOUT RUGO, READ docs/
 * If new modules are added, update docs/modules.md
 * If you are fixing a git bug, make sure you close it with a detailed comment before calling it done.
 
-CRITICAL: always run THE ENTIRE rats/ suite before calling it done.
+CRITICAL: always run THE ENTIRE rats/ suite before calling it done. Run rats with --timint and --recap to see timing info and errors summarized.

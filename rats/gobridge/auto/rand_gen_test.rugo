@@ -1,0 +1,116 @@
+# Auto-generated smoke tests by rugo dev bridgegen; DO NOT EDIT.
+use "test"
+import "math/rand/v2"
+
+rats "rand.exp_float64 is callable"
+  result = try rand.exp_float64() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Float")
+  end
+end
+
+rats "rand.float64 is callable"
+  result = try rand.float64() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Float")
+  end
+end
+
+rats "rand.int is callable"
+  result = try rand.int() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.int_n is callable"
+  result = try rand.int_n(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.norm_float64 is callable"
+  result = try rand.norm_float64() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Float")
+  end
+end
+
+rats "rand.float32 is callable"
+  result = try rand.float32() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Float")
+  end
+end
+
+rats "rand.int32 is callable"
+  result = try rand.int32() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.int32_n is callable"
+  result = try rand.int32_n(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.int64 is callable"
+  result = try rand.int64() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.int64_n is callable"
+  result = try rand.int64_n(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.uint is callable"
+  result = try rand.uint() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.uint32 is callable"
+  result = try rand.uint32() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.uint32_n is callable"
+  result = try rand.uint32_n(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.uint64 is callable"
+  result = try rand.uint64() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.uint64_n is callable"
+  result = try rand.uint64_n(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "rand.uint_n is callable"
+  result = try rand.uint_n(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+

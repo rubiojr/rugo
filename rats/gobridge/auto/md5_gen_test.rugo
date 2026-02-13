@@ -1,0 +1,11 @@
+# Auto-generated smoke tests by rugo dev bridgegen; DO NOT EDIT.
+use "test"
+import "crypto/md5"
+
+rats "md5.sum is callable"
+  result = try md5.sum("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+

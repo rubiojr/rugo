@@ -2632,10 +2632,14 @@ func (g *codeGen) writeGoBridgeRuntime() {
 				g.sb.WriteString(h.Code)
 			}
 		}
-		// Auto-emit rugo_first_rune when GoRune params are used
+		// Auto-emit helpers for GoType-based conversions
 		if !emitted[gobridge.RuneHelper.Key] && gobridge.PackageNeedsRuneHelper(pkg) {
 			emitted[gobridge.RuneHelper.Key] = true
 			g.sb.WriteString(gobridge.RuneHelper.Code)
+		}
+		if !emitted[gobridge.StringSliceHelper.Key] && gobridge.PackageNeedsHelper(pkg, gobridge.GoStringSlice) {
+			emitted[gobridge.StringSliceHelper.Key] = true
+			g.sb.WriteString(gobridge.StringSliceHelper.Code)
 		}
 	}
 }

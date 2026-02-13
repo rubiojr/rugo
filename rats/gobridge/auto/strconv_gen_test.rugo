@@ -1,0 +1,228 @@
+# Auto-generated smoke tests by rugo dev bridgegen; DO NOT EDIT.
+use "test"
+import "strconv"
+
+rats "strconv.atoi is callable"
+  result = try strconv.atoi("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "strconv.can_backquote is callable"
+  result = try strconv.can_backquote("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "strconv.format_bool is callable"
+  result = try strconv.format_bool(false) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.itoa is callable"
+  result = try strconv.itoa(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.parse_bool is callable"
+  result = try strconv.parse_bool("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "strconv.parse_float is callable"
+  result = try strconv.parse_float("a", 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Float")
+  end
+end
+
+rats "strconv.quote is callable"
+  result = try strconv.quote("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.quote_to_ascii is callable"
+  result = try strconv.quote_to_ascii("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.quote_to_graphic is callable"
+  result = try strconv.quote_to_graphic("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.quoted_prefix is callable"
+  result = try strconv.quoted_prefix("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.unquote is callable"
+  result = try strconv.unquote("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_bool is callable"
+  result = try strconv.append_bool("a", false) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_float is callable"
+  result = try strconv.append_float("a", 1.0, 0, 1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_int is callable"
+  result = try strconv.append_int("a", 1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_quote is callable"
+  result = try strconv.append_quote("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_quote_rune is callable"
+  result = try strconv.append_quote_rune("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_quote_rune_to_ascii is callable"
+  result = try strconv.append_quote_rune_to_ascii("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_quote_rune_to_graphic is callable"
+  result = try strconv.append_quote_rune_to_graphic("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_quote_to_ascii is callable"
+  result = try strconv.append_quote_to_ascii("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_quote_to_graphic is callable"
+  result = try strconv.append_quote_to_graphic("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.append_uint is callable"
+  result = try strconv.append_uint("a", 1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.format_float is callable"
+  result = try strconv.format_float(1.0, 0, 1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.format_int is callable"
+  result = try strconv.format_int(1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.format_uint is callable"
+  result = try strconv.format_uint(1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.is_graphic is callable"
+  result = try strconv.is_graphic("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "strconv.is_print is callable"
+  result = try strconv.is_print("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "strconv.parse_int is callable"
+  result = try strconv.parse_int("a", 1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "strconv.parse_uint is callable"
+  result = try strconv.parse_uint("a", 1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "strconv.quote_rune is callable"
+  result = try strconv.quote_rune("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.quote_rune_to_ascii is callable"
+  result = try strconv.quote_rune_to_ascii("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.quote_rune_to_graphic is callable"
+  result = try strconv.quote_rune_to_graphic("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "strconv.unquote_char is callable"
+  result = try strconv.unquote_char("a", 0) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Array")
+  end
+end
+

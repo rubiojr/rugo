@@ -1,0 +1,319 @@
+# Auto-generated smoke tests by rugo dev bridgegen; DO NOT EDIT.
+use "test"
+import "os"
+
+rats "os.environ is callable"
+  result = try os.environ() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Array")
+  end
+end
+
+rats "os.executable is callable"
+  result = try os.executable() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.expand_env is callable"
+  result = try os.expand_env("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.getegid is callable"
+  result = try os.getegid() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.getenv is callable"
+  result = try os.getenv("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.geteuid is callable"
+  result = try os.geteuid() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.getgid is callable"
+  result = try os.getgid() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.getpagesize is callable"
+  result = try os.getpagesize() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.getpid is callable"
+  result = try os.getpid() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.getppid is callable"
+  result = try os.getppid() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.getuid is callable"
+  result = try os.getuid() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.getwd is callable"
+  result = try os.getwd() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.hostname is callable"
+  result = try os.hostname() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.mkdir_temp is callable"
+  result = try os.mkdir_temp("a", "a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.readlink is callable"
+  result = try os.readlink("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.stderr_name is callable"
+  result = try os.stderr_name() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.stderr_readdirnames is callable"
+  result = try os.stderr_readdirnames(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Array")
+  end
+end
+
+rats "os.stderr_write_string is callable"
+  result = try os.stderr_write_string("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdin_name is callable"
+  result = try os.stdin_name() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.stdin_readdirnames is callable"
+  result = try os.stdin_readdirnames(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Array")
+  end
+end
+
+rats "os.stdin_write_string is callable"
+  result = try os.stdin_write_string("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdout_name is callable"
+  result = try os.stdout_name() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.stdout_readdirnames is callable"
+  result = try os.stdout_readdirnames(1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Array")
+  end
+end
+
+rats "os.stdout_write_string is callable"
+  result = try os.stdout_write_string("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.temp_dir is callable"
+  result = try os.temp_dir() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.user_cache_dir is callable"
+  result = try os.user_cache_dir() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.user_config_dir is callable"
+  result = try os.user_config_dir() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.user_home_dir is callable"
+  result = try os.user_home_dir() or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.is_path_separator is callable"
+  result = try os.is_path_separator(0) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Bool")
+  end
+end
+
+rats "os.read_file is callable"
+  result = try os.read_file("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "String")
+  end
+end
+
+rats "os.stderr_read is callable"
+  result = try os.stderr_read("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stderr_read_at is callable"
+  result = try os.stderr_read_at("a", 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stderr_seek is callable"
+  result = try os.stderr_seek(1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stderr_write is callable"
+  result = try os.stderr_write("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stderr_write_at is callable"
+  result = try os.stderr_write_at("a", 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdin_read is callable"
+  result = try os.stdin_read("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdin_read_at is callable"
+  result = try os.stdin_read_at("a", 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdin_seek is callable"
+  result = try os.stdin_seek(1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdin_write is callable"
+  result = try os.stdin_write("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdin_write_at is callable"
+  result = try os.stdin_write_at("a", 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdout_read is callable"
+  result = try os.stdout_read("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdout_read_at is callable"
+  result = try os.stdout_read_at("a", 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdout_seek is callable"
+  result = try os.stdout_seek(1, 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdout_write is callable"
+  result = try os.stdout_write("a") or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
+rats "os.stdout_write_at is callable"
+  result = try os.stdout_write_at("a", 1) or nil
+  if result != nil
+    test.assert_eq(type_of(result), "Integer")
+  end
+end
+
