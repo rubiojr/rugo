@@ -346,7 +346,10 @@ func evalAction(ctx context.Context, cmd *cli.Command) error {
 	}
 
 	comp := &compiler.Compiler{BaseDir: tmpDir}
-	return comp.Run(srcFile)
+	if err := comp.Run(srcFile); err != nil {
+		return fmt.Errorf("%s", strings.ReplaceAll(err.Error(), srcFile, "eval"))
+	}
+	return nil
 }
 
 func modTidyAction(ctx context.Context, cmd *cli.Command) error {
