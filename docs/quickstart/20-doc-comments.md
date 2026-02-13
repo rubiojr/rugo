@@ -38,6 +38,10 @@ rugo doc http
 rugo doc strings
 rugo doc time
 
+# Disambiguate when a name exists as both module and bridge (e.g. os, json)
+rugo doc use:os            # force stdlib module
+rugo doc import:os         # force bridge package
+
 # Show docs for a remote module
 rugo doc github.com/user/repo
 

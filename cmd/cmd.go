@@ -142,7 +142,7 @@ func Execute(version string) {
 			{
 				Name:      "doc",
 				Usage:     "Show documentation for files, modules, and bridge packages",
-				ArgsUsage: "<file.rugo|module|package> [symbol]",
+				ArgsUsage: "<file.rugo|[use:|import:]module|package> [symbol]",
 				Flags: []cli.Flag{
 					&cli.BoolFlag{
 						Name:    "all",
@@ -497,6 +497,39 @@ func docAction(ctx context.Context, cmd *cli.Command) error {
 		symbol = cmd.Args().Get(1)
 	}
 
+	// Parse use:/import: prefix for disambiguation
+	forceModule, forceBridge := false, false
+	if strings.HasPrefix(target, "use:") {
+		forceModule = true
+		target = strings.TrimPrefix(target, "use:")
+	} else if strings.HasPrefix(target, "import:") {
+		forceBridge = true
+		target = strings.TrimPrefix(target, "import:")
+	}
+
+	// Forced module lookup (use:)
+	if forceModule {
+		m, ok := modules.Get(target)
+		if !ok {
+			return fmt.Errorf("module %q not found", target)
+		}
+		docOutput(rugodoc.FormatModule(m))
+		return nil
+	}
+
+	// Forced bridge lookup (import:)
+	if forceBridge {
+		if pkg, ok := gobridge.LookupByNS(target); ok {
+			docOutput(rugodoc.FormatBridgePackage(pkg))
+			return nil
+		}
+		if pkg := gobridge.GetPackage(target); pkg != nil {
+			docOutput(rugodoc.FormatBridgePackage(pkg))
+			return nil
+		}
+		return fmt.Errorf("bridge package %q not found", target)
+	}
+
 	// Mode 1: Rugo source file
 	if compiler.IsRugoFile(target) {
 		fd, err := rugodoc.ExtractFile(target)
@@ -520,14 +553,23 @@ func docAction(ctx context.Context, cmd *cli.Command) error {
 		return docLocalDir(target, symbol)
 	}
 
+	// Check for ambiguity: name exists as both module and bridge package
+	_, isModule := modules.Get(target)
+	_, isBridge := gobridge.LookupByNS(target)
+	if isModule && isBridge {
+		return fmt.Errorf("%q is both a module and a bridge package, use \"rugo doc use:%s\" or \"rugo doc import:%s\"", target, target, target)
+	}
+
 	// Mode 3: stdlib module (use)
-	if m, ok := modules.Get(target); ok {
+	if isModule {
+		m, _ := modules.Get(target)
 		docOutput(rugodoc.FormatModule(m))
 		return nil
 	}
 
 	// Mode 4: bridge package by namespace (import)
-	if pkg, ok := gobridge.LookupByNS(target); ok {
+	if isBridge {
+		pkg, _ := gobridge.LookupByNS(target)
 		docOutput(rugodoc.FormatBridgePackage(pkg))
 		return nil
 	}

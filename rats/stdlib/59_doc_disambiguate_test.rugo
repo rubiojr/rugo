@@ -1,0 +1,79 @@
+# RATS: Test rugo doc disambiguation for overlapping module/bridge names
+use "test"
+use "str"
+
+# Test: rugo doc with ambiguous name (os is both module and bridge) shows error
+rats "rugo doc ambiguous name shows disambiguation error"
+  result = test.run("rugo doc os")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "is both a module and a bridge package")
+  test.assert_contains(result["output"], "use:os")
+  test.assert_contains(result["output"], "import:os")
+end
+
+# Test: rugo doc use: prefix shows stdlib module
+rats "rugo doc use:os shows module docs"
+  result = test.run("NO_COLOR=1 rugo doc use:os")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "module os")
+  test.assert_contains(result["output"], "os.exec")
+end
+
+# Test: rugo doc import: prefix shows bridge package
+rats "rugo doc import:os shows bridge docs"
+  result = test.run("NO_COLOR=1 rugo doc import:os")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "package os")
+  test.assert_contains(result["output"], "Go: os")
+end
+
+# Test: rugo doc json is also ambiguous
+rats "rugo doc json shows disambiguation error"
+  result = test.run("rugo doc json")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "is both a module and a bridge package")
+  test.assert_contains(result["output"], "use:json")
+  test.assert_contains(result["output"], "import:json")
+end
+
+# Test: rugo doc use:json shows module
+rats "rugo doc use:json shows module docs"
+  result = test.run("NO_COLOR=1 rugo doc use:json")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "module json")
+end
+
+# Test: rugo doc import:json shows bridge
+rats "rugo doc import:json shows bridge docs"
+  result = test.run("NO_COLOR=1 rugo doc import:json")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "package json")
+end
+
+# Test: rugo doc use: with nonexistent module fails
+rats "rugo doc use:nonexistent fails"
+  result = test.run("rugo doc use:nonexistent")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "module \"nonexistent\" not found")
+end
+
+# Test: rugo doc import: with nonexistent bridge fails
+rats "rugo doc import:nonexistent fails"
+  result = test.run("rugo doc import:nonexistent")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "bridge package \"nonexistent\" not found")
+end
+
+# Test: unambiguous names still auto-resolve without prefix
+rats "rugo doc str auto-resolves to module"
+  result = test.run("NO_COLOR=1 rugo doc str")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "module str")
+end
+
+# Test: unambiguous bridge auto-resolves
+rats "rugo doc strings auto-resolves to bridge"
+  result = test.run("NO_COLOR=1 rugo doc strings")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "package strings")
+end

@@ -834,5 +834,7 @@ rugo doc file.rugo           # all docs in a file
 rugo doc file.rugo factorial # specific symbol
 rugo doc http              # stdlib module
 rugo doc strings           # bridge package
+rugo doc use:os            # force stdlib module (when name is ambiguous)
+rugo doc import:os         # force bridge package (when name is ambiguous)
 rugo doc --all             # list everything
 ```
