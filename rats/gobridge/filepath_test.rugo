@@ -1,97 +1,55 @@
 # RATS: Test Go bridge — path/filepath package
 use "test"
 
+import "path/filepath"
+
 rats "filepath.base"
-  script = <<~SCRIPT
-    import "path/filepath"
-    puts(filepath.base("/home/user/file.txt"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "file.txt")
+  test.assert_eq(filepath.base("/home/user/file.txt"), "file.txt")
 end
 
 rats "filepath.dir"
-  script = <<~SCRIPT
-    import "path/filepath"
-    puts(filepath.dir("/home/user/file.txt"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "/home/user")
+  test.assert_eq(filepath.dir("/home/user/file.txt"), "/home/user")
 end
 
 rats "filepath.ext"
-  script = <<~SCRIPT
-    import "path/filepath"
-    puts(filepath.ext("file.txt"))
-    puts(filepath.ext("file"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], ".txt")
+  test.assert_eq(filepath.ext("file.txt"), ".txt")
+  test.assert_eq(filepath.ext("file"), "")
 end
 
 rats "filepath.join"
-  script = <<~SCRIPT
-    import "path/filepath"
-    puts(filepath.join("home", "user", "docs"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "home/user/docs")
+  test.assert_eq(filepath.join("home", "user", "docs"), "home/user/docs")
 end
 
 rats "filepath.is_abs"
-  script = <<~SCRIPT
-    import "path/filepath"
-    puts(filepath.is_abs("/home/user"))
-    puts(filepath.is_abs("relative/path"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "false")
+  test.assert_true(filepath.is_abs("/home/user"))
+  test.assert_false(filepath.is_abs("relative/path"))
 end
 
 rats "filepath.clean"
-  script = <<~SCRIPT
-    import "path/filepath"
-    puts(filepath.clean("/home/user/../user/./docs"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "/home/user/docs")
+  test.assert_eq(filepath.clean("/home/user/../user/./docs"), "/home/user/docs")
 end
 
 rats "filepath.abs"
-  script = <<~SCRIPT
-    import "path/filepath"
-    result = filepath.abs(".")
-    puts(result)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_neq(result["output"], "")
+  result = filepath.abs(".")
+  test.assert_true(len(result) > 0)
 end
 
 rats "filepath.split"
-  script = <<~SCRIPT
-    import "path/filepath"
-    parts = filepath.split("/home/user/file.txt")
-    puts(parts[0])
-    puts(parts[1])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "/home/user/")
-  test.assert_contains(result["output"], "file.txt")
+  parts = filepath.split("/home/user/file.txt")
+  test.assert_eq(parts[0], "/home/user/")
+  test.assert_eq(parts[1], "file.txt")
+end
+
+rats "filepath.match"
+  test.assert_true(filepath.match("*.txt", "file.txt"))
+  test.assert_false(filepath.match("*.go", "file.txt"))
+end
+
+rats "filepath.rel"
+  test.assert_eq(filepath.rel("/home/user", "/home/user/docs/file.txt"), "docs/file.txt")
+end
+
+rats "filepath.to_slash and from_slash"
+  test.assert_eq(filepath.to_slash("a/b/c"), "a/b/c")
+  test.assert_eq(filepath.from_slash("a/b/c"), "a/b/c")
 end

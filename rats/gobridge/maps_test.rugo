@@ -1,125 +1,76 @@
 # RATS: Test Go bridge — maps package
 use "test"
 
+import "maps"
+
 rats "maps.keys"
-  script = <<~SCRIPT
-    import "maps"
-    use "conv"
-    h = {name: "Rugo", version: "1.0", lang: "go"}
-    keys = maps.keys(h)
-    puts conv.to_s(len(keys))
-    puts keys[0]
-    puts keys[1]
-    puts keys[2]
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "3")
-  test.assert_contains(result["output"], "lang")
-  test.assert_contains(result["output"], "name")
-  test.assert_contains(result["output"], "version")
+  keys = maps.keys({name: "Rugo", version: "1.0", lang: "go"})
+  test.assert_eq(len(keys), 3)
+  test.assert_eq(keys[0], "lang")
+  test.assert_eq(keys[1], "name")
+  test.assert_eq(keys[2], "version")
 end
 
 rats "maps.values"
-  script = <<~SCRIPT
-    import "maps"
-    use "conv"
-    h = {a: "one", b: "two"}
-    vals = maps.values(h)
-    puts conv.to_s(len(vals))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "2")
+  test.assert_eq(len(maps.values({a: "one", b: "two"})), 2)
 end
 
 rats "maps.clone"
-  script = <<~SCRIPT
-    import "maps"
-    h = {name: "Rugo", version: "1.0"}
-    copy = maps.clone(h)
-    copy.name = "Rugo2"
-    puts h.name
-    puts copy.name
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "Rugo")
-  test.assert_contains(result["output"], "Rugo2")
+  h = {name: "Rugo", version: "1.0"}
+  copy = maps.clone(h)
+  copy.name = "Rugo2"
+  test.assert_eq(h.name, "Rugo")
+  test.assert_eq(copy.name, "Rugo2")
 end
 
 rats "maps.equal identical"
-  script = <<~SCRIPT
-    import "maps"
-    puts maps.equal({a: 1, b: 2}, {a: 1, b: 2})
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
+  test.assert_true(maps.equal({a: 1, b: 2}, {a: 1, b: 2}))
 end
 
 rats "maps.equal different values"
-  script = <<~SCRIPT
-    import "maps"
-    puts maps.equal({a: 1}, {a: 2})
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "false")
+  test.assert_false(maps.equal({a: 1}, {a: 2}))
 end
 
 rats "maps.equal different keys"
-  script = <<~SCRIPT
-    import "maps"
-    puts maps.equal({a: 1}, {b: 1})
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "false")
+  test.assert_false(maps.equal({a: 1}, {b: 1}))
 end
 
 rats "maps.equal different sizes"
-  script = <<~SCRIPT
-    import "maps"
-    puts maps.equal({a: 1, b: 2}, {a: 1})
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "false")
+  test.assert_false(maps.equal({a: 1, b: 2}, {a: 1}))
 end
 
 rats "maps empty hash"
-  script = <<~SCRIPT
-    import "maps"
-    use "conv"
-    keys = maps.keys({})
-    puts conv.to_s(len(keys))
-    puts maps.equal({}, {})
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "0")
-  test.assert_contains(result["output"], "true")
+  test.assert_eq(len(maps.keys({})), 0)
+  test.assert_true(maps.equal({}, {}))
 end
 
 rats "maps.clone is shallow"
-  script = <<~SCRIPT
-    import "maps"
-    h = {data: {inner: "hello"}}
-    copy = maps.clone(h)
-    copy.data.inner = "world"
-    puts h.data.inner
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "world")
+  h = {data: {inner: "hello"}}
+  copy = maps.clone(h)
+  copy.data.inner = "world"
+  test.assert_eq(h.data.inner, "world")
+end
+
+rats "maps.clone mutation isolation for top-level keys"
+  h = {a: 1, b: 2}
+  copy = maps.clone(h)
+  copy.a = 99
+  test.assert_eq(h.a, 1)
+  test.assert_eq(copy.a, 99)
+end
+
+rats "maps.values preserves all values"
+  vals = maps.values({x: 10, y: 20, z: 30})
+  sum = 0
+  for v in vals
+    sum = sum + v
+  end
+  test.assert_eq(sum, 60)
+end
+
+rats "maps.keys returns sorted order"
+  keys = maps.keys({z: 1, a: 2, m: 3})
+  test.assert_eq(keys[0], "a")
+  test.assert_eq(keys[1], "m")
+  test.assert_eq(keys[2], "z")
 end

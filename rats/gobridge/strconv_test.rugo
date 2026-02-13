@@ -1,24 +1,17 @@
 # RATS: Test Go bridge — strconv package
 use "test"
 
+import "strconv"
+
 rats "strconv.atoi"
-  script = <<~SCRIPT
-    import "strconv"
-    use "conv"
-    n = strconv.atoi("42")
-    puts(conv.to_s(n + 1))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "43")
+  test.assert_eq(strconv.atoi("42") + 1, 43)
 end
 
+# Subprocess: tests exit code on unhandled error
 rats "strconv.atoi error panics"
   script = <<~SCRIPT
     import "strconv"
-    n = strconv.atoi("not_a_number")
-    puts("should not reach here")
+    strconv.atoi("not_a_number")
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
@@ -26,50 +19,50 @@ rats "strconv.atoi error panics"
 end
 
 rats "strconv.itoa"
-  script = <<~SCRIPT
-    import "strconv"
-    puts(strconv.itoa(42))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "42")
+  test.assert_eq(strconv.itoa(42), "42")
 end
 
 rats "strconv.format_bool"
-  script = <<~SCRIPT
-    import "strconv"
-    puts(strconv.format_bool(true))
-    puts(strconv.format_bool(false))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "false")
+  test.assert_eq(strconv.format_bool(true), "true")
+  test.assert_eq(strconv.format_bool(false), "false")
 end
 
 rats "strconv.parse_bool"
-  script = <<~SCRIPT
-    import "strconv"
-    puts(strconv.parse_bool("true"))
-    puts(strconv.parse_bool("1"))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "true")
+  test.assert_eq(strconv.parse_bool("true"), true)
+  test.assert_eq(strconv.parse_bool("1"), true)
 end
 
 rats "strconv.parse_float"
-  script = <<~SCRIPT
-    import "strconv"
-    use "conv"
-    f = strconv.parse_float("3.14", 64)
-    puts(conv.to_s(f))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "3.14")
+  test.assert_eq(strconv.parse_float("3.14", 64), 3.14)
+end
+
+rats "strconv.format_int base 10"
+  test.assert_eq(strconv.format_int(255, 10), "255")
+end
+
+rats "strconv.format_int base 16"
+  test.assert_eq(strconv.format_int(255, 16), "ff")
+end
+
+rats "strconv.format_int base 2"
+  test.assert_eq(strconv.format_int(10, 2), "1010")
+end
+
+rats "strconv.parse_int base 16"
+  test.assert_eq(strconv.parse_int("ff", 16, 64), 255)
+end
+
+rats "strconv.parse_int base 2"
+  test.assert_eq(strconv.parse_int("1010", 2, 64), 10)
+end
+
+rats "strconv.quote and unquote"
+  quoted = strconv.quote("hello\tworld")
+  test.assert_contains(quoted, "hello")
+  test.assert_eq(strconv.unquote(quoted), "hello\tworld")
+end
+
+rats "strconv.can_backquote"
+  test.assert_true(strconv.can_backquote("hello world"))
+  test.assert_false(strconv.can_backquote("hello\nworld"))
 end

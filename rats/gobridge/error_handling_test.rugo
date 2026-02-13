@@ -1,0 +1,107 @@
+# RATS: Test Go bridge — cross-package error handling with try/or
+use "test"
+use "conv"
+
+import "encoding/json"
+import "strconv"
+import "time"
+import "os" as go_os
+
+# json errors
+rats "json.unmarshal bad json with try/or"
+  result = try json.unmarshal("{{bad json") or "parse_error"
+  test.assert_eq(result, "parse_error")
+end
+
+rats "json.unmarshal empty string with try/or"
+  result = try json.unmarshal("") or "empty_error"
+  test.assert_eq(result, "empty_error")
+end
+
+# strconv errors
+rats "strconv.atoi bad input with try/or"
+  result = try strconv.atoi("not_a_number") or -999
+  test.assert_eq(result, -999)
+end
+
+rats "strconv.parse_bool bad input with try/or"
+  result = try strconv.parse_bool("maybe") or false
+  test.assert_eq(result, false)
+end
+
+rats "strconv.parse_float bad input with try/or"
+  result = try strconv.parse_float("xyz", 64) or 0.0
+  test.assert_eq(result, 0.0)
+end
+
+rats "strconv.parse_int bad input with try/or"
+  result = try strconv.parse_int("zzz", 10, 64) or 0
+  test.assert_eq(result, 0)
+end
+
+# time errors
+rats "time.parse_duration bad format with try/or"
+  result = try time.parse_duration("not_valid") or -1
+  test.assert_eq(result, -1)
+end
+
+rats "time.parse_duration empty string with try/or"
+  result = try time.parse_duration("") or -1
+  test.assert_eq(result, -1)
+end
+
+# os errors
+rats "os.read_file nonexistent with try/or"
+  result = try go_os.read_file("/no/such/file/ever") or "not_found"
+  test.assert_eq(result, "not_found")
+end
+
+rats "os.rename nonexistent with try/or"
+  result = try go_os.rename("/no/such/src", "/no/such/dst") or "fail"
+  test.assert_eq(result, "fail")
+end
+
+# error without try/or panics
+rats "strconv.atoi without try/or panics"
+  script = <<~SCRIPT
+    import "strconv"
+    strconv.atoi("bad")
+    puts("should not reach")
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "json.unmarshal without try/or panics"
+  script = <<~SCRIPT
+    import "encoding/json"
+    json.unmarshal("not json")
+    puts("should not reach")
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "time.parse_duration without try/or panics"
+  script = <<~SCRIPT
+    import "time"
+    time.parse_duration("bad")
+    puts("should not reach")
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_neq(result["status"], 0)
+end
+
+rats "os.read_file without try/or panics"
+  script = <<~SCRIPT
+    import "os" as go_os
+    go_os.read_file("/no/such/file")
+    puts("should not reach")
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_neq(result["status"], 0)
+end

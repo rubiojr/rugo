@@ -33,3 +33,14 @@ rats "rand produces different values across calls"
   # At least 2 of 3 should differ (vanishingly unlikely all same)
   test.assert_true(a != b || b != c)
 end
+
+rats "rand.float32 returns value in range"
+  f = rand.float32()
+  test.assert_true(f >= 0.0)
+  test.assert_true(f < 1.0)
+end
+
+rats "rand.int64 returns value"
+  n = rand.int64()
+  test.assert_true(n >= 0)
+end

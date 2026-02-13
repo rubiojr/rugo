@@ -1,0 +1,110 @@
+# RATS: Test Go bridge — os package (behavioral)
+use "test"
+use "conv"
+use "str"
+
+import "os" as go_os
+
+rats "os.setenv and getenv lifecycle"
+  go_os.setenv("RUGO_TEST_VAR", "hello_rugo")
+  val = go_os.getenv("RUGO_TEST_VAR")
+  test.assert_eq(val, "hello_rugo")
+  go_os.unsetenv("RUGO_TEST_VAR")
+  val2 = go_os.getenv("RUGO_TEST_VAR")
+  test.assert_eq(val2, "")
+end
+
+rats "os.lookup_env existing var returns value"
+  go_os.setenv("RUGO_LOOKUP_TEST", "found")
+  result = go_os.lookup_env("RUGO_LOOKUP_TEST")
+  test.assert_eq(result, "found")
+  go_os.unsetenv("RUGO_LOOKUP_TEST")
+end
+
+rats "os.lookup_env missing var returns nil"
+  go_os.unsetenv("RUGO_NONEXISTENT_12345")
+  result = go_os.lookup_env("RUGO_NONEXISTENT_12345")
+  test.assert_nil(result)
+end
+
+rats "os.environ returns array"
+  envs = go_os.environ()
+  test.assert_true(len(envs) > 0)
+end
+
+rats "os.getpid returns positive int"
+  pid = go_os.getpid()
+  test.assert_true(pid > 0)
+end
+
+rats "os.getwd returns non-empty path"
+  cwd = go_os.getwd()
+  test.assert_true(len(cwd) > 0)
+end
+
+rats "os.hostname returns non-empty"
+  h = go_os.hostname()
+  test.assert_true(len(h) > 0)
+end
+
+rats "os.temp_dir returns path"
+  td = go_os.temp_dir()
+  test.assert_true(len(td) > 0)
+end
+
+rats "os.executable returns path"
+  exe = go_os.executable()
+  test.assert_true(len(exe) > 0)
+end
+
+rats "os.write_file and read_file round-trip"
+  path = "#{go_os.temp_dir()}/rugo_os_test_roundtrip.txt"
+  go_os.write_file(path, "test content", 0644)
+  content = go_os.read_file(path)
+  test.assert_eq(content, "test content")
+  go_os.remove(path)
+end
+
+rats "os.mkdir_all and remove_all"
+  base = "#{go_os.temp_dir()}/rugo_os_test_dirs/a/b/c"
+  go_os.mkdir_all(base, 0755)
+  # Write a file inside to verify the dir exists
+  path = "#{base}/test.txt"
+  go_os.write_file(path, "nested", 0644)
+  content = go_os.read_file(path)
+  test.assert_eq(content, "nested")
+  go_os.remove_all("#{go_os.temp_dir()}/rugo_os_test_dirs")
+end
+
+rats "os.rename file"
+  src = "#{go_os.temp_dir()}/rugo_rename_src.txt"
+  dst = "#{go_os.temp_dir()}/rugo_rename_dst.txt"
+  go_os.write_file(src, "rename me", 0644)
+  go_os.rename(src, dst)
+  content = go_os.read_file(dst)
+  test.assert_eq(content, "rename me")
+  # Source should no longer exist
+  err = try go_os.read_file(src) or "gone"
+  test.assert_eq(err, "gone")
+  go_os.remove(dst)
+end
+
+rats "os.read_file error with try/or"
+  result = try go_os.read_file("/nonexistent/path/file.txt") or "error"
+  test.assert_eq(result, "error")
+end
+
+rats "os.expand_env substitutes env vars"
+  go_os.setenv("RUGO_EXPAND_TEST", "expanded")
+  result = go_os.expand_env("$RUGO_EXPAND_TEST")
+  test.assert_eq(result, "expanded")
+  go_os.unsetenv("RUGO_EXPAND_TEST")
+end
+
+rats "os.mkdir_temp creates unique dirs"
+  dir1 = go_os.mkdir_temp("", "rugo_test_*")
+  dir2 = go_os.mkdir_temp("", "rugo_test_*")
+  test.assert_neq(dir1, dir2)
+  go_os.remove_all(dir1)
+  go_os.remove_all(dir2)
+end

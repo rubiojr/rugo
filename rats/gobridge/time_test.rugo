@@ -1,0 +1,73 @@
+# RATS: Test Go bridge — time package (behavioral)
+use "test"
+use "conv"
+
+import "time"
+
+rats "time.now_unix returns positive timestamp"
+  ts = time.now_unix()
+  test.assert_true(ts > 1000000000)
+end
+
+rats "time.now_unix_nano returns nanoseconds"
+  ns = time.now_unix_nano()
+  s = time.now_unix()
+  # nano / 1e9 should be close to seconds (within 1 second)
+  test.assert_true(ns > s * 1000000000 - 1000000000)
+  test.assert_true(ns < s * 1000000000 + 2000000000)
+end
+
+rats "time.sleep_ms actually sleeps"
+  start = time.now_unix_nano()
+  time.sleep_ms(100)
+  elapsed_ms = (time.now_unix_nano() - start) / 1000000
+  test.assert_true(elapsed_ms >= 90)
+end
+
+rats "time.sleep_ms with zero"
+  start = time.now_unix_nano()
+  time.sleep_ms(0)
+  elapsed_ms = (time.now_unix_nano() - start) / 1000000
+  test.assert_true(elapsed_ms < 100)
+end
+
+rats "time.parse_duration seconds"
+  ms = time.parse_duration("1s")
+  test.assert_eq(ms, 1000)
+end
+
+rats "time.parse_duration milliseconds"
+  ms = time.parse_duration("500ms")
+  test.assert_eq(ms, 500)
+end
+
+rats "time.parse_duration minutes"
+  ms = time.parse_duration("2m")
+  test.assert_eq(ms, 120000)
+end
+
+rats "time.parse_duration hours"
+  ms = time.parse_duration("1h")
+  test.assert_eq(ms, 3600000)
+end
+
+rats "time.parse_duration complex"
+  ms = time.parse_duration("1h30m")
+  test.assert_eq(ms, 5400000)
+end
+
+rats "time.parse_duration error with try/or"
+  result = try time.parse_duration("not_a_duration") or -1
+  test.assert_eq(result, -1)
+end
+
+rats "time.local_string returns timezone name"
+  s = time.local_string()
+  test.assert_true(len(s) > 0)
+  test.assert_eq(s, "Local")
+end
+
+rats "time.utc_string returns UTC"
+  s = time.utc_string()
+  test.assert_eq(s, "UTC")
+end
