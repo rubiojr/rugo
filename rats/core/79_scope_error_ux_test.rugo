@@ -1,5 +1,6 @@
 # RATS: Error messages for scoping violations should be user-friendly
 use "test"
+use "eval"
 
 rats "variable in rats block shows scoping hint"
   script = <<~SCRIPT
@@ -32,15 +33,14 @@ rats "constant in rats block shows scoping hint"
 end
 
 rats "variable in def shows clean error"
-  script = <<~SCRIPT
+  source = <<~RUGO
     name = "Rugo"
     def greet()
       puts name
     end
     greet()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   # This one actually works via handlerVars promotion, so should pass
   test.assert_eq(result["status"], 0)
 end

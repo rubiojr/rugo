@@ -55,19 +55,11 @@ end
 # D. each
 # ============================================================
 
-# Keep as shell-out: uses `use "conv"` inside the script
 rats "array.each iterates with side effects"
-  script = <<~SCRIPT
-    use "conv"
-    total = 0
-    nums = [10, 20, 30]
-    nums.each(fn(x) total = total end)
-    puts(len(nums))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "3")
+  total = 0
+  nums = [10, 20, 30]
+  nums.each(fn(x) total = total end)
+  test.assert_eq(len(nums), 3)
 end
 
 # ============================================================
@@ -188,21 +180,11 @@ end
 
 # Keep as shell-out: uses `use "conv"` inside the script
 rats "array.flatten one level deep"
-  script = <<~SCRIPT
-    use "conv"
-    nested = [[1, 2], [3, 4], 5]
-    result = nested.flatten()
-    puts(len(result))
-    puts(result[0])
-    puts(result[4])
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  lines = result["lines"]
-  test.assert_eq(lines[0], "5")
-  test.assert_eq(lines[1], "1")
-  test.assert_eq(lines[2], "5")
+  nested = [[1, 2], [3, 4], 5]
+  result = nested.flatten()
+  test.assert_eq(len(result), 5)
+  test.assert_eq(result[0], 1)
+  test.assert_eq(result[4], 5)
 end
 
 rats "array.uniq removes duplicates preserving order"

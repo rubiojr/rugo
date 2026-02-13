@@ -2,6 +2,7 @@
 # into rats blocks. Only constants (UPPERCASE) are shared across scopes.
 # This is by design — it prevents accidental mutation from distant code.
 use "test"
+use "eval"
 
 rats "top-level variable is NOT visible in rats block"
   script = <<~SCRIPT
@@ -52,15 +53,14 @@ rats "top-level constant is NOT visible in rats block either"
 end
 
 rats "top-level variable visible in def function"
-  script = <<~SCRIPT
+  source = <<~RUGO
     port = 9090
     def get_port()
       return port
     end
     puts get_port()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "9090")
 end

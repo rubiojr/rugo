@@ -17,20 +17,12 @@ rats "undefined variable error does not leak Go symbols"
 end
 
 rats "mismatched types error does not leak interface{}"
-  tmpdir = test.tmpdir()
-  # This used to produce: invalid operation: base + ", " (mismatched types interface{} and string)
-  script = <<~SCRIPT
-    arr = ["a", "b"]
-    base = "start"
-    if len(arr) > 0
-      base = base + ", " + arr[0]
-    end
-    puts(base)
-  SCRIPT
-  test.write_file("#{tmpdir}/test.rugo", script)
-  result = test.run("rugo run #{tmpdir}/test.rugo")
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "start, a")
+  arr = ["a", "b"]
+  base = "start"
+  if len(arr) > 0
+    base = base + ", " + arr[0]
+  end
+  test.assert_eq(base, "start, a")
 end
 
 rats "variable shadowing namespace does not leak rugons_"

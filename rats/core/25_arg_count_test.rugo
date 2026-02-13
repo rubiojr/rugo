@@ -1,5 +1,6 @@
 # RATS: Test argument count validation
 use "test"
+use "eval"
 
 rats "too many arguments"
   result = test.run("rugo run rats/fixtures/err_too_many_args.rugo")
@@ -26,27 +27,25 @@ rats "error message does not expose rugofn_ prefix"
 end
 
 rats "correct argument count works"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def add(a, b)
       return a + b
     end
     puts(add(1, 2))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "3")
 end
 
 rats "zero-param function works with no args"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def hello()
       puts("hi")
     end
     hello()
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hi")
 end
