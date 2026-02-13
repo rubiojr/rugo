@@ -58,9 +58,9 @@ func (t bridgeTier) String() string {
 
 // bridgedFunc holds classification results for a Go function.
 type bridgedFunc struct {
-	GoName   string
-	RugoName string
-	Sig      *types.Signature
+	GoName     string
+	RugoName   string
+	Sig        *types.Signature
 	Tier       bridgeTier
 	Reason     string // why it was blocked
 	Params     []gobridge.GoType

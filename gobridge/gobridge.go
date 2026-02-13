@@ -15,7 +15,7 @@ import (
 type GoType int
 
 const (
-	GoString    GoType = iota
+	GoString GoType = iota
 	GoInt
 	GoFloat64
 	GoBool
