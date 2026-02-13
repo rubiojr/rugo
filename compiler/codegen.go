@@ -1440,6 +1440,11 @@ func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, RugoType, err
 	p := &parser.Parser{}
 	flatAST, err := p.Parse("<interpolation>", []byte(src))
 	if err != nil {
+		// Replace raw Go runtime panics (e.g. "index out of range") with
+		// a user-friendly message.
+		if strings.Contains(err.Error(), "runtime error:") {
+			return "", TypeDynamic, fmt.Errorf("syntax error in expression")
+		}
 		return "", TypeDynamic, fmt.Errorf("parsing: %w", err)
 	}
 	prog, err := ast.Walk(p, flatAST)
