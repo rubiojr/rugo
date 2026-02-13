@@ -1,0 +1,134 @@
+# RATS: Lambda argument count validation
+# Bug: 23dcd84 — Lambdas silently ignore extra arguments
+use "test"
+
+rats "lambda with too many args errors"
+  script = <<~SCRIPT
+    f = fn(x) x * 2 end
+    f(1, 2, 3)
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "1 argument")
+  test.assert_contains(result["output"], "3 were given")
+end
+
+rats "lambda with too few args errors"
+  script = <<~SCRIPT
+    f = fn(x, y) x + y end
+    f(1)
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "2 arguments")
+  test.assert_contains(result["output"], "1 was given")
+end
+
+rats "lambda with zero args rejects args"
+  script = <<~SCRIPT
+    f = fn() 42 end
+    f(1)
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "0 arguments")
+  test.assert_contains(result["output"], "1 was given")
+end
+
+rats "lambda with correct arg count works"
+  script = <<~SCRIPT
+    f = fn(x, y) x + y end
+    puts(f(3, 4))
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "7")
+end
+
+rats "lambda with zero params and zero args works"
+  script = <<~SCRIPT
+    f = fn() 42 end
+    puts(f())
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "lambda single arg works"
+  script = <<~SCRIPT
+    double = fn(x) x * 2 end
+    puts(double(5))
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "10")
+end
+
+rats "lambda passed to .map still works"
+  script = <<~SCRIPT
+    arr = [1, 2, 3]
+    result = arr.map(fn(x) x * 10 end)
+    puts(result)
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "[10 20 30]")
+end
+
+rats "lambda passed to .filter still works"
+  script = <<~SCRIPT
+    arr = [1, 2, 3, 4, 5]
+    result = arr.filter(fn(x) x > 3 end)
+    puts(result)
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "[4 5]")
+end
+
+rats "lambda passed to .each still works"
+  script = <<~SCRIPT
+    arr = [1, 2, 3]
+    arr.each(fn(x) puts(x) end)
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "1")
+  test.assert_eq(lines[1], "2")
+  test.assert_eq(lines[2], "3")
+end
+
+rats "lambda passed to .reduce still works"
+  script = <<~SCRIPT
+    arr = [1, 2, 3, 4]
+    sum = arr.reduce(0, fn(acc, x) acc + x end)
+    puts(sum)
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "10")
+end
+
+rats "lambda passed to hash .each still works"
+  script = <<~SCRIPT
+    h = {a: 1, b: 2}
+    h.each(fn(k, v) puts(k + "=" + v) end)
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "a=1")
+  test.assert_contains(result["output"], "b=2")
+end

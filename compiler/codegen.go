@@ -2064,6 +2064,13 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 
 	var buf strings.Builder
 	buf.WriteString("interface{}(func(_args ...interface{}) interface{} {\n")
+	// Validate argument count
+	nParams := len(e.Params)
+	if nParams == 1 {
+		buf.WriteString(fmt.Sprintf("\t\tif len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d argument but %%d were given\", len(_args))) }\n", nParams, nParams))
+	} else {
+		buf.WriteString(fmt.Sprintf("\t\tif len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d arguments but %%d %%s given\", len(_args), map[bool]string{true: \"was\", false: \"were\"}[len(_args) == 1])) }\n", nParams, nParams))
+	}
 	// Unpack parameters from variadic args
 	for i, p := range e.Params {
 		buf.WriteString(fmt.Sprintf("\t\tvar %s interface{}\n", p))
