@@ -1,0 +1,7 @@
+# constant shadow + reassign inside def should error
+FLAG = true
+def bad()
+  FLAG = false
+  FLAG = true
+end
+bad()

@@ -163,7 +163,9 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	// Identify top-level variables referenced by user-defined functions.
 	// All def functions are emitted as top-level Go functions but top-level
 	// variables live inside main(). Promote referenced vars to package-level.
-	// Exclude variables that the function also assigns to (local shadows).
+	// If a function also assigns to the same name, the var is still promoted
+	// (so reads before the assignment see the top-level value) and the
+	// assignment inside the function creates a local shadow.
 	{
 		// Collect top-level assignment targets
 		topVarNames := make(map[string]bool)
@@ -172,22 +174,17 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 				topVarNames[a.Target] = true
 			}
 		}
-		// Collect idents referenced by any non-namespaced function,
-		// excluding those that the function itself assigns to.
+		// Collect idents referenced by any non-namespaced function.
+		// Always promote if the top-level name is referenced, even if
+		// the function also assigns to it (the assignment will create
+		// a local shadow at codegen time).
 		for _, f := range funcs {
 			if f.Namespace != "" {
 				continue
 			}
-			// Collect variables assigned inside this function body
-			localAssigns := make(map[string]bool)
-			for _, s := range f.Body {
-				if a, ok := s.(*ast.AssignStmt); ok {
-					localAssigns[a.Target] = true
-				}
-			}
 			refs := collectIdents(f.Body)
 			for name := range refs {
-				if topVarNames[name] && !localAssigns[name] {
+				if topVarNames[name] {
 					g.handlerVars[name] = true
 				}
 			}
@@ -1098,7 +1095,7 @@ func (g *codeGen) writeAssign(a *ast.AssignStmt) error {
 		}
 	}
 
-	if g.isDeclared(a.Target) || g.handlerVars[a.Target] {
+	if g.isDeclared(a.Target) || (g.handlerVars[a.Target] && !g.inFunc) {
 		g.writef("%s = %s\n", a.Target, expr)
 		// Track constants for handler vars on first use in main()
 		if g.handlerVars[a.Target] && !g.isDeclared(a.Target) {

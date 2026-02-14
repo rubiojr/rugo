@@ -1,0 +1,315 @@
+# RATS: Constant and variable shadowing inside def functions
+#
+# When a def function reads a top-level variable/constant AND later assigns
+# to the same name, the read should see the top-level value and the assignment
+# should create a local shadow. This file tests all edge cases around that
+# interaction.
+use "test"
+use "eval"
+
+# ── Already-working: read-only access (no shadow) ──────────────────────
+
+rats "read-only constant access in def (baseline)"
+  source = <<~RUGO
+    GREETING = "hello"
+    def greet()
+      return GREETING
+    end
+    puts greet()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "read-only lowercase var access in def (baseline)"
+  source = <<~RUGO
+    count = 42
+    def get_count()
+      return count
+    end
+    puts get_count()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+# ── Already-working: shadow-only (assign without prior read) ───────────
+
+rats "shadow-only constant in def (baseline)"
+  source = <<~RUGO
+    MAX = 100
+    def shadow_max()
+      MAX = 200
+      return MAX
+    end
+    puts shadow_max()
+    puts MAX
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "200")
+  test.assert_eq(result["lines"][1], "100")
+end
+
+rats "shadow-only lowercase var in def (baseline)"
+  source = <<~RUGO
+    name = "top"
+    def shadow()
+      name = "local"
+      return name
+    end
+    puts shadow()
+    puts name
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "local")
+  test.assert_eq(result["lines"][1], "top")
+end
+
+# ── BUG CASES: read THEN shadow in same def ────────────────────────────
+
+rats "read top-level constant then shadow in same def"
+  source = <<~RUGO
+    TEXT = "foo"
+    def example()
+      puts TEXT
+      TEXT = "bar"
+      puts TEXT
+    end
+    example()
+    puts TEXT
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "foo")
+  test.assert_eq(result["lines"][1], "bar")
+  test.assert_eq(result["lines"][2], "foo")
+end
+
+rats "read top-level lowercase var then shadow in same def"
+  source = <<~RUGO
+    name = "original"
+    def example()
+      puts name
+      name = "shadowed"
+      puts name
+    end
+    example()
+    puts name
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "original")
+  test.assert_eq(result["lines"][1], "shadowed")
+  test.assert_eq(result["lines"][2], "original")
+end
+
+rats "multiple reads before shadow in def"
+  source = <<~RUGO
+    VALUE = 10
+    def multi_read()
+      a = VALUE
+      b = VALUE + 5
+      VALUE = 99
+      return a + b + VALUE
+    end
+    puts multi_read()
+    puts VALUE
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  # a=10, b=15, VALUE=99 => 124
+  test.assert_eq(result["lines"][0], "124")
+  test.assert_eq(result["lines"][1], "10")
+end
+
+rats "read constant in condition then shadow later"
+  source = <<~RUGO
+    LIMIT = 10
+    def check(n)
+      if n > LIMIT
+        msg = "over"
+      else
+        msg = "under"
+      end
+      LIMIT = 999
+      return msg
+    end
+    puts check(5)
+    puts check(15)
+    puts LIMIT
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "under")
+  test.assert_eq(result["lines"][1], "over")
+  test.assert_eq(result["lines"][2], "10")
+end
+
+rats "read top-level var in loop then shadow after loop"
+  source = <<~RUGO
+    ITEMS = "abc"
+    def use_items()
+      result = ITEMS
+      ITEMS = "xyz"
+      return result + ":" + ITEMS
+    end
+    puts use_items()
+    puts ITEMS
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "abc:xyz")
+  test.assert_eq(result["lines"][1], "abc")
+end
+
+# ── Multiple functions: one reads+shadows, another only reads ──────────
+
+rats "two functions: one reads+shadows, other only reads"
+  source = <<~RUGO
+    BASE = "/api"
+    def mutator()
+      old = BASE
+      BASE = "/v2"
+      return old + " -> " + BASE
+    end
+    def reader()
+      return BASE
+    end
+    puts mutator()
+    puts reader()
+    puts BASE
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "/api -> /v2")
+  test.assert_eq(result["lines"][1], "/api")
+  test.assert_eq(result["lines"][2], "/api")
+end
+
+# ── Return value uses top-level before shadow ──────────────────────────
+
+rats "return expression uses top-level constant before shadow"
+  source = <<~RUGO
+    PREFIX = "hello"
+    def greet(who)
+      result = PREFIX + " " + who
+      PREFIX = "goodbye"
+      return result
+    end
+    puts greet("world")
+    puts PREFIX
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello world")
+  test.assert_eq(result["lines"][1], "hello")
+end
+
+# ── Shadow with different types ────────────────────────────────────────
+
+rats "read top-level int constant then shadow with string"
+  source = <<~RUGO
+    VAL = 42
+    def transform()
+      original = VAL
+      VAL = "forty-two"
+      return VAL
+    end
+    puts transform()
+    puts VAL
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "forty-two")
+  test.assert_eq(result["lines"][1], "42")
+end
+
+# ── Constant shadow does not trigger reassignment error ────────────────
+
+rats "constant shadow in def is not a reassignment error"
+  source = <<~RUGO
+    MODE = "production"
+    def override()
+      MODE = "test"
+      return MODE
+    end
+    puts override()
+    puts MODE
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "test")
+  test.assert_eq(result["lines"][1], "production")
+end
+
+# ── Reassignment of local shadow IS an error ───────────────────────────
+
+rats "reassigning shadowed constant inside def is error"
+  result = test.run("rugo run rats/fixtures/err_constant_shadow_reassign.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot reassign constant FLAG")
+end
+
+# ── Nested function calls with shared top-level constant ───────────────
+
+rats "nested call reads top-level, caller shadows"
+  source = <<~RUGO
+    TAG = "v1"
+    def inner()
+      return TAG
+    end
+    def outer()
+      before = inner()
+      TAG = "v2"
+      return before + ":" + TAG
+    end
+    puts outer()
+    puts TAG
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "v1:v2")
+  test.assert_eq(result["lines"][1], "v1")
+end
+
+# ── Read top-level hash then shadow with different hash ────────────────
+
+rats "read top-level hash then shadow in def"
+  source = <<~RUGO
+    CONFIG = {port: 8080}
+    def override_config()
+      original_port = CONFIG["port"]
+      CONFIG = {port: 9090}
+      return original_port
+    end
+    puts override_config()
+    puts CONFIG["port"]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "8080")
+  test.assert_eq(result["lines"][1], "8080")
+end
+
+# ── Read top-level array then shadow in def ────────────────────────────
+
+rats "read top-level array then shadow in def"
+  source = <<~RUGO
+    TAGS = ["a", "b"]
+    def override_tags()
+      first = TAGS[0]
+      TAGS = ["x", "y", "z"]
+      return first
+    end
+    puts override_tags()
+    puts len(TAGS)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "a")
+  test.assert_eq(result["lines"][1], "2")
+end
