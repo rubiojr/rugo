@@ -66,9 +66,9 @@ type GoArrayType struct {
 // Used by the inspector to record struct metadata and by codegen to emit
 // type-safe DotGet/DotSet wrapper structs.
 type GoStructInfo struct {
-	GoName   string              // PascalCase struct name (e.g., "Config")
-	RugoName string              // snake_case name for constructor (e.g., "config")
-	Fields   []GoStructFieldInfo // exported fields with bridgeable types
+	GoName   string               // PascalCase struct name (e.g., "Config")
+	RugoName string               // snake_case name for constructor (e.g., "config")
+	Fields   []GoStructFieldInfo  // exported fields with bridgeable types
 	Methods  []GoStructMethodInfo // bridgeable methods
 }
 

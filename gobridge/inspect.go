@@ -91,7 +91,7 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 
 	var allFuncs []ClassifiedFunc
 	var structInfos []GoStructInfo
-	knownStructs := make(map[string]bool)    // Go type name → true
+	knownStructs := make(map[string]bool)       // Go type name → true
 	namedTypes := make(map[string]*types.Named) // Go type name → Named type (for method discovery)
 	scope := typePkg.Scope()
 	for _, name := range scope.Names() {
@@ -173,11 +173,11 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 	}
 
 	return &InspectedPackage{
-		Package:       pkg,
-		GoModulePath:  modulePath,
-		Skipped:       skipped,
-		KnownStructs:  knownStructs,
-		NamedTypes:    namedTypes,
+		Package:      pkg,
+		GoModulePath: modulePath,
+		Skipped:      skipped,
+		KnownStructs: knownStructs,
+		NamedTypes:   namedTypes,
 	}, nil
 }
 

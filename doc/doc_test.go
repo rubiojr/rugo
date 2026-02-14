@@ -368,8 +368,8 @@ func TestFormatBridgeFuncSig_Constructor(t *testing.T) {
 
 func TestFormatBridgePackage_MultipleStructs(t *testing.T) {
 	pkg := &gobridge.Package{
-		Path: "example.com/multi",
-		Doc:  "Multi-struct module.",
+		Path:  "example.com/multi",
+		Doc:   "Multi-struct module.",
 		Funcs: map[string]gobridge.GoFuncSig{},
 		Structs: []gobridge.GoStructInfo{
 			{GoName: "Config", RugoName: "config", Fields: []gobridge.GoStructFieldInfo{
