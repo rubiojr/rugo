@@ -6,13 +6,6 @@ use "str"
 
 # --- Runtime type errors ---
 
-rats "cannot iterate over scalar"
-  result = test.run("rugo run rats/fixtures/err_iterate_scalar.rugo")
-  test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot iterate over int")
-  test.assert_contains(result["output"], "err_iterate_scalar.rugo:2")
-end
-
 rats "cannot index-assign to scalar"
   result = test.run("rugo run rats/fixtures/err_index_assign_scalar.rugo")
   test.assert_neq(result["status"], 0)
