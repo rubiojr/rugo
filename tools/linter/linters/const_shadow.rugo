@@ -1,0 +1,111 @@
+# const-shadow linter
+#
+# Detects assignments inside `def` bodies that shadow a top-level constant.
+# Constants (identifiers starting with uppercase) defined at the top level
+# should not be reassigned inside functions.
+#
+# FOO = "bar"
+# def example
+#   FOO = "stuff"   # ← warning: shadows top-level constant FOO
+# end
+
+use "ast"
+use "conv"
+use "str"
+
+# Check if a name is a constant (starts with an uppercase letter).
+def is_constant(name)
+  first = name[0, 1]
+  return str.upper(first) == first && str.lower(first) != first
+end
+
+# Collect top-level constant names and their line numbers.
+# Returns a hash: {name: line_number, ...}
+def collect_constants(statements)
+  constants = {}
+  for stmt in statements
+    if stmt["type"] == "assign"
+      target = stmt["target"]
+      if is_constant(target)
+        constants[target] = stmt["line"]
+      end
+    end
+  end
+  return constants
+end
+
+# Recursively scan a def body for assignments that shadow top-level constants.
+def scan_body(warnings, prog, body, constants, path)
+  for stmt in body
+    if stmt["type"] == "assign"
+      target = stmt["target"]
+      if constants[target] != nil
+        const_line = constants[target]
+        lines = ast.source_lines(prog, stmt)
+        source = ""
+        if len(lines) > 0
+          source = str.trim(lines[0])
+        end
+        append warnings, {path: path, line: stmt["line"], source: source, fixed: "# rename to avoid shadowing constant #{target} (defined at line #{const_line})"}
+      end
+    end
+
+    # Recurse into nested blocks inside the def
+    if stmt["type"] == "if"
+      warnings = scan_body(warnings, prog, stmt["body"], constants, path)
+      if stmt["else_body"] != nil
+        warnings = scan_body(warnings, prog, stmt["else_body"], constants, path)
+      end
+      if stmt["elsif"] != nil
+        for clause in stmt["elsif"]
+          warnings = scan_body(warnings, prog, clause["body"], constants, path)
+        end
+      end
+    end
+
+    if stmt["type"] == "for"
+      warnings = scan_body(warnings, prog, stmt["body"], constants, path)
+    end
+
+    if stmt["type"] == "while"
+      warnings = scan_body(warnings, prog, stmt["body"], constants, path)
+    end
+
+    if stmt["type"] == "try"
+      warnings = scan_body(warnings, prog, stmt["body"], constants, path)
+      if stmt["rescue_body"] != nil
+        warnings = scan_body(warnings, prog, stmt["rescue_body"], constants, path)
+      end
+    end
+  end
+
+  return warnings
+end
+
+# Lint a single file. Returns array of warning hashes.
+def lint(path)
+  warnings = []
+
+  prog = try ast.parse_file(path) or e
+    nil
+  end
+
+  if prog == nil
+    puts "error: could not parse #{path}"
+    return warnings
+  end
+
+  constants = collect_constants(prog["statements"])
+
+  for stmt in prog["statements"]
+    if stmt["type"] == "def"
+      warnings = scan_body(warnings, prog, stmt["body"], constants, path)
+    end
+  end
+
+  return warnings
+end
+
+# No auto-fix for constant shadowing — requires a design decision.
+def fix(path, warnings)
+end

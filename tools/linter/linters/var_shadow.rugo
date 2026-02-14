@@ -1,0 +1,118 @@
+# var-shadow linter
+#
+# Detects assignments inside `def` bodies that shadow a top-level variable.
+# Functions can read top-level variables but assigning inside a function
+# creates a silent local shadow — the top-level value is unchanged.
+# This is usually unintentional.
+#
+# name = "Rugo"
+# def greet
+#   name = "World"   # ← warning: shadows top-level variable name
+#   return name
+# end
+# puts name          # still "Rugo" — surprise!
+
+use "ast"
+use "conv"
+use "str"
+
+# Check if a name is a variable (starts with a lowercase letter).
+def is_variable(name)
+  first = name[0, 1]
+  return str.lower(first) == first && str.upper(first) != first
+end
+
+# Collect top-level variable names and their line numbers.
+# Returns a hash: {name: line_number, ...}
+def collect_variables(statements)
+  variables = {}
+  for stmt in statements
+    if stmt["type"] == "assign"
+      target = stmt["target"]
+      if is_variable(target)
+        variables[target] = stmt["line"]
+      end
+    end
+  end
+  return variables
+end
+
+# Recursively scan a def body for assignments that shadow top-level variables.
+def scan_body(warnings, prog, body, variables, path, params)
+  for stmt in body
+    if stmt["type"] == "assign"
+      target = stmt["target"]
+      if variables[target] != nil && params[target] == nil
+        var_line = variables[target]
+        lines = ast.source_lines(prog, stmt)
+        source = ""
+        if len(lines) > 0
+          source = str.trim(lines[0])
+        end
+        append warnings, {path: path, line: stmt["line"], source: source, fixed: "# rename to avoid shadowing top-level variable #{target} (defined at line #{var_line})"}
+      end
+    end
+
+    if stmt["type"] == "if"
+      warnings = scan_body(warnings, prog, stmt["body"], variables, path, params)
+      if stmt["else_body"] != nil
+        warnings = scan_body(warnings, prog, stmt["else_body"], variables, path, params)
+      end
+      if stmt["elsif"] != nil
+        for clause in stmt["elsif"]
+          warnings = scan_body(warnings, prog, clause["body"], variables, path, params)
+        end
+      end
+    end
+
+    if stmt["type"] == "for"
+      warnings = scan_body(warnings, prog, stmt["body"], variables, path, params)
+    end
+
+    if stmt["type"] == "while"
+      warnings = scan_body(warnings, prog, stmt["body"], variables, path, params)
+    end
+
+    if stmt["type"] == "try"
+      warnings = scan_body(warnings, prog, stmt["body"], variables, path, params)
+      if stmt["rescue_body"] != nil
+        warnings = scan_body(warnings, prog, stmt["rescue_body"], variables, path, params)
+      end
+    end
+  end
+
+  return warnings
+end
+
+# Lint a single file. Returns array of warning hashes.
+def lint(path)
+  warnings = []
+
+  prog = try ast.parse_file(path) or e
+    nil
+  end
+
+  if prog == nil
+    puts "error: could not parse #{path}"
+    return warnings
+  end
+
+  variables = collect_variables(prog["statements"])
+
+  for stmt in prog["statements"]
+    if stmt["type"] == "def"
+      # Build a set of parameter names so we skip them
+      params = {}
+      for p in stmt["params"]
+        params[p] = true
+      end
+      warnings = scan_body(warnings, prog, stmt["body"], variables, path, params)
+    end
+  end
+
+  return warnings
+end
+
+# No auto-fix for variable shadowing — requires a design decision.
+def fix(path, warnings)
+end

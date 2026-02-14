@@ -1,0 +1,114 @@
+# RATS: var-shadow linter tool
+use "test"
+use "str"
+
+rats "var-shadow detects shadowed variable in def"
+  script = <<~'SCRIPT'
+    name = "Rugo"
+    def greet
+      name = "World"
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- var-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "name")
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "var-shadow detects multiple shadowed variables"
+  script = <<~'SCRIPT'
+    name = "Rugo"
+    count = 10
+    def shadow
+      name = "World"
+      count = 99
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- var-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "name")
+  test.assert_contains(result["output"], "count")
+  test.assert_contains(result["output"], "2 issue(s) found.")
+end
+
+rats "var-shadow ignores local-only assignments in def"
+  script = <<~'SCRIPT'
+    name = "Rugo"
+    def no_shadow
+      x = 1
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- var-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "var-shadow ignores files without top-level variables"
+  script = <<~'SCRIPT'
+    def greet
+      puts "hello"
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- var-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "var-shadow skips function parameters"
+  script = <<~'SCRIPT'
+    name = "Rugo"
+    def greet(name)
+      name = "override"
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- var-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "var-shadow detects shadow inside nested if"
+  script = <<~'SCRIPT'
+    name = "Rugo"
+    def greet
+      if true
+        name = "World"
+      end
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- var-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "name")
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "var-shadow ignores constants"
+  script = <<~'SCRIPT'
+    FOO = "bar"
+    def shadow
+      FOO = "stuff"
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- var-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "var-shadow shows in all command"
+  script = <<~'SCRIPT'
+    name = "Rugo"
+    def greet
+      name = "World"
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- all #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[var-shadow]")
+end

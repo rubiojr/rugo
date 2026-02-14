@@ -26,6 +26,8 @@ use "str"
 require "./linters/smart_append"
 require "./linters/string_interp"
 require "./linters/eval_file"
+require "./linters/const_shadow"
+require "./linters/var_shadow"
 
 # --- Linter registry ---
 # Each entry: {name, lint_fn(path) -> warnings, fix_fn(path, warnings)}
@@ -33,7 +35,9 @@ require "./linters/eval_file"
 Linters = [
   {name: "smart-append", lint: fn(f) smart_append.lint(f) end, fix: fn(f, w) smart_append.fix(f, w) end},
   {name: "string-interp", lint: fn(f) string_interp.lint(f) end, fix: fn(f, w) string_interp.fix(f, w) end},
-  {name: "eval-file", lint: fn(f) eval_file.lint(f) end, fix: fn(f, w) eval_file.fix(f, w) end}
+  {name: "eval-file", lint: fn(f) eval_file.lint(f) end, fix: fn(f, w) eval_file.fix(f, w) end},
+  {name: "const-shadow", lint: fn(f) const_shadow.lint(f) end, fix: fn(f, w) const_shadow.fix(f, w) end},
+  {name: "var-shadow", lint: fn(f) var_shadow.lint(f) end, fix: fn(f, w) var_shadow.fix(f, w) end}
 ]
 
 # Expand a list of file/directory arguments into .rugo file paths.

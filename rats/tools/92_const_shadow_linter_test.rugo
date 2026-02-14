@@ -1,0 +1,88 @@
+# RATS: const-shadow linter tool
+use "test"
+use "str"
+
+rats "const-shadow detects shadowed constant in def"
+  script = <<~'SCRIPT'
+    FOO = "bar"
+    def shadow
+      FOO = "stuff"
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- const-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "FOO")
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "const-shadow detects multiple shadowed constants"
+  script = <<~'SCRIPT'
+    FOO = "bar"
+    BAR = 42
+    def shadow
+      FOO = "stuff"
+      BAR = 99
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- const-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "FOO")
+  test.assert_contains(result["output"], "BAR")
+  test.assert_contains(result["output"], "2 issue(s) found.")
+end
+
+rats "const-shadow ignores non-constant assignments in def"
+  script = <<~'SCRIPT'
+    FOO = "bar"
+    def no_shadow
+      x = 1
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- const-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "const-shadow ignores files without constants"
+  script = <<~'SCRIPT'
+    def greet
+      puts "hello"
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- const-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "No issues found.")
+end
+
+rats "const-shadow detects shadow inside nested if"
+  script = <<~'SCRIPT'
+    FOO = "bar"
+    def shadow
+      if true
+        FOO = "stuff"
+      end
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- const-shadow #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "FOO")
+  test.assert_contains(result["output"], "1 issue(s) found.")
+end
+
+rats "const-shadow shows in all command"
+  script = <<~'SCRIPT'
+    FOO = "bar"
+    def shadow
+      FOO = "stuff"
+    end
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/target.rugo", script)
+  result = test.run("rugo run tools/linter/main.rugo -- all #{test.tmpdir()}/target.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[const-shadow]")
+end
