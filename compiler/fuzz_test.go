@@ -79,6 +79,60 @@ func seedCorpus(f *testing.F) {
 		"`echo hello`",
 		// Raw strings
 		`x = 'hello world'`,
+		// While loops with break/next
+		"i = 0\nwhile i < 3\n  i += 1\nend",
+		"for n in [1, 2, 3]\n  if n == 2\n    next\n  end\n  puts(n)\nend",
+		"for n in [1, 2, 3]\n  if n == 2\n    break\n  end\nend",
+		// Integer range iteration and range()
+		"for i in 10\n  puts(i)\nend",
+		"for i in range(3, 7)\n  puts(i)\nend",
+		"arr = range(5)",
+		// Array destructuring / multi-return
+		"a, b, c = [10, 20, 30]\nputs(a)",
+		"def multi()\n  return [1, 2]\nend\na, b = multi()",
+		// Negative indexing and slicing
+		"arr = [1, 2, 3]\nputs(arr[-1])",
+		"arr = [1, 2, 3, 4, 5]\nx = arr[1, 2]",
+		// Float operations
+		"x = 5.5 % 2.0",
+		"x = 1.5\nx += 0.5\nx *= 2.0",
+		// Raise
+		`raise("boom")`,
+		// Type introspection
+		"puts(type_of(42))",
+		"puts(type_of([1, 2]))",
+		// Collection methods
+		"[1, 2, 3].map(fn(x) x * 2 end)",
+		"[1, 2, 3].filter(fn(x) x > 1 end)",
+		"[1, 2, 3].reduce(0, fn(acc, x) acc + x end)",
+		"[3, 1, 2].sort()",
+		"[1, 2, 3].first()",
+		"[1, 2, 3].last()",
+		"[1, 1, 2].uniq()",
+		"[[1], [2, 3]].flatten()",
+		`{a: 1, b: 2}.keys()`,
+		`{a: 1, b: 2}.values()`,
+		`{a: 1}.merge({b: 2})`,
+		// Method chaining
+		"[1, 2, 3, 4].filter(fn(x) x > 1 end).map(fn(x) x * 10 end)",
+		// Struct with methods
+		"struct Cat\n  name\nend\ndef Cat.meow()\n  self.name\nend\nc = Cat.new(\"Milo\")\nc.meow()",
+		// Sandbox directive
+		"sandbox",
+		"sandbox ro: [\"/tmp\"], rw: [\"/dev/null\"]",
+		"sandbox ro: \"/etc\", connect: [80, 443], bind: 8080",
+		// Backtick interpolation
+		"name = \"world\"\n`echo hello #{name}`",
+		// Use/require
+		`use "str"`,
+		`use "conv"`,
+		// Eval
+		"use \"eval\"\neval.string(\"1 + 2\")",
+		// Nested interpolation
+		`x = "a #{"b #{1 + 2} c"} d"`,
+		// Lambda edge cases
+		"f = fn() nil end\nf.call()",
+		"f = fn(a, b, c) a + b + c end\nf.call(1, 2, 3)",
 		// Empty/minimal
 		"",
 		"puts(1)",
