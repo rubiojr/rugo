@@ -2864,6 +2864,11 @@ func (g *codeGen) boxed(s string, t RugoType) string {
 // allow using raw operators on interface{} values.
 func (g *codeGen) goTyped(e ast.Expr) bool {
 	if ident, ok := e.(*ast.IdentExpr); ok {
+		// Handler vars are promoted to package-level as interface{},
+		// so they are never Go-typed even if type inference says they are.
+		if g.handlerVars[ident.Name] && !g.inFunc {
+			return false
+		}
 		return g.varType(ident.Name).IsTyped()
 	}
 	return g.exprType(e).IsTyped()
