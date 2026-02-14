@@ -250,6 +250,9 @@ for file in args
           draw_box("expected:\n#{expected_output}", fn(s) color.yellow(s) end)
           draw_box("actual:\n#{actual_output}", fn(s) color.red(s) end)
         end
+      elsif Verify && block.has_expected == false
+        failures += 1
+        puts color.red("  missing ```text block for output verification")
       else
         passed += 1
       end
@@ -287,6 +290,10 @@ for file in args
           puts "  expected: #{expected_output}"
           puts "  actual:   #{actual_output}"
         end
+      elsif Verify && block.has_expected == false
+        failures += 1
+        puts "#{file}:#{block.line}: FAIL"
+        puts "  missing ```text block for output verification"
       else
         passed += 1
         puts "#{file}:#{block.line}: ok"

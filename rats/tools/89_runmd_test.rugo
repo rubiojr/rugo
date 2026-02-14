@@ -46,6 +46,13 @@ rats "runmd detects documented output mismatch with --verify"
   test.assert_contains(result.output, "actual:")
 end
 
+rats "runmd verify fails when text block missing"
+  result = test.run("rugo run tools/runmd/main.rugo -- --verify rats/fixtures/runmd/all_ok.md")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, "missing")
+  test.assert_contains(result.output, "2 snippet(s), 0 passed, 2 failed")
+end
+
 rats "runmd no ruby blocks exits cleanly"
   result = test.run("rugo run tools/runmd/main.rugo -- rats/fixtures/runmd/no_ruby.md")
   test.assert_eq(result.status, 0)
