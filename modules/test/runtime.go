@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -34,7 +35,13 @@ func (*Test) WriteFile(path, content string) interface{} {
 func (*Test) Run(command string) interface{} {
 	cmd := exec.Command("sh", "-c", command)
 	// Ensure child output has no ANSI codes so string matching works reliably.
-	cmd.Env = append(os.Environ(), "NO_COLOR=1")
+	env := append(os.Environ(), "NO_COLOR=1")
+	// Prepend the directory of the current executable to PATH so that
+	// "rugo" in test commands resolves to the binary under test (e.g. bin/rugo).
+	if self, err := os.Executable(); err == nil {
+		env = append(env, "PATH="+filepath.Dir(self)+string(filepath.ListSeparator)+os.Getenv("PATH"))
+	}
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	output := strings.TrimRight(string(out), "\n")
 
