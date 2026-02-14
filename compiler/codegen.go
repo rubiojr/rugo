@@ -1379,6 +1379,13 @@ func (g *codeGen) rangeExprs(coll ast.Expr) (string, string) {
 		return "0", intLit.Value
 	}
 
+	// for i in n (integer variable)
+	if ident, ok := coll.(*ast.IdentExpr); ok {
+		if g.varType(ident.Name) == TypeInt {
+			return "0", ident.Name
+		}
+	}
+
 	// for i in range(...)
 	call, ok := coll.(*ast.CallExpr)
 	if !ok {

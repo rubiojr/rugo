@@ -188,10 +188,11 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 
 	case *ast.ForStmt:
 		inferExpr(ti, scope, st.Collection)
-		// For loop vars are dynamic (collection element type unknown).
-		scope.set(st.Var, TypeDynamic)
+		// Infer loop variable type from collection.
+		loopVarType := inferForVarType(ti, scope, st.Collection)
+		scope.set(st.Var, loopVarType)
 		if st.IndexVar != "" {
-			scope.set(st.IndexVar, TypeDynamic)
+			scope.set(st.IndexVar, loopVarType)
 		}
 		// Infer body twice: the first pass may widen variable types
 		// (e.g. lines = lines + dynamic_var), and the second pass
@@ -516,6 +517,29 @@ func inferCall(ti *TypeInfo, scope *typeScope, e *ast.CallExpr) RugoType {
 		}
 	}
 
+	return TypeDynamic
+}
+
+// inferForVarType returns the loop variable type for a for-in collection.
+// Integer literals and range() calls produce TypeInt loop variables;
+// all other collections (arrays, hashes, variables) remain TypeDynamic.
+func inferForVarType(ti *TypeInfo, scope *typeScope, coll ast.Expr) RugoType {
+	// for i in 100
+	if _, ok := coll.(*ast.IntLiteral); ok {
+		return TypeInt
+	}
+	// for i in someIntVar
+	if ident, ok := coll.(*ast.IdentExpr); ok {
+		if scope.get(ident.Name) == TypeInt {
+			return TypeInt
+		}
+	}
+	// for i in range(...)
+	if call, ok := coll.(*ast.CallExpr); ok {
+		if fn, ok := call.Func.(*ast.IdentExpr); ok && fn.Name == "range" {
+			return TypeInt
+		}
+	}
 	return TypeDynamic
 }
 
