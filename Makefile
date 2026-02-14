@@ -17,4 +17,4 @@ test:
 	@go test ./... -count=1
 
 rats: build
-	@bin/rugo rats rats/
+	@bin/rugo rats --recap --timing rats/
