@@ -367,6 +367,11 @@ func rugo_iterable(v interface{}) []rugo_kv {
 		r := make([]rugo_kv, 0, len(c))
 		for k, v := range c { r = append(r, rugo_kv{k, v}) }
 		return r
+	case int:
+		if c <= 0 { return nil }
+		r := make([]rugo_kv, c)
+		for i := 0; i < c; i++ { r[i] = rugo_kv{interface{}(i), interface{}(i)} }
+		return r
 	}
 	panic(fmt.Sprintf("cannot iterate over %T", v))
 }
@@ -381,8 +386,33 @@ func rugo_iterable_default(v interface{}) []interface{} {
 		r := make([]interface{}, 0, len(c))
 		for k := range c { r = append(r, k) }
 		return r
+	case int:
+		if c <= 0 { return nil }
+		r := make([]interface{}, c)
+		for i := 0; i < c; i++ { r[i] = i }
+		return r
 	}
 	panic(fmt.Sprintf("cannot iterate over %T", v))
+}
+
+// rugo_range returns a slice of integers [start, start+1, ..., end-1].
+// With one arg: range(n) = [0, 1, ..., n-1].
+// With two args: range(start, end) = [start, start+1, ..., end-1].
+func rugo_range(args ...interface{}) []interface{} {
+	var start, end int
+	switch len(args) {
+	case 1:
+		end = rugo_to_int(args[0])
+	case 2:
+		start = rugo_to_int(args[0])
+		end = rugo_to_int(args[1])
+	default:
+		panic("range expects 1 or 2 arguments")
+	}
+	if start >= end { return []interface{}{} }
+	r := make([]interface{}, end-start)
+	for i := start; i < end; i++ { r[i-start] = i }
+	return r
 }
 
 func rugo_index_set(obj, idx, val interface{}) {

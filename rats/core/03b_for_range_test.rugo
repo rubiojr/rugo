@@ -1,0 +1,300 @@
+# RATS: Test for-loop with integer ranges and range() builtin
+use "test"
+
+# --- for i in N (integer count) ---
+
+rats "for i in N iterates 0 to N-1"
+  result = []
+  for i in 5
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 5)
+  test.assert_eq(result[0], 0)
+  test.assert_eq(result[4], 4)
+end
+
+rats "for i in 0 produces no iterations"
+  count = 0
+  for i in 0
+    count = count + 1
+  end
+  test.assert_eq(count, 0)
+end
+
+rats "for i in 1 iterates once"
+  result = []
+  for i in 1
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 1)
+  test.assert_eq(result[0], 0)
+end
+
+rats "for i in N with variable"
+  n = 4
+  result = []
+  for i in n
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 4)
+  test.assert_eq(result[0], 0)
+  test.assert_eq(result[3], 3)
+end
+
+rats "for idx, val in N gives index and value (both equal)"
+  keys = []
+  vals = []
+  for idx, val in 3
+    keys = append(keys, idx)
+    vals = append(vals, val)
+  end
+  test.assert_eq(keys[0], 0)
+  test.assert_eq(keys[2], 2)
+  test.assert_eq(vals[0], 0)
+  test.assert_eq(vals[2], 2)
+end
+
+# --- range(N) single argument ---
+
+rats "range(N) iterates 0 to N-1"
+  result = []
+  for i in range(4)
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 4)
+  test.assert_eq(result[0], 0)
+  test.assert_eq(result[3], 3)
+end
+
+rats "range(0) produces no iterations"
+  count = 0
+  for i in range(0)
+    count = count + 1
+  end
+  test.assert_eq(count, 0)
+end
+
+# --- range(start, end) two arguments ---
+
+rats "range(start, end) iterates start to end-1"
+  result = []
+  for i in range(3, 7)
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 4)
+  test.assert_eq(result[0], 3)
+  test.assert_eq(result[3], 6)
+end
+
+rats "range(5, 5) produces no iterations"
+  count = 0
+  for i in range(5, 5)
+    count = count + 1
+  end
+  test.assert_eq(count, 0)
+end
+
+rats "range(10, 5) produces no iterations when start > end"
+  count = 0
+  for i in range(10, 5)
+    count = count + 1
+  end
+  test.assert_eq(count, 0)
+end
+
+rats "range with negative start"
+  result = []
+  for i in range(-2, 3)
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 5)
+  test.assert_eq(result[0], -2)
+  test.assert_eq(result[4], 2)
+end
+
+rats "for idx, val in range(start, end) gives offset and value"
+  keys = []
+  vals = []
+  for idx, val in range(10, 13)
+    keys = append(keys, idx)
+    vals = append(vals, val)
+  end
+  test.assert_eq(keys[0], 0)
+  test.assert_eq(keys[1], 1)
+  test.assert_eq(keys[2], 2)
+  test.assert_eq(vals[0], 10)
+  test.assert_eq(vals[1], 11)
+  test.assert_eq(vals[2], 12)
+end
+
+# --- range with variable expressions ---
+
+rats "range with variable arguments"
+  start = 2
+  stop = 6
+  result = []
+  for i in range(start, stop)
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 4)
+  test.assert_eq(result[0], 2)
+  test.assert_eq(result[3], 5)
+end
+
+rats "range with arithmetic expressions"
+  n = 3
+  result = []
+  for i in range(n + 1, n * 3)
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 5)
+  test.assert_eq(result[0], 4)
+  test.assert_eq(result[4], 8)
+end
+
+# --- break and next ---
+
+rats "break in range loop"
+  result = []
+  for i in 10
+    if i == 3
+      break
+    end
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 0)
+  test.assert_eq(result[2], 2)
+end
+
+rats "next in range loop"
+  result = []
+  for i in 6
+    if i % 2 == 0
+      next
+    end
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 1)
+  test.assert_eq(result[1], 3)
+  test.assert_eq(result[2], 5)
+end
+
+rats "break in range(start, end) loop"
+  result = []
+  for i in range(5, 20)
+    if i == 8
+      break
+    end
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 5)
+  test.assert_eq(result[2], 7)
+end
+
+rats "next in range(start, end) loop"
+  result = []
+  for i in range(10, 15)
+    if i == 12
+      next
+    end
+    result = append(result, i)
+  end
+  test.assert_eq(len(result), 4)
+  test.assert_eq(result[0], 10)
+  test.assert_eq(result[1], 11)
+  test.assert_eq(result[2], 13)
+  test.assert_eq(result[3], 14)
+end
+
+# --- nested loops ---
+
+rats "nested range loops"
+  result = []
+  for i in 3
+    for j in range(10, 12)
+      result = append(result, i * 100 + j)
+    end
+  end
+  test.assert_eq(len(result), 6)
+  test.assert_eq(result[0], 10)
+  test.assert_eq(result[1], 11)
+  test.assert_eq(result[2], 110)
+  test.assert_eq(result[5], 211)
+end
+
+# --- range in function body ---
+
+def sum_to(n)
+  total = 0
+  for i in n
+    total = total + i
+  end
+  return total
+end
+
+def sum_range(a, b)
+  total = 0
+  for i in range(a, b)
+    total = total + i
+  end
+  return total
+end
+
+rats "range loop inside function"
+  test.assert_eq(sum_to(5), 10)
+  test.assert_eq(sum_to(1), 0)
+  test.assert_eq(sum_to(0), 0)
+end
+
+rats "range() inside function"
+  test.assert_eq(sum_range(1, 4), 6)
+  test.assert_eq(sum_range(5, 5), 0)
+end
+
+# --- range() as standalone expression ---
+
+rats "range() returns an array"
+  arr = range(5)
+  test.assert_eq(len(arr), 5)
+  test.assert_eq(arr[0], 0)
+  test.assert_eq(arr[4], 4)
+end
+
+rats "range(start, end) returns an array"
+  arr = range(3, 7)
+  test.assert_eq(len(arr), 4)
+  test.assert_eq(arr[0], 3)
+  test.assert_eq(arr[3], 6)
+end
+
+# --- scoping ---
+
+rats "for-in range does not leak loop variable"
+  i = "before"
+  for i in 3
+    # loop scoped i
+  end
+  test.assert_eq(i, "before")
+end
+
+rats "for-in range can read outer variables"
+  multiplier = 10
+  result = []
+  for i in 3
+    result = append(result, i * multiplier)
+  end
+  test.assert_eq(result[0], 0)
+  test.assert_eq(result[1], 10)
+  test.assert_eq(result[2], 20)
+end
+
+rats "for-in range can modify outer variables"
+  total = 0
+  for i in 5
+    total = total + i
+  end
+  test.assert_eq(total, 10)
+end

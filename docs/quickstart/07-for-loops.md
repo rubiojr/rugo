@@ -39,6 +39,33 @@ for k, v in config
 end
 ```
 
+## Integer Ranges
+
+Iterate from `0` to `N-1`:
+
+```ruby
+for i in 5
+  puts i
+end
+# prints 0, 1, 2, 3, 4
+```
+
+Use `range(start, end)` to iterate from `start` to `end-1`:
+
+```ruby
+for i in range(3, 7)
+  puts i
+end
+# prints 3, 4, 5, 6
+```
+
+`range()` also works as a standalone function that returns an array:
+
+```ruby
+arr = range(5)
+# arr is [0, 1, 2, 3, 4]
+```
+
 ## Break
 
 Stop the loop early:

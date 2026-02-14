@@ -1269,6 +1269,11 @@ func (g *codeGen) writeWhile(w *ast.WhileStmt) error {
 }
 
 func (g *codeGen) writeFor(f *ast.ForStmt) error {
+	// Try to emit an optimized integer for-loop (no slice allocation).
+	if g.writeForRange(f) {
+		return g.writeForBody(f)
+	}
+
 	coll, err := g.exprString(f.Collection)
 	if err != nil {
 		return err
@@ -1307,6 +1312,11 @@ func (g *codeGen) writeFor(f *ast.ForStmt) error {
 		g.declareVar(iterVar)
 	}
 
+	return g.writeForBody(f)
+}
+
+// writeForBody writes the loop body, pops scope, and closes the block.
+func (g *codeGen) writeForBody(f *ast.ForStmt) error {
 	for _, s := range f.Body {
 		if err := g.writeStmt(s); err != nil {
 			return err
@@ -1316,6 +1326,90 @@ func (g *codeGen) writeFor(f *ast.ForStmt) error {
 	g.indent--
 	g.writeln("}")
 	return nil
+}
+
+// writeForRange detects range() calls and integer literals in for-loop
+// collections and emits an efficient Go for-loop (no slice allocation).
+// Returns true if the optimization was applied.
+func (g *codeGen) writeForRange(f *ast.ForStmt) bool {
+	startExpr, endExpr := g.rangeExprs(f.Collection)
+	if startExpr == "" {
+		return false
+	}
+
+	iterVar := f.Var
+	idxVar := f.IndexVar
+
+	if idxVar != "" {
+		// Two-variable form: for idx, val in range(5, 20)
+		g.writef("for rugo_range_i, rugo_range_idx := %s, 0; rugo_range_i < %s; rugo_range_i, rugo_range_idx = rugo_range_i+1, rugo_range_idx+1 {\n", startExpr, endExpr)
+		g.indent++
+		g.pushScope()
+		if iterVar == "_" {
+			g.writef("_ = rugo_range_idx\n")
+		} else {
+			g.writef("%s := rugo_range_idx\n", iterVar)
+			g.writef("_ = %s\n", iterVar)
+			g.declareVar(iterVar)
+		}
+		if idxVar == "_" {
+			g.writef("_ = rugo_range_i\n")
+		} else {
+			g.writef("%s := rugo_range_i\n", idxVar)
+			g.writef("_ = %s\n", idxVar)
+			g.declareVar(idxVar)
+		}
+	} else {
+		// Single-variable form: for i in range(5, 20)
+		g.writef("for rugo_range_i := %s; rugo_range_i < %s; rugo_range_i++ {\n", startExpr, endExpr)
+		g.indent++
+		g.pushScope()
+		g.writef("%s := rugo_range_i\n", iterVar)
+		g.writef("_ = %s\n", iterVar)
+		g.declareVar(iterVar)
+	}
+	return true
+}
+
+// rangeExprs detects optimizable range patterns in the collection expression.
+// Returns (startExpr, endExpr) Go code strings, or ("", "") if not optimizable.
+func (g *codeGen) rangeExprs(coll ast.Expr) (string, string) {
+	// for i in 100 (integer literal)
+	if intLit, ok := coll.(*ast.IntLiteral); ok {
+		return "0", intLit.Value
+	}
+
+	// for i in range(...)
+	call, ok := coll.(*ast.CallExpr)
+	if !ok {
+		return "", ""
+	}
+	ident, ok := call.Func.(*ast.IdentExpr)
+	if !ok || ident.Name != "range" {
+		return "", ""
+	}
+
+	switch len(call.Args) {
+	case 1:
+		return "0", g.rangeIntExpr(call.Args[0])
+	case 2:
+		return g.rangeIntExpr(call.Args[0]), g.rangeIntExpr(call.Args[1])
+	}
+	return "", ""
+}
+
+// rangeIntExpr returns a Go int expression for a range bound.
+// Integer literals pass through directly; other expressions are
+// wrapped in rugo_to_int() for runtime conversion.
+func (g *codeGen) rangeIntExpr(e ast.Expr) string {
+	if intLit, ok := e.(*ast.IntLiteral); ok {
+		return intLit.Value
+	}
+	s, err := g.exprString(e)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("rugo_to_int(%s)", s)
 }
 
 func (g *codeGen) writeReturn(r *ast.ReturnStmt) error {
@@ -1849,6 +1943,11 @@ func (g *codeGen) callExpr(e *ast.CallExpr) (string, error) {
 				return "", fmt.Errorf("type_of expects 1 argument, got %d", len(e.Args))
 			}
 			return fmt.Sprintf("rugo_type_of(%s)", g.boxedArgs(args, e.Args)), nil
+		case "range":
+			if len(e.Args) < 1 || len(e.Args) > 2 {
+				return "", fmt.Errorf("range expects 1 or 2 arguments, got %d", len(e.Args))
+			}
+			return fmt.Sprintf("rugo_range(%s)", g.boxedArgs(args, e.Args)), nil
 		default:
 			// Sibling function call within a namespace: resolve unqualified
 			// calls against the current function's namespace first.
