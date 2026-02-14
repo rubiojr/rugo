@@ -1591,7 +1591,15 @@ func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, RugoType, err
 		if strings.Contains(err.Error(), "runtime error:") {
 			return "", TypeDynamic, fmt.Errorf("syntax error in expression")
 		}
-		return "", TypeDynamic, fmt.Errorf("parsing: %w", err)
+		// Detect bare-style calls with commas inside interpolation (e.g. #{append arr, val})
+		// and suggest the function call form instead.
+		if strings.Contains(exprStr, ",") {
+			parts := strings.Fields(exprStr)
+			if len(parts) >= 2 {
+				return "", TypeDynamic, fmt.Errorf("syntax error: bare-style call not supported inside interpolation — use %s(%s) instead", parts[0], strings.Join(parts[1:], " "))
+			}
+		}
+		return "", TypeDynamic, fmt.Errorf("syntax error in expression")
 	}
 	prog, err := ast.Walk(p, flatAST)
 	if err != nil {
