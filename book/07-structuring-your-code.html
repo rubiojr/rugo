@@ -461,10 +461,7 @@ a { color: var(--link); }
             <p class="chapter-desc">As scripts grow, Rugo gives you three tools for organization: structs for data types, modules for code reuse, and the Go bridge for accessing Go&#39;s standard library.</p>
 
             <article class="prose">
-                <p>As scripts grow, Rugo gives you three tools for organization: structs for data
-types, modules for code reuse, and the Go bridge for accessing Go's standard
-library.</p>
-<h2 id="structs-data-with-identity">Structs: Data with Identity</h2>
+                <h2 id="structs-data-with-identity">Structs: Data with Identity</h2>
 <p>Structs give hashes a name and a constructor. They're lightweight — no class
 hierarchies, no inheritance. Just named fields and optional methods.</p>
 <pre><code class="language-ruby">struct Dog
@@ -480,7 +477,7 @@ rex.name = &quot;Rexy&quot;
 puts &quot;Renamed to: #{rex.name}&quot;
 puts type_of(rex)
 </code></pre>
-<pre><code>Rex
+<pre><code class="language-text">Rex
 Labrador
 Renamed to: Rexy
 Dog
@@ -491,8 +488,8 @@ name.</p>
 <h2 id="struct-methods-with-modules">Struct Methods with Modules</h2>
 <p>Struct methods shine when combined with the module system. Define the struct
 and its methods in one file, then <code>require</code> it from another.</p>
-<p><strong>dog.rugo:</strong></p>
-<pre><code class="language-ruby">struct Dog
+<p><strong>dog.rugo</strong> — define the struct and its method:</p>
+<pre><code>struct Dog
   name
   breed
 end
@@ -501,13 +498,14 @@ def Dog.speak()
   return self.name + &quot; says woof!&quot;
 end
 </code></pre>
-<p><strong>main.rugo:</strong></p>
-<pre><code class="language-ruby">require &quot;dog&quot;
+<p><strong>main.rugo</strong> — require and use it:</p>
+<pre><code>require &quot;dog&quot;
 
 rex = dog.new(&quot;Rex&quot;, &quot;Labrador&quot;)
 puts rex.name
 puts dog.speak(rex)
 </code></pre>
+<p>Expected output:</p>
 <pre><code>Rex
 Rex says woof!
 </code></pre>
@@ -528,7 +526,7 @@ puts type_of({a: 1})
 double = fn(x) x * 2 end
 puts type_of(double)
 </code></pre>
-<pre><code>String
+<pre><code class="language-text">String
 Integer
 Float
 Bool
@@ -553,7 +551,7 @@ puts math.sqrt(144.0)
 n = try strconv.atoi(&quot;42&quot;) or 0
 puts n
 </code></pre>
-<pre><code>HELLO RUGO
+<pre><code class="language-text">HELLO RUGO
 true
 12
 42
@@ -589,8 +587,14 @@ error — pair with <code>try/or</code> for safe handling.</p>
 </tbody>
 </table>
 <p>Use <code>as</code> to alias any import when namespaces collide:</p>
-<pre><code class="language-ruby">use &quot;os&quot;
-import &quot;os&quot; as go_os
+<pre><code class="language-ruby">use &quot;str&quot;
+import &quot;strings&quot; as go_strings
+
+puts str.upper(&quot;hello&quot;)
+puts go_strings.to_lower(&quot;WORLD&quot;)
+</code></pre>
+<pre><code class="language-text">HELLO
+world
 </code></pre>
 <p><strong>Idiom:</strong> Prefer <code>use</code> modules (like <code>str</code>) for common operations — they're
 designed for Rugo's conventions. Reach for <code>import</code> when you need something

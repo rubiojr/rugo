@@ -461,9 +461,7 @@ a { color: var(--link); }
             <p class="chapter-desc">This final chapter showcases patterns drawn from real Rugo libraries and projects. These are the idioms that emerge when you put all the pieces together.</p>
 
             <article class="prose">
-                <p>This final chapter showcases patterns drawn from real Rugo libraries and
-projects. These are the idioms that emerge when you put all the pieces together.</p>
-<h2 id="the-data-pipeline">The Data Pipeline</h2>
+                <h2 id="the-data-pipeline">The Data Pipeline</h2>
 <p>Collections in Rugo are first-class citizens. Arrays and hashes ship with
 built-in methods — <code>map</code>, <code>filter</code>, <code>reduce</code>, <code>find</code>, <code>sort_by</code>, <code>flat_map</code>,
 and more. No imports, no wrappers. Chain them into pipelines that read like
@@ -480,7 +478,7 @@ puts &quot;Passing: #{passing}&quot;
 puts &quot;Top score: #{scores.max()}&quot;
 puts &quot;Average: #{scores.sum() / len(scores)}&quot;
 </code></pre>
-<pre><code>Passing: 95, 92, 88, 84, 73, 61
+<pre><code class="language-text">Passing: 95, 92, 88, 84, 73, 61
 Top score: 95
 Average: 72
 </code></pre>
@@ -507,7 +505,7 @@ end)
 has_warnings = logs.any(fn(e) e.level == &quot;warn&quot; end)
 puts &quot;Warnings present: #{has_warnings}&quot;
 </code></pre>
-<pre><code>2 errors found:
+<pre><code class="language-text">2 errors found:
   - disk full
   - timeout
 Warnings present: true
@@ -524,7 +522,7 @@ all_members = teams.flat_map(fn(t) t.members end)
 puts all_members
 puts &quot;Total people: #{len(all_members)}&quot;
 </code></pre>
-<pre><code>[Alice Bob Carol Dave Eve]
+<pre><code class="language-text">[Alice Bob Carol Dave Eve]
 Total people: 5
 </code></pre>
 <h3 id="hash-pipelines">Hash Pipelines</h3>
@@ -538,14 +536,15 @@ This is especially useful for configuration and environment processing.</p>
   pool_size: &quot;10&quot;
 }
 
-conn = env
-  .filter(fn(k, v) k == &quot;host&quot; || k == &quot;port&quot; || k == &quot;db&quot; end)
-  .map(fn(k, v) &quot;#{k}=#{v}&quot; end)
-  .join(&quot; &quot;)
+keys = [&quot;host&quot;, &quot;port&quot;, &quot;db&quot;]
+parts = []
+for k in keys
+  parts = append(parts, &quot;#{k}=#{env[k]}&quot;)
+end
 
-puts conn
+puts parts.join(&quot; &quot;)
 </code></pre>
-<pre><code>host=localhost port=5432 db=myapp
+<pre><code class="language-text">host=localhost port=5432 db=myapp
 </code></pre>
 <h3 id="reduce-for-accumulation">Reduce for Accumulation</h3>
 <p>When no single method fits, <code>reduce</code> is your escape hatch. It accumulates
@@ -565,7 +564,7 @@ most.each(fn(item)
   puts(&quot;#{item}: #{freq[item]}&quot;)
 end)
 </code></pre>
-<pre><code>apple: 3
+<pre><code class="language-text">apple: 3
 banana: 2
 cherry: 1
 </code></pre>
@@ -620,7 +619,7 @@ end
 sql = query_builder(&quot;users&quot;).where(&quot;age &gt;= 18&quot;).where(&quot;active = 1&quot;).order_by(&quot;name&quot;).limit(&quot;10&quot;).to_sql()
 puts sql
 </code></pre>
-<pre><code>SELECT * FROM users WHERE age &gt;= 18 AND active = 1 ORDER BY name LIMIT 10
+<pre><code class="language-text">SELECT * FROM users WHERE age &gt;= 18 AND active = 1 ORDER BY name LIMIT 10
 </code></pre>
 <p>Each method mutates the hash and returns it, enabling the fluid interface.
 The <a href="https://github.com/rubiojr/gummy">Gummy</a> ORM uses this same pattern for its query building.</p>
@@ -656,8 +655,7 @@ rats &quot;factorial computes correctly&quot;
   test.assert_eq(factorial(5), 120)
 end
 </code></pre>
-<p>Running normally:</p>
-<pre><code>5
+<pre><code class="language-text">5
 120
 </code></pre>
 <p>Running tests with <code>rugo rats</code>:</p>
@@ -678,6 +676,7 @@ domain module calls <code>attach(client)</code> to inject its functions:</p>
 # repo.attach(gh)
 # issue.attach(gh)
 </code></pre>
+<pre><code class="language-text"></code></pre>
 <p>This gives you a clean API (<code>gh.repos()</code>, <code>gh.issues()</code>) while keeping the
 implementation modular.</p>
 <h3 id="smart-records">Smart Records</h3>
@@ -689,11 +688,12 @@ Insert a record, get back an object that can <code>.save()</code> and <code>.del
 # alice.save()              # persists the change
 # alice.delete()            # removes from database
 </code></pre>
+<pre><code class="language-text"></code></pre>
 <p>The trick is attaching closures at creation time that close over the connection
 and table name.</p>
 <h3 id="convention-for-internal-state">Convention for Internal State</h3>
 <p>Use double underscores for internal fields that shouldn't be part of the public API:</p>
-<pre><code class="language-ruby">model = {}
+<pre><code>model = {}
 model[&quot;__conn__&quot;] = conn        # internal: database connection
 model[&quot;__table__&quot;] = name       # internal: table name
 model[&quot;insert&quot;] = fn(attrs)     # public: insert a record

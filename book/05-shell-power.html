@@ -461,20 +461,17 @@ a { color: var(--link); }
             <p class="chapter-desc">Rugo isn&#39;t just a programming language — it&#39;s also a shell. Unknown identifiers at the top level run as shell commands automatically. This dual nature is one of Rugo&#39;s defining features.</p>
 
             <article class="prose">
-                <p>Rugo isn't just a programming language — it's also a shell. Unknown identifiers
-at the top level run as shell commands automatically. This dual nature is one of
-Rugo's defining features.</p>
-<h2 id="backtick-capture">Backtick Capture</h2>
+                <h2 id="backtick-capture">Backtick Capture</h2>
 <p>Backticks run a command and capture its stdout into a variable. Trailing
 newlines are stripped.</p>
-<pre><code class="language-ruby">user = `whoami`
+<pre><code class="language-ruby">user = `echo goro`
 puts &quot;Running as: #{user}&quot;
 
-count = `ls | wc -l`
+count = `echo -e 'a\nb\nc' | wc -l`
 puts &quot;Files: #{count}&quot;
 </code></pre>
-<pre><code>Running as: &lt;your-username&gt;
-Files: &lt;file-count&gt;
+<pre><code class="language-text">Running as: goro
+Files: 3
 </code></pre>
 <p>Use backticks whenever you need a command's output as data. It's cleaner than
 piping to a variable in Bash.</p>
@@ -494,7 +491,7 @@ end
 
 echo &quot;wow&quot; | exclaim | puts
 </code></pre>
-<pre><code>HELLO WORLD
+<pre><code class="language-text">HELLO WORLD
 Language: RUGO
 wow!
 </code></pre>
@@ -508,7 +505,7 @@ echo &quot;Shell says hello from #{name}&quot;
 date_str = `date +%Y`
 puts &quot;Year: #{date_str}&quot;
 </code></pre>
-<pre><code>Shell says hello from Rugo
+<pre><code class="language-text">Shell says hello from Rugo
 Year: 2026
 </code></pre>
 <p>String interpolation works in shell commands too — the preprocessor expands
@@ -534,6 +531,8 @@ to handle failures gracefully:</p>
 # With try — script continues
 try rm /nonexistent/file 2&gt;/dev/null
 puts &quot;still running&quot;
+</code></pre>
+<pre><code class="language-text">still running
 </code></pre>
 <p>This is especially important in scripts that interact with external tools —
 network commands, file operations, and system utilities can all fail.</p>

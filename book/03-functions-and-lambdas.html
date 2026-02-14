@@ -461,9 +461,7 @@ a { color: var(--link); }
             <p class="chapter-desc">Rugo has two kinds of callable things: named functions (`def`) and anonymous lambdas (`fn`). Both are first-class, but they serve different roles.</p>
 
             <article class="prose">
-                <p>Rugo has two kinds of callable things: named functions (<code>def</code>) and anonymous
-lambdas (<code>fn</code>). Both are first-class, but they serve different roles.</p>
-<h2 id="named-functions-the-workhorses">Named Functions: The Workhorses</h2>
+                <h2 id="named-functions-the-workhorses">Named Functions: The Workhorses</h2>
 <p>Define functions with <code>def</code>. Parentheses are optional for no-argument functions.
 Use early returns to keep logic flat.</p>
 <pre><code class="language-ruby">def classify(score)
@@ -484,7 +482,7 @@ puts classify(82)
 puts classify(71)
 puts classify(55)
 </code></pre>
-<pre><code>A
+<pre><code class="language-text">A
 B
 C
 F
@@ -500,7 +498,7 @@ square = fn(x) x * x end
 puts double(5)
 puts square(4)
 </code></pre>
-<pre><code>10
+<pre><code class="language-text">10
 16
 </code></pre>
 <p>One-line lambdas are perfect for callbacks. The last expression is the implicit
@@ -533,7 +531,7 @@ puts doubled
 evens = my_select(fn(x) x % 2 == 0 end, nums)
 puts evens
 </code></pre>
-<pre><code>[2 4 6 8 10 12]
+<pre><code class="language-text">[2 4 6 8 10 12]
 [2 4 6]
 </code></pre>
 <p>Build these once, use them everywhere. Real Rugo libraries attach <code>each</code>, <code>map</code>,
@@ -550,7 +548,7 @@ add10 = make_adder(10)
 puts add5(3)
 puts add10(3)
 </code></pre>
-<pre><code>8
+<pre><code class="language-text">8
 13
 </code></pre>
 <p>Each call to <code>make_adder</code> creates a new closure with its own <code>n</code>. The lambda
@@ -568,7 +566,7 @@ puts ops.add(10, 3)
 puts ops.sub(10, 3)
 puts ops.mul(10, 3)
 </code></pre>
-<pre><code>13
+<pre><code class="language-text">13
 7
 30
 </code></pre>
@@ -587,7 +585,7 @@ end
 double_then_inc = compose(inc, double)
 puts double_then_inc(5)
 </code></pre>
-<pre><code>11
+<pre><code class="language-text">11
 </code></pre>
 <p><code>compose(inc, double)</code> reads as &quot;increment after doubling&quot; — <code>double(5)</code> gives
 10, then <code>inc(10)</code> gives 11.</p>
@@ -614,7 +612,7 @@ for item in data
 end
 puts &quot;Total: #{total}&quot;
 </code></pre>
-<pre><code>First negative: -1
+<pre><code class="language-text">First negative: -1
 Total: 9
 </code></pre>
 <p>These two keywords handle 90% of the cases where other languages need

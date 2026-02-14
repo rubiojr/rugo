@@ -461,10 +461,7 @@ a { color: var(--link); }
             <p class="chapter-desc">Error handling in Rugo is built around one construct: `try/or`. It comes in three levels of control, from casual to comprehensive. Pick the right level for each situation.</p>
 
             <article class="prose">
-                <p>Error handling in Rugo is built around one construct: <code>try/or</code>. It comes in
-three levels of control, from casual to comprehensive. Pick the right level for
-each situation.</p>
-<h2 id="level-1-silent-recovery">Level 1: Silent Recovery</h2>
+                <h2 id="level-1-silent-recovery">Level 1: Silent Recovery</h2>
 <p>Bare <code>try</code> catches errors and returns <code>nil</code>. Use it when you genuinely don't
 care about the failure.</p>
 <pre><code class="language-ruby">use &quot;conv&quot;
@@ -473,7 +470,7 @@ result = try `nonexistent_command_xyz_42 2&gt;/dev/null`
 puts &quot;result: #{conv.to_s(result)}&quot;
 puts &quot;script continues&quot;
 </code></pre>
-<pre><code>result: &lt;nil&gt;
+<pre><code class="language-text">result: &lt;nil&gt;
 script continues
 </code></pre>
 <p>The script keeps running. No panic, no crash. The result is simply <code>nil</code>, which
@@ -485,13 +482,13 @@ where failure is acceptable.</p>
 liberally.</p>
 <pre><code class="language-ruby">use &quot;conv&quot;
 
-hostname = try `hostname` or &quot;localhost&quot;
-puts &quot;host: #{hostname}&quot;
+name = try `echo Rugo` or &quot;unknown&quot;
+puts &quot;name: #{name}&quot;
 
 port = try conv.to_i(&quot;not_a_number&quot;) or 8080
 puts &quot;port: #{port}&quot;
 </code></pre>
-<pre><code>host: &lt;your-hostname&gt;
+<pre><code class="language-text">name: Rugo
 port: 8080
 </code></pre>
 <p>This is Rugo's answer to null coalescing. One line, clear intent, no ceremony.</p>
@@ -500,13 +497,13 @@ where you have a sensible alternative.</p>
 <h2 id="level-3-error-handler-block">Level 3: Error Handler Block</h2>
 <p>When you need to inspect the error or run recovery logic, use the block form.
 The error message is bound to the variable after <code>or</code>.</p>
-<pre><code class="language-ruby">data = try `cat /nonexistent/config.json` or err
+<pre><code class="language-ruby">data = try `cat /nonexistent/config.json 2&gt;/dev/null` or err
   puts &quot;warning: #{err}&quot;
   &quot;{}&quot;
 end
 puts &quot;config: #{data}&quot;
 </code></pre>
-<pre><code>warning: shell command failed (exit 1): cat /nonexistent/config.json
+<pre><code class="language-text">warning: shell command failed (exit 1): cat /nonexistent/config.json 2&gt;/dev/null
 config: {}
 </code></pre>
 <p>The last expression in the block becomes the result. This lets you log the error
@@ -529,7 +526,7 @@ puts result
 result = try divide(10, 2) or &quot;cannot divide&quot;
 puts result
 </code></pre>
-<pre><code>cannot divide
+<pre><code class="language-text">cannot divide
 5
 </code></pre>
 <p>This creates a clean contract: functions <code>raise</code> when they can't fulfill their

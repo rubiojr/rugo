@@ -461,10 +461,7 @@ a { color: var(--link); }
             <p class="chapter-desc">Rugo makes concurrency approachable with two primitives: `spawn` for individual tasks and `parallel` for fan-out work. Both compile to Go goroutines under the hood.</p>
 
             <article class="prose">
-                <p>Rugo makes concurrency approachable with two primitives: <code>spawn</code> for individual
-tasks and <code>parallel</code> for fan-out work. Both compile to Go goroutines under the
-hood.</p>
-<h2 id="spawn-fire-and-collect">Spawn: Fire and Collect</h2>
+                <h2 id="spawn-fire-and-collect">Spawn: Fire and Collect</h2>
 <p><code>spawn</code> runs an expression in a background goroutine and returns a task handle.
 Call <code>.value</code> to wait for the result.</p>
 <pre><code class="language-ruby">use &quot;conv&quot;
@@ -474,7 +471,7 @@ b = spawn 3 * 3
 puts &quot;a = #{conv.to_s(a.value)}&quot;
 puts &quot;b = #{conv.to_s(b.value)}&quot;
 </code></pre>
-<pre><code>a = 4
+<pre><code class="language-text">a = 4
 b = 9
 </code></pre>
 <p>Both computations run concurrently. <code>.value</code> blocks until the result is ready.
@@ -494,7 +491,7 @@ for i, r in results
   puts &quot;result #{conv.to_s(i)}: #{conv.to_s(r)}&quot;
 end
 </code></pre>
-<pre><code>result 0: 10
+<pre><code class="language-text">result 0: 10
 result 1: 20
 result 2: 30
 </code></pre>
@@ -512,7 +509,7 @@ task = spawn 42
 puts &quot;done: #{conv.to_s(task.done)}&quot;
 puts &quot;value: #{conv.to_s(task.value)}&quot;
 </code></pre>
-<pre><code>done: true
+<pre><code class="language-text">done: true
 value: 42
 </code></pre>
 <p>This is useful for building progress indicators, non-blocking UIs, or
@@ -524,7 +521,7 @@ panics on timeout. Pair it with <code>try/or</code> for clean handling.</p>
 result = try task.wait(1) or &quot;timed out&quot;
 puts result
 </code></pre>
-<pre><code>timed out
+<pre><code class="language-text">timed out
 </code></pre>
 <p>This pattern is essential for network requests, external processes, and anything
 where you can't trust the other side to respond promptly.</p>

@@ -461,10 +461,7 @@ a { color: var(--link); }
             <p class="chapter-desc">Rugo&#39;s hashes and arrays are more than data containers — they&#39;re the building blocks for objects, configurations, and APIs. Understanding their idioms is essential to writing good Rugo.</p>
 
             <article class="prose">
-                <p>Rugo's hashes and arrays are more than data containers — they're the building
-blocks for objects, configurations, and APIs. Understanding their idioms is
-essential to writing good Rugo.</p>
-<h2 id="hashes-as-lightweight-objects">Hashes as Lightweight Objects</h2>
+                <h2 id="hashes-as-lightweight-objects">Hashes as Lightweight Objects</h2>
 <p>The colon syntax creates clean, readable hashes with string keys. Combined with
 dot access, hashes become lightweight objects without ceremony.</p>
 <pre><code class="language-ruby">person = {name: &quot;Alice&quot;, age: 30, city: &quot;NYC&quot;}
@@ -474,7 +471,7 @@ puts person.city
 person.age = 31
 puts &quot;#{person.name} is #{person.age}&quot;
 </code></pre>
-<pre><code>Alice
+<pre><code class="language-text">Alice
 NYC
 Alice is 31
 </code></pre>
@@ -492,7 +489,7 @@ key = &quot;greeting&quot;
 config = {key =&gt; &quot;hello&quot;}
 puts config[&quot;greeting&quot;]
 </code></pre>
-<pre><code>OK
+<pre><code class="language-text">OK
 Not Found
 hello
 </code></pre>
@@ -509,7 +506,7 @@ arrow syntax when your keys aren't simple string literals.</p>
 puts app.config.db.host
 puts app.config.cache.ttl
 </code></pre>
-<pre><code>localhost
+<pre><code class="language-text">localhost
 300
 </code></pre>
 <p>This makes configuration objects feel natural. Build nested hashes for your app's
@@ -543,7 +540,7 @@ counter.increment()
 counter.decrement()
 puts &quot;Count: #{counter.get()}&quot;
 </code></pre>
-<pre><code>Count: 2
+<pre><code class="language-text">Count: 2
 </code></pre>
 <p>The closures capture the <code>c</code> hash by reference, so mutations through <code>.increment()</code>
 persist. This is how real Rugo libraries like <a href="https://github.com/rubiojr/gummy">Gummy</a> (an ORM) and <a href="https://github.com/rubiojr/rugh">Rugh</a> (a GitHub
@@ -564,7 +561,7 @@ names = append(names, &quot;Alice&quot;)
 names = append(names, &quot;Bob&quot;)
 puts len(names)
 </code></pre>
-<pre><code>blue
+<pre><code class="language-text">blue
 [red green]
 [10 20]
 2
@@ -580,13 +577,12 @@ for i, fruit in fruits
   puts &quot;#{i}: #{fruit}&quot;
 end
 
-# Iterate hashes with key-value
+# Access hash values directly
 config = {host: &quot;localhost&quot;, port: &quot;8080&quot;}
-for k, v in config
-  puts &quot;#{k} = #{v}&quot;
-end
+puts &quot;host = #{config.host}&quot;
+puts &quot;port = #{config.port}&quot;
 </code></pre>
-<pre><code>0: apple
+<pre><code class="language-text">0: apple
 1: banana
 2: cherry
 host = localhost

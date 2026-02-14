@@ -461,9 +461,7 @@ a { color: var(--link); }
             <p class="chapter-desc">Good Rugo code reads almost like prose. The language gives you several tools to keep things clean and expressive — use them.</p>
 
             <article class="prose">
-                <p>Good Rugo code reads almost like prose. The language gives you several tools to
-keep things clean and expressive — use them.</p>
-<h2 id="string-interpolation-everywhere">String Interpolation Everywhere</h2>
+                <h2 id="string-interpolation-everywhere">String Interpolation Everywhere</h2>
 <p>Double-quoted strings support <code>#{}</code> interpolation. Prefer it over concatenation —
 it's more readable and handles type conversion automatically.</p>
 <pre><code class="language-ruby">name = &quot;Rugo&quot;
@@ -471,15 +469,12 @@ version = 1
 puts &quot;Welcome to #{name} v#{version}!&quot;
 puts &quot;#{2 + 2} is the answer to 2 + 2&quot;
 </code></pre>
-<pre><code>Welcome to Rugo v1!
+<pre><code class="language-text">Welcome to Rugo v1!
 4 is the answer to 2 + 2
 </code></pre>
-<p>Any expression works inside <code>#{}</code> — arithmetic, function calls, variable access.
-The language calls <code>__to_s()</code> on the result, so you never need manual conversion
-for display purposes.</p>
+<p>Any expression works inside <code>#{}</code> — arithmetic, function calls, variable access.</p>
 <h2 id="drop-the-parentheses">Drop the Parentheses</h2>
-<p>Rugo's preprocessor rewrites paren-free calls for you. When clarity isn't
-sacrificed, drop the parens — it's the Rugo way.</p>
+<p>When clarity isn't sacrificed, drop the parens — it's the Rugo way.</p>
 <pre><code class="language-ruby"># Parentheses are optional for function calls
 puts &quot;hello, world&quot;
 
@@ -489,7 +484,7 @@ end
 
 greet &quot;developer&quot;
 </code></pre>
-<pre><code>hello, world
+<pre><code class="language-text">hello, world
 Hello, developer!
 </code></pre>
 <p>Use parentheses when nesting calls or when the expression is complex. Drop them
@@ -505,7 +500,7 @@ AppName = &quot;MyTool&quot;
 
 puts &quot;#{AppName} uses PI=#{PI}, max retries: #{MAX_RETRIES}&quot;
 </code></pre>
-<pre><code>MyTool uses PI=3.14159, max retries: 3
+<pre><code class="language-text">MyTool uses PI=3.14159, max retries: 3
 </code></pre>
 <p>Constants work inside functions too. Hash bindings are constant (you can't
 reassign the variable) but the hash contents can still be mutated — just like
@@ -523,7 +518,7 @@ msg = &quot;Hello&quot;
 msg += &quot;, World!&quot;
 puts msg
 </code></pre>
-<pre><code>Final score: 30
+<pre><code class="language-text">Final score: 30
 Hello, World!
 </code></pre>
 <h2 id="raw-strings-for-literal-content">Raw Strings for Literal Content</h2>
@@ -538,7 +533,7 @@ puts pattern
 name = &quot;Rugo&quot;
 puts 'no #{interpolation} here'
 </code></pre>
-<pre><code>C:\Users\name\Documents
+<pre><code class="language-text">C:\Users\name\Documents
 hello\nworld
 no #{interpolation} here
 </code></pre>
@@ -556,7 +551,7 @@ greeting = &lt;&lt;~TEXT
 TEXT
 puts greeting
 </code></pre>
-<pre><code>Hello, World!
+<pre><code class="language-text">Hello, World!
 Welcome to Rugo.
 </code></pre>
 <p>There are four heredoc flavors:</p>
