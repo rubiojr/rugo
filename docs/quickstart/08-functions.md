@@ -26,12 +26,28 @@ Both `def say_hello` and `def say_hello()` are valid — the `()` is optional wh
 
 ## Return Values
 
+The last expression in a function body is implicitly returned:
+
 ```ruby
 def add(a, b)
-  return a + b
+  a + b
 end
 
 puts add(2, 3)   # 5
+```
+
+Use explicit `return` for early exits:
+
+```ruby
+def classify(x)
+  if x > 10
+    return "big"
+  end
+  "small"
+end
+
+puts classify(5)    # small
+puts classify(20)   # big
 ```
 
 ## Parenthesis-Free Calls
@@ -50,7 +66,7 @@ def factorial(n)
   if n <= 1
     return 1
   end
-  return n * factorial(n - 1)
+  n * factorial(n - 1)
 end
 
 puts factorial(5)   # 120

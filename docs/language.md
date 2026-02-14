@@ -206,7 +206,7 @@ end
 
 ### Functions
 
-Functions are defined with `def/end` and always return `interface{}` in the generated Go:
+Functions are defined with `def/end` and always return `interface{}` in the generated Go. The last expression in a function body is implicitly returned (like lambdas). Use explicit `return` for early exits:
 
 ```ruby
 def greet(name)
@@ -214,7 +214,14 @@ def greet(name)
 end
 
 def add(a, b)
-  return a + b
+  a + b
+end
+
+def classify(x)
+  if x > 10
+    return "big"
+  end
+  "small"
 end
 ```
 
