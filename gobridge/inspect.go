@@ -1,13 +1,16 @@
 package gobridge
 
 import (
+	"encoding/json"
 	"fmt"
 	"go/ast"
 	"go/importer"
 	"go/parser"
 	"go/token"
 	"go/types"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -25,6 +28,10 @@ type InspectedPackage struct {
 	KnownStructs map[string]bool
 	// NamedTypes maps Go struct type names to their *types.Named for method discovery.
 	NamedTypes map[string]*types.Named
+	// ExternalTypes maps qualified keys (pkgPath.TypeName) to external type info.
+	// Populated by FinalizeStructs when blocked functions reference types from
+	// external packages.
+	ExternalTypes map[string]ExternalTypeInfo
 }
 
 // InspectSourcePackage introspects a Go source directory and returns a bridge
@@ -80,8 +87,10 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 
 	// Best-effort type checking — errors from unresolvable external imports
 	// are ignored. Functions using those types will be correctly blocked.
+	// Use module-aware importer when available (resolves external dependencies
+	// via `go list -export`), falling back to default for stdlib-only packages.
 	conf := types.Config{
-		Importer: importer.Default(),
+		Importer: moduleAwareImporter(fset, dir),
 		Error:    func(error) {},
 	}
 	typePkg, _ := conf.Check(pkgName, fset, files, nil)
@@ -156,12 +165,8 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 		}
 	}
 
-	if len(funcs) == 0 && len(structInfos) == 0 {
-		reasons := make([]string, 0, len(skipped))
-		for _, f := range skipped {
-			reasons = append(reasons, fmt.Sprintf("  %s: %s (%s)", f.GoName, f.Reason, f.Tier))
-		}
-		return nil, fmt.Errorf("no bridgeable functions found in %s\n%s", modulePath, strings.Join(reasons, "\n"))
+	if len(funcs) == 0 && len(structInfos) == 0 && len(skipped) == 0 {
+		return nil, fmt.Errorf("no bridgeable functions found in %s", modulePath)
 	}
 
 	pkg := &Package{
@@ -246,6 +251,60 @@ func ReadGoModulePath(path string) (string, error) {
 	return "", fmt.Errorf("no module directive found in %s", path)
 }
 
+// moduleAwareImporter returns a types.Importer that resolves imports using
+// `go list -export -json`, which is module-aware and handles dependencies
+// in the Go module cache. Falls back to importer.Default() for stdlib.
+// dir is the directory of the Go module being inspected (used as cwd for go list).
+func moduleAwareImporter(fset *token.FileSet, dir string) types.Importer {
+	// Check if `go list` works in this directory (has go.mod with dependencies).
+	// If not, fall back to the default importer (works for stdlib-only packages).
+	goModDir, found := FindGoModDir(dir)
+	if !found {
+		return importer.Default()
+	}
+
+	return importerFunc(func(path string) (*types.Package, error) {
+		// Try module-aware import via `go list -export`.
+		cmd := exec.Command("go", "list", "-export", "-json", path)
+		cmd.Dir = goModDir
+		out, err := cmd.Output()
+		if err != nil {
+			// Fall back to default importer for stdlib packages.
+			return importer.Default().Import(path)
+		}
+
+		var info struct{ Export string }
+		if err := json.Unmarshal(out, &info); err != nil || info.Export == "" {
+			return importer.Default().Import(path)
+		}
+
+		// Use ForCompiler with a lookup that reads the export file.
+		gcImp := importer.ForCompiler(fset, "gc", func(p string) (io.ReadCloser, error) {
+			if p == path {
+				return os.Open(info.Export)
+			}
+			// For transitive imports, delegate to go list as well.
+			cmd := exec.Command("go", "list", "-export", "-json", p)
+			cmd.Dir = goModDir
+			out, err := cmd.Output()
+			if err != nil {
+				return nil, fmt.Errorf("go list %s: %w", p, err)
+			}
+			var info2 struct{ Export string }
+			if err := json.Unmarshal(out, &info2); err != nil || info2.Export == "" {
+				return nil, fmt.Errorf("no export data for %s", p)
+			}
+			return os.Open(info2.Export)
+		})
+		return gcImp.Import(path)
+	})
+}
+
+// importerFunc adapts a function to the types.Importer interface.
+type importerFunc func(path string) (*types.Package, error)
+
+func (f importerFunc) Import(path string) (*types.Package, error) { return f(path) }
+
 // classifyStructFields examines an exported struct and returns a GoStructInfo
 // with all exported fields that have bridgeable types. Structs with no
 // bridgeable fields are still returned as opaque handles (empty Fields slice).
@@ -275,57 +334,128 @@ func classifyStructFields(goName string, st *types.Struct) *GoStructInfo {
 
 // FinalizeStructs enriches an InspectedPackage with struct constructors and
 // reclassifies skipped functions that use known struct types as params/returns.
+// It also discovers external named types from dependencies and generates
+// opaque wrappers for them, enabling functions that use external types to be bridged.
 // ns is the Rugo namespace, pkgAlias is the Go package alias for generated code.
 // Must be called before gobridge.Register().
 func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 	pkg := result.Package
-	if len(pkg.Structs) == 0 {
-		return
-	}
 
 	// Build a lookup from Go struct name to wrapper type name.
-	structWrappers := make(map[string]string) // GoName → wrapper type name
-	for _, si := range pkg.Structs {
-		structWrappers[si.GoName] = StructWrapperTypeName(ns, si.GoName)
+	structWrappers := make(map[string]string) // GoName or qualified key → wrapper type name
+
+	if len(pkg.Structs) > 0 {
+		for _, si := range pkg.Structs {
+			structWrappers[si.GoName] = StructWrapperTypeName(ns, si.GoName)
+		}
+
+		// Discover methods and embedded fields on struct types before generating wrappers.
+		for i := range pkg.Structs {
+			si := &pkg.Structs[i]
+			named, ok := result.NamedTypes[si.GoName]
+			if !ok {
+				continue
+			}
+			si.Methods = discoverMethods(named, structWrappers, result.KnownStructs)
+			// Discover embedded pointer-to-struct fields for upcast support.
+			embedded := discoverEmbeddedFields(named, structWrappers, result.KnownStructs)
+			si.Fields = append(si.Fields, embedded...)
+		}
+
+		// Generate wrappers and register constructors (after methods are populated).
+		for _, si := range pkg.Structs {
+			wrapType := structWrappers[si.GoName]
+			helper := GenerateStructWrapper(ns, pkgAlias, si)
+
+			// Register zero-value constructor: mymod.config() → &rugo_struct_mymod_Config{v: &pkg.Config{}}
+			constructorName := si.RugoName
+			// Avoid collision with existing functions.
+			if _, exists := pkg.Funcs[constructorName]; exists {
+				constructorName = "new_" + constructorName
+			}
+			wt := wrapType
+			pa := pkgAlias
+			gn := si.GoName
+			pkg.Funcs[constructorName] = GoFuncSig{
+				GoName:  si.GoName,
+				Returns: []GoType{GoString}, // placeholder — actual return is opaque handle
+				Doc:     fmt.Sprintf("Creates a new zero-value %s struct.", si.GoName),
+				Codegen: func(pkgBase string, args []string, rugoName string) string {
+					return fmt.Sprintf("interface{}(&%s{v: &%s.%s{}})", wt, pa, gn)
+				},
+				RuntimeHelpers: []RuntimeHelper{helper},
+			}
+		}
 	}
 
-	// Discover methods on struct types before generating wrappers.
-	for i := range pkg.Structs {
-		si := &pkg.Structs[i]
-		named, ok := result.NamedTypes[si.GoName]
-		if !ok {
+	// Discover external named types from blocked function signatures.
+	externalTypes := discoverExternalTypes(result, pkg.Path)
+
+	// Recursively discover types embedded in already-known external types.
+	// This handles class hierarchies like QPushButton → *QAbstractButton → *QWidget.
+	for changed := true; changed; {
+		changed = false
+		for _, ext := range externalTypes {
+			if ext.Named == nil {
+				continue
+			}
+			st, ok := ext.Named.Underlying().(*types.Struct)
+			if !ok {
+				continue
+			}
+			for i := 0; i < st.NumFields(); i++ {
+				f := st.Field(i)
+				if !f.Exported() || !f.Embedded() {
+					continue
+				}
+				collectExternalFromType(f.Type(), pkg.Path, result.KnownStructs, externalTypes)
+			}
+		}
+		// Register any new types found in this pass.
+		for key, ext := range externalTypes {
+			if !result.KnownStructs[key] {
+				result.KnownStructs[key] = true
+				changed = true
+				_ = ext // will be registered below
+			}
+		}
+	}
+
+	result.ExternalTypes = externalTypes
+	for key, ext := range externalTypes {
+		wrapType := ExternalOpaqueWrapperTypeName(ns, ext.PkgName, ext.GoName)
+		structWrappers[key] = wrapType
+		result.KnownStructs[key] = true
+		// Track the import path so codegen emits it.
+		if !containsString(pkg.ExtraImports, ext.PkgPath) {
+			pkg.ExtraImports = append(pkg.ExtraImports, ext.PkgPath)
+		}
+	}
+
+	// Discover methods and embedded fields on external types (after all types are in structWrappers).
+	for key, ext := range externalTypes {
+		if ext.Named == nil {
 			continue
 		}
-		si.Methods = discoverMethods(named, structWrappers, result.KnownStructs)
+		ext.Methods = discoverMethods(ext.Named, structWrappers, result.KnownStructs)
+		ext.EmbeddedFields = discoverEmbeddedFields(ext.Named, structWrappers, result.KnownStructs)
+		externalTypes[key] = ext
 	}
 
-	// Generate wrappers and register constructors (after methods are populated).
-	for i, si := range pkg.Structs {
-		_ = i
-		wrapType := structWrappers[si.GoName]
-		helper := GenerateStructWrapper(ns, pkgAlias, si)
-
-		// Register zero-value constructor: mymod.config() → &rugo_struct_mymod_Config{v: &pkg.Config{}}
-		constructorName := si.RugoName
-		// Avoid collision with existing functions.
-		if _, exists := pkg.Funcs[constructorName]; exists {
-			constructorName = "new_" + constructorName
-		}
-		wt := wrapType
-		pa := pkgAlias
-		gn := si.GoName
-		pkg.Funcs[constructorName] = GoFuncSig{
-			GoName:  si.GoName,
-			Returns: []GoType{GoString}, // placeholder — actual return is opaque handle
-			Doc:     fmt.Sprintf("Creates a new zero-value %s struct.", si.GoName),
-			Codegen: func(pkgBase string, args []string, rugoName string) string {
-				return fmt.Sprintf("interface{}(&%s{v: &%s.%s{}})", wt, pa, gn)
-			},
-			RuntimeHelpers: []RuntimeHelper{helper},
-		}
+	// Pre-collect all external type wrappers as RuntimeHelpers.
+	// These are emitted once (deduped by key) and cover the full type hierarchy
+	// including intermediate types only referenced via embedded fields.
+	var allExternalHelpers []RuntimeHelper
+	for _, ext := range externalTypes {
+		allExternalHelpers = append(allExternalHelpers, GenerateExternalOpaqueWrapper(ns, ext))
+		allExternalHelpers = append(allExternalHelpers, methodRuntimeHelpers(ext.Methods)...)
+	}
+	// Generate upcast helpers for all wrapper types (enables auto-upcasting).
+	for _, wrapType := range structWrappers {
+		allExternalHelpers = append(allExternalHelpers, GenerateUpcastHelper(wrapType))
 	}
 
-	// Reclassify skipped functions that are blocked only by known struct pointer types.
+	// Reclassify skipped functions that are blocked only by known struct/external pointer types.
 	var stillSkipped []ClassifiedFunc
 	for _, f := range result.Skipped {
 		if f.Tier != TierBlocked {
@@ -334,12 +464,16 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 		}
 		sig := reclassifyWithStructs(f, structWrappers, pkgAlias, result.KnownStructs)
 		if sig != nil {
-			// Attach struct wrapper RuntimeHelpers so they're emitted.
+			// Attach in-package struct wrapper RuntimeHelpers.
 			for _, si := range pkg.Structs {
 				wt := structWrappers[si.GoName]
 				if needsWrapper(sig, wt) {
 					sig.RuntimeHelpers = append(sig.RuntimeHelpers, GenerateStructWrapper(ns, pkgAlias, si))
 				}
+			}
+			// Attach all external type wrappers (deduped by key in codegen).
+			if len(allExternalHelpers) > 0 {
+				sig.RuntimeHelpers = append(sig.RuntimeHelpers, allExternalHelpers...)
 			}
 			pkg.Funcs[f.RugoName] = *sig
 		} else {
@@ -351,6 +485,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 
 // reclassifyWithStructs attempts to build a GoFuncSig for a blocked function
 // by resolving struct pointer params/returns to wrapper types.
+// Also handles GoFunc params alongside struct params (func+struct combo).
 // Returns nil if the function can't be reclassified.
 func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, pkgAlias string, knownStructs map[string]bool) *GoFuncSig {
 	if f.Sig == nil {
@@ -384,7 +519,20 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 			}
 			sig.StructCasts[i] = wrapType
 		} else if tier == TierFunc {
-			return nil // Can't handle func params in reclassification
+			// Classify the function parameter for GoFunc adapter.
+			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
+			if !ok {
+				return nil
+			}
+			ft := ClassifyFuncType(funcSig)
+			if ft == nil {
+				return nil
+			}
+			sig.Params = append(sig.Params, GoFunc)
+			if sig.FuncTypes == nil {
+				sig.FuncTypes = make(map[int]*GoFuncType)
+			}
+			sig.FuncTypes[i] = ft
 		} else {
 			sig.Params = append(sig.Params, gt)
 		}
@@ -419,7 +567,7 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 }
 
 // extractStructName checks if a type is a pointer to a known struct and returns
-// the struct name, or empty string if not.
+// the struct name (or qualified key for external types), or empty string if not.
 func extractStructName(t types.Type, knownStructs map[string]bool) string {
 	// Handle *Struct (pointer to struct).
 	if ptr, ok := t.(*types.Pointer); ok {
@@ -428,6 +576,13 @@ func extractStructName(t types.Type, knownStructs map[string]bool) string {
 			if knownStructs[name] {
 				return name
 			}
+			// Check qualified key for external types.
+			if pkg := named.Obj().Pkg(); pkg != nil {
+				qualKey := ExternalTypeKey(pkg.Path(), name)
+				if knownStructs[qualKey] {
+					return qualKey
+				}
+			}
 		}
 	}
 	// Handle Struct directly (value type).
@@ -435,6 +590,12 @@ func extractStructName(t types.Type, knownStructs map[string]bool) string {
 		name := named.Obj().Name()
 		if knownStructs[name] {
 			return name
+		}
+		if pkg := named.Obj().Pkg(); pkg != nil {
+			qualKey := ExternalTypeKey(pkg.Path(), name)
+			if knownStructs[qualKey] {
+				return qualKey
+			}
 		}
 	}
 	return ""
@@ -453,6 +614,37 @@ func needsWrapper(sig *GoFuncSig, wrapType string) bool {
 		}
 	}
 	return false
+}
+
+// discoverEmbeddedFields finds embedded pointer-to-struct fields on a named type
+// that point to known struct types. Returns field info with WrapType set.
+func discoverEmbeddedFields(named *types.Named, structWrappers map[string]string, knownStructs map[string]bool) []GoStructFieldInfo {
+	st, ok := named.Underlying().(*types.Struct)
+	if !ok {
+		return nil
+	}
+	var fields []GoStructFieldInfo
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		if !f.Exported() || !f.Embedded() {
+			continue
+		}
+		// Check if the embedded field is a pointer to a known struct.
+		structName := extractStructName(f.Type(), knownStructs)
+		if structName == "" {
+			continue
+		}
+		wrapType, ok := structWrappers[structName]
+		if !ok {
+			continue
+		}
+		fields = append(fields, GoStructFieldInfo{
+			GoName:   f.Name(),
+			RugoName: ToSnakeCase(f.Name()),
+			WrapType: wrapType,
+		})
+	}
+	return fields
 }
 
 // discoverMethods finds bridgeable methods on a named struct type.
@@ -507,10 +699,37 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 				mi.StructCasts = make(map[int]string)
 			}
 			mi.StructCasts[i] = wrapType
+			// Track if the param is a value type (not pointer) — needs dereference.
+			if _, isPtr := t.(*types.Pointer); !isPtr {
+				if mi.StructParamValue == nil {
+					mi.StructParamValue = make(map[int]bool)
+				}
+				mi.StructParamValue[i] = true
+			}
 		} else if tier == TierFunc {
-			return nil
+			// Classify the function parameter for GoFunc adapter.
+			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
+			if !ok {
+				return nil
+			}
+			ft := ClassifyFuncType(funcSig)
+			if ft == nil {
+				return nil
+			}
+			mi.Params = append(mi.Params, GoFunc)
+			if mi.FuncTypes == nil {
+				mi.FuncTypes = make(map[int]*GoFuncType)
+			}
+			mi.FuncTypes[i] = ft
 		} else {
 			mi.Params = append(mi.Params, gt)
+			// Detect named types that need explicit casts (e.g., qt6.GestureType).
+			if cast := namedTypeCast(t); cast != "" {
+				if mi.TypeCasts == nil {
+					mi.TypeCasts = make(map[int]string)
+				}
+				mi.TypeCasts[i] = cast
+			}
 		}
 	}
 
@@ -546,4 +765,158 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 	}
 
 	return mi
+}
+
+// discoverExternalTypes scans blocked function signatures for pointer-to-named
+// types from external packages (types not defined in the inspected module).
+// Returns a map keyed by qualified name (pkgPath.TypeName) to ExternalTypeInfo.
+func discoverExternalTypes(result *InspectedPackage, modulePath string) map[string]ExternalTypeInfo {
+	externals := make(map[string]ExternalTypeInfo)
+
+	for _, f := range result.Skipped {
+		if f.Sig == nil || f.Tier != TierBlocked {
+			continue
+		}
+		collectExternalFromSig(f.Sig, modulePath, result.KnownStructs, externals)
+	}
+
+	return externals
+}
+
+// collectExternalFromSig examines a function signature for external named types.
+func collectExternalFromSig(sig *types.Signature, modulePath string, knownStructs map[string]bool, externals map[string]ExternalTypeInfo) {
+	params := sig.Params()
+	for i := 0; i < params.Len(); i++ {
+		collectExternalFromType(params.At(i).Type(), modulePath, knownStructs, externals)
+	}
+	results := sig.Results()
+	for i := 0; i < results.Len(); i++ {
+		collectExternalFromType(results.At(i).Type(), modulePath, knownStructs, externals)
+	}
+}
+
+// collectExternalFromType checks if a type is a pointer (or value) of a named
+// type from an external package and adds it to the externals map.
+func collectExternalFromType(t types.Type, modulePath string, knownStructs map[string]bool, externals map[string]ExternalTypeInfo) {
+	var named *types.Named
+
+	if ptr, ok := t.(*types.Pointer); ok {
+		named, _ = ptr.Elem().(*types.Named)
+	} else {
+		named, _ = t.(*types.Named)
+	}
+	if named == nil {
+		return
+	}
+
+	pkg := named.Obj().Pkg()
+	if pkg == nil {
+		return // built-in type (error, etc.)
+	}
+
+	typeName := named.Obj().Name()
+
+	// Skip types already known as in-package structs.
+	if knownStructs[typeName] {
+		return
+	}
+
+	// Skip types from the module itself — those are handled as in-package structs.
+	// Check both the full module path and the short package name (the type checker
+	// may use either depending on whether dependencies were resolved).
+	if pkg.Path() == modulePath || pkg.Name() == DefaultNS(modulePath) {
+		return
+	}
+
+	key := ExternalTypeKey(pkg.Path(), typeName)
+	if _, exists := externals[key]; exists {
+		return
+	}
+
+	externals[key] = ExternalTypeInfo{
+		PkgPath: pkg.Path(),
+		PkgName: pkg.Name(),
+		GoName:  typeName,
+		Named:   named,
+	}
+}
+
+func containsString(ss []string, s string) bool {
+	for _, v := range ss {
+		if v == s {
+			return true
+		}
+	}
+	return false
+}
+
+// namedTypeCast returns the qualified Go type expression for a named type
+// that needs an explicit cast (e.g., "qt6.GestureType"). Returns empty
+// string if the type is a basic type or doesn't need casting.
+func namedTypeCast(t types.Type) string {
+	named, ok := t.(*types.Named)
+	if !ok {
+		return basicTypeCast(t)
+	}
+	pkg := named.Obj().Pkg()
+	if pkg == nil {
+		return "" // built-in (error, etc.)
+	}
+	// Only emit cast for types with a different underlying basic type.
+	if _, isBasic := named.Underlying().(*types.Basic); !isBasic {
+		return ""
+	}
+	return pkg.Name() + "." + named.Obj().Name()
+}
+
+// basicTypeCast returns a Go type cast for basic types that need narrowing
+// (e.g., int8, int16, uint16). Returns empty string if no cast is needed.
+func basicTypeCast(t types.Type) string {
+	b, ok := t.(*types.Basic)
+	if !ok {
+		return ""
+	}
+	switch b.Kind() {
+	case types.Int8:
+		return "int8"
+	case types.Int16:
+		return "int16"
+	case types.Uint16:
+		return "uint16"
+	default:
+		return ""
+	}
+}
+
+// methodRuntimeHelpers returns any runtime helpers needed by the given methods
+// (e.g., rune helper if any method uses GoRune params/returns).
+func methodRuntimeHelpers(methods []GoStructMethodInfo) []RuntimeHelper {
+	var helpers []RuntimeHelper
+	needsRune := false
+	needsStringSlice := false
+	for _, m := range methods {
+		for _, p := range m.Params {
+			if p == GoRune {
+				needsRune = true
+			}
+			if p == GoStringSlice {
+				needsStringSlice = true
+			}
+		}
+		for _, r := range m.Returns {
+			if r == GoRune {
+				needsRune = true
+			}
+			if r == GoStringSlice {
+				needsStringSlice = true
+			}
+		}
+	}
+	if needsRune {
+		helpers = append(helpers, RuneHelper)
+	}
+	if needsStringSlice {
+		helpers = append(helpers, StringSliceHelper)
+	}
+	return helpers
 }

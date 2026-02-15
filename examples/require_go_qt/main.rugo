@@ -1,0 +1,58 @@
+# Qt GUI from Rugo — no Go wrapper needed
+#
+# Uses miqt (Go Qt6 bindings) directly. The GoOpaque bridge auto-discovers
+# 3600+ functions, 600+ struct types with methods, and the full Qt class
+# hierarchy via embedded struct navigation.
+#
+# Prerequisites:
+#   - Qt6 development libraries (apt install qt6-base-dev)
+#   - Go 1.22+
+#   - miqt cached: go install github.com/mappu/miqt/qt6@v0.13.0
+#
+# Build and run:
+#   cd examples/require_go_qt
+#   rugo build main.rugo -o hello_qt && ./hello_qt
+
+# Require miqt/qt6 directly from the Go module cache
+require "/home/rubiojr/go/pkg/mod/github.com/mappu/miqt@v0.13.0/qt6" as qt6
+import "os"
+use "conv"
+
+# Rugo-side convenience layer using a hash with lambdas
+qt = {
+  app:    fn() qt6.new_qapplication(os.args()) end,
+  exec:   fn() qt6.qapplication_exec() end,
+  quit:   fn() qt6.qcore_application_quit() end,
+  window: fn() qt6.new_qwidget2() end,
+  button: fn(text) qt6.new_qpush_button3(text) end,
+  label:  fn(text) qt6.new_qlabel3(text) end,
+  vbox:   fn(parent) qt6.new_qvbox_layout(parent) end
+}
+
+app = qt.app()
+
+win = qt.window()
+win.set_window_title("Hello from Rugo!")
+win.resize(320, 200)
+
+layout = qt.vbox(win)
+
+count = 0
+lbl = qt.label("Clicked: 0 times")
+layout.add_widget(lbl)
+
+btn = qt.button("Click Me")
+btn.on_clicked(fn()
+  count = count + 1
+  lbl.set_text("Clicked: " + conv.to_s(count) + " times")
+end)
+layout.add_widget(btn)
+
+quit_btn = qt.button("Quit")
+quit_btn.on_clicked(fn()
+  qt.quit()
+end)
+layout.add_widget(quit_btn)
+
+win.show()
+qt.exec()

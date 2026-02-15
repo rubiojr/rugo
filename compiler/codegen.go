@@ -282,7 +282,8 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	// Emit Go imports for Go bridge packages (import)
 	// Packages with NoGoImport are skipped (runtime-only helpers)
 	for _, pkg := range sortedGoBridgeImports(g.goImports) {
-		if bp := gobridge.GetPackage(pkg); bp != nil && bp.NoGoImport {
+		bp := gobridge.GetPackage(pkg)
+		if bp != nil && bp.NoGoImport {
 			// Emit extra imports needed by runtime helpers (e.g. maps needs sort)
 			for _, extra := range bp.ExtraImports {
 				if !emittedImports[extra] {
@@ -301,6 +302,15 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		} else {
 			emittedImports[pkg] = true
 			g.writef("\"%s\"\n", pkg)
+		}
+		// Emit extra imports for external type wrappers (e.g. external dependencies).
+		if bp != nil {
+			for _, extra := range bp.ExtraImports {
+				if !emittedImports[extra] {
+					g.writef("\"%s\"\n", extra)
+					emittedImports[extra] = true
+				}
+			}
 		}
 	}
 	// Sandbox imports (go-landlock)

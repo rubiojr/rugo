@@ -304,8 +304,8 @@ Run all: `make rats` or `bin/rugo rats rats/gobridge/`
 ## External Module Struct Support
 
 When a `require`'d Go module exports struct types with bridgeable field types,
-the compiler auto-generates wrapper structs with `DotGet`/`DotSet` methods.
-No reflect is used — all field access is via compile-time generated switch
+the compiler auto-generates wrapper structs with `DotGet`/`DotSet`/`DotCall`
+methods. No reflect is used — all access is via compile-time generated switch
 dispatch.
 
 ### Wrapper Architecture
@@ -338,16 +338,31 @@ func (w *rugo_struct_mymod_Config) DotSet(field string, val interface{}) bool {
 1. **Inspector discovers structs** — `InspectSourcePackage` scans for exported
    struct types and classifies their fields
 2. **FinalizeStructs** — called by the compiler with the resolved namespace;
-   generates wrapper `RuntimeHelper`s, registers constructors, and reclassifies
-   previously-blocked functions that use known struct pointers
-3. **Codegen** — struct params unwrap via `StructCasts` (`arg.(*wrapper).v`),
-   struct returns wrap via `StructReturnWraps` (`&wrapper{v: result}`)
-4. **Runtime** — `rugo_dot_get` already checks the `DotGet` interface;
-   `rugo_dot_set` checks the `DotSet` interface
+   generates wrapper `RuntimeHelper`s, registers constructors, discovers methods,
+   discovers embedded struct fields, and reclassifies previously-blocked functions
+3. **Auto-upcast** — struct params use `rugo_upcast_<wrapType>(arg).v` which
+   walks the embedded field chain if a direct type assertion fails, enabling
+   derived types to be passed where base types are expected
+4. **Runtime** — `rugo_dot_get`/`rugo_dot_set`/`rugo_dot_call` check the
+   `DotGet`/`DotSet`/`DotCall` interfaces respectively
+
+### Embedded Struct Fields
+
+Both in-package and external struct wrappers discover embedded pointer-to-struct
+fields. These appear in `DotGet` and enable hierarchy navigation:
+
+```ruby
+# QPushButton embeds *QAbstractButton which embeds *QWidget
+btn.qabstract_button.qwidget    # manual chain (always works)
+layout.add_widget(btn)           # auto-upcast (walks chain automatically)
+```
+
+Wrappers with embedded fields also implement `DotEnumFields() []string` to
+support the auto-upcast walker.
 
 ### GoFuncSig Metadata
 
-Reclassified functions use two new fields on `GoFuncSig`:
+Reclassified functions use these fields on `GoFuncSig`:
 
 ```go
 StructCasts       map[int]string  // param index → wrapper type name
@@ -358,8 +373,128 @@ StructReturnWraps map[int]string  // return index → wrapper type name
 
 | File | Role |
 |------|------|
-| `gobridge/struct_wrap.go` | `GenerateStructWrapper()` — emits wrapper type code |
-| `gobridge/inspect.go` | `classifyStructFields()`, `FinalizeStructs()`, `reclassifyWithStructs()` |
+| `gobridge/struct_wrap.go` | `GenerateStructWrapper()`, `GenerateUpcastHelper()` |
+| `gobridge/inspect.go` | `classifyStructFields()`, `FinalizeStructs()`, `reclassifyWithStructs()`, `discoverEmbeddedFields()` |
 | `compiler/codegen.go` | `StructCasts`/`StructReturnWraps` handling in `generateGoBridgeCall()` |
-| `compiler/templates/runtime_core_post.go.tmpl` | `DotSet` interface check in `rugo_dot_set` |
-| `compiler/templates/runtime_core_pre.go.tmpl` | `DotGet` check in `rugo_type_of` |
+| `compiler/templates/runtime_core_post.go.tmpl` | `DotGet`/`DotSet`/`DotCall` interface dispatch |
+
+## External Dependency Type Support
+
+When a `require`'d Go module uses types from external dependencies (e.g.,
+`*bytes.Buffer`, `*qt6.QWidget`), the compiler automatically discovers and
+wraps those types as full opaque handles — with methods, signals, embedded
+field navigation, and auto-upcasting.
+
+### Discovery
+
+1. **Direct types** — `FinalizeStructs` scans blocked function signatures for
+   `*Named` pointer types from external packages
+2. **Recursive hierarchy** — Embedded fields of discovered types are walked
+   recursively to find intermediate types (e.g., `QPushButton` → `*QAbstractButton`
+   → `*QWidget` → `*QObject`)
+3. **Module-aware importer** — External types are resolved via `go list -export`
+   which handles Go module dependencies in the module cache
+
+### What Gets Generated
+
+For each external type, a full wrapper is generated:
+
+- **DotGet** — `__type__` + embedded struct fields (with opaque handle wrapping)
+- **DotSet** — no-op (external fields not writable)
+- **DotCall** — all bridgeable methods, including:
+  - Methods with `GoFunc` params (signal connections via Rugo lambdas)
+  - Named type casts for enum params (e.g., `qt6.GestureType`)
+  - Named type casts for narrowing basic types (`int8`, `int16`, `uint16`)
+  - Value-type struct params (auto-dereference)
+- **DotEnumFields** — lists embedded fields for auto-upcast walking
+
+### Auto-Upcasting
+
+When a method expects `*QWidget` but receives a `*QPushButton`, the bridge
+auto-extracts the base type by walking the embedded field chain:
+
+```go
+func rugo_upcast_rugo_struct_qt6_QWidget(v interface{}) *rugo_struct_qt6_QWidget {
+    if w, ok := v.(*rugo_struct_qt6_QWidget); ok { return w }  // fast path
+    // walk DotGet/DotEnumFields recursively to find QWidget
+}
+```
+
+This enables natural usage without manual type navigation:
+
+```ruby
+layout.add_widget(btn)    # QPushButton auto-upcasts to QWidget
+```
+
+### GoFunc in DotCall
+
+Methods accepting function parameters work with Rugo lambdas:
+
+```ruby
+btn.on_clicked(fn()
+  lbl.set_text("Clicked!")
+end)
+```
+
+The `FuncAdapterConv` generates typed Go adapters, handling:
+- Named param types (e.g., `func(qt6.ApplicationState)` not `func(int)`)
+- Named return types (e.g., `func() qt6.Orientation`)
+- Void callbacks (no `return` statement)
+
+### Warnings
+
+Bridge warnings about unbridgeable functions (e.g., `unsafe.Pointer` params)
+are hidden by default. Use `--show-warnings` on `rugo build` or `rugo run`
+to see them.
+
+### Example: Qt6 GUI with zero Go wrapper code
+
+```ruby
+require "/path/to/miqt/qt6" as qt6
+import "os"
+use "conv"
+
+qt = {
+  app:    fn() qt6.new_qapplication(os.args()) end,
+  exec:   fn() qt6.qapplication_exec() end,
+  quit:   fn() qt6.qcore_application_quit() end,
+  window: fn() qt6.new_qwidget2() end,
+  button: fn(text) qt6.new_qpush_button3(text) end,
+  label:  fn(text) qt6.new_qlabel3(text) end,
+  vbox:   fn(parent) qt6.new_qvbox_layout(parent) end
+}
+
+app = qt.app()
+win = qt.window()
+win.set_window_title("Hello from Rugo!")
+win.resize(320, 200)
+
+layout = qt.vbox(win)
+lbl = qt.label("Click count: 0")
+layout.add_widget(lbl)           # auto-upcast: QLabel → QWidget
+
+count = 0
+btn = qt.button("Click Me")
+btn.on_clicked(fn()              # signal via DotCall + GoFunc
+  count = count + 1
+  lbl.set_text("Click count: " + conv.to_s(count))
+end)
+layout.add_widget(btn)           # auto-upcast: QPushButton → QWidget
+
+win.show()
+qt.exec()
+```
+
+This bridges 3600+ functions, 600+ struct types, and hundreds of methods per
+type — all auto-discovered from the miqt Go package with no adapter code.
+
+### Files
+
+| File | Role |
+|------|------|
+| `gobridge/gobridge.go` | `ExternalTypeInfo`, `GoFuncType.TypeCasts`, `GoStructMethodInfo.FuncTypes` |
+| `gobridge/struct_wrap.go` | `GenerateExternalOpaqueWrapper()`, `GenerateUpcastHelper()` |
+| `gobridge/inspect.go` | `discoverExternalTypes()`, `discoverEmbeddedFields()`, `discoverMethods()`, `moduleAwareImporter()` |
+| `gobridge/classify.go` | `ClassifyFuncType()` with named type detection |
+| `compiler/codegen.go` | `ExtraImports` emission for external dependency packages |
+| `compiler/compiler.go` | `ShowWarnings` flag, post-`FinalizeStructs` validation |

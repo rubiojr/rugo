@@ -130,20 +130,45 @@ func ClassifyFuncType(sig *types.Signature) *GoFuncType {
 
 	params := sig.Params()
 	for i := 0; i < params.Len(); i++ {
-		gt, tier, _ := ClassifyGoType(params.At(i).Type(), true)
+		t := params.At(i).Type()
+		gt, tier, _ := ClassifyGoType(t, true)
 		if tier == TierBlocked || tier == TierFunc {
 			return nil
 		}
 		ft.Params = append(ft.Params, gt)
+		// Detect named types that need explicit casts in the adapter.
+		if named, ok := t.(*types.Named); ok {
+			if pkg := named.Obj().Pkg(); pkg != nil {
+				if _, isBasic := named.Underlying().(*types.Basic); isBasic {
+					if ft.TypeCasts == nil {
+						ft.TypeCasts = make(map[int]string)
+					}
+					ft.TypeCasts[i] = pkg.Name() + "." + named.Obj().Name()
+				}
+			}
+		}
 	}
 
 	results := sig.Results()
 	for i := 0; i < results.Len(); i++ {
-		gt, tier, _ := ClassifyGoType(results.At(i).Type(), false)
+		t := results.At(i).Type()
+		gt, tier, _ := ClassifyGoType(t, false)
 		if tier == TierBlocked || tier == TierFunc {
 			return nil
 		}
 		ft.Returns = append(ft.Returns, gt)
+		// Detect named return types that need explicit casts in the adapter.
+		if named, ok := t.(*types.Named); ok {
+			if pkg := named.Obj().Pkg(); pkg != nil {
+				if _, isBasic := named.Underlying().(*types.Basic); isBasic {
+					if ft.TypeCasts == nil {
+						ft.TypeCasts = make(map[int]string)
+					}
+					// Use negative index to distinguish return casts from param casts.
+					ft.TypeCasts[-(i + 1)] = pkg.Name() + "." + named.Obj().Name()
+				}
+			}
+		}
 	}
 
 	return ft

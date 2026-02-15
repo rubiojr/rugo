@@ -7,6 +7,7 @@ package gobridge
 
 import (
 	"fmt"
+	"go/types"
 	"sort"
 	"strings"
 )
@@ -36,8 +37,9 @@ const (
 
 // GoFuncType describes a Go function signature for lambda adapter generation.
 type GoFuncType struct {
-	Params  []GoType
-	Returns []GoType
+	Params    []GoType
+	Returns   []GoType
+	TypeCasts map[int]string // param index → named type cast (e.g., "qt6.ApplicationState")
 }
 
 // GoStructField describes a single field to extract from a Go struct return.
@@ -62,6 +64,25 @@ type GoArrayType struct {
 	Size int    // compile-time array size (e.g., 32)
 }
 
+// ExternalTypeInfo describes an external named type discovered in function
+// signatures during Go module introspection. These types come from the
+// module's dependencies (not from the module itself) and are wrapped as
+// opaque handles with DotGet/DotCall support.
+type ExternalTypeInfo struct {
+	PkgPath        string               // full import path (e.g., "github.com/mappu/miqt/qt6")
+	PkgName        string               // Go package name (e.g., "qt6")
+	GoName         string               // type name (e.g., "QWidget")
+	Named          *types.Named         // resolved type info (nil if unresolved)
+	Methods        []GoStructMethodInfo // bridgeable methods discovered on the type
+	EmbeddedFields []GoStructFieldInfo  // embedded pointer-to-struct fields (with WrapType set)
+}
+
+// ExternalTypeKey returns the qualified key for an external type
+// used in knownStructs and structWrappers maps.
+func ExternalTypeKey(pkgPath, goName string) string {
+	return pkgPath + "." + goName
+}
+
 // GoStructInfo describes a discovered Go struct type for wrapper generation.
 // Used by the inspector to record struct metadata and by codegen to emit
 // type-safe DotGet/DotSet wrapper structs.
@@ -77,18 +98,22 @@ type GoStructFieldInfo struct {
 	GoName   string // PascalCase field name (e.g., "Name")
 	RugoName string // snake_case field name (e.g., "name")
 	Type     GoType // field type for conversion
+	WrapType string // if set, field is an opaque struct handle — wrap with this type
 }
 
 // GoStructMethodInfo describes a bridgeable method on a Go struct.
 type GoStructMethodInfo struct {
-	GoName            string         // PascalCase method name (e.g., "Add")
-	RugoName          string         // snake_case method name (e.g., "add")
-	Params            []GoType       // parameter types (excluding receiver)
-	Returns           []GoType       // return types
-	Variadic          bool           // last param is variadic
-	StructCasts       map[int]string // param index → wrapper type for struct handles
-	StructReturnWraps map[int]string // return index → wrapper type for struct handles
-	StructReturnValue map[int]bool   // return index → true if value type (not pointer)
+	GoName            string                // PascalCase method name (e.g., "Add")
+	RugoName          string                // snake_case method name (e.g., "add")
+	Params            []GoType              // parameter types (excluding receiver)
+	Returns           []GoType              // return types
+	Variadic          bool                  // last param is variadic
+	StructCasts       map[int]string        // param index → wrapper type for struct handles
+	StructParamValue  map[int]bool          // param index → true if value type (needs dereference)
+	StructReturnWraps map[int]string        // return index → wrapper type for struct handles
+	StructReturnValue map[int]bool          // return index → true if value type (not pointer)
+	TypeCasts         map[int]string        // param index → named type cast (e.g., "qt6.GestureType")
+	FuncTypes         map[int]*GoFuncType   // param index → Go func signature for lambda adapters
 }
 
 // RuntimeHelper describes a Go helper function emitted into the generated code.
@@ -348,6 +373,12 @@ func GoTypeGoName(t GoType) string {
 		return "float32"
 	case GoRune:
 		return "rune"
+	case GoStringSlice:
+		return "[]string"
+	case GoByteSlice:
+		return "[]byte"
+	case GoDuration:
+		return "time.Duration"
 	default:
 		return "interface{}"
 	}
@@ -360,13 +391,26 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 	// Build param list: _p0 type0, _p1 type1, ...
 	var params []string
 	for i, t := range ft.Params {
-		params = append(params, fmt.Sprintf("_p%d %s", i, GoTypeGoName(t)))
+		typeName := GoTypeGoName(t)
+		// Use named type if a cast is needed (e.g., qt6.ApplicationState instead of int).
+		if ft.TypeCasts != nil {
+			if cast, ok := ft.TypeCasts[i]; ok {
+				typeName = cast
+			}
+		}
+		params = append(params, fmt.Sprintf("_p%d %s", i, typeName))
 	}
 
 	// Build return type
 	retType := ""
 	if len(ft.Returns) == 1 {
 		retType = " " + GoTypeGoName(ft.Returns[0])
+		// Use named return type if a cast is needed.
+		if ft.TypeCasts != nil {
+			if cast, ok := ft.TypeCasts[-1]; ok {
+				retType = " " + cast
+			}
+		}
 	}
 
 	// Build args to pass to lambda: interface{}(wrap each param back to Rugo)
@@ -387,6 +431,18 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 	retExpr := fmt.Sprintf("_fn(%s)", strings.Join(callArgs, ", "))
 	if len(ft.Returns) == 1 {
 		retExpr = TypeConvToGo(retExpr, ft.Returns[0])
+		// Apply named return type cast if needed.
+		if ft.TypeCasts != nil {
+			if cast, ok := ft.TypeCasts[-1]; ok {
+				retExpr = fmt.Sprintf("%s(%s)", cast, retExpr)
+			}
+		}
+	}
+
+	// For void functions (no return values), don't use `return`.
+	if len(ft.Returns) == 0 {
+		return fmt.Sprintf("func(%s) { _fn := %s.(func(...interface{}) interface{}); %s }",
+			strings.Join(params, ", "), argExpr, retExpr)
 	}
 
 	return fmt.Sprintf("func(%s)%s { _fn := %s.(func(...interface{}) interface{}); return %s }",

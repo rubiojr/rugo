@@ -43,6 +43,9 @@ type Compiler struct {
 	ModuleDir string
 	// Frozen errors if the lock file is stale or a new dependency is resolved.
 	Frozen bool
+	// ShowWarnings enables bridge skipping warnings during compilation.
+	// When false (default), warnings about unbridgeable functions are suppressed.
+	ShowWarnings bool
 	// Sandbox, when non-nil, overrides any sandbox directive in the script.
 	// Populated by CLI flags (--sandbox --ro, --rw, etc.).
 	Sandbox *SandboxConfig
@@ -557,9 +560,21 @@ func (c *Compiler) resolveGoModuleRequire(req *ast.RequireStmt, dir string, sour
 	}
 	gobridge.FinalizeStructs(result, ns, pkgAlias)
 
+	// Check if any functions were bridged (including reclassified ones).
+	if len(result.Package.Funcs) == 0 {
+		reasons := make([]string, 0, len(result.Skipped))
+		for _, f := range result.Skipped {
+			reasons = append(reasons, fmt.Sprintf("  %s: %s (%s)", f.GoName, f.Reason, f.Tier))
+		}
+		return nil, fmt.Errorf("%s:%d: Go module require %q: no bridgeable functions found in %s\n%s",
+			sourceFile, req.StmtLine(), req.Path, result.GoModulePath, strings.Join(reasons, "\n"))
+	}
+
 	// Warn about skipped functions so module authors know why they're missing.
-	for _, f := range result.Skipped {
-		fmt.Fprintf(os.Stderr, "warning: %s: skipping %s() — %s\n", req.Path, f.GoName, f.Reason)
+	if c.ShowWarnings {
+		for _, f := range result.Skipped {
+			fmt.Fprintf(os.Stderr, "warning: %s: skipping %s() — %s\n", req.Path, f.GoName, f.Reason)
+		}
 	}
 
 	// Register the bridge package so codegen can find it.

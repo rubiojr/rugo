@@ -1,0 +1,99 @@
+# RATS: Test require for Go modules with external type dependencies
+# Verifies that functions using types from external packages (e.g., *bytes.Buffer)
+# are correctly bridged as opaque handles.
+use "test"
+use "str"
+
+rats "external type: create and read back"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_external #{tmpdir}/go_module_external")
+  script = <<~SCRIPT
+    require "go_module_external"
+    buf = extmod.new_buffer("hello")
+    puts(extmod.buffer_string(buf))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "external type: roundtrip through multiple functions"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_external #{tmpdir}/go_module_external")
+  script = <<~SCRIPT
+    require "go_module_external"
+    buf = extmod.new_buffer("abc")
+    buf = extmod.buffer_write(buf, "def")
+    puts(extmod.buffer_string(buf))
+    puts(extmod.buffer_len(buf))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "abcdef")
+  test.assert_eq(lines[1], "6")
+end
+
+rats "external type: __type__ returns type name"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_external #{tmpdir}/go_module_external")
+  script = <<~SCRIPT
+    require "go_module_external"
+    buf = extmod.new_buffer("test")
+    puts(type_of(buf))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Buffer")
+end
+
+rats "external type: plain functions still work alongside external types"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_external #{tmpdir}/go_module_external")
+  script = <<~SCRIPT
+    require "go_module_external"
+    puts(extmod.greet("world"))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hi, world")
+end
+
+rats "external type: func+struct combo (callback with opaque handle)"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_external #{tmpdir}/go_module_external")
+  script = <<~SCRIPT
+    require "go_module_external"
+    import "strings"
+    buf = extmod.new_buffer("hello world")
+    result = extmod.buffer_apply(buf, fn(s) strings.to_upper(s) end)
+    puts(result)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO WORLD")
+end
+
+rats "external type: build produces working binary"
+  tmpdir = test.tmpdir()
+  test.run("cp -r rats/fixtures/go_module_external #{tmpdir}/go_module_external")
+  script = <<~SCRIPT
+    require "go_module_external"
+    buf = extmod.new_buffer("built")
+    puts(extmod.buffer_string(buf))
+    puts(extmod.buffer_len(buf))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  build_result = test.run("rugo build #{tmpdir}/main.rugo -o #{tmpdir}/main_bin")
+  test.assert_eq(build_result["status"], 0)
+  result = test.run("#{tmpdir}/main_bin")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "built")
+  test.assert_eq(lines[1], "5")
+end

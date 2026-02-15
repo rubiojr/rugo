@@ -71,6 +71,10 @@ func Execute(version string) {
 						Name:  "frozen",
 						Usage: "Error if rugo.lock is stale or a new dependency needs resolving",
 					},
+					&cli.BoolFlag{
+						Name:  "show-warnings",
+						Usage: "Show bridge warnings about unbridgeable Go functions",
+					},
 				},
 				Action: buildAction,
 			},
@@ -214,10 +218,11 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 	}
 	args := cmd.Args().Slice()
 	sandbox, args := parseSandboxFlags(args)
+	showWarnings, args := extractBoolFlag(args, "--show-warnings")
 	if len(args) == 0 {
 		return fmt.Errorf("usage: rugo run [--sandbox flags...] <file.rugo> [args...]")
 	}
-	comp := &compiler.Compiler{Sandbox: sandbox}
+	comp := &compiler.Compiler{Sandbox: sandbox, ShowWarnings: showWarnings}
 	return comp.Run(args[0], args[1:]...)
 }
 
@@ -226,7 +231,7 @@ func buildAction(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("usage: rugo build [-o output] [--frozen] [--sandbox flags...] <file.rugo>")
 	}
 	sandbox, _ := parseSandboxFlags(cmd.Args().Slice())
-	comp := &compiler.Compiler{Frozen: cmd.Bool("frozen"), Sandbox: sandbox}
+	comp := &compiler.Compiler{Frozen: cmd.Bool("frozen"), ShowWarnings: cmd.Bool("show-warnings"), Sandbox: sandbox}
 	output := cmd.String("output")
 	// Also check if -o was passed after the filename (urfave quirk)
 	if output == "" {
@@ -241,6 +246,20 @@ func buildAction(ctx context.Context, cmd *cli.Command) error {
 
 // parseSandboxFlags extracts --sandbox and related flags from args.
 // Returns the SandboxConfig (nil if --sandbox not present) and remaining args.
+// extractBoolFlag removes a boolean flag from args and returns whether it was present.
+func extractBoolFlag(args []string, flag string) (bool, []string) {
+	var remaining []string
+	found := false
+	for _, a := range args {
+		if a == flag {
+			found = true
+		} else {
+			remaining = append(remaining, a)
+		}
+	}
+	return found, remaining
+}
+
 func parseSandboxFlags(args []string) (*compiler.SandboxConfig, []string) {
 	hasSandbox := false
 	var ro, rw, rox, rwx []string
