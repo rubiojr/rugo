@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func fixtureDir(name string) string {
@@ -95,4 +97,96 @@ func TestReadGoModulePath(t *testing.T) {
 	if mod != "example.com/testmod" {
 		t.Errorf("module path = %q, want %q", mod, "example.com/testmod")
 	}
+}
+
+func TestStringViewParamClassifiedAsString(t *testing.T) {
+	dir := fixtureDir("fixture_stringview")
+	result, err := InspectSourcePackage(dir)
+	if err != nil {
+		t.Fatalf("InspectSourcePackage: %v", err)
+	}
+
+	// FinalizeStructs discovers methods (including those with StringView params).
+	FinalizeStructs(result, "stringview", "stringview")
+
+	// Find the Widget struct info.
+	var widgetInfo *GoStructInfo
+	for i := range result.Package.Structs {
+		if result.Package.Structs[i].GoName == "Widget" {
+			widgetInfo = &result.Package.Structs[i]
+			break
+		}
+	}
+	if widgetInfo == nil {
+		t.Fatal("Widget struct not found")
+	}
+
+	// SetObjectName takes AnyStringView — should be bridged, not blocked.
+	var setObjName *GoStructMethodInfo
+	for i := range widgetInfo.Methods {
+		if widgetInfo.Methods[i].GoName == "SetObjectName" {
+			setObjName = &widgetInfo.Methods[i]
+			break
+		}
+	}
+	if setObjName == nil {
+		t.Fatal("SetObjectName method not found — was it blocked by AnyStringView param?")
+	}
+
+	// The param should be classified as GoString.
+	if len(setObjName.Params) != 1 {
+		t.Fatalf("SetObjectName params: got %d, want 1", len(setObjName.Params))
+	}
+	if setObjName.Params[0] != GoString {
+		t.Errorf("SetObjectName param[0]: got %v, want GoString", setObjName.Params[0])
+	}
+
+	// Should have a TypeCast for the constructor conversion (not a StructCast).
+	if setObjName.StructCasts != nil {
+		t.Errorf("SetObjectName should not have StructCasts, got %v", setObjName.StructCasts)
+	}
+	if setObjName.TypeCasts == nil || setObjName.TypeCasts[0] == "" {
+		t.Error("SetObjectName should have TypeCasts[0] for AnyStringView constructor")
+	} else {
+		// Fixture constructor returns value type — no * prefix.
+		assert.Equal(t, "stringview.NewAnyStringView", setObjName.TypeCasts[0])
+	}
+
+	// SetTitle takes plain string — should work as before.
+	var setTitle *GoStructMethodInfo
+	for i := range widgetInfo.Methods {
+		if widgetInfo.Methods[i].GoName == "SetTitle" {
+			setTitle = &widgetInfo.Methods[i]
+			break
+		}
+	}
+	if setTitle == nil {
+		t.Fatal("SetTitle method not found")
+	}
+	if len(setTitle.Params) != 1 || setTitle.Params[0] != GoString {
+		t.Errorf("SetTitle params: got %v, want [GoString]", setTitle.Params)
+	}
+	if setTitle.TypeCasts != nil {
+		t.Errorf("SetTitle should not have TypeCasts, got %v", setTitle.TypeCasts)
+	}
+
+	// SetTooltip takes PtrStringView (constructor returns pointer) — should
+	// have a * prefix on the TypeCast so codegen dereferences.
+	var setTooltip *GoStructMethodInfo
+	for i := range widgetInfo.Methods {
+		if widgetInfo.Methods[i].GoName == "SetTooltip" {
+			setTooltip = &widgetInfo.Methods[i]
+			break
+		}
+	}
+	if setTooltip == nil {
+		t.Fatal("SetTooltip method not found — was it blocked by PtrStringView param?")
+	}
+	if len(setTooltip.Params) != 1 || setTooltip.Params[0] != GoString {
+		t.Errorf("SetTooltip params: got %v, want [GoString]", setTooltip.Params)
+	}
+	if setTooltip.TypeCasts == nil {
+		t.Fatal("SetTooltip should have TypeCasts[0] for PtrStringView constructor")
+	}
+	assert.Equal(t, "*stringview.NewPtrStringView", setTooltip.TypeCasts[0])
 }

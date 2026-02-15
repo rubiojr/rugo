@@ -2687,7 +2687,11 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			// Apply named type cast if specified
 			if sig.TypeCasts != nil {
 				if cast, ok := sig.TypeCasts[i]; ok {
-					conv = fmt.Sprintf("%s(%s)", cast, conv)
+					if strings.HasPrefix(cast, "*") {
+						conv = fmt.Sprintf("*%s(%s)", cast[1:], conv)
+					} else {
+						conv = fmt.Sprintf("%s(%s)", cast, conv)
+					}
 				}
 			}
 			convertedArgs = append(convertedArgs, conv)

@@ -503,6 +503,15 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 		t := params.At(i).Type()
 		gt, tier, _ := ClassifyGoType(t, true)
 		if tier == TierBlocked {
+			// Check for string view types before the struct wrapper path.
+			if ctor := stringViewConstructor(t); ctor != "" {
+				sig.Params = append(sig.Params, GoString)
+				if sig.TypeCasts == nil {
+					sig.TypeCasts = make(map[int]string)
+				}
+				sig.TypeCasts[i] = ctor
+				continue
+			}
 			// Check if it's a pointer to a known struct.
 			structName := extractStructName(t, knownStructs)
 			if structName == "" {
@@ -622,6 +631,61 @@ func needsWrapper(sig *GoFuncSig, wrapType string) bool {
 	return false
 }
 
+// stringViewConstructor checks if a type is a named struct whose name contains
+// "StringView" (e.g. Qt6's QAnyStringView). These are value-type wrappers
+// around strings that should be auto-converted from Rugo strings using
+// their NewXxx(string) constructor.
+//
+// Returns the qualified constructor expression (e.g. "qt6.NewQAnyStringView3")
+// or "" if the type is not a string view.
+func stringViewConstructor(t types.Type) string {
+	named, ok := t.(*types.Named)
+	if !ok {
+		return ""
+	}
+	if _, isStruct := named.Underlying().(*types.Struct); !isStruct {
+		return ""
+	}
+	typeName := named.Obj().Name()
+	if !strings.Contains(typeName, "StringView") {
+		return ""
+	}
+
+	// Find a constructor that takes a single string param.
+	// Convention: NewTypeName(string) or NewTypeName2(string), etc.
+	pkg := named.Obj().Pkg()
+	if pkg == nil {
+		return ""
+	}
+	scope := pkg.Scope()
+	prefix := "New" + typeName
+	for _, name := range scope.Names() {
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		obj := scope.Lookup(name)
+		fn, ok := obj.(*types.Func)
+		if !ok {
+			continue
+		}
+		sig := fn.Type().(*types.Signature)
+		if sig.Params().Len() != 1 || sig.Results().Len() != 1 {
+			continue
+		}
+		paramType := sig.Params().At(0).Type()
+		if b, ok := paramType.Underlying().(*types.Basic); ok && b.Kind() == types.String {
+			ctor := pkg.Name() + "." + name
+			// If constructor returns a pointer, prefix with * so codegen dereferences.
+			retType := sig.Results().At(0).Type()
+			if _, isPtr := retType.(*types.Pointer); isPtr {
+				ctor = "*" + ctor
+			}
+			return ctor
+		}
+	}
+	return ""
+}
+
 // discoverEmbeddedFields finds embedded pointer-to-struct fields on a named type
 // that point to known struct types. Returns field info with WrapType set.
 func discoverEmbeddedFields(named *types.Named, structWrappers map[string]string, knownStructs map[string]bool) []GoStructFieldInfo {
@@ -692,6 +756,18 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 		t := params.At(i).Type()
 		gt, tier, _ := ClassifyGoType(t, true)
 		if tier == TierBlocked {
+			// Check for string view types (e.g., QAnyStringView) before
+			// falling back to the struct wrapper path. These are value-type
+			// structs that wrap a string — treat as GoString with a
+			// constructor-based TypeCast.
+			if ctor := stringViewConstructor(t); ctor != "" {
+				mi.Params = append(mi.Params, GoString)
+				if mi.TypeCasts == nil {
+					mi.TypeCasts = make(map[int]string)
+				}
+				mi.TypeCasts[i] = ctor
+				continue
+			}
 			structName := extractStructName(t, knownStructs)
 			if structName == "" {
 				return nil

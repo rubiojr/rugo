@@ -103,17 +103,17 @@ type GoStructFieldInfo struct {
 
 // GoStructMethodInfo describes a bridgeable method on a Go struct.
 type GoStructMethodInfo struct {
-	GoName            string                // PascalCase method name (e.g., "Add")
-	RugoName          string                // snake_case method name (e.g., "add")
-	Params            []GoType              // parameter types (excluding receiver)
-	Returns           []GoType              // return types
-	Variadic          bool                  // last param is variadic
-	StructCasts       map[int]string        // param index → wrapper type for struct handles
-	StructParamValue  map[int]bool          // param index → true if value type (needs dereference)
-	StructReturnWraps map[int]string        // return index → wrapper type for struct handles
-	StructReturnValue map[int]bool          // return index → true if value type (not pointer)
-	TypeCasts         map[int]string        // param index → named type cast (e.g., "qt6.GestureType")
-	FuncTypes         map[int]*GoFuncType   // param index → Go func signature for lambda adapters
+	GoName            string              // PascalCase method name (e.g., "Add")
+	RugoName          string              // snake_case method name (e.g., "add")
+	Params            []GoType            // parameter types (excluding receiver)
+	Returns           []GoType            // return types
+	Variadic          bool                // last param is variadic
+	StructCasts       map[int]string      // param index → wrapper type for struct handles
+	StructParamValue  map[int]bool        // param index → true if value type (needs dereference)
+	StructReturnWraps map[int]string      // return index → wrapper type for struct handles
+	StructReturnValue map[int]bool        // return index → true if value type (not pointer)
+	TypeCasts         map[int]string      // param index → named type cast (e.g., "qt6.GestureType")
+	FuncTypes         map[int]*GoFuncType // param index → Go func signature for lambda adapters
 }
 
 // RuntimeHelper describes a Go helper function emitted into the generated code.

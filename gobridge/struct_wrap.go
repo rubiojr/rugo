@@ -242,7 +242,12 @@ func writeMethodCase(sb *strings.Builder, m GoStructMethodInfo, ns string) {
 		// Apply named type cast if needed (e.g., qt6.GestureType(rugo_to_int(arg))).
 		if m.TypeCasts != nil {
 			if cast, ok := m.TypeCasts[i]; ok {
-				conv = fmt.Sprintf("%s(%s)", cast, conv)
+				if strings.HasPrefix(cast, "*") {
+					// Constructor returns pointer, param expects value — dereference.
+					conv = fmt.Sprintf("*%s(%s)", cast[1:], conv)
+				} else {
+					conv = fmt.Sprintf("%s(%s)", cast, conv)
+				}
 			}
 		}
 		convArgs = append(convArgs, conv)
