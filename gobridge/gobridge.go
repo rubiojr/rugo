@@ -37,9 +37,12 @@ const (
 
 // GoFuncType describes a Go function signature for lambda adapter generation.
 type GoFuncType struct {
-	Params    []GoType
-	Returns   []GoType
-	TypeCasts map[int]string // param index → named type cast (e.g., "qt6.ApplicationState")
+	Params           []GoType
+	Returns          []GoType
+	TypeCasts        map[int]string // param index → named type cast (e.g., "qt6.ApplicationState")
+	StructCasts      map[int]string // param index → struct wrapper type (e.g., "rugo_struct_qt6_QListWidgetItem")
+	StructParamValue map[int]bool   // param index → true if value type (not pointer), needs dereference
+	StructGoTypes    map[int]string // param index → Go type string (e.g., "qt6.QDate", "qt6.QListWidgetItem")
 }
 
 // GoStructField describes a single field to extract from a Go struct return.
@@ -391,6 +394,24 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 	// Build param list: _p0 type0, _p1 type1, ...
 	var params []string
 	for i, t := range ft.Params {
+		// Struct-casted param: use the stored Go type name.
+		if ft.StructCasts != nil {
+			if _, ok := ft.StructCasts[i]; ok {
+				goType := ""
+				if ft.StructGoTypes != nil {
+					goType = ft.StructGoTypes[i]
+				}
+				if goType == "" {
+					goType = "interface{}"
+				}
+				// Value type: use as-is; pointer type: prepend *
+				if ft.StructParamValue == nil || !ft.StructParamValue[i] {
+					goType = "*" + goType
+				}
+				params = append(params, fmt.Sprintf("_p%d %s", i, goType))
+				continue
+			}
+		}
 		typeName := GoTypeGoName(t)
 		// Use named type if a cast is needed (e.g., qt6.ApplicationState instead of int).
 		if ft.TypeCasts != nil {
@@ -417,6 +438,18 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 	var callArgs []string
 	for i, t := range ft.Params {
 		pName := fmt.Sprintf("_p%d", i)
+		// Struct-casted param: wrap into Rugo opaque wrapper.
+		if ft.StructCasts != nil {
+			if wrapType, ok := ft.StructCasts[i]; ok {
+				ref := pName
+				// Value type: take address for the wrapper
+				if ft.StructParamValue != nil && ft.StructParamValue[i] {
+					ref = "&" + pName
+				}
+				callArgs = append(callArgs, fmt.Sprintf("interface{}(&%s{v: %s})", wrapType, ref))
+				continue
+			}
+		}
 		switch t {
 		case GoRune:
 			callArgs = append(callArgs, "interface{}(string([]rune{"+pName+"}))")

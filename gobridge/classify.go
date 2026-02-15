@@ -73,7 +73,7 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 				bf.Reason = fmt.Sprintf("param %d: func type (not a signature)", i)
 				return bf
 			}
-			ft := ClassifyFuncType(funcSig)
+			ft := ClassifyFuncType(funcSig, nil, nil)
 			if ft == nil {
 				bf.Tier = TierFunc
 				bf.Reason = fmt.Sprintf("param %d: func with unbridgeable signature", i)
@@ -125,14 +125,45 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 
 // ClassifyFuncType builds a GoFuncType from a Go function signature.
 // Returns nil if any param/return type is unbridgeable.
-func ClassifyFuncType(sig *types.Signature) *GoFuncType {
+// structWrappers and knownStructs are optional — when provided, struct-typed
+// callback params are bridged via wrapper types (e.g., *QListWidgetItem).
+func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, knownStructs map[string]bool) *GoFuncType {
 	ft := &GoFuncType{}
 
 	params := sig.Params()
 	for i := 0; i < params.Len(); i++ {
 		t := params.At(i).Type()
 		gt, tier, _ := ClassifyGoType(t, true)
-		if tier == TierBlocked || tier == TierFunc {
+		if tier == TierFunc {
+			return nil
+		}
+		if tier == TierBlocked {
+			// Try struct wrapper fallback for callback params.
+			if structWrappers != nil {
+				structName := extractStructName(t, knownStructs)
+				if structName != "" {
+					if wrapType, ok := structWrappers[structName]; ok {
+						ft.Params = append(ft.Params, GoString) // placeholder
+						if ft.StructCasts == nil {
+							ft.StructCasts = make(map[int]string)
+						}
+						ft.StructCasts[i] = wrapType
+						// Store the actual Go qualified type name.
+						if ft.StructGoTypes == nil {
+							ft.StructGoTypes = make(map[int]string)
+						}
+						ft.StructGoTypes[i] = qualifiedGoTypeName(t)
+						// Track value types (not pointer) — needs dereference in adapter.
+						if _, isPtr := t.(*types.Pointer); !isPtr {
+							if ft.StructParamValue == nil {
+								ft.StructParamValue = make(map[int]bool)
+							}
+							ft.StructParamValue[i] = true
+						}
+						continue
+					}
+				}
+			}
 			return nil
 		}
 		ft.Params = append(ft.Params, gt)
@@ -326,4 +357,20 @@ func GoTypeConst(t GoType) string {
 	default:
 		return "GoString"
 	}
+}
+
+// qualifiedGoTypeName returns the package-qualified Go type name for a type,
+// e.g., "qt6.QDate" or "qt6.QListWidgetItem". Strips pointer indirection.
+func qualifiedGoTypeName(t types.Type) string {
+	if ptr, ok := t.(*types.Pointer); ok {
+		t = ptr.Elem()
+	}
+	if named, ok := t.(*types.Named); ok {
+		name := named.Obj().Name()
+		if pkg := named.Obj().Pkg(); pkg != nil {
+			return pkg.Name() + "." + name
+		}
+		return name
+	}
+	return t.String()
 }

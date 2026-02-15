@@ -533,7 +533,7 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 			if !ok {
 				return nil
 			}
-			ft := ClassifyFuncType(funcSig)
+			ft := ClassifyFuncType(funcSig, structWrappers, knownStructs)
 			if ft == nil {
 				return nil
 			}
@@ -794,7 +794,7 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 			if !ok {
 				return nil
 			}
-			ft := ClassifyFuncType(funcSig)
+			ft := ClassifyFuncType(funcSig, structWrappers, knownStructs)
 			if ft == nil {
 				return nil
 			}
