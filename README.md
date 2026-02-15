@@ -192,7 +192,7 @@ Or from the CLI, without modifying the script:
 rugo run --sandbox --ro /etc --rox /usr script.rugo
 ```
 
-## Declarative UIs
+#### Declarative UIs
 
 With the experimental, Qt backed, [Cute](https://github.com/rubiojr/cute) module:
 
