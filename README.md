@@ -53,6 +53,21 @@ Rugo stands on the shoulders of giants:
 * **Elixir** (Lambdas)
 * **Landlock** (kernel-native sandboxing)
 
+## Install
+
+```
+go install github.com/rubiojr/rugo@latest
+```
+
+## Usage
+
+```bash
+rugo script.rugo            # compile and run
+rugo build script.rugo      # compile to native binary
+rugo rats script.rugo       # run inline tests
+rugo emit script.rugo       # print generated Go code
+```
+
 #### Ruby-like syntax
 
 ```ruby
@@ -177,19 +192,36 @@ Or from the CLI, without modifying the script:
 rugo run --sandbox --ro /etc --rox /usr script.rugo
 ```
 
-## Install
+## Declarative UIs
 
-```
-go install github.com/rubiojr/rugo@latest
-```
+With the experimental, Qt backed, [Cute](https://github.com/rubiojr/cute) module:
 
-## Usage
+```ruby
+require "github.com/rubiojr/cute@v0.1.1"
 
-```bash
-rugo script.rugo            # compile and run
-rugo build script.rugo      # compile to native binary
-rugo rats script.rugo       # run inline tests
-rugo emit script.rugo       # print generated Go code
+cute.app("Counter", 400, 300) do
+  count = cute.state(0)
+
+  cute.vbox do
+    lbl = cute.label("Clicked: 0 times")
+    count.on(fn(v) lbl.set_text("Clicked: #{v} times") end)
+
+    cute.button("Click Me") do
+      count.set(count.get() + 1)
+    end
+
+    cute.hbox do
+      cute.button("Reset") do
+        count.set(0)
+      end
+      cute.button("Quit") do
+        cute.quit()
+      end
+    end
+  end
+
+  cute.shortcut("Ctrl+Q", fn() cute.quit() end)
+end
 ```
 
 ## Documentation
