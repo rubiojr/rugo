@@ -7,14 +7,14 @@
 # Prerequisites:
 #   - Qt6 development libraries (apt install qt6-base-dev)
 #   - Go 1.22+
-#   - miqt cached: go install github.com/mappu/miqt/qt6@v0.13.0
+#   - miqt: rugo will fetch it automatically on first build
 #
 # Build and run:
 #   cd examples/require_go_qt
 #   rugo build main.rugo -o hello_qt && ./hello_qt
 
-# Require miqt/qt6 directly from the Go module cache
-require "/home/rubiojr/go/pkg/mod/github.com/mappu/miqt@v0.13.0/qt6" as qt6
+# Require miqt/qt6 directly — the sub-path is part of the require path
+require "github.com/mappu/miqt/qt6@v0.13.0" as qt6
 import "os"
 use "conv"
 

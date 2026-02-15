@@ -10,7 +10,7 @@ full Qt class hierarchy via embedded struct navigation.
 
 - Qt6 development libraries (`apt install qt6-base-dev` on Debian/Ubuntu)
 - Go 1.22+
-- miqt cached: `go install github.com/mappu/miqt/qt6@v0.13.0`
+- miqt: `rugo run` will fetch it automatically, or pre-cache with `go install github.com/mappu/miqt/qt6@v0.13.0`
 
 ## Build and run
 

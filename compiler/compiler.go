@@ -726,9 +726,14 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 					// Check if it's a Go module sub-package
 					subDir := filepath.Join(baseDir, modName)
 					if gobridge.IsGoPackageDir(subDir) {
+						// Build the sub-package path with version at the end.
+						subPath := req.Path + "/" + modName
+						if i := strings.LastIndex(req.Path, "@"); i > 0 {
+							subPath = req.Path[:i] + "/" + modName + req.Path[i:]
+						}
 						subReq := &ast.RequireStmt{
 							BaseStmt: ast.BaseStmt{SourceLine: req.StmtLine()},
-							Path:     req.Path + "/" + modName,
+							Path:     subPath,
 						}
 						goStmts, goErr := c.resolveGoModuleRequire(subReq, subDir, prog.SourceFile)
 						if goErr != nil {
