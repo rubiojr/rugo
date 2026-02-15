@@ -1,0 +1,8 @@
+def make(block)
+  return block()
+end
+
+result = make do
+  42
+end
+puts result

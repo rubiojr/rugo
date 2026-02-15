@@ -1,0 +1,8 @@
+# do inside a string should not be treated as a block
+puts "I do not want to do this"
+
+# function name ending in do-like suffix
+def redo_thing()
+  puts "redo works"
+end
+redo_thing()

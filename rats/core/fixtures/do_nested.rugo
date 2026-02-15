@@ -1,0 +1,16 @@
+def outer(block)
+  puts "outer start"
+  block()
+  puts "outer end"
+end
+
+def inner(text, block)
+  puts "inner: #{text}"
+  block()
+end
+
+outer do
+  inner("hello") do
+    puts "deep"
+  end
+end

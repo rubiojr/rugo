@@ -130,5 +130,52 @@ double_then_inc = compose(inc, double)
 puts double_then_inc(5)   # 11
 ```
 
+## Trailing Block Syntax (`do...end`)
+
+When the last argument to a function is a no-argument lambda, you can use `do...end` instead of `fn() ... end`:
+
+```ruby
+def with_greeting(block)
+  puts "Hello!"
+  block()
+  puts "Goodbye!"
+end
+
+# These are equivalent:
+with_greeting(fn()
+  puts "Nice to meet you"
+end)
+
+with_greeting do
+  puts "Nice to meet you"
+end
+```
+
+If the function takes other arguments, `do...end` appends the block:
+
+```ruby
+def repeat(n, block)
+  for i in n
+    block()
+  end
+end
+
+repeat(3) do
+  puts "hip hip hooray!"
+end
+```
+
+Nesting works naturally:
+
+```ruby
+outer do
+  inner("hello") do
+    puts "deep"
+  end
+end
+```
+
+Use `fn(params)` when the lambda needs parameters — `do...end` is only for parameterless blocks.
+
 ---
 Next: [Shell Commands](09-shell.md)

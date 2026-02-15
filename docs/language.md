@@ -291,6 +291,53 @@ puts ops.add(2, 3)      # 5 (dot access)
 
 At runtime, `rugo_dot_call` looks up the key in the hash, type-asserts the value to a callable lambda, and invokes it. If the key doesn't exist or the value isn't a function, a friendly error is produced.
 
+### Trailing Block Syntax (`do...end`)
+
+The `do...end` syntax provides a concise way to pass a no-argument lambda as the last argument to a function call. It is preprocessor sugar:
+
+```ruby
+# These are equivalent:
+vbox(fn()
+  label("Hello")
+end)
+
+vbox do
+  label("Hello")
+end
+```
+
+The preprocessor rewrites `CALL do BODY end` to `CALL(fn() BODY end)` (or appends `fn()` as the last argument if the call already has arguments):
+
+```ruby
+# Bare call
+vbox do ... end              # → vbox(fn() ... end)
+
+# Call with existing args
+button("Click") do ... end   # → button("Click", fn() ... end)
+
+# Paren-free with args
+styled "bold" do ... end     # → styled("bold", fn() ... end)
+
+# Assignment
+result = make do ... end     # → result = make(fn() ... end)
+```
+
+Nesting works naturally — each `end` matches its closest `do`:
+
+```ruby
+outer do
+  inner("hello") do
+    puts "deep"
+  end
+end
+```
+
+**Key rules:**
+- `do` must appear at the end of a line, separated from the preceding expression by whitespace.
+- `do` inside strings (e.g., `"I do this"`) is not affected.
+- `do...end` blocks always create a parameterless `fn()`. For lambdas that need parameters, use `fn(params) ... end` directly.
+- `do` is a reserved keyword — it cannot be used as a variable or function name.
+
 ### Error Handling
 
 Rugo provides three levels of error handling via `try/or`:

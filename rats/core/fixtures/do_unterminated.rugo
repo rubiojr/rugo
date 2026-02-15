@@ -1,0 +1,6 @@
+def foo(b)
+  b()
+end
+
+foo do
+  puts 1

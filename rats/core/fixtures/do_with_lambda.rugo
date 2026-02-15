@@ -1,0 +1,16 @@
+def box(block)
+  puts "box start"
+  block()
+  puts "box end"
+end
+
+def item(text)
+  puts "  #{text}"
+end
+
+# do block with lambda inside (fn with params)
+box do
+  item("hello")
+  callback = fn(x) puts "  cb: #{x}" end
+  callback("world")
+end

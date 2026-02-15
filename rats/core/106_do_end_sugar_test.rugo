@@ -1,0 +1,56 @@
+# Tests for do...end trailing block syntax sugar.
+# do...end is preprocessor sugar: `ident do ... end` → `ident(fn() ... end)`
+
+use "test"
+use "str"
+
+rats "do...end basic block"
+  result = test.run("rugo run rats/core/fixtures/do_basic.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello world")
+  test.assert_contains(result["output"], "inside block")
+end
+
+rats "do...end nested blocks"
+  result = test.run("rugo run rats/core/fixtures/do_nested.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "outer start")
+  test.assert_contains(result["output"], "inner: hello")
+  test.assert_contains(result["output"], "deep")
+  test.assert_contains(result["output"], "outer end")
+end
+
+rats "do...end with assignment"
+  result = test.run("rugo run rats/core/fixtures/do_assign.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "42")
+end
+
+rats "do...end paren-free with args"
+  result = test.run("rugo run rats/core/fixtures/do_paren_free.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "styled: bold")
+  test.assert_contains(result["output"], "content")
+end
+
+rats "do inside string is not treated as block"
+  result = test.run("rugo run rats/core/fixtures/do_string_safe.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "I do not want to do this")
+  test.assert_contains(result["output"], "redo works")
+end
+
+rats "do...end with lambda inside body"
+  result = test.run("rugo run rats/core/fixtures/do_with_lambda.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "box start")
+  test.assert_contains(result["output"], "  hello")
+  test.assert_contains(result["output"], "  cb: world")
+  test.assert_contains(result["output"], "box end")
+end
+
+rats "unterminated do block gives error"
+  result = test.run("rugo run rats/core/fixtures/do_unterminated.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unterminated")
+end

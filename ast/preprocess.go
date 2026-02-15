@@ -14,7 +14,7 @@ var RugoKeywords = map[string]bool{
 	"true": true, "false": true, "nil": true, "import": true, "use": true,
 	"rats": true, "try": true, "or": true,
 	"spawn": true, "parallel": true, "bench": true, "fn": true,
-	"struct": true, "with": true, "sandbox": true,
+	"struct": true, "with": true, "sandbox": true, "do": true,
 }
 
 var rugoBuiltins = map[string]bool{
@@ -137,6 +137,13 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 
 	// Expand backtick expressions before try sugar (backticks may appear inside try).
 	src, err = expandBackticks(src)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Expand do...end trailing blocks into fn()...end before other expansions.
+	// e.g. `vbox do ... end` → `vbox(fn() ... end)`
+	src, err = expandDoEnd(src)
 	if err != nil {
 		return "", nil, err
 	}
@@ -1445,7 +1452,7 @@ func expandInlineFn(src string, lineMap []int) (string, []int) {
 var blockOpenerKeywords = map[string]bool{
 	"def": true, "if": true, "while": true, "for": true,
 	"try": true, "spawn": true, "parallel": true, "fn": true,
-	"rats": true, "bench": true, "struct": true,
+	"rats": true, "bench": true, "struct": true, "do": true,
 }
 
 // expandInlineFnLine expands inline fn bodies in a single line.
@@ -2517,4 +2524,300 @@ func countBracketDelta(line string) int {
 		}
 	}
 	return delta
+}
+
+// expandDoEnd rewrites `do...end` trailing blocks into `fn()...end` syntax.
+//
+// Patterns:
+//
+//	vbox do              →  vbox(fn()
+//	  label "Hello"           label "Hello"
+//	end                     end)
+//
+//	button("Click") do  →  button("Click", fn()
+//	  puts "clicked"          puts "clicked"
+//	end                     end)
+//
+//	app "Title", 400 do →  app("Title", 400, fn()
+//	  ...                     ...
+//	end                     end)
+//
+// The pass runs before try sugar, spawn sugar, and inline fn expansion.
+func expandDoEnd(src string) (string, error) {
+	// Iterate until no more do...end blocks remain (handles nesting).
+	for {
+		lines := strings.Split(src, "\n")
+		var result []string
+		changed := false
+		i := 0
+		for i < len(lines) {
+			line := lines[i]
+			prefix, isDo := extractDoPrefix(line)
+			if !isDo {
+				result = append(result, line)
+				i++
+				continue
+			}
+
+			// Find matching end
+			endIdx := findDoMatchingEnd(lines, i+1)
+			if endIdx < 0 {
+				return "", fmt.Errorf("unterminated `do` block (opened at line %d)", i+1)
+			}
+
+			indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+			endIndent := lines[endIdx][:len(lines[endIdx])-len(strings.TrimLeft(lines[endIdx], " \t"))]
+
+			// Rewrite opening line
+			result = append(result, rewriteDoPrefix(prefix, indent))
+
+			// Copy body lines unchanged
+			for j := i + 1; j < endIdx; j++ {
+				result = append(result, lines[j])
+			}
+
+			// Rewrite end line: `end` → `end)`
+			result = append(result, endIndent+"end)")
+
+			changed = true
+			i = endIdx + 1
+		}
+		src = strings.Join(result, "\n")
+		if !changed {
+			break
+		}
+	}
+	return src, nil
+}
+
+// extractDoPrefix checks if a line ends with ` do` (not inside a string)
+// and returns the prefix (everything before ` do`) and true, or ("", false).
+func extractDoPrefix(line string) (string, bool) {
+	trimmed := strings.TrimSpace(line)
+	if len(trimmed) < 4 { // minimum: "x do"
+		return "", false
+	}
+	if !strings.HasSuffix(trimmed, " do") && !strings.HasSuffix(trimmed, "\tdo") {
+		return "", false
+	}
+	// Position of 'd' in the trailing "do"
+	doPos := len(trimmed) - 2
+	// Ensure "do" is not inside a string
+	if isInsideString(trimmed, doPos) {
+		return "", false
+	}
+	prefix := strings.TrimSpace(trimmed[:doPos])
+	if prefix == "" {
+		return "", false // bare `do` with no function call
+	}
+	return prefix, true
+}
+
+// findDoMatchingEnd finds the line index of the `end` that matches a `do` block,
+// starting search from startLine. Tracks nested blocks including fn() lambdas
+// that may appear mid-line (e.g., "x = fn() ... end").
+func findDoMatchingEnd(lines []string, startLine int) int {
+	depth := 1
+	for i := startLine; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if trimmed == "" {
+			continue
+		}
+
+		// Check for do...end on this line (nested do block opener)
+		if _, isDo := extractDoPrefix(lines[i]); isDo {
+			depth++
+			continue
+		}
+
+		first, _ := scanFirstToken(trimmed)
+
+		// Count fn( occurrences on this line (opens blocks mid-line)
+		depth += countFnOpens(trimmed)
+
+		// Check for other block openers at line start
+		switch first {
+		case "def", "if", "while", "for", "try", "spawn", "parallel",
+			"rats", "bench", "struct":
+			depth++
+		}
+
+		// Count all `end` keywords on this line (handles "end)" from prior do expansion)
+		depth -= countEnds(trimmed)
+		if depth <= 0 {
+			return i
+		}
+	}
+	return -1
+}
+
+// countFnOpens counts how many `fn(` block openers appear on a line,
+// skipping content inside strings.
+func countFnOpens(line string) int {
+	count := 0
+	inDouble := false
+	inSingle := false
+	escaped := false
+	for i := 0; i < len(line); i++ {
+		ch := line[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
+			continue
+		}
+		if i+3 <= len(line) && line[i:i+3] == "fn(" {
+			if i > 0 && (isAlphaNum(line[i-1]) || line[i-1] == '_') {
+				continue
+			}
+			count++
+		}
+	}
+	return count
+}
+
+// countEnds counts how many standalone `end` keywords appear on a line,
+// at word boundaries and not inside strings. Handles `end` and `end)`.
+func countEnds(line string) int {
+	count := 0
+	inDouble := false
+	inSingle := false
+	escaped := false
+	i := 0
+	for i < len(line) {
+		ch := line[i]
+		if escaped {
+			escaped = false
+			i++
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			i++
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			i++
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			i++
+			continue
+		}
+		if inDouble || inSingle {
+			i++
+			continue
+		}
+		if ch == 'e' && i+3 <= len(line) && line[i:i+3] == "end" {
+			// Check word boundaries
+			before := i == 0 || !(isAlphaNum(line[i-1]) || line[i-1] == '_')
+			after := i+3 >= len(line) || !(isAlphaNum(line[i+3]) || line[i+3] == '_')
+			if before && after {
+				count++
+				i += 3
+				continue
+			}
+		}
+		i++
+	}
+	return count
+}
+
+// rewriteDoPrefix rewrites the call prefix to inject `fn()` as the last argument.
+//
+//	"vbox"                    → "vbox(fn()"
+//	"button(\"Click\")"      → "button(\"Click\", fn()"
+//	"app \"Title\", 400"     → "app(\"Title\", 400, fn()"
+func rewriteDoPrefix(prefix, indent string) string {
+	trimmed := strings.TrimSpace(prefix)
+
+	// Handle assignment: "x = expr"
+	assignPart := ""
+	callPart := trimmed
+	if eqIdx := findDoAssignment(trimmed); eqIdx >= 0 {
+		assignPart = strings.TrimSpace(trimmed[:eqIdx+1]) + " "
+		callPart = strings.TrimSpace(trimmed[eqIdx+1:])
+	}
+
+	// If call ends with ")", insert fn() before the closing paren
+	if strings.HasSuffix(callPart, ")") {
+		// Find the matching opening paren for the last ")"
+		lastParen := len(callPart) - 1
+		return indent + assignPart + callPart[:lastParen] + ", fn()"
+	}
+
+	// No parens: bare ident or paren-free call
+	firstToken, rest := scanFirstToken(callPart)
+	restTrimmed := strings.TrimSpace(rest)
+	if restTrimmed == "" {
+		// Bare ident: `vbox` → `vbox(fn()`
+		return indent + assignPart + firstToken + "(fn()"
+	}
+	// Paren-free: `app "Title", 400` → `app("Title", 400, fn()`
+	return indent + assignPart + firstToken + "(" + restTrimmed + ", fn()"
+}
+
+// findDoAssignment finds a top-level `=` (not `==`, `!=`, `<=`, `>=`, `=>`)
+// suitable for splitting assignment from a do-block call prefix.
+func findDoAssignment(s string) int {
+	inDouble := false
+	inSingle := false
+	escaped := false
+	depth := 0
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if ch == '\\' && (inDouble || inSingle) {
+			escaped = true
+			continue
+		}
+		if ch == '"' && !inSingle {
+			inDouble = !inDouble
+			continue
+		}
+		if ch == '\'' && !inDouble {
+			inSingle = !inSingle
+			continue
+		}
+		if inDouble || inSingle {
+			continue
+		}
+		if ch == '(' || ch == '[' || ch == '{' {
+			depth++
+		} else if ch == ')' || ch == ']' || ch == '}' {
+			depth--
+		}
+		if depth > 0 {
+			continue
+		}
+		if ch == '=' {
+			if i+1 < len(s) && (s[i+1] == '=' || s[i+1] == '>') {
+				i++
+				continue
+			}
+			if i > 0 && (s[i-1] == '!' || s[i-1] == '<' || s[i-1] == '>') {
+				continue
+			}
+			return i
+		}
+	}
+	return -1
 }
