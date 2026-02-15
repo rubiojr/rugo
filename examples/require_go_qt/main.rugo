@@ -14,9 +14,8 @@
 #   rugo build main.rugo -o hello_qt && ./hello_qt
 
 # Require miqt/qt6 directly — the sub-path is part of the require path
-require "github.com/mappu/miqt/qt6@v0.13.0" as qt6
+require "github.com/mappu/miqt/qt6@v0.13.0"
 import "os"
-use "conv"
 
 # Rugo-side convenience layer using a hash with lambdas
 qt = {
@@ -44,7 +43,7 @@ layout.add_widget(lbl)
 btn = qt.button("Click Me")
 btn.on_clicked(fn()
   count = count + 1
-  lbl.set_text("Clicked: " + conv.to_s(count) + " times")
+  lbl.set_text("Clicked: #{count} times")
 end)
 layout.add_widget(btn)
 
@@ -53,6 +52,12 @@ quit_btn.on_clicked(fn()
   qt.quit()
 end)
 layout.add_widget(quit_btn)
+
+# Ctrl+Q shortcut (QKeySequence::Quit = 65)
+shortcut = qt6.new_qshortcut3(65, win)
+shortcut.on_activated(fn()
+  qt.quit()
+end)
 
 win.show()
 qt.exec()

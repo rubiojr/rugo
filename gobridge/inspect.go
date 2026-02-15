@@ -535,9 +535,15 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 			sig.FuncTypes[i] = ft
 		} else {
 			sig.Params = append(sig.Params, gt)
+			// Detect named types that need explicit casts (e.g., qt6.StandardKey).
+			if cast := namedTypeCast(t); cast != "" {
+				if sig.TypeCasts == nil {
+					sig.TypeCasts = make(map[int]string)
+				}
+				sig.TypeCasts[i] = cast
+			}
 		}
 	}
-
 	// Classify returns.
 	results := f.Sig.Results()
 	for i := 0; i < results.Len(); i++ {

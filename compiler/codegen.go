@@ -2673,7 +2673,7 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			// Struct handle unwrapping: extract the inner Go struct from the wrapper.
 			if sig.StructCasts != nil {
 				if wrapType, ok := sig.StructCasts[i]; ok {
-					convertedArgs = append(convertedArgs, fmt.Sprintf("%s.(*%s).v", arg, wrapType))
+					convertedArgs = append(convertedArgs, fmt.Sprintf("rugo_upcast_%s(%s).v", wrapType, arg))
 					continue
 				}
 			}

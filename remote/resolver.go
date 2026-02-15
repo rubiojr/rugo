@@ -260,7 +260,7 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 
 	// For immutable versions, use the standard needsFetch logic.
 	if rp.isImmutable() {
-		if _, err := os.Stat(cacheDir); err == nil {
+		if info, err := os.Stat(cacheDir); err == nil && isDirWithContent(info, cacheDir) {
 			// Already cached. Record in lock file for completeness.
 			sha, err := gitRevParseSHA(cacheDir)
 			if err == nil {
@@ -320,4 +320,17 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 	r.lockDirty = true
 	r.trackResolved(moduleKey, versionLabel)
 	return finalDir, nil
+}
+
+// isDirWithContent returns true if the path is a directory with at least one entry.
+// Used to detect stale empty cache directories that should be re-fetched.
+func isDirWithContent(info os.FileInfo, path string) bool {
+	if !info.IsDir() {
+		return false
+	}
+	entries, err := os.ReadDir(path)
+	if err != nil {
+		return false
+	}
+	return len(entries) > 0
 }
