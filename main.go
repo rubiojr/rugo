@@ -20,7 +20,7 @@ import (
 	_ "github.com/rubiojr/rugo/modules/web"
 )
 
-var version = "v0.21.1"
+var version = "v0.21.2"
 
 func main() {
 	cmd.Execute(version)
