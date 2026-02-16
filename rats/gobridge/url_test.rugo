@@ -36,3 +36,23 @@ rats "url with alias"
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello+world")
 end
+
+rats "url.join_path with single arg"
+  result = url.join_path("https://example.com/path")
+  test.assert_eq(result, "https://example.com/path")
+end
+
+rats "url.join_path with two args"
+  result = url.join_path("https://example.com", "api")
+  test.assert_eq(result, "https://example.com/api")
+end
+
+rats "url.join_path with multiple args"
+  result = url.join_path("https://example.com", "api", "v1", "users")
+  test.assert_eq(result, "https://example.com/api/v1/users")
+end
+
+rats "url.join_path error handling"
+  result = try url.join_path("://invalid", "path") or "error"
+  test.assert_eq(result, "error")
+end

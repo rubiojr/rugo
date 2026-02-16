@@ -426,6 +426,20 @@ func GoTypeGoName(t GoType) string {
 	}
 }
 
+// SliceElemType returns the element GoType for a slice GoType.
+// For example, GoStringSlice → GoString, GoByteSlice → GoByte.
+// Returns GoAny and false for non-slice types.
+func SliceElemType(t GoType) (GoType, bool) {
+	switch t {
+	case GoStringSlice:
+		return GoString, true
+	case GoByteSlice:
+		return GoByte, true
+	default:
+		return GoAny, false
+	}
+}
+
 // FuncAdapterConv generates a Go adapter that wraps a Rugo lambda into a typed Go function.
 // argExpr is the Go expression for the Rugo lambda (interface{}).
 // ft describes the target Go function signature.

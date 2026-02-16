@@ -2670,8 +2670,26 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 	}
 
 	// Build converted args
+	// For variadic functions, the last entry in sig.Params is a slice type
+	// (e.g., GoStringSlice for ...string). We convert variadic args using the
+	// element type so Go's variadic calling convention works naturally.
+	var variadicElemType gobridge.GoType
+	variadicIdx := -1
+	if sig.Variadic && len(sig.Params) > 0 {
+		lastParam := sig.Params[len(sig.Params)-1]
+		if elem, ok := gobridge.SliceElemType(lastParam); ok {
+			variadicElemType = elem
+			variadicIdx = len(sig.Params) - 1
+		}
+	}
+
 	var convertedArgs []string
 	for i, arg := range argExprs {
+		// Variadic args: convert using element type (e.g., GoString for ...string)
+		if variadicIdx >= 0 && i >= variadicIdx {
+			convertedArgs = append(convertedArgs, gobridge.TypeConvToGo(arg, variadicElemType))
+			continue
+		}
 		if i < len(sig.Params) {
 			// Struct handle unwrapping: extract the inner Go struct from the wrapper.
 			if sig.StructCasts != nil {
@@ -2699,19 +2717,6 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			}
 			convertedArgs = append(convertedArgs, conv)
 		}
-	}
-
-	// For variadic functions, handle special conversion
-	if sig.Variadic && len(sig.Params) == 1 && sig.Params[0] == gobridge.GoStringSlice {
-		var strArgs []string
-		for _, arg := range argExprs {
-			strArgs = append(strArgs, gobridge.TypeConvToGo(arg, gobridge.GoString))
-		}
-		call := fmt.Sprintf("%s.%s(%s)", pkgBase, sig.GoName, strings.Join(strArgs, ", "))
-		if len(sig.Returns) == 0 {
-			return call
-		}
-		return gobridge.TypeWrapReturn(call, sig.Returns[0])
 	}
 
 	// Build call expression (supports method-chain GoNames like "StdEncoding.EncodeToString")
