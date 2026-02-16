@@ -1,0 +1,50 @@
+# RATS: CLI dispatch should not include required module functions
+use "test"
+
+rats "cli dispatch ignores required module func with same name"
+  test.run("mkdir -p #{test.tmpdir()}/greeter")
+  mod = <<~MOD
+    def hello(name)
+      return "Hello, " + name
+    end
+  MOD
+  test.write_file("#{test.tmpdir()}/greeter/main.rugo", mod)
+  main = <<~MAIN
+    require "greeter"
+    use "cli"
+    cli.name "test"
+    cli.cmd "hello", "Say hello"
+    def hello(args)
+      puts "Handler: hello"
+    end
+    cli.run
+  MAIN
+  test.write_file("#{test.tmpdir()}/main.rugo", main)
+  result = test.run("rugo run #{test.tmpdir()}/main.rugo hello")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Handler: hello")
+end
+
+rats "cli dispatch works when required module has no name collision"
+  test.run("mkdir -p #{test.tmpdir()}/utils")
+  mod = <<~MOD
+    def greet(name)
+      return "Hi, " + name
+    end
+  MOD
+  test.write_file("#{test.tmpdir()}/utils/main.rugo", mod)
+  main = <<~MAIN
+    require "utils"
+    use "cli"
+    cli.name "test"
+    cli.cmd "hello", "Say hello"
+    def hello(args)
+      puts "Handler: hello"
+    end
+    cli.run
+  MAIN
+  test.write_file("#{test.tmpdir()}/main.rugo", main)
+  result = test.run("rugo run #{test.tmpdir()}/main.rugo hello")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Handler: hello")
+end

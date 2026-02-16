@@ -797,6 +797,9 @@ func (g *codeGen) writeDispatchMaps(funcs []*ast.FuncDef, handlers map[string]bo
 			if len(f.Params) != 1 {
 				continue
 			}
+			if m.DispatchMainOnly && f.Namespace != "" {
+				continue
+			}
 			if resolved != nil && !resolved[f.Name] {
 				continue
 			}

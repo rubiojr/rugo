@@ -68,6 +68,10 @@ type Module struct {
 	// (handler name == function name). Only functions whose transformed names match
 	// a def function are included in the dispatch map.
 	DispatchTransform func(string) string
+	// DispatchMainOnly, when true, restricts the dispatch map to functions
+	// defined in the main file (i.e. rugofn_* only), excluding namespaced
+	// functions from required modules.
+	DispatchMainOnly bool
 	// Doc is the module-level documentation shown by `rugo doc`.
 	Doc string
 }
