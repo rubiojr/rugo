@@ -25,7 +25,7 @@ func TestParseSourceFuncDef(t *testing.T) {
 	fn, ok := prog.Statements[0].(*ast.FuncDef)
 	require.True(t, ok)
 	assert.Equal(t, "greet", fn.Name)
-	assert.Equal(t, []string{"name"}, fn.Params)
+	assert.Equal(t, []ast.Param{{Name: "name"}}, fn.Params)
 	assert.Len(t, fn.Body, 1)
 }
 

@@ -120,8 +120,9 @@ type TypeInfo struct {
 
 // FuncTypeInfo holds the inferred signature for a function.
 type FuncTypeInfo struct {
-	ParamTypes []RugoType
-	ReturnType RugoType
+	ParamTypes  []RugoType
+	ReturnType  RugoType
+	HasDefaults bool // true if the function has params with default values (variadic signature)
 }
 
 // ExprType returns the inferred type of an expression, or TypeDynamic if unknown.

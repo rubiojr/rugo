@@ -595,12 +595,16 @@ func (w *walker) walkFuncDef(ast []int32) (Statement, error) {
 	nameTok, ast := w.readToken(ast)
 	_, ast = w.readToken(ast) // '('
 
-	var params []string
+	var params []Param
 	// Check if next is ParamList (non-terminal) or ')' (terminal)
 	if len(ast) > 0 && ast[0] < 0 {
 		sym, children, rest := w.readNonTerminal(ast)
 		if sym == parser.RugoParamList {
-			params = w.walkParamList(children)
+			var err error
+			params, err = w.walkParamList(children)
+			if err != nil {
+				return nil, err
+			}
 			ast = rest
 		}
 	}
@@ -626,18 +630,69 @@ func (w *walker) walkFuncDef(ast []int32) (Statement, error) {
 	return &FuncDef{Name: nameTok.src, Params: params, Body: body}, nil
 }
 
-func (w *walker) walkParamList(ast []int32) []string {
-	// ParamList = ident { ',' ident } .
-	var params []string
+func (w *walker) walkParamList(ast []int32) ([]Param, error) {
+	// ParamList = Param { ',' Param } .
+	var params []Param
 	for len(ast) > 0 {
+		// Skip commas
+		if ast[0] >= 0 {
+			tok, rest := w.readToken(ast)
+			if tok.ch == parser.RugoTOK_002c { // ','
+				ast = rest
+				continue
+			}
+		}
+		// Read Param non-terminal
+		if ast[0] < 0 {
+			sym, children, rest := w.readNonTerminal(ast)
+			if sym == parser.RugoParam {
+				p, err := w.walkParam(children)
+				if err != nil {
+					return nil, err
+				}
+				params = append(params, p)
+				ast = rest
+				continue
+			}
+		}
+		// Fallback: bare ident (shouldn't happen with new grammar, but be safe)
 		tok, rest := w.readToken(ast)
 		ast = rest
-		if tok.ch == parser.RugoTOK_002c { // ','
-			continue
-		}
-		params = append(params, tok.src)
+		params = append(params, Param{Name: tok.src})
 	}
-	return params
+
+	// Validate: required params must come before params with defaults
+	seenDefault := false
+	for _, p := range params {
+		if p.Default != nil {
+			seenDefault = true
+		} else if seenDefault {
+			return nil, &UserError{Msg: fmt.Sprintf("required parameter '%s' cannot follow a parameter with a default value", p.Name)}
+		}
+	}
+
+	return params, nil
+}
+
+func (w *walker) walkParam(ast []int32) (Param, error) {
+	// Param = ident [ '=' Expr ] .
+	nameTok, ast := w.readToken(ast)
+	p := Param{Name: nameTok.src}
+
+	// Check for optional '=' Expr
+	if len(ast) > 0 {
+		tok, rest := w.readToken(ast) // '='
+		_ = tok
+		ast = rest
+		// Parse the default expression
+		defaultExpr, _, err := w.walkExpr(ast)
+		if err != nil {
+			return p, err
+		}
+		p.Default = defaultExpr
+	}
+
+	return p, nil
 }
 
 func (w *walker) walkBody(ast []int32) ([]Statement, error) {
@@ -1303,11 +1358,15 @@ func (w *walker) walkFnExpr(ast []int32) (Expr, error) {
 	_, ast = w.readToken(ast) // "fn"
 	_, ast = w.readToken(ast) // '('
 
-	var params []string
+	var params []Param
 	if len(ast) > 0 && ast[0] < 0 {
 		sym, children, rest := w.readNonTerminal(ast)
 		if sym == parser.RugoParamList {
-			params = w.walkParamList(children)
+			var err error
+			params, err = w.walkParamList(children)
+			if err != nil {
+				return nil, err
+			}
 			ast = rest
 		}
 	}

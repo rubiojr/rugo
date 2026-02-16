@@ -21,6 +21,13 @@ var runtimeCorePost string
 //go:embed templates/runtime_spawn.go.tmpl
 var runtimeSpawn string
 
+// funcArity stores the arity range for a user-defined function.
+type funcArity struct {
+	Min         int  // number of required params (no default)
+	Max         int  // total number of params (required + optional)
+	HasDefaults bool // true if any param has a default value
+}
+
 // codeGen generates Go source code from a typed AST.
 type codeGen struct {
 	sb              strings.Builder
@@ -29,26 +36,26 @@ type codeGen struct {
 	scopes          []map[string]bool
 	constScopes     []map[string]int // track constant bindings: name → line of first assignment
 	inFunc          bool
-	imports         map[string]bool   // Rugo stdlib modules imported (via use)
-	goImports       map[string]string // Go bridge packages: path → alias
-	namespaces      map[string]bool   // known require namespaces
-	nsVarNames      map[string]bool   // namespaced var names: "ns.name" → true
-	sourceFile      string            // original source filename for //line directives
-	hasSpawn        bool              // whether spawn is used
-	hasParallel     bool              // whether parallel is used
-	hasBench        bool              // whether bench blocks are present
-	usesTaskMethods bool              // whether .value/.done/.wait appear
-	funcDefs        map[string]int    // user function name → param count
-	handlerVars     map[string]bool   // top-level vars promoted to package-level for handler access
-	testMode        bool              // include rats blocks in output
-	typeInfo        *TypeInfo         // inferred type information (nil disables typed codegen)
-	currentFunc     *ast.FuncDef      // current function being generated (for type lookups)
-	varTypeScope    string            // override scope key for varType lookups (test/bench blocks)
-	inSpawn         int               // nesting depth of spawn blocks (>0 means inside spawn)
-	lambdaDepth     int               // nesting depth of lambda bodies (>0 means inside fn)
-	lambdaScopeBase []int             // scope index at each lambda entry (stack)
-	lambdaOuterFunc []*ast.FuncDef    // enclosing function at each lambda entry (stack)
-	sandbox         *SandboxConfig    // Landlock sandbox config (nil = no sandbox)
+	imports         map[string]bool      // Rugo stdlib modules imported (via use)
+	goImports       map[string]string    // Go bridge packages: path → alias
+	namespaces      map[string]bool      // known require namespaces
+	nsVarNames      map[string]bool      // namespaced var names: "ns.name" → true
+	sourceFile      string               // original source filename for //line directives
+	hasSpawn        bool                 // whether spawn is used
+	hasParallel     bool                 // whether parallel is used
+	hasBench        bool                 // whether bench blocks are present
+	usesTaskMethods bool                 // whether .value/.done/.wait appear
+	funcDefs        map[string]funcArity // user function name → arity info
+	handlerVars     map[string]bool      // top-level vars promoted to package-level for handler access
+	testMode        bool                 // include rats blocks in output
+	typeInfo        *TypeInfo            // inferred type information (nil disables typed codegen)
+	currentFunc     *ast.FuncDef         // current function being generated (for type lookups)
+	varTypeScope    string               // override scope key for varType lookups (test/bench blocks)
+	inSpawn         int                  // nesting depth of spawn blocks (>0 means inside spawn)
+	lambdaDepth     int                  // nesting depth of lambda bodies (>0 means inside fn)
+	lambdaScopeBase []int                // scope index at each lambda entry (stack)
+	lambdaOuterFunc []*ast.FuncDef       // enclosing function at each lambda entry (stack)
+	sandbox         *SandboxConfig       // Landlock sandbox config (nil = no sandbox)
 }
 
 // generate produces Go source code from a ast.Program AST.
@@ -66,7 +73,7 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 		nsVarNames:  make(map[string]bool),
 		handlerVars: make(map[string]bool),
 		sourceFile:  sourceFile,
-		funcDefs:    make(map[string]int),
+		funcDefs:    make(map[string]funcArity),
 		testMode:    testMode,
 		typeInfo:    ti,
 		sandbox:     sandbox,
@@ -151,7 +158,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			key = f.Namespace + "." + f.Name
 			g.namespaces[f.Namespace] = true
 		}
-		g.funcDefs[key] = len(f.Params)
+		g.funcDefs[key] = funcArity{Min: ast.MinArity(f.Params), Max: len(f.Params), HasDefaults: ast.HasDefaults(f.Params)}
 	}
 
 	// Register namespaces from require'd constants
@@ -890,17 +897,10 @@ func (g *codeGen) writeFunc(f *ast.FuncDef) error {
 		defer func() { g.sourceFile = saved }()
 	}
 
+	hasDefaults := ast.HasDefaults(f.Params)
+
 	// Check if this function has typed inference info.
 	fti := g.funcTypeInfo(f)
-
-	params := make([]string, len(f.Params))
-	for i, p := range f.Params {
-		if fti != nil && fti.ParamTypes[i].IsTyped() {
-			params[i] = p + " " + fti.ParamTypes[i].GoType()
-		} else {
-			params[i] = p + " interface{}"
-		}
-	}
 
 	// Determine function name: namespaced or local
 	var goName string
@@ -915,16 +915,62 @@ func (g *codeGen) writeFunc(f *ast.FuncDef) error {
 		retType = fti.ReturnType.GoType()
 	}
 
-	g.writef("func %s(%s) %s {\n", goName, strings.Join(params, ", "), retType)
+	if hasDefaults {
+		// Functions with default params use variadic signature
+		g.writef("func %s(_args ...interface{}) %s {\n", goName, retType)
+	} else {
+		// Functions without defaults keep typed params
+		params := make([]string, len(f.Params))
+		for i, p := range f.Params {
+			if fti != nil && fti.ParamTypes[i].IsTyped() {
+				params[i] = p.Name + " " + fti.ParamTypes[i].GoType()
+			} else {
+				params[i] = p.Name + " interface{}"
+			}
+		}
+		g.writef("func %s(%s) %s {\n", goName, strings.Join(params, ", "), retType)
+	}
 	g.indent++
 	g.pushScope()
 	// Recursion depth guard
 	g.writef("rugo_check_depth(%q)\n", f.Name)
 	g.writef("defer func() { rugo_call_depth-- }()\n")
-	// Mark params as declared
-	for _, p := range f.Params {
-		g.declareVar(p)
+
+	if hasDefaults {
+		// Emit arity range check
+		minArity := ast.MinArity(f.Params)
+		maxArity := len(f.Params)
+		if minArity == 1 {
+			g.writef("if len(_args) < %d { panic(fmt.Sprintf(\"%s() takes %d to %d arguments but %%d were given\", len(_args))) }\n", minArity, f.Name, minArity, maxArity)
+		} else {
+			g.writef("if len(_args) < %d { panic(fmt.Sprintf(\"%s() takes %d to %d arguments but %%d were given\", len(_args))) }\n", minArity, f.Name, minArity, maxArity)
+		}
+		g.writef("if len(_args) > %d { panic(fmt.Sprintf(\"%s() takes %d to %d arguments but %%d were given\", len(_args))) }\n", maxArity, f.Name, minArity, maxArity)
+
+		// Unpack required params and declare optional ones with defaults
+		for i, p := range f.Params {
+			g.declareVar(p.Name)
+			if p.Default == nil {
+				// Required param — unpack from _args
+				g.writef("var %s interface{} = _args[%d]\n", p.Name, i)
+			} else {
+				// Optional param — use default if not provided
+				defaultExpr, err := g.exprString(p.Default)
+				if err != nil {
+					return err
+				}
+				g.writef("var %s interface{}\n", p.Name)
+				g.writef("if len(_args) > %d { %s = _args[%d] } else { %s = %s }\n", i, p.Name, i, p.Name, defaultExpr)
+			}
+			g.writef("_ = %s\n", p.Name)
+		}
+	} else {
+		// Mark params as declared
+		for _, p := range f.Params {
+			g.declareVar(p.Name)
+		}
 	}
+
 	g.currentFunc = f
 	g.inFunc = true
 	hasImplicitReturn := false
@@ -1496,8 +1542,8 @@ func (g *codeGen) exprString(e ast.Expr) (string, error) {
 		// Local variables shadow function names.
 		if !g.isDeclared(ex.Name) {
 			if expected, ok := g.funcDefs[ex.Name]; ok {
-				if expected != 0 {
-					return "", fmt.Errorf("function '%s' expects %d argument(s), called with 0", ex.Name, expected)
+				if expected.Min != 0 {
+					return "", fmt.Errorf("function '%s' expects %d argument(s), called with 0", ex.Name, expected.Min)
 				}
 				call := fmt.Sprintf("rugofn_%s()", ex.Name)
 				if g.typeInfo != nil {
@@ -1919,8 +1965,11 @@ func (g *codeGen) callExpr(e *ast.CallExpr) (string, error) {
 					}
 					nsKey := nsName + "." + dot.Field
 					if expected, ok := g.funcDefs[nsKey]; ok {
-						if len(e.Args) != expected {
-							return "", argCountError(nsName+"."+dot.Field, len(e.Args), expected)
+						if len(e.Args) < expected.Min || len(e.Args) > expected.Max {
+							return "", arityCountError(nsName+"."+dot.Field, len(e.Args), expected)
+						}
+						if expected.HasDefaults {
+							return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, argStr), nil
 						}
 					}
 					typedArgs := g.typedCallArgs(nsKey, args, e.Args)
@@ -1979,8 +2028,11 @@ func (g *codeGen) callExpr(e *ast.CallExpr) (string, error) {
 			if g.currentFunc != nil && g.currentFunc.Namespace != "" {
 				nsKey := g.currentFunc.Namespace + "." + ident.Name
 				if expected, ok := g.funcDefs[nsKey]; ok {
-					if len(e.Args) != expected {
-						return "", argCountError(ident.Name, len(e.Args), expected)
+					if len(e.Args) < expected.Min || len(e.Args) > expected.Max {
+						return "", arityCountError(ident.Name, len(e.Args), expected)
+					}
+					if expected.HasDefaults {
+						return fmt.Sprintf("rugons_%s_%s(%s)", g.currentFunc.Namespace, ident.Name, argStr), nil
 					}
 					typedArgs := g.typedCallArgs(nsKey, args, e.Args)
 					return fmt.Sprintf("rugons_%s_%s(%s)", g.currentFunc.Namespace, ident.Name, typedArgs), nil
@@ -1988,8 +2040,11 @@ func (g *codeGen) callExpr(e *ast.CallExpr) (string, error) {
 			}
 			// User-defined function — validate argument count
 			if expected, ok := g.funcDefs[ident.Name]; ok {
-				if len(e.Args) != expected {
-					return "", argCountError(ident.Name, len(e.Args), expected)
+				if len(e.Args) < expected.Min || len(e.Args) > expected.Max {
+					return "", arityCountError(ident.Name, len(e.Args), expected)
+				}
+				if expected.HasDefaults {
+					return fmt.Sprintf("rugofn_%s(%s)", ident.Name, argStr), nil
 				}
 				// Generate typed call if function has typed params.
 				typedArgs := g.typedCallArgs(ident.Name, args, e.Args)
@@ -2191,7 +2246,7 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 		g.pushScope()
 		g.lambdaScopeBase = append(g.lambdaScopeBase, len(g.scopes)-1)
 		for _, p := range e.Params {
-			g.declareVar(p)
+			g.declareVar(p.Name)
 		}
 		savedFunc := g.currentFunc
 		savedInFunc := g.inFunc
@@ -2235,18 +2290,39 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 
 	var buf strings.Builder
 	buf.WriteString("interface{}(func(_args ...interface{}) interface{} {\n")
-	// Validate argument count
-	nParams := len(e.Params)
-	if nParams == 1 {
-		buf.WriteString(fmt.Sprintf("\t\tif len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d argument but %%d were given\", len(_args))) }\n", nParams, nParams))
+
+	hasDefaults := ast.HasDefaults(e.Params)
+	if hasDefaults {
+		// Range arity check for lambdas with default params
+		minArity := ast.MinArity(e.Params)
+		maxArity := len(e.Params)
+		buf.WriteString(fmt.Sprintf("\t\tif len(_args) < %d || len(_args) > %d { panic(fmt.Sprintf(\"lambda takes %d to %d arguments but %%d %%s given\", len(_args), map[bool]string{true: \"was\", false: \"were\"}[len(_args) == 1])) }\n", minArity, maxArity, minArity, maxArity))
 	} else {
-		buf.WriteString(fmt.Sprintf("\t\tif len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d arguments but %%d %%s given\", len(_args), map[bool]string{true: \"was\", false: \"were\"}[len(_args) == 1])) }\n", nParams, nParams))
+		// Exact arity check for lambdas without default params
+		nParams := len(e.Params)
+		if nParams == 1 {
+			buf.WriteString(fmt.Sprintf("\t\tif len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d argument but %%d were given\", len(_args))) }\n", nParams, nParams))
+		} else {
+			buf.WriteString(fmt.Sprintf("\t\tif len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d arguments but %%d %%s given\", len(_args), map[bool]string{true: \"was\", false: \"were\"}[len(_args) == 1])) }\n", nParams, nParams))
+		}
 	}
+
 	// Unpack parameters from variadic args
 	for i, p := range e.Params {
-		buf.WriteString(fmt.Sprintf("\t\tvar %s interface{}\n", p))
-		buf.WriteString(fmt.Sprintf("\t\tif len(_args) > %d { %s = _args[%d] }\n", i, p, i))
-		buf.WriteString(fmt.Sprintf("\t\t_ = %s\n", p))
+		if p.Default != nil {
+			// Optional param — use default if not provided
+			defaultExpr, derr := g.exprString(p.Default)
+			if derr != nil {
+				return "", derr
+			}
+			buf.WriteString(fmt.Sprintf("\t\tvar %s interface{}\n", p.Name))
+			buf.WriteString(fmt.Sprintf("\t\tif len(_args) > %d { %s = _args[%d] } else { %s = %s }\n", i, p.Name, i, p.Name, defaultExpr))
+		} else {
+			// Required param — unpack from _args
+			buf.WriteString(fmt.Sprintf("\t\tvar %s interface{}\n", p.Name))
+			buf.WriteString(fmt.Sprintf("\t\tif len(_args) > %d { %s = _args[%d] }\n", i, p.Name, i))
+		}
+		buf.WriteString(fmt.Sprintf("\t\t_ = %s\n", p.Name))
 	}
 	for _, line := range strings.Split(bodyCode, "\n") {
 		if line != "" {
@@ -2824,19 +2900,27 @@ func (g *codeGen) writeGoBridgeRuntime() {
 	}
 }
 
-// argCountError produces a human-friendly argument count mismatch error.
-func argCountError(name string, got, expected int) error {
-	argWord := "arguments"
-	if expected == 1 {
-		argWord = "argument"
-	}
+// arityCountError produces a human-friendly argument count error for range arity.
+func arityCountError(name string, got int, arity funcArity) error {
 	gotDesc := fmt.Sprintf("%d were", got)
 	if got == 0 {
 		gotDesc = "none were"
 	} else if got == 1 {
 		gotDesc = "1 was"
 	}
-	return fmt.Errorf("%s() takes %d %s but %s given", name, expected, argWord, gotDesc)
+	if arity.Min == arity.Max {
+		argWord := "arguments"
+		if arity.Max == 1 {
+			argWord = "argument"
+		}
+		return fmt.Errorf("%s() takes %d %s but %s given", name, arity.Max, argWord, gotDesc)
+	}
+	return fmt.Errorf("%s() takes %d to %d arguments but %s given", name, arity.Min, arity.Max, gotDesc)
+}
+
+// argCountError produces a human-friendly argument count mismatch error.
+func argCountError(name string, got, expected int) error {
+	return arityCountError(name, got, funcArity{Min: expected, Max: expected})
 }
 
 // --- Type inference helpers for codegen ---

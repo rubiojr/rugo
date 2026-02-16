@@ -28,8 +28,9 @@ func Infer(prog *ast.Program) *TypeInfo {
 			}
 			funcs = append(funcs, st)
 			ti.FuncTypes[key] = &FuncTypeInfo{
-				ParamTypes: make([]RugoType, len(st.Params)),
-				ReturnType: TypeUnknown,
+				ParamTypes:  make([]RugoType, len(st.Params)),
+				ReturnType:  TypeUnknown,
+				HasDefaults: ast.HasDefaults(st.Params),
 			}
 		default:
 			topStmts = append(topStmts, s)
@@ -103,9 +104,17 @@ func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 	fti := ti.FuncTypes[funcKey(f)]
 	scope := newTypeScope(nil)
 
+	// Functions with default params use variadic signature (_args ...interface{}),
+	// so all params are interface{} at runtime — force them to TypeDynamic.
+	if ast.HasDefaults(f.Params) {
+		for i := range fti.ParamTypes {
+			fti.ParamTypes[i] = TypeDynamic
+		}
+	}
+
 	// Bind parameters to their current inferred types.
 	for i, p := range f.Params {
-		scope.set(p, fti.ParamTypes[i])
+		scope.set(p.Name, fti.ParamTypes[i])
 	}
 
 	// Walk the function body.
@@ -122,7 +131,7 @@ func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 	// s = str.trim(s)), its var type will have been widened to dynamic.
 	// Widen ParamTypes to match so the Go declaration uses interface{}.
 	for i, p := range f.Params {
-		if fti.ParamTypes[i].IsTyped() && scope.get(p) == TypeDynamic {
+		if fti.ParamTypes[i].IsTyped() && scope.get(p.Name) == TypeDynamic {
 			fti.ParamTypes[i] = TypeDynamic
 		}
 	}
@@ -492,10 +501,14 @@ func inferCall(ti *TypeInfo, scope *typeScope, e *ast.CallExpr) RugoType {
 
 		// User-defined function — propagate argument types.
 		if fti, ok := ti.FuncTypes[ident.Name]; ok {
-			// Only propagate resolved types to avoid poisoning with Dynamic.
-			for i, at := range argTypes {
-				if i < len(fti.ParamTypes) && at.IsResolved() && at != TypeDynamic {
-					fti.ParamTypes[i] = unifyTypes(fti.ParamTypes[i], at)
+			// Don't propagate param types for functions with defaults —
+			// they use variadic signature so all params are interface{}.
+			if !fti.HasDefaults {
+				// Only propagate resolved types to avoid poisoning with Dynamic.
+				for i, at := range argTypes {
+					if i < len(fti.ParamTypes) && at.IsResolved() && at != TypeDynamic {
+						fti.ParamTypes[i] = unifyTypes(fti.ParamTypes[i], at)
+					}
 				}
 			}
 			return fti.ReturnType
@@ -507,9 +520,11 @@ func inferCall(ti *TypeInfo, scope *typeScope, e *ast.CallExpr) RugoType {
 		if ns, ok := dot.Object.(*ast.IdentExpr); ok {
 			key := ns.Name + "." + dot.Field
 			if fti, ok := ti.FuncTypes[key]; ok {
-				for i, at := range argTypes {
-					if i < len(fti.ParamTypes) && at.IsResolved() && at != TypeDynamic {
-						fti.ParamTypes[i] = unifyTypes(fti.ParamTypes[i], at)
+				if !fti.HasDefaults {
+					for i, at := range argTypes {
+						if i < len(fti.ParamTypes) && at.IsResolved() && at != TypeDynamic {
+							fti.ParamTypes[i] = unifyTypes(fti.ParamTypes[i], at)
+						}
 					}
 				}
 				return fti.ReturnType
@@ -549,7 +564,7 @@ func snapshotFuncTypes(m map[string]*FuncTypeInfo) map[string]*FuncTypeInfo {
 	for k, v := range m {
 		params := make([]RugoType, len(v.ParamTypes))
 		copy(params, v.ParamTypes)
-		snap[k] = &FuncTypeInfo{ParamTypes: params, ReturnType: v.ReturnType}
+		snap[k] = &FuncTypeInfo{ParamTypes: params, ReturnType: v.ReturnType, HasDefaults: v.HasDefaults}
 	}
 	return snap
 }

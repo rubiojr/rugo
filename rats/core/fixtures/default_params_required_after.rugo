@@ -1,0 +1,4 @@
+# Fixture: required param after default (invalid)
+def bad(a = 1, b)
+  a + b
+end

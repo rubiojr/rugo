@@ -130,6 +130,28 @@ double_then_inc = compose(inc, double)
 puts double_then_inc(5)   # 11
 ```
 
+## Default Parameter Values
+
+Lambdas support default parameter values, just like `def` functions:
+
+```ruby
+transform = fn(x, factor = 2) x * factor end
+puts transform(5)      # 10
+puts transform(5, 3)   # 15
+```
+
+All parameters can be optional:
+
+```ruby
+greet = fn(name = "World", greeting = "Hello")
+  puts "#{greeting}, #{name}!"
+end
+
+greet()                    # Hello, World!
+greet("Alice")             # Hello, Alice!
+greet("Alice", "Hey")      # Hey, Alice!
+```
+
 ## Trailing Block Syntax (`do...end`)
 
 When the last argument to a function is a no-argument lambda, you can use `do...end` instead of `fn() ... end`:

@@ -233,6 +233,45 @@ def say_hello
 end
 ```
 
+#### Default Parameter Values
+
+Parameters can have default values using `= expr` syntax. Parameters with defaults must come after all required parameters. When a caller omits trailing arguments, the defaults are evaluated at call time:
+
+```ruby
+def greet(name, greeting = "Hello")
+  puts "#{greeting}, #{name}!"
+end
+
+greet("Alice")            # Hello, Alice!
+greet("Alice", "Hey")     # Hey, Alice!
+```
+
+Multiple defaults are allowed, and any expression (including `nil`, booleans, arithmetic) can be used as a default:
+
+```ruby
+def connect(host, port = 8080, tls = true)
+  # port defaults to 8080, tls defaults to true
+end
+
+connect("example.com")              # port=8080, tls=true
+connect("example.com", 443)         # port=443, tls=true
+connect("example.com", 443, false)  # port=443, tls=false
+```
+
+A function with all-optional parameters can be called with zero arguments:
+
+```ruby
+def label(text = "default", color = nil)
+  # ...
+end
+
+label()                  # both default
+label("hello")           # color defaults to nil
+label("hello", "red")    # no defaults used
+```
+
+**Codegen note:** Functions with default parameters compile to a variadic Go signature (`_args ...interface{}`). A preamble unpacks arguments and fills defaults for any omitted parameters. Functions without defaults are unchanged. Arity is checked as a range: `min_required..max_total`. Required parameters after a default parameter is a compile error.
+
 Functions are hoisted to the Go package level during codegen. Inside function bodies, all function names are visible (forward references work). At the top level, function names are only recognized after their `def` line (positional resolution).
 
 ### Lambdas (First-Class Functions)
@@ -275,6 +314,14 @@ puts ops["add"](2, 3)   # 5
 ```
 
 Lambdas compile to Go variadic anonymous functions: `func(_args ...interface{}) interface{} { ... }`. Parameters are unpacked from the variadic args. The last expression in a lambda body is implicitly returned. Closures capture variables by reference, so mutations to captured variables are visible outside the lambda.
+
+Lambdas also support default parameter values, with the same semantics as `def` functions:
+
+```ruby
+transform = fn(x, factor = 2) x * factor end
+puts transform(5)      # 10
+puts transform(5, 3)   # 15
+```
 
 When a variable holding a lambda is called, the codegen emits a runtime type assertion: `variable.(func(...interface{}) interface{})(args...)`. Calling a non-function variable produces a friendly compile error: `cannot call x — not a function`.
 

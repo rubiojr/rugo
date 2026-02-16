@@ -185,7 +185,7 @@ func TestWalkFuncDef(t *testing.T) {
 	if funcDef.Name != "greet" {
 		t.Errorf("name = %q, want %q", funcDef.Name, "greet")
 	}
-	if len(funcDef.Params) != 1 || funcDef.Params[0] != "name" {
+	if len(funcDef.Params) != 1 || funcDef.Params[0].Name != "name" {
 		t.Errorf("params = %v, want [name]", funcDef.Params)
 	}
 	if len(funcDef.Body) != 1 {

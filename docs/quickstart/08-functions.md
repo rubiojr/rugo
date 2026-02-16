@@ -72,5 +72,43 @@ end
 puts factorial(5)   # 120
 ```
 
+## Default Parameter Values
+
+Parameters can have default values. Callers can omit trailing arguments, and the defaults kick in:
+
+```ruby
+def greet(name, greeting = "Hello")
+  puts "#{greeting}, #{name}!"
+end
+
+greet("Alice")            # Hello, Alice!
+greet("Alice", "Hey")     # Hey, Alice!
+```
+
+Multiple defaults and various expressions are supported:
+
+```ruby
+def connect(host, port = 8080, tls = true)
+  puts "#{host}:#{port} tls=#{tls}"
+end
+
+connect("example.com")              # example.com:8080 tls=true
+connect("example.com", 443)         # example.com:443 tls=true
+connect("example.com", 443, false)  # example.com:443 tls=false
+```
+
+All parameters can be optional:
+
+```ruby
+def label(text = "default", color = nil)
+  puts text
+end
+
+label()          # default
+label("hello")   # hello
+```
+
+Required parameters must come before parameters with defaults — mixing them the other way is a compile error.
+
 ---
 Next: [Lambdas](08b-lambdas.md)

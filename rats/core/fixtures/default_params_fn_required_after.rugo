@@ -1,0 +1,4 @@
+# Fixture: lambda with required param after default (invalid)
+f = fn(a = 1, b)
+  a + b
+end

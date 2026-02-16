@@ -32,7 +32,8 @@ SandboxList = '[' ( str_lit | integer ) { ',' ( str_lit | integer ) } ']' .
 FuncDef     = "def" ident '(' [ ParamList ] ')' Body "end" .
 TestDef     = "rats" str_lit Body "end" .
 BenchDef    = "bench" str_lit Body "end" .
-ParamList   = ident { ',' ident } .
+ParamList   = Param { ',' Param } .
+Param       = ident [ '=' Expr ] .
 Body        = { Statement | ';' } .
 IfStmt      = "if" Expr Body { "elsif" Expr Body } [ "else" Body ] "end" .
 WhileStmt   = "while" Expr Body "end" .

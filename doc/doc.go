@@ -317,7 +317,7 @@ func funcDocFromRawLine(lines []string, fn *ast.FuncDef) (name string, params []
 			return n, p, i + 1
 		}
 	}
-	return fn.Name, fn.Params, line
+	return fn.Name, ast.ParamNames(fn.Params), line
 }
 
 // extractFileDoc returns the first comment block before any code or blank line.

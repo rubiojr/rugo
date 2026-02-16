@@ -97,11 +97,47 @@ type SandboxStmt struct {
 func (s *SandboxStmt) node() {}
 func (s *SandboxStmt) stmt() {}
 
+// Param represents a function parameter with an optional default value.
+type Param struct {
+	Name    string
+	Default Expr // nil if no default value
+}
+
+// ParamNames returns just the parameter names from a slice of Params.
+func ParamNames(params []Param) []string {
+	names := make([]string, len(params))
+	for i, p := range params {
+		names[i] = p.Name
+	}
+	return names
+}
+
+// HasDefaults returns true if any param in the list has a default value.
+func HasDefaults(params []Param) bool {
+	for _, p := range params {
+		if p.Default != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// MinArity returns the number of required (non-default) params.
+func MinArity(params []Param) int {
+	count := 0
+	for _, p := range params {
+		if p.Default == nil {
+			count++
+		}
+	}
+	return count
+}
+
 // FuncDef represents def name(params) body end.
 type FuncDef struct {
 	BaseStmt
 	Name      string
-	Params    []string
+	Params    []Param
 	Body      []Statement
 	Namespace string // set during require resolution for namespaced functions
 }
@@ -386,7 +422,7 @@ func (p *ParallelExpr) expr() {}
 
 // FnExpr represents fn(params) body end (first-class lambda).
 type FnExpr struct {
-	Params []string
+	Params []Param
 	Body   []Statement
 }
 

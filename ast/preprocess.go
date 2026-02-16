@@ -178,13 +178,17 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			}
 		}
 
-		// Track def parameters: `def foo(a, b)`
+		// Track def parameters: `def foo(a, b)` or `def foo(a, b = nil)`
 		if firstToken == "def" {
 			if lp := strings.Index(trimmed, "("); lp != -1 {
 				if rp := strings.Index(trimmed[lp:], ")"); rp != -1 {
 					params := trimmed[lp+1 : lp+rp]
 					for _, p := range strings.Split(params, ",") {
 						p = strings.TrimSpace(p)
+						// Strip default value: "b = nil" → "b"
+						if eqIdx := strings.Index(p, "="); eqIdx != -1 {
+							p = strings.TrimSpace(p[:eqIdx])
+						}
 						if isIdent(p) {
 							knownVars[p] = true
 						}
@@ -207,7 +211,7 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			}
 		}
 
-		// Track fn (lambda) parameters: `fn(a, b)`
+		// Track fn (lambda) parameters: `fn(a, b)` or `fn(a, b = nil)`
 		// Look for fn( anywhere on the line (it may appear in arrays, hashes,
 		// function args, etc.) and track all parameter names found.
 		if strings.Contains(trimmed, "fn(") {
@@ -228,6 +232,10 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 					params := trimmed[start : start+rp]
 					for _, p := range strings.Split(params, ",") {
 						p = strings.TrimSpace(p)
+						// Strip default value: "b = nil" → "b"
+						if eqIdx := strings.Index(p, "="); eqIdx != -1 {
+							p = strings.TrimSpace(p[:eqIdx])
+						}
 						if isIdent(p) {
 							knownVars[p] = true
 						}

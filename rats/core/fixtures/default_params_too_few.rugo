@@ -1,0 +1,6 @@
+# Fixture: too few args for function with defaults
+def greet(name, greeting = "Hello")
+  puts "#{greeting}, #{name}"
+end
+
+greet()

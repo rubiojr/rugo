@@ -17,106 +17,112 @@ import (
 
 var _ = unicode.MaxRune
 
+
+
+
+
 // Symbols
 const (
-	RugoTOK_EOF      = Symbol(0)  // EOF
-	RugoTOK_00260026 = Symbol(1)  // "&&"
-	RugoTOK_003d003e = Symbol(2)  // "=>"
-	RugoTOK_as       = Symbol(3)  // "as"
-	RugoTOK_bench    = Symbol(4)  // "bench"
-	RugoTOK_break    = Symbol(5)  // "break"
-	RugoTOK_def      = Symbol(6)  // "def"
-	RugoTOK_else     = Symbol(7)  // "else"
-	RugoTOK_elsif    = Symbol(8)  // "elsif"
-	RugoTOK_end      = Symbol(9)  // "end"
-	RugoTOK_false    = Symbol(10) // "false"
-	RugoTOK_fn       = Symbol(11) // "fn"
-	RugoTOK_for      = Symbol(12) // "for"
-	RugoTOK_if       = Symbol(13) // "if"
-	RugoTOK_import   = Symbol(14) // "import"
-	RugoTOK_in       = Symbol(15) // "in"
-	RugoTOK_next     = Symbol(16) // "next"
-	RugoTOK_nil      = Symbol(17) // "nil"
-	RugoTOK_or       = Symbol(18) // "or"
+	RugoTOK_EOF = Symbol(0) // EOF
+	RugoTOK_00260026 = Symbol(1) // "&&"
+	RugoTOK_003d003e = Symbol(2) // "=>"
+	RugoTOK_as = Symbol(3) // "as"
+	RugoTOK_bench = Symbol(4) // "bench"
+	RugoTOK_break = Symbol(5) // "break"
+	RugoTOK_def = Symbol(6) // "def"
+	RugoTOK_else = Symbol(7) // "else"
+	RugoTOK_elsif = Symbol(8) // "elsif"
+	RugoTOK_end = Symbol(9) // "end"
+	RugoTOK_false = Symbol(10) // "false"
+	RugoTOK_fn = Symbol(11) // "fn"
+	RugoTOK_for = Symbol(12) // "for"
+	RugoTOK_if = Symbol(13) // "if"
+	RugoTOK_import = Symbol(14) // "import"
+	RugoTOK_in = Symbol(15) // "in"
+	RugoTOK_next = Symbol(16) // "next"
+	RugoTOK_nil = Symbol(17) // "nil"
+	RugoTOK_or = Symbol(18) // "or"
 	RugoTOK_parallel = Symbol(19) // "parallel"
-	RugoTOK_rats     = Symbol(20) // "rats"
-	RugoTOK_require  = Symbol(21) // "require"
-	RugoTOK_return   = Symbol(22) // "return"
-	RugoTOK_sandbox  = Symbol(23) // "sandbox"
-	RugoTOK_spawn    = Symbol(24) // "spawn"
-	RugoTOK_true     = Symbol(25) // "true"
-	RugoTOK_try      = Symbol(26) // "try"
-	RugoTOK_use      = Symbol(27) // "use"
-	RugoTOK_while    = Symbol(28) // "while"
-	RugoTOK_with     = Symbol(29) // "with"
+	RugoTOK_rats = Symbol(20) // "rats"
+	RugoTOK_require = Symbol(21) // "require"
+	RugoTOK_return = Symbol(22) // "return"
+	RugoTOK_sandbox = Symbol(23) // "sandbox"
+	RugoTOK_spawn = Symbol(24) // "spawn"
+	RugoTOK_true = Symbol(25) // "true"
+	RugoTOK_try = Symbol(26) // "try"
+	RugoTOK_use = Symbol(27) // "use"
+	RugoTOK_while = Symbol(28) // "while"
+	RugoTOK_with = Symbol(29) // "with"
 	RugoTOK_007c007c = Symbol(30) // "||"
-	RugoTOK_0021     = Symbol(31) // '!'
-	RugoTOK_0025     = Symbol(32) // '%'
-	RugoTOK_0028     = Symbol(33) // '('
-	RugoTOK_0029     = Symbol(34) // ')'
-	RugoTOK_002a     = Symbol(35) // '*'
-	RugoTOK_002b     = Symbol(36) // '+'
-	RugoTOK_002c     = Symbol(37) // ','
-	RugoTOK_002d     = Symbol(38) // '-'
-	RugoTOK_002e     = Symbol(39) // '.'
-	RugoTOK_002f     = Symbol(40) // '/'
-	RugoTOK_003a     = Symbol(41) // ':'
-	RugoTOK_003b     = Symbol(42) // ';'
-	RugoTOK_003d     = Symbol(43) // '='
-	RugoTOK_005b     = Symbol(44) // '['
-	RugoTOK_005d     = Symbol(45) // ']'
-	RugoTOK_007b     = Symbol(46) // '{'
-	RugoTOK_007d     = Symbol(47) // '}'
-	Rugocomp_op      = Symbol(48) // comp_op
-	Rugofloat_lit    = Symbol(49) // float_lit
-	Rugoident        = Symbol(50) // ident
-	Rugointeger      = Symbol(51) // integer
-	Rugoraw_str_lit  = Symbol(52) // raw_str_lit
-	Rugostr_lit      = Symbol(53) // str_lit
-	Rugowhite_space  = Symbol(54) // white_space
-	RugoProgram      = Symbol(55) // Program
-	RugoStatement    = Symbol(56) // Statement
-	RugoUseStmt      = Symbol(57) // UseStmt
-	RugoImportStmt   = Symbol(58) // ImportStmt
-	RugoRequireStmt  = Symbol(59) // RequireStmt
-	RugoSandboxStmt  = Symbol(60) // SandboxStmt
-	RugoSandboxPerm  = Symbol(61) // SandboxPerm
-	RugoSandboxList  = Symbol(62) // SandboxList
-	RugoFuncDef      = Symbol(63) // FuncDef
-	RugoTestDef      = Symbol(64) // TestDef
-	RugoBenchDef     = Symbol(65) // BenchDef
-	RugoParamList    = Symbol(66) // ParamList
-	RugoBody         = Symbol(67) // Body
-	RugoIfStmt       = Symbol(68) // IfStmt
-	RugoWhileStmt    = Symbol(69) // WhileStmt
-	RugoForStmt      = Symbol(70) // ForStmt
-	RugoBreakStmt    = Symbol(71) // BreakStmt
-	RugoNextStmt     = Symbol(72) // NextStmt
-	RugoReturnStmt   = Symbol(73) // ReturnStmt
-	RugoAssignOrExpr = Symbol(74) // AssignOrExpr
-	RugoExpr         = Symbol(75) // Expr
-	RugoOrExpr       = Symbol(76) // OrExpr
-	RugoAndExpr      = Symbol(77) // AndExpr
-	RugoCompExpr     = Symbol(78) // CompExpr
-	RugoAddExpr      = Symbol(79) // AddExpr
-	RugoMulExpr      = Symbol(80) // MulExpr
-	RugoUnaryExpr    = Symbol(81) // UnaryExpr
-	RugoPostfix      = Symbol(82) // Postfix
-	RugoSuffix       = Symbol(83) // Suffix
-	RugoArgList      = Symbol(84) // ArgList
-	RugoPrimary      = Symbol(85) // Primary
-	RugoTryExpr      = Symbol(86) // TryExpr
-	RugoSpawnExpr    = Symbol(87) // SpawnExpr
-	RugoParallelExpr = Symbol(88) // ParallelExpr
-	RugoFnExpr       = Symbol(89) // FnExpr
-	RugoArrayLit     = Symbol(90) // ArrayLit
-	RugoHashLit      = Symbol(91) // HashLit
-	RugoHashEntry    = Symbol(92) // HashEntry
+	RugoTOK_0021 = Symbol(31) // '!'
+	RugoTOK_0025 = Symbol(32) // '%'
+	RugoTOK_0028 = Symbol(33) // '('
+	RugoTOK_0029 = Symbol(34) // ')'
+	RugoTOK_002a = Symbol(35) // '*'
+	RugoTOK_002b = Symbol(36) // '+'
+	RugoTOK_002c = Symbol(37) // ','
+	RugoTOK_002d = Symbol(38) // '-'
+	RugoTOK_002e = Symbol(39) // '.'
+	RugoTOK_002f = Symbol(40) // '/'
+	RugoTOK_003a = Symbol(41) // ':'
+	RugoTOK_003b = Symbol(42) // ';'
+	RugoTOK_003d = Symbol(43) // '='
+	RugoTOK_005b = Symbol(44) // '['
+	RugoTOK_005d = Symbol(45) // ']'
+	RugoTOK_007b = Symbol(46) // '{'
+	RugoTOK_007d = Symbol(47) // '}'
+	Rugocomp_op = Symbol(48) // comp_op
+	Rugofloat_lit = Symbol(49) // float_lit
+	Rugoident = Symbol(50) // ident
+	Rugointeger = Symbol(51) // integer
+	Rugoraw_str_lit = Symbol(52) // raw_str_lit
+	Rugostr_lit = Symbol(53) // str_lit
+	Rugowhite_space = Symbol(54) // white_space
+	RugoProgram = Symbol(55) // Program
+	RugoStatement = Symbol(56) // Statement
+	RugoUseStmt = Symbol(57) // UseStmt
+	RugoImportStmt = Symbol(58) // ImportStmt
+	RugoRequireStmt = Symbol(59) // RequireStmt
+	RugoSandboxStmt = Symbol(60) // SandboxStmt
+	RugoSandboxPerm = Symbol(61) // SandboxPerm
+	RugoSandboxList = Symbol(62) // SandboxList
+	RugoFuncDef = Symbol(63) // FuncDef
+	RugoTestDef = Symbol(64) // TestDef
+	RugoBenchDef = Symbol(65) // BenchDef
+	RugoParamList = Symbol(66) // ParamList
+	RugoParam = Symbol(67) // Param
+	RugoBody = Symbol(68) // Body
+	RugoIfStmt = Symbol(69) // IfStmt
+	RugoWhileStmt = Symbol(70) // WhileStmt
+	RugoForStmt = Symbol(71) // ForStmt
+	RugoBreakStmt = Symbol(72) // BreakStmt
+	RugoNextStmt = Symbol(73) // NextStmt
+	RugoReturnStmt = Symbol(74) // ReturnStmt
+	RugoAssignOrExpr = Symbol(75) // AssignOrExpr
+	RugoExpr = Symbol(76) // Expr
+	RugoOrExpr = Symbol(77) // OrExpr
+	RugoAndExpr = Symbol(78) // AndExpr
+	RugoCompExpr = Symbol(79) // CompExpr
+	RugoAddExpr = Symbol(80) // AddExpr
+	RugoMulExpr = Symbol(81) // MulExpr
+	RugoUnaryExpr = Symbol(82) // UnaryExpr
+	RugoPostfix = Symbol(83) // Postfix
+	RugoSuffix = Symbol(84) // Suffix
+	RugoArgList = Symbol(85) // ArgList
+	RugoPrimary = Symbol(86) // Primary
+	RugoTryExpr = Symbol(87) // TryExpr
+	RugoSpawnExpr = Symbol(88) // SpawnExpr
+	RugoParallelExpr = Symbol(89) // ParallelExpr
+	RugoFnExpr = Symbol(90) // FnExpr
+	RugoArrayLit = Symbol(91) // ArrayLit
+	RugoHashLit = Symbol(92) // HashLit
+	RugoHashEntry = Symbol(93) // HashEntry
 )
 
-const RugoSymbolNames = "EOF\"&&\"\"=>\"\"as\"\"bench\"\"break\"\"def\"\"else\"\"elsif\"\"end\"\"false\"\"fn\"\"for\"\"if\"\"import\"\"in\"\"next\"\"nil\"\"or\"\"parallel\"\"rats\"\"require\"\"return\"\"sandbox\"\"spawn\"\"true\"\"try\"\"use\"\"while\"\"with\"\"||\"'!''%''('')''*''+'',''-''.''/'':'';''=''['']''{''}'comp_opfloat_litidentintegerraw_str_litstr_litwhite_spaceProgramStatementUseStmtImportStmtRequireStmtSandboxStmtSandboxPermSandboxListFuncDefTestDefBenchDefParamListBodyIfStmtWhileStmtForStmtBreakStmtNextStmtReturnStmtAssignOrExprExprOrExprAndExprCompExprAddExprMulExprUnaryExprPostfixSuffixArgListPrimaryTryExprSpawnExprParallelExprFnExprArrayLitHashLitHashEntry"
+const RugoSymbolNames = "EOF\"&&\"\"=>\"\"as\"\"bench\"\"break\"\"def\"\"else\"\"elsif\"\"end\"\"false\"\"fn\"\"for\"\"if\"\"import\"\"in\"\"next\"\"nil\"\"or\"\"parallel\"\"rats\"\"require\"\"return\"\"sandbox\"\"spawn\"\"true\"\"try\"\"use\"\"while\"\"with\"\"||\"'!''%''('')''*''+'',''-''.''/'':'';''=''['']''{''}'comp_opfloat_litidentintegerraw_str_litstr_litwhite_spaceProgramStatementUseStmtImportStmtRequireStmtSandboxStmtSandboxPermSandboxListFuncDefTestDefBenchDefParamListParamBodyIfStmtWhileStmtForStmtBreakStmtNextStmtReturnStmtAssignOrExprExprOrExprAndExprCompExprAddExprMulExprUnaryExprPostfixSuffixArgListPrimaryTryExprSpawnExprParallelExprFnExprArrayLitHashLitHashEntry"
 
-var SymbolIndex = [...]uint16{0, 3, 7, 11, 15, 22, 29, 34, 40, 47, 52, 59, 63, 68, 72, 80, 84, 90, 95, 99, 109, 115, 124, 132, 141, 148, 154, 159, 164, 171, 177, 181, 184, 187, 190, 193, 196, 199, 202, 205, 208, 211, 214, 217, 220, 223, 226, 229, 232, 239, 248, 253, 260, 271, 278, 289, 296, 305, 312, 322, 333, 344, 355, 366, 373, 380, 388, 397, 401, 407, 416, 423, 432, 440, 450, 462, 466, 472, 479, 487, 494, 501, 510, 517, 523, 530, 537, 544, 553, 565, 571, 579, 586, 595}
+var SymbolIndex = [...]uint16{0, 3, 7, 11, 15, 22, 29, 34, 40, 47, 52, 59, 63, 68, 72, 80, 84, 90, 95, 99, 109, 115, 124, 132, 141, 148, 154, 159, 164, 171, 177, 181, 184, 187, 190, 193, 196, 199, 202, 205, 208, 211, 214, 217, 220, 223, 226, 229, 232, 239, 248, 253, 260, 271, 278, 289, 296, 305, 312, 322, 333, 344, 355, 366, 373, 380, 388, 397, 402, 406, 412, 421, 428, 437, 445, 455, 467, 471, 477, 484, 492, 499, 506, 515, 522, 528, 535, 542, 549, 558, 570, 576, 584, 591, 600, }
+
 
 func (s Symbol) String() string {
 	idx := int(s) - 0
@@ -127,88 +133,91 @@ func (s Symbol) String() string {
 }
 
 var errorSets = [...][]Symbol{
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0029, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005d, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007d, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_0028, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_0028, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_0028, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
-	{RugoTOK_fn},
-	{RugoTOK_for},
-	{RugoTOK_if},
-	{RugoTOK_import},
-	{RugoTOK_002c, RugoTOK_in},
-	{RugoTOK_in},
-	{RugoTOK_next},
-	{RugoTOK_or},
-	{RugoTOK_parallel},
-	{RugoTOK_00260026},
-	{RugoTOK_rats},
-	{RugoTOK_require},
-	{RugoTOK_return},
-	{RugoTOK_sandbox},
-	{RugoTOK_spawn},
-	{RugoTOK_try},
-	{RugoTOK_use},
-	{RugoTOK_while},
-	{RugoTOK_003d003e},
-	{RugoTOK_with, RugoTOK_as},
-	{RugoTOK_007c007c},
-	{RugoTOK_002f, RugoTOK_002a, RugoTOK_0025},
-	{RugoTOK_005b, RugoTOK_002e, RugoTOK_0028},
-	{RugoTOK_0028},
-	{Rugoident, RugoTOK_0029},
-	{RugoTOK_0029},
-	{RugoTOK_002d, RugoTOK_002b},
-	{RugoTOK_005d, RugoTOK_002c},
-	{RugoTOK_007d, RugoTOK_002c},
-	{RugoTOK_002c},
-	{RugoTOK_as},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, RugoAssignOrExpr, RugoReturnStmt, RugoNextStmt, RugoBreakStmt, RugoForStmt, RugoWhileStmt, RugoIfStmt, RugoBenchDef, RugoTestDef, RugoFuncDef, RugoSandboxStmt, RugoRequireStmt, RugoImportStmt, RugoUseStmt, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_003b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_while, RugoTOK_use, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_sandbox, RugoTOK_return, RugoTOK_require, RugoTOK_rats, RugoTOK_parallel, RugoTOK_nil, RugoTOK_next, RugoTOK_import, RugoTOK_if, RugoTOK_for, RugoTOK_fn, RugoTOK_false, RugoTOK_def, RugoTOK_break, RugoTOK_bench},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_while, RugoTOK_use, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_sandbox, RugoTOK_return, RugoTOK_require, RugoTOK_rats, RugoTOK_parallel, RugoTOK_nil, RugoTOK_next, RugoTOK_import, RugoTOK_if, RugoTOK_for, RugoTOK_fn, RugoTOK_false, RugoTOK_def, RugoTOK_break, RugoTOK_bench},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, RugoAssignOrExpr, RugoReturnStmt, RugoNextStmt, RugoBreakStmt, RugoForStmt, RugoWhileStmt, RugoIfStmt, RugoBenchDef, RugoTestDef, RugoFuncDef, RugoSandboxStmt, RugoRequireStmt, RugoImportStmt, RugoUseStmt, RugoStatement, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_003b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_while, RugoTOK_use, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_sandbox, RugoTOK_return, RugoTOK_require, RugoTOK_rats, RugoTOK_parallel, RugoTOK_nil, RugoTOK_next, RugoTOK_import, RugoTOK_if, RugoTOK_for, RugoTOK_fn, RugoTOK_false, RugoTOK_end, RugoTOK_elsif, RugoTOK_else, RugoTOK_def, RugoTOK_break, RugoTOK_bench},
-	{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, RugoAssignOrExpr, RugoReturnStmt, RugoNextStmt, RugoBreakStmt, RugoForStmt, RugoWhileStmt, RugoIfStmt, RugoBenchDef, RugoTestDef, RugoFuncDef, RugoSandboxStmt, RugoRequireStmt, RugoImportStmt, RugoUseStmt, RugoStatement, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_003b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_while, RugoTOK_use, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_sandbox, RugoTOK_return, RugoTOK_require, RugoTOK_rats, RugoTOK_parallel, RugoTOK_nil, RugoTOK_next, RugoTOK_import, RugoTOK_if, RugoTOK_for, RugoTOK_fn, RugoTOK_false, RugoTOK_end, RugoTOK_def, RugoTOK_break, RugoTOK_bench},
-	{RugoTOK_003a},
-	{RugoTOK_003d},
-	{Rugostr_lit, Rugointeger, RugoTOK_005b},
-	{RugoTOK_005b},
-	{RugoTOK_005d},
-	{RugoTOK_007b},
-	{Rugocomp_op},
-	{RugoTOK_bench},
-	{Rugostr_lit, Rugoident},
-	{Rugoident},
-	{Rugostr_lit, Rugointeger},
-	{Rugostr_lit},
-	{RugoTOK_break},
-	{RugoTOK_def},
-	{RugoTOK_end, RugoTOK_elsif, RugoTOK_else},
-	{RugoTOK_end},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0029, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005d, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007d, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_0028, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_0028, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_0028, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_parallel, RugoTOK_nil, RugoTOK_fn, RugoTOK_false},
+{RugoTOK_fn},
+{RugoTOK_for},
+{RugoTOK_if},
+{RugoTOK_import},
+{RugoTOK_002c, RugoTOK_in},
+{RugoTOK_in},
+{RugoTOK_next},
+{RugoTOK_or},
+{RugoTOK_parallel},
+{RugoTOK_00260026},
+{RugoTOK_rats},
+{RugoTOK_require},
+{RugoTOK_return},
+{RugoTOK_sandbox},
+{RugoTOK_spawn},
+{RugoTOK_try},
+{RugoTOK_use},
+{RugoTOK_while},
+{RugoTOK_003d003e},
+{RugoTOK_with, RugoTOK_as},
+{RugoTOK_007c007c},
+{RugoTOK_002f, RugoTOK_002a, RugoTOK_0025},
+{RugoTOK_005b, RugoTOK_002e, RugoTOK_0028},
+{RugoTOK_0028},
+{RugoParam, Rugoident, RugoTOK_0029},
+{RugoTOK_0029},
+{RugoTOK_002d, RugoTOK_002b},
+{RugoTOK_005d, RugoTOK_002c},
+{RugoTOK_007d, RugoTOK_002c},
+{RugoTOK_002c},
+{RugoTOK_as},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, RugoAssignOrExpr, RugoReturnStmt, RugoNextStmt, RugoBreakStmt, RugoForStmt, RugoWhileStmt, RugoIfStmt, RugoBenchDef, RugoTestDef, RugoFuncDef, RugoSandboxStmt, RugoRequireStmt, RugoImportStmt, RugoUseStmt, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_003b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_while, RugoTOK_use, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_sandbox, RugoTOK_return, RugoTOK_require, RugoTOK_rats, RugoTOK_parallel, RugoTOK_nil, RugoTOK_next, RugoTOK_import, RugoTOK_if, RugoTOK_for, RugoTOK_fn, RugoTOK_false, RugoTOK_def, RugoTOK_break, RugoTOK_bench},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_while, RugoTOK_use, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_sandbox, RugoTOK_return, RugoTOK_require, RugoTOK_rats, RugoTOK_parallel, RugoTOK_nil, RugoTOK_next, RugoTOK_import, RugoTOK_if, RugoTOK_for, RugoTOK_fn, RugoTOK_false, RugoTOK_def, RugoTOK_break, RugoTOK_bench},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, RugoAssignOrExpr, RugoReturnStmt, RugoNextStmt, RugoBreakStmt, RugoForStmt, RugoWhileStmt, RugoIfStmt, RugoBenchDef, RugoTestDef, RugoFuncDef, RugoSandboxStmt, RugoRequireStmt, RugoImportStmt, RugoUseStmt, RugoStatement, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_003b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_while, RugoTOK_use, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_sandbox, RugoTOK_return, RugoTOK_require, RugoTOK_rats, RugoTOK_parallel, RugoTOK_nil, RugoTOK_next, RugoTOK_import, RugoTOK_if, RugoTOK_for, RugoTOK_fn, RugoTOK_false, RugoTOK_end, RugoTOK_elsif, RugoTOK_else, RugoTOK_def, RugoTOK_break, RugoTOK_bench},
+{RugoHashLit, RugoArrayLit, RugoFnExpr, RugoParallelExpr, RugoSpawnExpr, RugoTryExpr, RugoPrimary, RugoPostfix, RugoUnaryExpr, RugoMulExpr, RugoAddExpr, RugoCompExpr, RugoAndExpr, RugoOrExpr, RugoExpr, RugoAssignOrExpr, RugoReturnStmt, RugoNextStmt, RugoBreakStmt, RugoForStmt, RugoWhileStmt, RugoIfStmt, RugoBenchDef, RugoTestDef, RugoFuncDef, RugoSandboxStmt, RugoRequireStmt, RugoImportStmt, RugoUseStmt, RugoStatement, Rugostr_lit, Rugoraw_str_lit, Rugointeger, Rugoident, Rugofloat_lit, RugoTOK_007b, RugoTOK_005b, RugoTOK_003b, RugoTOK_002d, RugoTOK_0028, RugoTOK_0021, RugoTOK_while, RugoTOK_use, RugoTOK_try, RugoTOK_true, RugoTOK_spawn, RugoTOK_sandbox, RugoTOK_return, RugoTOK_require, RugoTOK_rats, RugoTOK_parallel, RugoTOK_nil, RugoTOK_next, RugoTOK_import, RugoTOK_if, RugoTOK_for, RugoTOK_fn, RugoTOK_false, RugoTOK_end, RugoTOK_def, RugoTOK_break, RugoTOK_bench},
+{RugoTOK_003a},
+{RugoTOK_003d},
+{Rugostr_lit, Rugointeger, RugoTOK_005b},
+{RugoTOK_005b},
+{RugoTOK_005d},
+{RugoTOK_007b},
+{Rugocomp_op},
+{RugoTOK_bench},
+{Rugostr_lit, Rugoident},
+{Rugoident},
+{Rugostr_lit, Rugointeger},
+{Rugostr_lit},
+{RugoTOK_break},
+{RugoTOK_def},
+{RugoTOK_end, RugoTOK_elsif, RugoTOK_else},
+{RugoTOK_end},
 }
 
-type Parser struct {
+
+
+type Parser struct{
 	cache     [][]int32
 	eof       bool
 	errBudget int
-	id        rune // from scanSep, valid if .n != 0
-	n         int  // from scanSep, valid if != 0
+	id        rune  // from scanSep, valid if .n != 0
+	n         int   // from scanSep, valid if != 0
 	off       int
 	sc        *scanner.RecScanner
 	src       []byte
 	tok       scanner.Token // current lookahead
-	tokIndex  int32         // For scanner.Token(tokIndex)
+	tokIndex  int32 // For scanner.Token(tokIndex)
 }
 
 type Symbol int32
+
 
 // scan recognizes longest UTF-8 lexemes. Lower IDs take precedence on same length.
 //
@@ -278,214 +287,74 @@ func (*Parser) scan(s []byte) (id, length int) {
 	_ = r
 	_ = r1
 	_ = width1
-	step := func(pos int) (r rune, n int) {
-		if pos < len(s) {
-			c := s[pos]
-			if c < utf8.RuneSelf {
-				return rune(c), 1
-			}
-			return utf8.DecodeRune(s[pos:])
-		}
-		return endOfText, 0
-	}
-	move := func() {
-		pos += width
-		if r, width = r1, width1; r != endOfText {
-			r1, width1 = step(pos + width)
-		}
-	}
-	accept := func(x rune) bool {
-		if r == x {
-			move()
-			return true
-		}
-		return false
-	}
-	_ = accept
-	accept2 := func(x rune) bool {
-		if r <= x {
-			move()
-			return true
-		}
-		return false
-	}
-	_ = accept2
+	step := func(pos int) (r rune, n int) { if pos < len(s) { c := s[pos]; if c < utf8.RuneSelf { return rune(c), 1 }; return utf8.DecodeRune(s[pos:]) }; return endOfText, 0 }
+	move := func() { pos += width; if r, width = r1, width1; r != endOfText { 	r1, width1 = step(pos+width); }; }
+	accept := func(x rune) bool { if r == x { move(); return true }; return false }
+_ = accept
+	accept2 := func(x rune) bool { if r <= x { move(); return true }; return false }
+_ = accept2
 	r, r1 = endOfText, endOfText
 	width, width1 = 0, 0
-	r, width = step(pos)
-	if r != endOfText {
-		r1, width1 = step(pos + width)
-	}
-	if accept('\t') {
-		goto l89
-	}
-	if accept('\n') {
-		goto l91
-	}
-	if accept('\r') {
-		goto l93
-	}
-	if accept(' ') {
-		goto l95
-	}
-	if accept('!') {
-		goto l97
-	}
-	if accept('"') {
-		goto l103
-	}
-	if accept('%') {
-		goto l129
-	}
-	if accept('&') {
-		goto l131
-	}
-	if accept('\'') {
-		goto l136
-	}
-	if accept('(') {
-		goto l162
-	}
-	if accept(')') {
-		goto l164
-	}
-	if accept('*') {
-		goto l166
-	}
-	if accept('+') {
-		goto l168
-	}
-	if accept(',') {
-		goto l170
-	}
-	if accept('-') {
-		goto l172
-	}
-	if accept('.') {
-		goto l174
-	}
-	if accept('/') {
-		goto l176
-	}
-	if accept(':') {
-		goto l191
-	}
-	if accept(';') {
-		goto l193
-	}
-	if accept('<') {
-		goto l195
-	}
-	if accept('=') {
-		goto l201
-	}
-	if accept('>') {
-		goto l211
-	}
-	if accept('[') {
-		goto l225
-	}
-	if accept(']') {
-		goto l227
-	}
-	if accept('a') {
-		goto l229
-	}
-	if accept('b') {
-		goto l239
-	}
-	if accept('d') {
-		goto l291
-	}
-	if accept('e') {
-		goto l307
-	}
-	if accept('f') {
-		goto l353
-	}
-	if accept('i') {
-		goto l399
-	}
-	if accept('n') {
-		goto l445
-	}
-	if accept('o') {
-		goto l479
-	}
-	if accept('p') {
-		goto l489
-	}
-	if accept('r') {
-		goto l535
-	}
-	if accept('s') {
-		goto l617
-	}
-	if accept('t') {
-		goto l681
-	}
-	if accept('u') {
-		goto l709
-	}
-	if accept('w') {
-		goto l725
-	}
-	if accept('{') {
-		goto l771
-	}
-	if accept('|') {
-		goto l773
-	}
-	if accept('}') {
-		goto l778
-	}
-	if r < '0' {
-		goto l82out
-	}
-	if accept2('9') {
-		goto l178
-	}
+	r, width = step(pos);	if r != endOfText {
+		r1, width1 = step(pos+width); }
+	if accept('\t') { goto l89 }
+	if accept('\n') { goto l91 }
+	if accept('\r') { goto l93 }
+	if accept(' ') { goto l95 }
+	if accept('!') { goto l97 }
+	if accept('"') { goto l103 }
+	if accept('%') { goto l129 }
+	if accept('&') { goto l131 }
+	if accept('\'') { goto l136 }
+	if accept('(') { goto l162 }
+	if accept(')') { goto l164 }
+	if accept('*') { goto l166 }
+	if accept('+') { goto l168 }
+	if accept(',') { goto l170 }
+	if accept('-') { goto l172 }
+	if accept('.') { goto l174 }
+	if accept('/') { goto l176 }
+	if accept(':') { goto l191 }
+	if accept(';') { goto l193 }
+	if accept('<') { goto l195 }
+	if accept('=') { goto l201 }
+	if accept('>') { goto l211 }
+	if accept('[') { goto l225 }
+	if accept(']') { goto l227 }
+	if accept('a') { goto l229 }
+	if accept('b') { goto l239 }
+	if accept('d') { goto l291 }
+	if accept('e') { goto l307 }
+	if accept('f') { goto l353 }
+	if accept('i') { goto l399 }
+	if accept('n') { goto l445 }
+	if accept('o') { goto l479 }
+	if accept('p') { goto l489 }
+	if accept('r') { goto l535 }
+	if accept('s') { goto l617 }
+	if accept('t') { goto l681 }
+	if accept('u') { goto l709 }
+	if accept('w') { goto l725 }
+	if accept('{') { goto l771 }
+	if accept('|') { goto l773 }
+	if accept('}') { goto l778 }
+	if r < '0' { goto l82out }
+	if accept2('9') { goto l178 }
 l82out:
-	if r < 'A' {
-		goto l84out
-	}
-	if accept2('Z') {
-		goto l217
-	}
-	if accept('_') {
-		goto l217
-	}
-	if accept('c') {
-		goto l217
-	}
-	if r < 'g' {
-		goto l84out
-	}
-	if accept2('h') {
-		goto l217
-	}
-	if r < 'j' {
-		goto l84out
-	}
-	if accept2('m') {
-		goto l217
-	}
-	if accept('q') {
-		goto l217
-	}
-	if accept('v') {
-		goto l217
-	}
-	if r < 'x' {
-		goto l84out
-	}
-	if accept2('z') {
-		goto l217
-	}
+	if r < 'A' { goto l84out }
+	if accept2('Z') { goto l217 }
+	if accept('_') { goto l217 }
+	if accept('c') { goto l217 }
+	if r < 'g' { goto l84out }
+	if accept2('h') { goto l217 }
+	if r < 'j' { goto l84out }
+	if accept2('m') { goto l217 }
+	if accept('q') { goto l217 }
+	if accept('v') { goto l217 }
+	if r < 'x' { goto l84out }
+	if accept2('z') { goto l217 }
 l84out:
-	if r == endOfText {
-		goto l780
-	}
+	if r == endOfText { goto l780 }
 	return id, length
 l89:
 	id, length = 54, pos
@@ -501,196 +370,96 @@ l95:
 	return id, length
 l97:
 	id, length = 31, pos
-	if accept('=') {
-		goto l101
-	}
+	if accept('=') { goto l101 }
 	return id, length
 l101:
 	id, length = 48, pos
 	return id, length
 l103:
-	if accept('"') {
-		goto l110
-	}
-	if accept('\\') {
-		goto l112
-	}
-	if accept2('!') {
-		goto l122
-	}
-	if r < '#' {
-		goto l107out
-	}
-	if accept2('[') {
-		goto l122
-	}
-	if r < ']' {
-		goto l107out
-	}
-	if accept2('\U0010ffff') {
-		goto l122
-	}
+	if accept('"') { goto l110 }
+	if accept('\\') { goto l112 }
+	if accept2('!') { goto l122 }
+	if r < '#' { goto l107out }
+	if accept2('[') { goto l122 }
+	if r < ']' { goto l107out }
+	if accept2('\U0010ffff') { goto l122 }
 l107out:
 	return id, length
 l110:
 	id, length = 53, pos
 	return id, length
 l112:
-	if accept2('\t') {
-		goto l115
-	}
-	if r < '\v' {
-		goto l112out
-	}
-	if accept2('\U0010ffff') {
-		goto l115
-	}
+	if accept2('\t') { goto l115 }
+	if r < '\v' { goto l112out }
+	if accept2('\U0010ffff') { goto l115 }
 l112out:
 	return id, length
 l115:
-	if accept('"') {
-		goto l110
-	}
-	if accept('\\') {
-		goto l112
-	}
-	if accept2('!') {
-		goto l122
-	}
-	if r < '#' {
-		goto l119out
-	}
-	if accept2('[') {
-		goto l122
-	}
-	if r < ']' {
-		goto l119out
-	}
-	if accept2('\U0010ffff') {
-		goto l122
-	}
+	if accept('"') { goto l110 }
+	if accept('\\') { goto l112 }
+	if accept2('!') { goto l122 }
+	if r < '#' { goto l119out }
+	if accept2('[') { goto l122 }
+	if r < ']' { goto l119out }
+	if accept2('\U0010ffff') { goto l122 }
 l119out:
 	return id, length
 l122:
-	if accept('"') {
-		goto l110
-	}
-	if accept('\\') {
-		goto l112
-	}
-	if accept2('!') {
-		goto l122
-	}
-	if r < '#' {
-		goto l126out
-	}
-	if accept2('[') {
-		goto l122
-	}
-	if r < ']' {
-		goto l126out
-	}
-	if accept2('\U0010ffff') {
-		goto l122
-	}
+	if accept('"') { goto l110 }
+	if accept('\\') { goto l112 }
+	if accept2('!') { goto l122 }
+	if r < '#' { goto l126out }
+	if accept2('[') { goto l122 }
+	if r < ']' { goto l126out }
+	if accept2('\U0010ffff') { goto l122 }
 l126out:
 	return id, length
 l129:
 	id, length = 32, pos
 	return id, length
 l131:
-	if accept('&') {
-		goto l134
-	}
+	if accept('&') { goto l134 }
 	return id, length
 l134:
 	id, length = 1, pos
 	return id, length
 l136:
-	if accept('\'') {
-		goto l143
-	}
-	if accept('\\') {
-		goto l145
-	}
-	if accept2('&') {
-		goto l155
-	}
-	if r < '(' {
-		goto l140out
-	}
-	if accept2('[') {
-		goto l155
-	}
-	if r < ']' {
-		goto l140out
-	}
-	if accept2('\U0010ffff') {
-		goto l155
-	}
+	if accept('\'') { goto l143 }
+	if accept('\\') { goto l145 }
+	if accept2('&') { goto l155 }
+	if r < '(' { goto l140out }
+	if accept2('[') { goto l155 }
+	if r < ']' { goto l140out }
+	if accept2('\U0010ffff') { goto l155 }
 l140out:
 	return id, length
 l143:
 	id, length = 52, pos
 	return id, length
 l145:
-	if accept2('\t') {
-		goto l148
-	}
-	if r < '\v' {
-		goto l145out
-	}
-	if accept2('\U0010ffff') {
-		goto l148
-	}
+	if accept2('\t') { goto l148 }
+	if r < '\v' { goto l145out }
+	if accept2('\U0010ffff') { goto l148 }
 l145out:
 	return id, length
 l148:
-	if accept('\'') {
-		goto l143
-	}
-	if accept('\\') {
-		goto l145
-	}
-	if accept2('&') {
-		goto l155
-	}
-	if r < '(' {
-		goto l152out
-	}
-	if accept2('[') {
-		goto l155
-	}
-	if r < ']' {
-		goto l152out
-	}
-	if accept2('\U0010ffff') {
-		goto l155
-	}
+	if accept('\'') { goto l143 }
+	if accept('\\') { goto l145 }
+	if accept2('&') { goto l155 }
+	if r < '(' { goto l152out }
+	if accept2('[') { goto l155 }
+	if r < ']' { goto l152out }
+	if accept2('\U0010ffff') { goto l155 }
 l152out:
 	return id, length
 l155:
-	if accept('\'') {
-		goto l143
-	}
-	if accept('\\') {
-		goto l145
-	}
-	if accept2('&') {
-		goto l155
-	}
-	if r < '(' {
-		goto l159out
-	}
-	if accept2('[') {
-		goto l155
-	}
-	if r < ']' {
-		goto l159out
-	}
-	if accept2('\U0010ffff') {
-		goto l155
-	}
+	if accept('\'') { goto l143 }
+	if accept('\\') { goto l145 }
+	if accept2('&') { goto l155 }
+	if r < '(' { goto l159out }
+	if accept2('[') { goto l155 }
+	if r < ']' { goto l159out }
+	if accept2('\U0010ffff') { goto l155 }
 l159out:
 	return id, length
 l162:
@@ -719,34 +488,20 @@ l176:
 	return id, length
 l178:
 	id, length = 51, pos
-	if accept('.') {
-		goto l184
-	}
-	if r < '0' {
-		goto l181out
-	}
-	if accept2('9') {
-		goto l178
-	}
+	if accept('.') { goto l184 }
+	if r < '0' { goto l181out }
+	if accept2('9') { goto l178 }
 l181out:
 	return id, length
 l184:
-	if r < '0' {
-		goto l184out
-	}
-	if accept2('9') {
-		goto l187
-	}
+	if r < '0' { goto l184out }
+	if accept2('9') { goto l187 }
 l184out:
 	return id, length
 l187:
 	id, length = 49, pos
-	if r < '0' {
-		goto l188out
-	}
-	if accept2('9') {
-		goto l187
-	}
+	if r < '0' { goto l188out }
+	if accept2('9') { goto l187 }
 l188out:
 	return id, length
 l191:
@@ -757,21 +512,15 @@ l193:
 	return id, length
 l195:
 	id, length = 48, pos
-	if accept('=') {
-		goto l199
-	}
+	if accept('=') { goto l199 }
 	return id, length
 l199:
 	id, length = 48, pos
 	return id, length
 l201:
 	id, length = 43, pos
-	if accept('=') {
-		goto l207
-	}
-	if accept('>') {
-		goto l209
-	}
+	if accept('=') { goto l207 }
+	if accept('>') { goto l209 }
 	return id, length
 l207:
 	id, length = 48, pos
@@ -781,61 +530,31 @@ l209:
 	return id, length
 l211:
 	id, length = 48, pos
-	if accept('=') {
-		goto l215
-	}
+	if accept('=') { goto l215 }
 	return id, length
 l215:
 	id, length = 48, pos
 	return id, length
 l217:
 	id, length = 50, pos
-	if r < '0' {
-		goto l218out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l218out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l218out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l218out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l218out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l218out }
+	if accept2('z') { goto l221 }
 l218out:
 	return id, length
 l221:
 	id, length = 50, pos
-	if r < '0' {
-		goto l222out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l222out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l222out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l222out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l222out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l222out }
+	if accept2('z') { goto l221 }
 l222out:
 	return id, length
 l225:
@@ -846,3046 +565,1274 @@ l227:
 	return id, length
 l229:
 	id, length = 50, pos
-	if accept('s') {
-		goto l235
-	}
-	if r < '0' {
-		goto l232out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l232out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l232out
-	}
-	if accept2('r') {
-		goto l221
-	}
-	if r < 't' {
-		goto l232out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('s') { goto l235 }
+	if r < '0' { goto l232out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l232out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l232out }
+	if accept2('r') { goto l221 }
+	if r < 't' { goto l232out }
+	if accept2('z') { goto l221 }
 l232out:
 	return id, length
 l235:
 	id, length = 3, pos
-	if r < '0' {
-		goto l236out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l236out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l236out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l236out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l236out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l236out }
+	if accept2('z') { goto l221 }
 l236out:
 	return id, length
 l239:
 	id, length = 50, pos
-	if accept('e') {
-		goto l247
-	}
-	if accept('r') {
-		goto l269
-	}
-	if r < '0' {
-		goto l244out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l244out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l244out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l244out
-	}
-	if accept2('q') {
-		goto l221
-	}
-	if r < 's' {
-		goto l244out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l247 }
+	if accept('r') { goto l269 }
+	if r < '0' { goto l244out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l244out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l244out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l244out }
+	if accept2('q') { goto l221 }
+	if r < 's' { goto l244out }
+	if accept2('z') { goto l221 }
 l244out:
 	return id, length
 l247:
 	id, length = 50, pos
-	if accept('n') {
-		goto l253
-	}
-	if r < '0' {
-		goto l250out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l250out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l250out
-	}
-	if accept2('m') {
-		goto l221
-	}
-	if r < 'o' {
-		goto l250out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('n') { goto l253 }
+	if r < '0' { goto l250out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l250out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l250out }
+	if accept2('m') { goto l221 }
+	if r < 'o' { goto l250out }
+	if accept2('z') { goto l221 }
 l250out:
 	return id, length
 l253:
 	id, length = 50, pos
-	if accept('c') {
-		goto l259
-	}
-	if r < '0' {
-		goto l256out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l256out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l256out
-	}
-	if accept2('b') {
-		goto l221
-	}
-	if r < 'd' {
-		goto l256out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('c') { goto l259 }
+	if r < '0' { goto l256out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l256out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l256out }
+	if accept2('b') { goto l221 }
+	if r < 'd' { goto l256out }
+	if accept2('z') { goto l221 }
 l256out:
 	return id, length
 l259:
 	id, length = 50, pos
-	if accept('h') {
-		goto l265
-	}
-	if r < '0' {
-		goto l262out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l262out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l262out
-	}
-	if accept2('g') {
-		goto l221
-	}
-	if r < 'i' {
-		goto l262out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('h') { goto l265 }
+	if r < '0' { goto l262out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l262out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l262out }
+	if accept2('g') { goto l221 }
+	if r < 'i' { goto l262out }
+	if accept2('z') { goto l221 }
 l262out:
 	return id, length
 l265:
 	id, length = 4, pos
-	if r < '0' {
-		goto l266out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l266out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l266out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l266out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l266out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l266out }
+	if accept2('z') { goto l221 }
 l266out:
 	return id, length
 l269:
 	id, length = 50, pos
-	if accept('e') {
-		goto l275
-	}
-	if r < '0' {
-		goto l272out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l272out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l272out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l272out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l275 }
+	if r < '0' { goto l272out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l272out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l272out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l272out }
+	if accept2('z') { goto l221 }
 l272out:
 	return id, length
 l275:
 	id, length = 50, pos
-	if accept('a') {
-		goto l281
-	}
-	if r < '0' {
-		goto l278out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l278out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'b' {
-		goto l278out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('a') { goto l281 }
+	if r < '0' { goto l278out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l278out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'b' { goto l278out }
+	if accept2('z') { goto l221 }
 l278out:
 	return id, length
 l281:
 	id, length = 50, pos
-	if accept('k') {
-		goto l287
-	}
-	if r < '0' {
-		goto l284out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l284out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l284out
-	}
-	if accept2('j') {
-		goto l221
-	}
-	if r < 'l' {
-		goto l284out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('k') { goto l287 }
+	if r < '0' { goto l284out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l284out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l284out }
+	if accept2('j') { goto l221 }
+	if r < 'l' { goto l284out }
+	if accept2('z') { goto l221 }
 l284out:
 	return id, length
 l287:
 	id, length = 5, pos
-	if r < '0' {
-		goto l288out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l288out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l288out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l288out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l288out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l288out }
+	if accept2('z') { goto l221 }
 l288out:
 	return id, length
 l291:
 	id, length = 50, pos
-	if accept('e') {
-		goto l297
-	}
-	if r < '0' {
-		goto l294out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l294out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l294out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l294out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l297 }
+	if r < '0' { goto l294out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l294out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l294out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l294out }
+	if accept2('z') { goto l221 }
 l294out:
 	return id, length
 l297:
 	id, length = 50, pos
-	if accept('f') {
-		goto l303
-	}
-	if r < '0' {
-		goto l300out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l300out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l300out
-	}
-	if accept2('e') {
-		goto l221
-	}
-	if r < 'g' {
-		goto l300out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('f') { goto l303 }
+	if r < '0' { goto l300out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l300out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l300out }
+	if accept2('e') { goto l221 }
+	if r < 'g' { goto l300out }
+	if accept2('z') { goto l221 }
 l300out:
 	return id, length
 l303:
 	id, length = 6, pos
-	if r < '0' {
-		goto l304out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l304out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l304out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l304out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l304out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l304out }
+	if accept2('z') { goto l221 }
 l304out:
 	return id, length
 l307:
 	id, length = 50, pos
-	if accept('l') {
-		goto l315
-	}
-	if accept('n') {
-		goto l343
-	}
-	if r < '0' {
-		goto l312out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l312out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l312out
-	}
-	if accept2('k') {
-		goto l221
-	}
-	if accept('m') {
-		goto l221
-	}
-	if r < 'o' {
-		goto l312out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('l') { goto l315 }
+	if accept('n') { goto l343 }
+	if r < '0' { goto l312out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l312out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l312out }
+	if accept2('k') { goto l221 }
+	if accept('m') { goto l221 }
+	if r < 'o' { goto l312out }
+	if accept2('z') { goto l221 }
 l312out:
 	return id, length
 l315:
 	id, length = 50, pos
-	if accept('s') {
-		goto l321
-	}
-	if r < '0' {
-		goto l318out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l318out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l318out
-	}
-	if accept2('r') {
-		goto l221
-	}
-	if r < 't' {
-		goto l318out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('s') { goto l321 }
+	if r < '0' { goto l318out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l318out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l318out }
+	if accept2('r') { goto l221 }
+	if r < 't' { goto l318out }
+	if accept2('z') { goto l221 }
 l318out:
 	return id, length
 l321:
 	id, length = 50, pos
-	if accept('e') {
-		goto l329
-	}
-	if accept('i') {
-		goto l333
-	}
-	if r < '0' {
-		goto l326out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l326out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l326out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l326out
-	}
-	if accept2('h') {
-		goto l221
-	}
-	if r < 'j' {
-		goto l326out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l329 }
+	if accept('i') { goto l333 }
+	if r < '0' { goto l326out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l326out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l326out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l326out }
+	if accept2('h') { goto l221 }
+	if r < 'j' { goto l326out }
+	if accept2('z') { goto l221 }
 l326out:
 	return id, length
 l329:
 	id, length = 7, pos
-	if r < '0' {
-		goto l330out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l330out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l330out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l330out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l330out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l330out }
+	if accept2('z') { goto l221 }
 l330out:
 	return id, length
 l333:
 	id, length = 50, pos
-	if accept('f') {
-		goto l339
-	}
-	if r < '0' {
-		goto l336out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l336out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l336out
-	}
-	if accept2('e') {
-		goto l221
-	}
-	if r < 'g' {
-		goto l336out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('f') { goto l339 }
+	if r < '0' { goto l336out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l336out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l336out }
+	if accept2('e') { goto l221 }
+	if r < 'g' { goto l336out }
+	if accept2('z') { goto l221 }
 l336out:
 	return id, length
 l339:
 	id, length = 8, pos
-	if r < '0' {
-		goto l340out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l340out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l340out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l340out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l340out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l340out }
+	if accept2('z') { goto l221 }
 l340out:
 	return id, length
 l343:
 	id, length = 50, pos
-	if accept('d') {
-		goto l349
-	}
-	if r < '0' {
-		goto l346out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l346out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l346out
-	}
-	if accept2('c') {
-		goto l221
-	}
-	if r < 'e' {
-		goto l346out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('d') { goto l349 }
+	if r < '0' { goto l346out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l346out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l346out }
+	if accept2('c') { goto l221 }
+	if r < 'e' { goto l346out }
+	if accept2('z') { goto l221 }
 l346out:
 	return id, length
 l349:
 	id, length = 9, pos
-	if r < '0' {
-		goto l350out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l350out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l350out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l350out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l350out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l350out }
+	if accept2('z') { goto l221 }
 l350out:
 	return id, length
 l353:
 	id, length = 50, pos
-	if accept('a') {
-		goto l363
-	}
-	if accept('n') {
-		goto l385
-	}
-	if accept('o') {
-		goto l389
-	}
-	if r < '0' {
-		goto l360out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l360out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'b' {
-		goto l360out
-	}
-	if accept2('m') {
-		goto l221
-	}
-	if r < 'p' {
-		goto l360out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('a') { goto l363 }
+	if accept('n') { goto l385 }
+	if accept('o') { goto l389 }
+	if r < '0' { goto l360out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l360out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'b' { goto l360out }
+	if accept2('m') { goto l221 }
+	if r < 'p' { goto l360out }
+	if accept2('z') { goto l221 }
 l360out:
 	return id, length
 l363:
 	id, length = 50, pos
-	if accept('l') {
-		goto l369
-	}
-	if r < '0' {
-		goto l366out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l366out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l366out
-	}
-	if accept2('k') {
-		goto l221
-	}
-	if r < 'm' {
-		goto l366out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('l') { goto l369 }
+	if r < '0' { goto l366out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l366out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l366out }
+	if accept2('k') { goto l221 }
+	if r < 'm' { goto l366out }
+	if accept2('z') { goto l221 }
 l366out:
 	return id, length
 l369:
 	id, length = 50, pos
-	if accept('s') {
-		goto l375
-	}
-	if r < '0' {
-		goto l372out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l372out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l372out
-	}
-	if accept2('r') {
-		goto l221
-	}
-	if r < 't' {
-		goto l372out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('s') { goto l375 }
+	if r < '0' { goto l372out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l372out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l372out }
+	if accept2('r') { goto l221 }
+	if r < 't' { goto l372out }
+	if accept2('z') { goto l221 }
 l372out:
 	return id, length
 l375:
 	id, length = 50, pos
-	if accept('e') {
-		goto l381
-	}
-	if r < '0' {
-		goto l378out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l378out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l378out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l378out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l381 }
+	if r < '0' { goto l378out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l378out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l378out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l378out }
+	if accept2('z') { goto l221 }
 l378out:
 	return id, length
 l381:
 	id, length = 10, pos
-	if r < '0' {
-		goto l382out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l382out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l382out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l382out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l382out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l382out }
+	if accept2('z') { goto l221 }
 l382out:
 	return id, length
 l385:
 	id, length = 11, pos
-	if r < '0' {
-		goto l386out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l386out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l386out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l386out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l386out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l386out }
+	if accept2('z') { goto l221 }
 l386out:
 	return id, length
 l389:
 	id, length = 50, pos
-	if accept('r') {
-		goto l395
-	}
-	if r < '0' {
-		goto l392out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l392out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l392out
-	}
-	if accept2('q') {
-		goto l221
-	}
-	if r < 's' {
-		goto l392out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('r') { goto l395 }
+	if r < '0' { goto l392out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l392out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l392out }
+	if accept2('q') { goto l221 }
+	if r < 's' { goto l392out }
+	if accept2('z') { goto l221 }
 l392out:
 	return id, length
 l395:
 	id, length = 12, pos
-	if r < '0' {
-		goto l396out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l396out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l396out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l396out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l396out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l396out }
+	if accept2('z') { goto l221 }
 l396out:
 	return id, length
 l399:
 	id, length = 50, pos
-	if accept('f') {
-		goto l409
-	}
-	if accept('m') {
-		goto l413
-	}
-	if accept('n') {
-		goto l441
-	}
-	if r < '0' {
-		goto l406out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l406out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l406out
-	}
-	if accept2('e') {
-		goto l221
-	}
-	if r < 'g' {
-		goto l406out
-	}
-	if accept2('l') {
-		goto l221
-	}
-	if r < 'o' {
-		goto l406out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('f') { goto l409 }
+	if accept('m') { goto l413 }
+	if accept('n') { goto l441 }
+	if r < '0' { goto l406out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l406out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l406out }
+	if accept2('e') { goto l221 }
+	if r < 'g' { goto l406out }
+	if accept2('l') { goto l221 }
+	if r < 'o' { goto l406out }
+	if accept2('z') { goto l221 }
 l406out:
 	return id, length
 l409:
 	id, length = 13, pos
-	if r < '0' {
-		goto l410out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l410out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l410out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l410out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l410out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l410out }
+	if accept2('z') { goto l221 }
 l410out:
 	return id, length
 l413:
 	id, length = 50, pos
-	if accept('p') {
-		goto l419
-	}
-	if r < '0' {
-		goto l416out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l416out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l416out
-	}
-	if accept2('o') {
-		goto l221
-	}
-	if r < 'q' {
-		goto l416out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('p') { goto l419 }
+	if r < '0' { goto l416out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l416out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l416out }
+	if accept2('o') { goto l221 }
+	if r < 'q' { goto l416out }
+	if accept2('z') { goto l221 }
 l416out:
 	return id, length
 l419:
 	id, length = 50, pos
-	if accept('o') {
-		goto l425
-	}
-	if r < '0' {
-		goto l422out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l422out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l422out
-	}
-	if accept2('n') {
-		goto l221
-	}
-	if r < 'p' {
-		goto l422out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('o') { goto l425 }
+	if r < '0' { goto l422out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l422out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l422out }
+	if accept2('n') { goto l221 }
+	if r < 'p' { goto l422out }
+	if accept2('z') { goto l221 }
 l422out:
 	return id, length
 l425:
 	id, length = 50, pos
-	if accept('r') {
-		goto l431
-	}
-	if r < '0' {
-		goto l428out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l428out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l428out
-	}
-	if accept2('q') {
-		goto l221
-	}
-	if r < 's' {
-		goto l428out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('r') { goto l431 }
+	if r < '0' { goto l428out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l428out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l428out }
+	if accept2('q') { goto l221 }
+	if r < 's' { goto l428out }
+	if accept2('z') { goto l221 }
 l428out:
 	return id, length
 l431:
 	id, length = 50, pos
-	if accept('t') {
-		goto l437
-	}
-	if r < '0' {
-		goto l434out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l434out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l434out
-	}
-	if accept2('s') {
-		goto l221
-	}
-	if r < 'u' {
-		goto l434out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('t') { goto l437 }
+	if r < '0' { goto l434out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l434out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l434out }
+	if accept2('s') { goto l221 }
+	if r < 'u' { goto l434out }
+	if accept2('z') { goto l221 }
 l434out:
 	return id, length
 l437:
 	id, length = 14, pos
-	if r < '0' {
-		goto l438out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l438out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l438out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l438out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l438out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l438out }
+	if accept2('z') { goto l221 }
 l438out:
 	return id, length
 l441:
 	id, length = 15, pos
-	if r < '0' {
-		goto l442out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l442out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l442out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l442out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l442out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l442out }
+	if accept2('z') { goto l221 }
 l442out:
 	return id, length
 l445:
 	id, length = 50, pos
-	if accept('e') {
-		goto l453
-	}
-	if accept('i') {
-		goto l469
-	}
-	if r < '0' {
-		goto l450out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l450out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l450out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l450out
-	}
-	if accept2('h') {
-		goto l221
-	}
-	if r < 'j' {
-		goto l450out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l453 }
+	if accept('i') { goto l469 }
+	if r < '0' { goto l450out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l450out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l450out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l450out }
+	if accept2('h') { goto l221 }
+	if r < 'j' { goto l450out }
+	if accept2('z') { goto l221 }
 l450out:
 	return id, length
 l453:
 	id, length = 50, pos
-	if accept('x') {
-		goto l459
-	}
-	if r < '0' {
-		goto l456out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l456out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l456out
-	}
-	if accept2('w') {
-		goto l221
-	}
-	if r < 'y' {
-		goto l456out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('x') { goto l459 }
+	if r < '0' { goto l456out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l456out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l456out }
+	if accept2('w') { goto l221 }
+	if r < 'y' { goto l456out }
+	if accept2('z') { goto l221 }
 l456out:
 	return id, length
 l459:
 	id, length = 50, pos
-	if accept('t') {
-		goto l465
-	}
-	if r < '0' {
-		goto l462out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l462out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l462out
-	}
-	if accept2('s') {
-		goto l221
-	}
-	if r < 'u' {
-		goto l462out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('t') { goto l465 }
+	if r < '0' { goto l462out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l462out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l462out }
+	if accept2('s') { goto l221 }
+	if r < 'u' { goto l462out }
+	if accept2('z') { goto l221 }
 l462out:
 	return id, length
 l465:
 	id, length = 16, pos
-	if r < '0' {
-		goto l466out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l466out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l466out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l466out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l466out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l466out }
+	if accept2('z') { goto l221 }
 l466out:
 	return id, length
 l469:
 	id, length = 50, pos
-	if accept('l') {
-		goto l475
-	}
-	if r < '0' {
-		goto l472out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l472out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l472out
-	}
-	if accept2('k') {
-		goto l221
-	}
-	if r < 'm' {
-		goto l472out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('l') { goto l475 }
+	if r < '0' { goto l472out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l472out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l472out }
+	if accept2('k') { goto l221 }
+	if r < 'm' { goto l472out }
+	if accept2('z') { goto l221 }
 l472out:
 	return id, length
 l475:
 	id, length = 17, pos
-	if r < '0' {
-		goto l476out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l476out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l476out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l476out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l476out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l476out }
+	if accept2('z') { goto l221 }
 l476out:
 	return id, length
 l479:
 	id, length = 50, pos
-	if accept('r') {
-		goto l485
-	}
-	if r < '0' {
-		goto l482out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l482out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l482out
-	}
-	if accept2('q') {
-		goto l221
-	}
-	if r < 's' {
-		goto l482out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('r') { goto l485 }
+	if r < '0' { goto l482out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l482out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l482out }
+	if accept2('q') { goto l221 }
+	if r < 's' { goto l482out }
+	if accept2('z') { goto l221 }
 l482out:
 	return id, length
 l485:
 	id, length = 18, pos
-	if r < '0' {
-		goto l486out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l486out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l486out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l486out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l486out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l486out }
+	if accept2('z') { goto l221 }
 l486out:
 	return id, length
 l489:
 	id, length = 50, pos
-	if accept('a') {
-		goto l495
-	}
-	if r < '0' {
-		goto l492out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l492out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'b' {
-		goto l492out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('a') { goto l495 }
+	if r < '0' { goto l492out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l492out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'b' { goto l492out }
+	if accept2('z') { goto l221 }
 l492out:
 	return id, length
 l495:
 	id, length = 50, pos
-	if accept('r') {
-		goto l501
-	}
-	if r < '0' {
-		goto l498out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l498out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l498out
-	}
-	if accept2('q') {
-		goto l221
-	}
-	if r < 's' {
-		goto l498out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('r') { goto l501 }
+	if r < '0' { goto l498out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l498out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l498out }
+	if accept2('q') { goto l221 }
+	if r < 's' { goto l498out }
+	if accept2('z') { goto l221 }
 l498out:
 	return id, length
 l501:
 	id, length = 50, pos
-	if accept('a') {
-		goto l507
-	}
-	if r < '0' {
-		goto l504out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l504out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'b' {
-		goto l504out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('a') { goto l507 }
+	if r < '0' { goto l504out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l504out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'b' { goto l504out }
+	if accept2('z') { goto l221 }
 l504out:
 	return id, length
 l507:
 	id, length = 50, pos
-	if accept('l') {
-		goto l513
-	}
-	if r < '0' {
-		goto l510out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l510out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l510out
-	}
-	if accept2('k') {
-		goto l221
-	}
-	if r < 'm' {
-		goto l510out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('l') { goto l513 }
+	if r < '0' { goto l510out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l510out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l510out }
+	if accept2('k') { goto l221 }
+	if r < 'm' { goto l510out }
+	if accept2('z') { goto l221 }
 l510out:
 	return id, length
 l513:
 	id, length = 50, pos
-	if accept('l') {
-		goto l519
-	}
-	if r < '0' {
-		goto l516out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l516out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l516out
-	}
-	if accept2('k') {
-		goto l221
-	}
-	if r < 'm' {
-		goto l516out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('l') { goto l519 }
+	if r < '0' { goto l516out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l516out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l516out }
+	if accept2('k') { goto l221 }
+	if r < 'm' { goto l516out }
+	if accept2('z') { goto l221 }
 l516out:
 	return id, length
 l519:
 	id, length = 50, pos
-	if accept('e') {
-		goto l525
-	}
-	if r < '0' {
-		goto l522out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l522out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l522out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l522out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l525 }
+	if r < '0' { goto l522out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l522out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l522out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l522out }
+	if accept2('z') { goto l221 }
 l522out:
 	return id, length
 l525:
 	id, length = 50, pos
-	if accept('l') {
-		goto l531
-	}
-	if r < '0' {
-		goto l528out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l528out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l528out
-	}
-	if accept2('k') {
-		goto l221
-	}
-	if r < 'm' {
-		goto l528out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('l') { goto l531 }
+	if r < '0' { goto l528out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l528out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l528out }
+	if accept2('k') { goto l221 }
+	if r < 'm' { goto l528out }
+	if accept2('z') { goto l221 }
 l528out:
 	return id, length
 l531:
 	id, length = 19, pos
-	if r < '0' {
-		goto l532out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l532out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l532out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l532out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l532out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l532out }
+	if accept2('z') { goto l221 }
 l532out:
 	return id, length
 l535:
 	id, length = 50, pos
-	if accept('a') {
-		goto l543
-	}
-	if accept('e') {
-		goto l559
-	}
-	if r < '0' {
-		goto l540out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l540out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'b' {
-		goto l540out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l540out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('a') { goto l543 }
+	if accept('e') { goto l559 }
+	if r < '0' { goto l540out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l540out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'b' { goto l540out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l540out }
+	if accept2('z') { goto l221 }
 l540out:
 	return id, length
 l543:
 	id, length = 50, pos
-	if accept('t') {
-		goto l549
-	}
-	if r < '0' {
-		goto l546out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l546out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l546out
-	}
-	if accept2('s') {
-		goto l221
-	}
-	if r < 'u' {
-		goto l546out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('t') { goto l549 }
+	if r < '0' { goto l546out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l546out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l546out }
+	if accept2('s') { goto l221 }
+	if r < 'u' { goto l546out }
+	if accept2('z') { goto l221 }
 l546out:
 	return id, length
 l549:
 	id, length = 50, pos
-	if accept('s') {
-		goto l555
-	}
-	if r < '0' {
-		goto l552out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l552out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l552out
-	}
-	if accept2('r') {
-		goto l221
-	}
-	if r < 't' {
-		goto l552out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('s') { goto l555 }
+	if r < '0' { goto l552out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l552out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l552out }
+	if accept2('r') { goto l221 }
+	if r < 't' { goto l552out }
+	if accept2('z') { goto l221 }
 l552out:
 	return id, length
 l555:
 	id, length = 20, pos
-	if r < '0' {
-		goto l556out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l556out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l556out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l556out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l556out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l556out }
+	if accept2('z') { goto l221 }
 l556out:
 	return id, length
 l559:
 	id, length = 50, pos
-	if accept('q') {
-		goto l567
-	}
-	if accept('t') {
-		goto l595
-	}
-	if r < '0' {
-		goto l564out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l564out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l564out
-	}
-	if accept2('p') {
-		goto l221
-	}
-	if r < 'r' {
-		goto l564out
-	}
-	if accept2('s') {
-		goto l221
-	}
-	if r < 'u' {
-		goto l564out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('q') { goto l567 }
+	if accept('t') { goto l595 }
+	if r < '0' { goto l564out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l564out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l564out }
+	if accept2('p') { goto l221 }
+	if r < 'r' { goto l564out }
+	if accept2('s') { goto l221 }
+	if r < 'u' { goto l564out }
+	if accept2('z') { goto l221 }
 l564out:
 	return id, length
 l567:
 	id, length = 50, pos
-	if accept('u') {
-		goto l573
-	}
-	if r < '0' {
-		goto l570out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l570out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l570out
-	}
-	if accept2('t') {
-		goto l221
-	}
-	if r < 'v' {
-		goto l570out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('u') { goto l573 }
+	if r < '0' { goto l570out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l570out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l570out }
+	if accept2('t') { goto l221 }
+	if r < 'v' { goto l570out }
+	if accept2('z') { goto l221 }
 l570out:
 	return id, length
 l573:
 	id, length = 50, pos
-	if accept('i') {
-		goto l579
-	}
-	if r < '0' {
-		goto l576out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l576out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l576out
-	}
-	if accept2('h') {
-		goto l221
-	}
-	if r < 'j' {
-		goto l576out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('i') { goto l579 }
+	if r < '0' { goto l576out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l576out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l576out }
+	if accept2('h') { goto l221 }
+	if r < 'j' { goto l576out }
+	if accept2('z') { goto l221 }
 l576out:
 	return id, length
 l579:
 	id, length = 50, pos
-	if accept('r') {
-		goto l585
-	}
-	if r < '0' {
-		goto l582out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l582out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l582out
-	}
-	if accept2('q') {
-		goto l221
-	}
-	if r < 's' {
-		goto l582out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('r') { goto l585 }
+	if r < '0' { goto l582out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l582out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l582out }
+	if accept2('q') { goto l221 }
+	if r < 's' { goto l582out }
+	if accept2('z') { goto l221 }
 l582out:
 	return id, length
 l585:
 	id, length = 50, pos
-	if accept('e') {
-		goto l591
-	}
-	if r < '0' {
-		goto l588out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l588out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l588out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l588out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l591 }
+	if r < '0' { goto l588out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l588out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l588out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l588out }
+	if accept2('z') { goto l221 }
 l588out:
 	return id, length
 l591:
 	id, length = 21, pos
-	if r < '0' {
-		goto l592out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l592out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l592out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l592out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l592out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l592out }
+	if accept2('z') { goto l221 }
 l592out:
 	return id, length
 l595:
 	id, length = 50, pos
-	if accept('u') {
-		goto l601
-	}
-	if r < '0' {
-		goto l598out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l598out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l598out
-	}
-	if accept2('t') {
-		goto l221
-	}
-	if r < 'v' {
-		goto l598out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('u') { goto l601 }
+	if r < '0' { goto l598out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l598out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l598out }
+	if accept2('t') { goto l221 }
+	if r < 'v' { goto l598out }
+	if accept2('z') { goto l221 }
 l598out:
 	return id, length
 l601:
 	id, length = 50, pos
-	if accept('r') {
-		goto l607
-	}
-	if r < '0' {
-		goto l604out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l604out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l604out
-	}
-	if accept2('q') {
-		goto l221
-	}
-	if r < 's' {
-		goto l604out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('r') { goto l607 }
+	if r < '0' { goto l604out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l604out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l604out }
+	if accept2('q') { goto l221 }
+	if r < 's' { goto l604out }
+	if accept2('z') { goto l221 }
 l604out:
 	return id, length
 l607:
 	id, length = 50, pos
-	if accept('n') {
-		goto l613
-	}
-	if r < '0' {
-		goto l610out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l610out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l610out
-	}
-	if accept2('m') {
-		goto l221
-	}
-	if r < 'o' {
-		goto l610out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('n') { goto l613 }
+	if r < '0' { goto l610out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l610out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l610out }
+	if accept2('m') { goto l221 }
+	if r < 'o' { goto l610out }
+	if accept2('z') { goto l221 }
 l610out:
 	return id, length
 l613:
 	id, length = 22, pos
-	if r < '0' {
-		goto l614out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l614out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l614out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l614out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l614out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l614out }
+	if accept2('z') { goto l221 }
 l614out:
 	return id, length
 l617:
 	id, length = 50, pos
-	if accept('a') {
-		goto l625
-	}
-	if accept('p') {
-		goto l659
-	}
-	if r < '0' {
-		goto l622out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l622out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'b' {
-		goto l622out
-	}
-	if accept2('o') {
-		goto l221
-	}
-	if r < 'q' {
-		goto l622out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('a') { goto l625 }
+	if accept('p') { goto l659 }
+	if r < '0' { goto l622out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l622out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'b' { goto l622out }
+	if accept2('o') { goto l221 }
+	if r < 'q' { goto l622out }
+	if accept2('z') { goto l221 }
 l622out:
 	return id, length
 l625:
 	id, length = 50, pos
-	if accept('n') {
-		goto l631
-	}
-	if r < '0' {
-		goto l628out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l628out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l628out
-	}
-	if accept2('m') {
-		goto l221
-	}
-	if r < 'o' {
-		goto l628out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('n') { goto l631 }
+	if r < '0' { goto l628out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l628out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l628out }
+	if accept2('m') { goto l221 }
+	if r < 'o' { goto l628out }
+	if accept2('z') { goto l221 }
 l628out:
 	return id, length
 l631:
 	id, length = 50, pos
-	if accept('d') {
-		goto l637
-	}
-	if r < '0' {
-		goto l634out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l634out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l634out
-	}
-	if accept2('c') {
-		goto l221
-	}
-	if r < 'e' {
-		goto l634out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('d') { goto l637 }
+	if r < '0' { goto l634out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l634out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l634out }
+	if accept2('c') { goto l221 }
+	if r < 'e' { goto l634out }
+	if accept2('z') { goto l221 }
 l634out:
 	return id, length
 l637:
 	id, length = 50, pos
-	if accept('b') {
-		goto l643
-	}
-	if r < '0' {
-		goto l640out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l640out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if accept('a') {
-		goto l221
-	}
-	if r < 'c' {
-		goto l640out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('b') { goto l643 }
+	if r < '0' { goto l640out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l640out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if accept('a') { goto l221 }
+	if r < 'c' { goto l640out }
+	if accept2('z') { goto l221 }
 l640out:
 	return id, length
 l643:
 	id, length = 50, pos
-	if accept('o') {
-		goto l649
-	}
-	if r < '0' {
-		goto l646out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l646out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l646out
-	}
-	if accept2('n') {
-		goto l221
-	}
-	if r < 'p' {
-		goto l646out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('o') { goto l649 }
+	if r < '0' { goto l646out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l646out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l646out }
+	if accept2('n') { goto l221 }
+	if r < 'p' { goto l646out }
+	if accept2('z') { goto l221 }
 l646out:
 	return id, length
 l649:
 	id, length = 50, pos
-	if accept('x') {
-		goto l655
-	}
-	if r < '0' {
-		goto l652out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l652out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l652out
-	}
-	if accept2('w') {
-		goto l221
-	}
-	if r < 'y' {
-		goto l652out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('x') { goto l655 }
+	if r < '0' { goto l652out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l652out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l652out }
+	if accept2('w') { goto l221 }
+	if r < 'y' { goto l652out }
+	if accept2('z') { goto l221 }
 l652out:
 	return id, length
 l655:
 	id, length = 23, pos
-	if r < '0' {
-		goto l656out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l656out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l656out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l656out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l656out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l656out }
+	if accept2('z') { goto l221 }
 l656out:
 	return id, length
 l659:
 	id, length = 50, pos
-	if accept('a') {
-		goto l665
-	}
-	if r < '0' {
-		goto l662out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l662out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'b' {
-		goto l662out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('a') { goto l665 }
+	if r < '0' { goto l662out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l662out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'b' { goto l662out }
+	if accept2('z') { goto l221 }
 l662out:
 	return id, length
 l665:
 	id, length = 50, pos
-	if accept('w') {
-		goto l671
-	}
-	if r < '0' {
-		goto l668out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l668out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l668out
-	}
-	if accept2('v') {
-		goto l221
-	}
-	if r < 'x' {
-		goto l668out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('w') { goto l671 }
+	if r < '0' { goto l668out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l668out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l668out }
+	if accept2('v') { goto l221 }
+	if r < 'x' { goto l668out }
+	if accept2('z') { goto l221 }
 l668out:
 	return id, length
 l671:
 	id, length = 50, pos
-	if accept('n') {
-		goto l677
-	}
-	if r < '0' {
-		goto l674out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l674out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l674out
-	}
-	if accept2('m') {
-		goto l221
-	}
-	if r < 'o' {
-		goto l674out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('n') { goto l677 }
+	if r < '0' { goto l674out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l674out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l674out }
+	if accept2('m') { goto l221 }
+	if r < 'o' { goto l674out }
+	if accept2('z') { goto l221 }
 l674out:
 	return id, length
 l677:
 	id, length = 24, pos
-	if r < '0' {
-		goto l678out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l678out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l678out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l678out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l678out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l678out }
+	if accept2('z') { goto l221 }
 l678out:
 	return id, length
 l681:
 	id, length = 50, pos
-	if accept('r') {
-		goto l687
-	}
-	if r < '0' {
-		goto l684out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l684out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l684out
-	}
-	if accept2('q') {
-		goto l221
-	}
-	if r < 's' {
-		goto l684out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('r') { goto l687 }
+	if r < '0' { goto l684out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l684out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l684out }
+	if accept2('q') { goto l221 }
+	if r < 's' { goto l684out }
+	if accept2('z') { goto l221 }
 l684out:
 	return id, length
 l687:
 	id, length = 50, pos
-	if accept('u') {
-		goto l695
-	}
-	if accept('y') {
-		goto l705
-	}
-	if r < '0' {
-		goto l692out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l692out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l692out
-	}
-	if accept2('t') {
-		goto l221
-	}
-	if r < 'v' {
-		goto l692out
-	}
-	if accept2('x') {
-		goto l221
-	}
-	if accept('z') {
-		goto l221
-	}
+	if accept('u') { goto l695 }
+	if accept('y') { goto l705 }
+	if r < '0' { goto l692out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l692out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l692out }
+	if accept2('t') { goto l221 }
+	if r < 'v' { goto l692out }
+	if accept2('x') { goto l221 }
+	if accept('z') { goto l221 }
 l692out:
 	return id, length
 l695:
 	id, length = 50, pos
-	if accept('e') {
-		goto l701
-	}
-	if r < '0' {
-		goto l698out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l698out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l698out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l698out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l701 }
+	if r < '0' { goto l698out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l698out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l698out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l698out }
+	if accept2('z') { goto l221 }
 l698out:
 	return id, length
 l701:
 	id, length = 25, pos
-	if r < '0' {
-		goto l702out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l702out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l702out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l702out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l702out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l702out }
+	if accept2('z') { goto l221 }
 l702out:
 	return id, length
 l705:
 	id, length = 26, pos
-	if r < '0' {
-		goto l706out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l706out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l706out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l706out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l706out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l706out }
+	if accept2('z') { goto l221 }
 l706out:
 	return id, length
 l709:
 	id, length = 50, pos
-	if accept('s') {
-		goto l715
-	}
-	if r < '0' {
-		goto l712out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l712out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l712out
-	}
-	if accept2('r') {
-		goto l221
-	}
-	if r < 't' {
-		goto l712out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('s') { goto l715 }
+	if r < '0' { goto l712out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l712out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l712out }
+	if accept2('r') { goto l221 }
+	if r < 't' { goto l712out }
+	if accept2('z') { goto l221 }
 l712out:
 	return id, length
 l715:
 	id, length = 50, pos
-	if accept('e') {
-		goto l721
-	}
-	if r < '0' {
-		goto l718out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l718out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l718out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l718out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l721 }
+	if r < '0' { goto l718out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l718out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l718out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l718out }
+	if accept2('z') { goto l221 }
 l718out:
 	return id, length
 l721:
 	id, length = 27, pos
-	if r < '0' {
-		goto l722out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l722out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l722out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l722out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l722out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l722out }
+	if accept2('z') { goto l221 }
 l722out:
 	return id, length
 l725:
 	id, length = 50, pos
-	if accept('h') {
-		goto l733
-	}
-	if accept('i') {
-		goto l755
-	}
-	if r < '0' {
-		goto l730out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l730out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l730out
-	}
-	if accept2('g') {
-		goto l221
-	}
-	if r < 'j' {
-		goto l730out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('h') { goto l733 }
+	if accept('i') { goto l755 }
+	if r < '0' { goto l730out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l730out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l730out }
+	if accept2('g') { goto l221 }
+	if r < 'j' { goto l730out }
+	if accept2('z') { goto l221 }
 l730out:
 	return id, length
 l733:
 	id, length = 50, pos
-	if accept('i') {
-		goto l739
-	}
-	if r < '0' {
-		goto l736out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l736out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l736out
-	}
-	if accept2('h') {
-		goto l221
-	}
-	if r < 'j' {
-		goto l736out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('i') { goto l739 }
+	if r < '0' { goto l736out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l736out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l736out }
+	if accept2('h') { goto l221 }
+	if r < 'j' { goto l736out }
+	if accept2('z') { goto l221 }
 l736out:
 	return id, length
 l739:
 	id, length = 50, pos
-	if accept('l') {
-		goto l745
-	}
-	if r < '0' {
-		goto l742out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l742out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l742out
-	}
-	if accept2('k') {
-		goto l221
-	}
-	if r < 'm' {
-		goto l742out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('l') { goto l745 }
+	if r < '0' { goto l742out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l742out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l742out }
+	if accept2('k') { goto l221 }
+	if r < 'm' { goto l742out }
+	if accept2('z') { goto l221 }
 l742out:
 	return id, length
 l745:
 	id, length = 50, pos
-	if accept('e') {
-		goto l751
-	}
-	if r < '0' {
-		goto l748out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l748out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l748out
-	}
-	if accept2('d') {
-		goto l221
-	}
-	if r < 'f' {
-		goto l748out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('e') { goto l751 }
+	if r < '0' { goto l748out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l748out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l748out }
+	if accept2('d') { goto l221 }
+	if r < 'f' { goto l748out }
+	if accept2('z') { goto l221 }
 l748out:
 	return id, length
 l751:
 	id, length = 28, pos
-	if r < '0' {
-		goto l752out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l752out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l752out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l752out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l752out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l752out }
+	if accept2('z') { goto l221 }
 l752out:
 	return id, length
 l755:
 	id, length = 50, pos
-	if accept('t') {
-		goto l761
-	}
-	if r < '0' {
-		goto l758out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l758out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l758out
-	}
-	if accept2('s') {
-		goto l221
-	}
-	if r < 'u' {
-		goto l758out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('t') { goto l761 }
+	if r < '0' { goto l758out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l758out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l758out }
+	if accept2('s') { goto l221 }
+	if r < 'u' { goto l758out }
+	if accept2('z') { goto l221 }
 l758out:
 	return id, length
 l761:
 	id, length = 50, pos
-	if accept('h') {
-		goto l767
-	}
-	if r < '0' {
-		goto l764out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l764out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l764out
-	}
-	if accept2('g') {
-		goto l221
-	}
-	if r < 'i' {
-		goto l764out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if accept('h') { goto l767 }
+	if r < '0' { goto l764out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l764out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l764out }
+	if accept2('g') { goto l221 }
+	if r < 'i' { goto l764out }
+	if accept2('z') { goto l221 }
 l764out:
 	return id, length
 l767:
 	id, length = 29, pos
-	if r < '0' {
-		goto l768out
-	}
-	if accept2('9') {
-		goto l221
-	}
-	if r < 'A' {
-		goto l768out
-	}
-	if accept2('Z') {
-		goto l221
-	}
-	if accept('_') {
-		goto l221
-	}
-	if r < 'a' {
-		goto l768out
-	}
-	if accept2('z') {
-		goto l221
-	}
+	if r < '0' { goto l768out }
+	if accept2('9') { goto l221 }
+	if r < 'A' { goto l768out }
+	if accept2('Z') { goto l221 }
+	if accept('_') { goto l221 }
+	if r < 'a' { goto l768out }
+	if accept2('z') { goto l221 }
 l768out:
 	return id, length
 l771:
 	id, length = 46, pos
 	return id, length
 l773:
-	if accept('|') {
-		goto l776
-	}
+	if accept('|') { goto l776 }
 	return id, length
 l776:
 	id, length = 30, pos
@@ -3898,9 +1845,10 @@ l780:
 	return id, length
 }
 
+
 // Scan is used internally from Parse.
-func (p *Parser) Scan() (r scanner.Token) {
-	return p.sc.Scan()
+func(p *Parser) Scan() (r scanner.Token) {
+		return p.sc.Scan()
 }
 
 // init initalizes 'p' with content in 'src', assuming it comes from 'name'.
@@ -3918,8 +1866,11 @@ func (p *Parser) init(name string, src []byte) (err error) {
 	return nil
 }
 
+
+
 // AddExpr grammar:
 //
+//	
 //	AddExpr     = MulExpr { ('+' | '-') MulExpr } .
 //
 //	State 0
@@ -3929,31 +1880,32 @@ func (p *Parser) init(name string, src []byte) (err error) {
 //		Accept
 //		on  '+', '-'
 //			shift and goto state 0
-//
 // AddExpr is used internally from Parse.
 func (p *Parser) AddExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoAddExpr), 0)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoAddExpr), 0)
 state0:
-	accept, errorSet = false, 9
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.MulExpr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 41
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_002b, RugoTOK_002d:
-		r = append(r, p.shift())
-		goto state0
-	}
-	return p.stop(r, accept, errorSet)
+accept, errorSet = false, 9
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.MulExpr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 41
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_002b, RugoTOK_002d:
+r = append(r, p.shift())
+goto state0
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // AndExpr grammar:
 //
+//	
 //	AndExpr     = CompExpr { "&&" CompExpr } .
 //
 //	State 0
@@ -3963,31 +1915,32 @@ state1:
 //		Accept
 //		on  "&&"
 //			shift and goto state 0
-//
 // AndExpr is used internally from Parse.
 func (p *Parser) AndExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoAndExpr), 0)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoAndExpr), 0)
 state0:
-	accept, errorSet = false, 7
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.CompExpr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 24
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_00260026:
-		r = append(r, p.shift())
-		goto state0
-	}
-	return p.stop(r, accept, errorSet)
+accept, errorSet = false, 7
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.CompExpr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 24
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_00260026:
+r = append(r, p.shift())
+goto state0
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // ArgList grammar:
 //
+//	
 //	ArgList     = Expr { ',' Expr } .
 //
 //	State 0
@@ -3997,31 +1950,33 @@ state1:
 //		Accept
 //		on  ','
 //			shift and goto state 0
-//
 // ArgList is used internally from Parse.
 func (p *Parser) ArgList() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoArgList), 0)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoArgList), 0)
 state0:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 44
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state0
-	}
-	return p.stop(r, accept, errorSet)
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 44
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state0
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // ArrayLit grammar:
 //
+//	
+//	
 //	ArrayLit    = '[' [ Expr { ',' Expr } ] ']' .
 //
 //	State 0
@@ -4042,56 +1997,57 @@ state1:
 //	State 4
 //		on  "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 3
-//
 // ArrayLit is used internally from Parse.
 func (p *Parser) ArrayLit() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoArrayLit), 0)
-	// state0:
-	accept, errorSet = false, 53
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_005b:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 1
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_005d:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 42
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_005d:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoArrayLit), 0)
+// state0:
+accept, errorSet = false, 53
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_005b:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 1
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_005d:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 42
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_005d:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // AssignOrExpr grammar:
 //
+//	
 //	AssignOrExpr = Expr [ '=' Expr ] .
 //
 //	State 0
@@ -4106,42 +2062,43 @@ state4:
 //			call Expr and goto state 3
 //	State 3
 //		Accept
-//
 // AssignOrExpr is used internally from Parse.
 func (p *Parser) AssignOrExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoAssignOrExpr), 0)
-	// state0:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 51
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_003d:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoAssignOrExpr), 0)
+// state0:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 51
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003d:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // BenchDef grammar:
 //
+//	
 //	BenchDef    = "bench" str_lit Body "end" .
 //
 //	State 0
@@ -4160,53 +2117,54 @@ state3:
 //	State 4
 //		on  "end"
 //			shift and goto state 3
-//
 // BenchDef is used internally from Parse.
 func (p *Parser) BenchDef() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoBenchDef), 0)
-	// state0:
-	accept, errorSet = false, 57
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_bench:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 61
-	switch Symbol(p.tok.Ch) {
-	case Rugostr_lit:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state3
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoBenchDef), 0)
+// state0:
+accept, errorSet = false, 57
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_bench:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 61
+switch Symbol(p.tok.Ch) {
+	case  Rugostr_lit:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state3
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // Body grammar:
 //
+//	
 //	Body        = { Statement | ';' } .
 //
 //	State 0
@@ -4221,37 +2179,38 @@ state4:
 //			shift and goto state 1
 //		on  "bench", "break", "def", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, UseStmt, ImportStmt, RequireStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Statement and goto state 1
-//
 // Body is used internally from Parse.
 func (p *Parser) Body() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoBody), 0)
-	// state0:
-	accept, errorSet = true, 46
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_003b:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Statement())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 46
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_003b:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Statement())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoBody), 0)
+// state0:
+accept, errorSet = true, 46
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003b:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Statement())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 46
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003b:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Statement())
+goto state1
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // BreakStmt grammar:
 //
+//	
 //	BreakStmt   = "break" .
 //
 //	State 0
@@ -4259,26 +2218,27 @@ state1:
 //			shift and goto state 1
 //	State 1
 //		Accept
-//
 // BreakStmt is used internally from Parse.
 func (p *Parser) BreakStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoBreakStmt), 0)
-	// state0:
-	accept, errorSet = false, 62
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_break:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoBreakStmt), 0)
+// state0:
+accept, errorSet = false, 62
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_break:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // CompExpr grammar:
 //
+//	
 //	CompExpr    = AddExpr [ comp_op AddExpr ] .
 //
 //	State 0
@@ -4293,42 +2253,44 @@ state1:
 //			call AddExpr and goto state 3
 //	State 3
 //		Accept
-//
 // CompExpr is used internally from Parse.
 func (p *Parser) CompExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoCompExpr), 0)
-	// state0:
-	accept, errorSet = false, 8
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.AddExpr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 56
-	switch Symbol(p.tok.Ch) {
-	case Rugocomp_op:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 8
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.AddExpr())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoCompExpr), 0)
+// state0:
+accept, errorSet = false, 8
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.AddExpr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 56
+switch Symbol(p.tok.Ch) {
+	case  Rugocomp_op:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 8
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.AddExpr())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // Expr grammar:
 //
+//	
+//	
 //	# Expressions (lowest to highest precedence)
 //	Expr        = OrExpr .
 //
@@ -4337,26 +2299,27 @@ state3:
 //			call OrExpr and goto state 1
 //	State 1
 //		Accept
-//
 // Expr is used internally from Parse.
 func (p *Parser) Expr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoExpr), 0)
-	// state0:
-	accept, errorSet = false, 5
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.OrExpr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoExpr), 0)
+// state0:
+accept, errorSet = false, 5
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.OrExpr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // FnExpr grammar:
 //
+//	
 //	FnExpr       = "fn" '(' [ ParamList ] ')' Body "end" .
 //
 //	State 0
@@ -4368,7 +2331,7 @@ state1:
 //	State 2
 //		on  ')'
 //			shift and goto state 3
-//		on  ident
+//		on  ident, Param
 //			call ParamList and goto state 6
 //	State 3
 //		on  "end"
@@ -4383,72 +2346,73 @@ state1:
 //	State 6
 //		on  ')'
 //			shift and goto state 3
-//
 // FnExpr is used internally from Parse.
 func (p *Parser) FnExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoFnExpr), 0)
-	// state0:
-	accept, errorSet = false, 15
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_fn:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 38
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0028:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 39
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0029:
-		r = append(r, p.shift())
-		goto state3
-	case Rugoident:
-		r = p.add(r, p.ParamList())
-		goto state6
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state4
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state5
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state5:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state6:
-	accept, errorSet = false, 40
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0029:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoFnExpr), 0)
+// state0:
+accept, errorSet = false, 15
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_fn:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 38
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0028:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 39
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0029:
+r = append(r, p.shift())
+goto state3
+	case  Rugoident, RugoParam:
+r = p.add(r, p.ParamList())
+goto state6
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state4
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state5
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state5:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state6:
+accept, errorSet = false, 40
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0029:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // ForStmt grammar:
 //
+//	
 //	ForStmt     = "for" ident [ ',' ident ] "in" Expr Body "end" .
 //
 //	State 0
@@ -4481,88 +2445,89 @@ state6:
 //	State 8
 //		on  "in"
 //			shift and goto state 3
-//
 // ForStmt is used internally from Parse.
 func (p *Parser) ForStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoForStmt), 0)
-	// state0:
-	accept, errorSet = false, 16
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_for:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 19
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_in:
-		r = append(r, p.shift())
-		goto state3
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state7
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state5
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state6
-	}
-	return p.stop(r, accept, errorSet)
-state5:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state6:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state5
-	}
-	return p.stop(r, accept, errorSet)
-state7:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state8
-	}
-	return p.stop(r, accept, errorSet)
-state8:
-	accept, errorSet = false, 20
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_in:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoForStmt), 0)
+// state0:
+accept, errorSet = false, 16
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_for:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 19
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_in:
+r = append(r, p.shift())
+goto state3
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state7
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state5
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state6
+}
+return p.stop(r, accept, errorSet)
+state5:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state6:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state5
+}
+return p.stop(r, accept, errorSet)
+state7:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state8
+}
+return p.stop(r, accept, errorSet)
+state8:
+accept, errorSet = false, 20
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_in:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // FuncDef grammar:
 //
+//	
 //	FuncDef     = "def" ident '(' [ ParamList ] ')' Body "end" .
 //
 //	State 0
@@ -4577,7 +2542,7 @@ state8:
 //	State 3
 //		on  ')'
 //			shift and goto state 4
-//		on  ident
+//		on  ident, Param
 //			call ParamList and goto state 7
 //	State 4
 //		on  "end"
@@ -4592,80 +2557,81 @@ state8:
 //	State 7
 //		on  ')'
 //			shift and goto state 4
-//
 // FuncDef is used internally from Parse.
 func (p *Parser) FuncDef() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoFuncDef), 0)
-	// state0:
-	accept, errorSet = false, 63
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_def:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 38
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0028:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 39
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0029:
-		r = append(r, p.shift())
-		goto state4
-	case Rugoident:
-		r = p.add(r, p.ParamList())
-		goto state7
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state5
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state6
-	}
-	return p.stop(r, accept, errorSet)
-state5:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state6:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state5
-	}
-	return p.stop(r, accept, errorSet)
-state7:
-	accept, errorSet = false, 40
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0029:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoFuncDef), 0)
+// state0:
+accept, errorSet = false, 63
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_def:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 38
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0028:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 39
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0029:
+r = append(r, p.shift())
+goto state4
+	case  Rugoident, RugoParam:
+r = p.add(r, p.ParamList())
+goto state7
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state5
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state6
+}
+return p.stop(r, accept, errorSet)
+state5:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state6:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state5
+}
+return p.stop(r, accept, errorSet)
+state7:
+accept, errorSet = false, 40
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0029:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // HashEntry grammar:
 //
+//	
 //	HashEntry   = Expr "=>" Expr .
 //
 //	State 0
@@ -4679,42 +2645,43 @@ state7:
 //			call Expr and goto state 3
 //	State 3
 //		Accept
-//
 // HashEntry is used internally from Parse.
 func (p *Parser) HashEntry() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoHashEntry), 0)
-	// state0:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 33
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_003d003e:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoHashEntry), 0)
+// state0:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 33
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003d003e:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // HashLit grammar:
 //
+//	
 //	HashLit     = '{' [ HashEntry { ',' HashEntry } ] '}' .
 //
 //	State 0
@@ -4735,56 +2702,57 @@ state3:
 //	State 4
 //		on  "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call HashEntry and goto state 3
-//
 // HashLit is used internally from Parse.
 func (p *Parser) HashLit() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoHashLit), 0)
-	// state0:
-	accept, errorSet = false, 55
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_007b:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 2
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_007d:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.HashEntry())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 43
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_007d:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 3
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.HashEntry())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoHashLit), 0)
+// state0:
+accept, errorSet = false, 55
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_007b:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 2
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_007d:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.HashEntry())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 43
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_007d:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 3
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.HashEntry())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // IfStmt grammar:
 //
+//	
 //	IfStmt      = "if" Expr Body { "elsif" Expr Body } [ "else" Body ] "end" .
 //
 //	State 0
@@ -4819,84 +2787,85 @@ state4:
 //			shift and goto state 3
 //		on  "end"
 //			shift and goto state 4
-//
 // IfStmt is used internally from Parse.
 func (p *Parser) IfStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoIfStmt), 0)
-	// state0:
-	accept, errorSet = false, 17
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_if:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 48
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_elsif:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_else:
-		r = append(r, p.shift())
-		goto state3
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state4
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state6
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state4
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state5
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state5:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state6:
-	accept, errorSet = false, 64
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_elsif:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_else:
-		r = append(r, p.shift())
-		goto state3
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoIfStmt), 0)
+// state0:
+accept, errorSet = false, 17
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_if:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 48
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_elsif:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_else:
+r = append(r, p.shift())
+goto state3
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state4
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state6
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state4
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state5
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state5:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state6:
+accept, errorSet = false, 64
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_elsif:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_else:
+r = append(r, p.shift())
+goto state3
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // ImportStmt grammar:
 //
+//	
 //	ImportStmt  = "import" str_lit [ "as" ident ] .
 //
 //	State 0
@@ -4914,50 +2883,51 @@ state6:
 //			shift and goto state 4
 //	State 4
 //		Accept
-//
 // ImportStmt is used internally from Parse.
 func (p *Parser) ImportStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoImportStmt), 0)
-	// state0:
-	accept, errorSet = false, 18
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_import:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 61
-	switch Symbol(p.tok.Ch) {
-	case Rugostr_lit:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 45
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_as:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoImportStmt), 0)
+// state0:
+accept, errorSet = false, 18
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_import:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 61
+switch Symbol(p.tok.Ch) {
+	case  Rugostr_lit:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 45
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_as:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // MulExpr grammar:
 //
+//	
 //	MulExpr     = UnaryExpr { ('*' | '/' | '%') UnaryExpr } .
 //
 //	State 0
@@ -4967,31 +2937,32 @@ state4:
 //		Accept
 //		on  '%', '*', '/'
 //			shift and goto state 0
-//
 // MulExpr is used internally from Parse.
 func (p *Parser) MulExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoMulExpr), 0)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoMulExpr), 0)
 state0:
-	accept, errorSet = false, 10
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.UnaryExpr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 36
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0025, RugoTOK_002a, RugoTOK_002f:
-		r = append(r, p.shift())
-		goto state0
-	}
-	return p.stop(r, accept, errorSet)
+accept, errorSet = false, 10
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.UnaryExpr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 36
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0025, RugoTOK_002a, RugoTOK_002f:
+r = append(r, p.shift())
+goto state0
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // NextStmt grammar:
 //
+//	
 //	NextStmt    = "next" .
 //
 //	State 0
@@ -4999,26 +2970,27 @@ state1:
 //			shift and goto state 1
 //	State 1
 //		Accept
-//
 // NextStmt is used internally from Parse.
 func (p *Parser) NextStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoNextStmt), 0)
-	// state0:
-	accept, errorSet = false, 21
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_next:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoNextStmt), 0)
+// state0:
+accept, errorSet = false, 21
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_next:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // OrExpr grammar:
 //
+//	
 //	OrExpr      = AndExpr { "||" AndExpr } .
 //
 //	State 0
@@ -5028,31 +3000,32 @@ state1:
 //		Accept
 //		on  "||"
 //			shift and goto state 0
-//
 // OrExpr is used internally from Parse.
 func (p *Parser) OrExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoOrExpr), 0)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoOrExpr), 0)
 state0:
-	accept, errorSet = false, 6
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.AndExpr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 35
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_007c007c:
-		r = append(r, p.shift())
-		goto state0
-	}
-	return p.stop(r, accept, errorSet)
+accept, errorSet = false, 6
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.AndExpr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 35
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_007c007c:
+r = append(r, p.shift())
+goto state0
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // ParallelExpr grammar:
 //
+//	
 //	ParallelExpr = "parallel" Body "end" .
 //
 //	State 0
@@ -5068,79 +3041,132 @@ state1:
 //	State 3
 //		on  "end"
 //			shift and goto state 2
-//
 // ParallelExpr is used internally from Parse.
 func (p *Parser) ParallelExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoParallelExpr), 0)
-	// state0:
-	accept, errorSet = false, 23
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_parallel:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoParallelExpr), 0)
+// state0:
+accept, errorSet = false, 23
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_parallel:
+r = append(r, p.shift())
+goto state1
+}
+return p.stop(r, accept, errorSet)
 state1:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state3
+}
+return p.stop(r, accept, errorSet)
 state2:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
 state3:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
 }
 
-// ParamList grammar:
+
+// Param grammar:
 //
-//	ParamList   = ident { ',' ident } .
+//	
+//	Param       = ident [ '=' Expr ] .
 //
 //	State 0
 //		on  ident
 //			shift and goto state 1
 //	State 1
 //		Accept
+//		on  '='
+//			shift and goto state 2
+//	State 2
+//		on  "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
+//			call Expr and goto state 3
+//	State 3
+//		Accept
+// Param is used internally from Parse.
+func (p *Parser) Param() (r []int32) {
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoParam), 0)
+// state0:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state1
+}
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 51
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003d:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
+
+// ParamList grammar:
+//
+//	
+//	ParamList   = Param { ',' Param } .
+//
+//	State 0
+//		on  ident
+//			call Param and goto state 1
+//	State 1
+//		Accept
 //		on  ','
 //			shift and goto state 0
-//
 // ParamList is used internally from Parse.
 func (p *Parser) ParamList() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoParamList), 0)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoParamList), 0)
 state0:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 44
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state0
-	}
-	return p.stop(r, accept, errorSet)
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = p.add(r, p.Param())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 44
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state0
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // Postfix grammar:
 //
+//	
 //	Postfix     = Primary { Suffix } .
 //
 //	State 0
@@ -5150,31 +3176,33 @@ state1:
 //		Accept
 //		on  '(', '.', '['
 //			call Suffix and goto state 1
-//
 // Postfix is used internally from Parse.
 func (p *Parser) Postfix() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoPostfix), 0)
-	// state0:
-	accept, errorSet = false, 13
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Primary())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 37
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0028, RugoTOK_002e, RugoTOK_005b:
-		r = p.add(r, p.Suffix())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoPostfix), 0)
+// state0:
+accept, errorSet = false, 13
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Primary())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 37
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0028, RugoTOK_002e, RugoTOK_005b:
+r = p.add(r, p.Suffix())
+goto state1
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // Primary grammar:
 //
+//	
+//	
 //	# Primary expressions
 //	Primary     = ident
 //	            | integer
@@ -5217,66 +3245,66 @@ state1:
 //	State 3
 //		on  ')'
 //			shift and goto state 1
-//
 // Primary is used internally from Parse.
 func (p *Parser) Primary() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoPrimary), 0)
-	// state0:
-	accept, errorSet = false, 14
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_nil, RugoTOK_true, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_0028:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_try:
-		r = p.add(r, p.TryExpr())
-		goto state1
-	case RugoTOK_spawn:
-		r = p.add(r, p.SpawnExpr())
-		goto state1
-	case RugoTOK_parallel:
-		r = p.add(r, p.ParallelExpr())
-		goto state1
-	case RugoTOK_fn:
-		r = p.add(r, p.FnExpr())
-		goto state1
-	case RugoTOK_005b:
-		r = p.add(r, p.ArrayLit())
-		goto state1
-	case RugoTOK_007b:
-		r = p.add(r, p.HashLit())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 40
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0029:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoPrimary), 0)
+// state0:
+accept, errorSet = false, 14
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_nil, RugoTOK_true, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_0028:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_try:
+r = p.add(r, p.TryExpr())
+goto state1
+	case  RugoTOK_spawn:
+r = p.add(r, p.SpawnExpr())
+goto state1
+	case  RugoTOK_parallel:
+r = p.add(r, p.ParallelExpr())
+goto state1
+	case  RugoTOK_fn:
+r = p.add(r, p.FnExpr())
+goto state1
+	case  RugoTOK_005b:
+r = p.add(r, p.ArrayLit())
+goto state1
+	case  RugoTOK_007b:
+r = p.add(r, p.HashLit())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 40
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0029:
+r = append(r, p.shift())
+goto state1
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // Program grammar:
 //
 //	# Rugo Language Grammar (LL(1))
 //	# A minimal Ruby-inspired language that transpiles to Go.
-//
+//	
 //	# Entry point
 //	# ';' is a statement separator injected by the preprocessor to disambiguate
 //	# array literals on new lines from index suffix operations (e.g. expr\n[1,2,3]).
@@ -5295,44 +3323,45 @@ state3:
 //			shift and goto state 1
 //		on  "bench", "break", "def", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, UseStmt, ImportStmt, RequireStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Statement and goto state 1
-//
 // Program is used internally from Parse.
 func (p *Parser) Program() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoProgram), 0)
-	// state0:
-	accept, errorSet = true, 46
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_003b:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Statement())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 46
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_003b:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Statement())
-		goto state1
-	}
-	if accept = accept && p.eof; accept {
-		r = append(r, p.shift())
-	}
-	r[1] = int32(len(r) - 2)
-	if !accept {
-		p.err(p.tok.Position(), "%q [%s]: expected %v", p.tok.Src(), Symbol(p.tok.Ch), errorSets[errorSet])
-	}
-	return r
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoProgram), 0)
+// state0:
+accept, errorSet = true, 46
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003b:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Statement())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 46
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003b:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Statement())
+goto state1
+}
+	if accept = accept && p.eof; accept {
+ 			r = append(r, p.shift())
+ 		}
+ 	r[1] = int32(len(r)-2)
+ 	if !accept {
+ 	p.err(p.tok.Position(), "%q [%s]: expected %v", p.tok.Src(), Symbol(p.tok.Ch), errorSets[errorSet])
+ }
+return r
+}
+
 
 // RequireStmt grammar:
 //
+//	
 //	RequireStmt = "require" str_lit [ "as" ( str_lit | ident ) | "with" ident { ',' ident } ] .
 //
 //	State 0
@@ -5359,69 +3388,70 @@ state1:
 //		Accept
 //		on  ','
 //			shift and goto state 5
-//
 // RequireStmt is used internally from Parse.
 func (p *Parser) RequireStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoRequireStmt), 0)
-	// state0:
-	accept, errorSet = false, 26
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_require:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 61
-	switch Symbol(p.tok.Ch) {
-	case Rugostr_lit:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 34
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_as:
-		r = append(r, p.shift())
-		goto state3
-	case RugoTOK_with:
-		r = append(r, p.shift())
-		goto state5
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 58
-	switch Symbol(p.tok.Ch) {
-	case Rugoident, Rugostr_lit:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state5:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state6
-	}
-	return p.stop(r, accept, errorSet)
-state6:
-	accept, errorSet = true, 44
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state5
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoRequireStmt), 0)
+// state0:
+accept, errorSet = false, 26
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_require:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 61
+switch Symbol(p.tok.Ch) {
+	case  Rugostr_lit:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 34
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_as:
+r = append(r, p.shift())
+goto state3
+	case  RugoTOK_with:
+r = append(r, p.shift())
+goto state5
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 58
+switch Symbol(p.tok.Ch) {
+	case  Rugoident, Rugostr_lit:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state5:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state6
+}
+return p.stop(r, accept, errorSet)
+state6:
+accept, errorSet = true, 44
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state5
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // ReturnStmt grammar:
 //
+//	
 //	ReturnStmt  = "return" [ Expr ] .
 //
 //	State 0
@@ -5433,34 +3463,35 @@ state6:
 //			call Expr and goto state 2
 //	State 2
 //		Accept
-//
 // ReturnStmt is used internally from Parse.
 func (p *Parser) ReturnStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoReturnStmt), 0)
-	// state0:
-	accept, errorSet = false, 27
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_return:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoReturnStmt), 0)
+// state0:
+accept, errorSet = false, 27
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_return:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // SandboxList grammar:
 //
+//	
 //	SandboxList = '[' ( str_lit | integer ) { ',' ( str_lit | integer ) } ']' .
 //
 //	State 0
@@ -5476,45 +3507,46 @@ state2:
 //			shift and goto state 3
 //	State 3
 //		Accept
-//
 // SandboxList is used internally from Parse.
 func (p *Parser) SandboxList() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoSandboxList), 0)
-	// state0:
-	accept, errorSet = false, 53
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_005b:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 60
-	switch Symbol(p.tok.Ch) {
-	case Rugointeger, Rugostr_lit:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 42
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_005d:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoSandboxList), 0)
+// state0:
+accept, errorSet = false, 53
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_005b:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 60
+switch Symbol(p.tok.Ch) {
+	case  Rugointeger, Rugostr_lit:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 42
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_005d:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // SandboxPerm grammar:
 //
+//	
 //	SandboxPerm = ident ':' ( str_lit | integer | SandboxList ) .
 //
 //	State 0
@@ -5530,45 +3562,46 @@ state3:
 //			call SandboxList and goto state 3
 //	State 3
 //		Accept
-//
 // SandboxPerm is used internally from Parse.
 func (p *Parser) SandboxPerm() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoSandboxPerm), 0)
-	// state0:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 50
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_003a:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 52
-	switch Symbol(p.tok.Ch) {
-	case Rugointeger, Rugostr_lit:
-		r = append(r, p.shift())
-		goto state3
-	case RugoTOK_005b:
-		r = p.add(r, p.SandboxList())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoSandboxPerm), 0)
+// state0:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 50
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003a:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 52
+switch Symbol(p.tok.Ch) {
+	case  Rugointeger, Rugostr_lit:
+r = append(r, p.shift())
+goto state3
+	case  RugoTOK_005b:
+r = p.add(r, p.SandboxList())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // SandboxStmt grammar:
 //
+//	
 //	SandboxStmt = "sandbox" [ SandboxPerm { ',' SandboxPerm } ] .
 //
 //	State 0
@@ -5585,47 +3618,48 @@ state3:
 //	State 3
 //		on  ident
 //			call SandboxPerm and goto state 2
-//
 // SandboxStmt is used internally from Parse.
 func (p *Parser) SandboxStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoSandboxStmt), 0)
-	// state0:
-	accept, errorSet = false, 28
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_sandbox:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = p.add(r, p.SandboxPerm())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 44
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = p.add(r, p.SandboxPerm())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoSandboxStmt), 0)
+// state0:
+accept, errorSet = false, 28
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_sandbox:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = p.add(r, p.SandboxPerm())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 44
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = p.add(r, p.SandboxPerm())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // SpawnExpr grammar:
 //
+//	
 //	SpawnExpr    = "spawn" Body "end" .
 //
 //	State 0
@@ -5641,45 +3675,47 @@ state3:
 //	State 3
 //		on  "end"
 //			shift and goto state 2
-//
 // SpawnExpr is used internally from Parse.
 func (p *Parser) SpawnExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoSpawnExpr), 0)
-	// state0:
-	accept, errorSet = false, 29
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_spawn:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoSpawnExpr), 0)
+// state0:
+accept, errorSet = false, 29
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_spawn:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // Statement grammar:
 //
+//	
+//	
 //	# Statements
 //	Statement   = UseStmt
 //	            | ImportStmt
@@ -5727,65 +3763,66 @@ state3:
 //			call AssignOrExpr and goto state 1
 //	State 1
 //		Accept
-//
 // Statement is used internally from Parse.
 func (p *Parser) Statement() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoStatement), 0)
-	// state0:
-	accept, errorSet = false, 47
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_use:
-		r = p.add(r, p.UseStmt())
-		goto state1
-	case RugoTOK_import:
-		r = p.add(r, p.ImportStmt())
-		goto state1
-	case RugoTOK_require:
-		r = p.add(r, p.RequireStmt())
-		goto state1
-	case RugoTOK_sandbox:
-		r = p.add(r, p.SandboxStmt())
-		goto state1
-	case RugoTOK_def:
-		r = p.add(r, p.FuncDef())
-		goto state1
-	case RugoTOK_rats:
-		r = p.add(r, p.TestDef())
-		goto state1
-	case RugoTOK_bench:
-		r = p.add(r, p.BenchDef())
-		goto state1
-	case RugoTOK_if:
-		r = p.add(r, p.IfStmt())
-		goto state1
-	case RugoTOK_while:
-		r = p.add(r, p.WhileStmt())
-		goto state1
-	case RugoTOK_for:
-		r = p.add(r, p.ForStmt())
-		goto state1
-	case RugoTOK_break:
-		r = p.add(r, p.BreakStmt())
-		goto state1
-	case RugoTOK_next:
-		r = p.add(r, p.NextStmt())
-		goto state1
-	case RugoTOK_return:
-		r = p.add(r, p.ReturnStmt())
-		goto state1
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.AssignOrExpr())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoStatement), 0)
+// state0:
+accept, errorSet = false, 47
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_use:
+r = p.add(r, p.UseStmt())
+goto state1
+	case  RugoTOK_import:
+r = p.add(r, p.ImportStmt())
+goto state1
+	case  RugoTOK_require:
+r = p.add(r, p.RequireStmt())
+goto state1
+	case  RugoTOK_sandbox:
+r = p.add(r, p.SandboxStmt())
+goto state1
+	case  RugoTOK_def:
+r = p.add(r, p.FuncDef())
+goto state1
+	case  RugoTOK_rats:
+r = p.add(r, p.TestDef())
+goto state1
+	case  RugoTOK_bench:
+r = p.add(r, p.BenchDef())
+goto state1
+	case  RugoTOK_if:
+r = p.add(r, p.IfStmt())
+goto state1
+	case  RugoTOK_while:
+r = p.add(r, p.WhileStmt())
+goto state1
+	case  RugoTOK_for:
+r = p.add(r, p.ForStmt())
+goto state1
+	case  RugoTOK_break:
+r = p.add(r, p.BreakStmt())
+goto state1
+	case  RugoTOK_next:
+r = p.add(r, p.NextStmt())
+goto state1
+	case  RugoTOK_return:
+r = p.add(r, p.ReturnStmt())
+goto state1
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.AssignOrExpr())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // Suffix grammar:
 //
+//	
 //	Suffix      = '(' [ ArgList ] ')' | '[' Expr [ ',' Expr ] ']' | '.' ident .
 //
 //	State 0
@@ -5822,94 +3859,95 @@ state1:
 //	State 8
 //		on  ']'
 //			shift and goto state 2
-//
 // Suffix is used internally from Parse.
 func (p *Parser) Suffix() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoSuffix), 0)
-	// state0:
-	accept, errorSet = false, 37
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0028:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_002e:
-		r = append(r, p.shift())
-		goto state4
-	case RugoTOK_005b:
-		r = append(r, p.shift())
-		goto state5
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 0
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0029:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.ArgList())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 40
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0029:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state5:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state6
-	}
-	return p.stop(r, accept, errorSet)
-state6:
-	accept, errorSet = false, 42
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_005d:
-		r = append(r, p.shift())
-		goto state2
-	case RugoTOK_002c:
-		r = append(r, p.shift())
-		goto state7
-	}
-	return p.stop(r, accept, errorSet)
-state7:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state8
-	}
-	return p.stop(r, accept, errorSet)
-state8:
-	accept, errorSet = false, 54
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_005d:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoSuffix), 0)
+// state0:
+accept, errorSet = false, 37
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0028:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_002e:
+r = append(r, p.shift())
+goto state4
+	case  RugoTOK_005b:
+r = append(r, p.shift())
+goto state5
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 0
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0029:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.ArgList())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 40
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0029:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state5:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state6
+}
+return p.stop(r, accept, errorSet)
+state6:
+accept, errorSet = false, 42
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_005d:
+r = append(r, p.shift())
+goto state2
+	case  RugoTOK_002c:
+r = append(r, p.shift())
+goto state7
+}
+return p.stop(r, accept, errorSet)
+state7:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state8
+}
+return p.stop(r, accept, errorSet)
+state8:
+accept, errorSet = false, 54
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_005d:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // TestDef grammar:
 //
+//	
 //	TestDef     = "rats" str_lit Body "end" .
 //
 //	State 0
@@ -5928,53 +3966,55 @@ state8:
 //	State 4
 //		on  "end"
 //			shift and goto state 3
-//
 // TestDef is used internally from Parse.
 func (p *Parser) TestDef() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoTestDef), 0)
-	// state0:
-	accept, errorSet = false, 25
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_rats:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 61
-	switch Symbol(p.tok.Ch) {
-	case Rugostr_lit:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state3
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoTestDef), 0)
+// state0:
+accept, errorSet = false, 25
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_rats:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 61
+switch Symbol(p.tok.Ch) {
+	case  Rugostr_lit:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state3
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // TryExpr grammar:
 //
+//	
+//	
 //	TryExpr      = "try" Expr "or" ident Body "end" .
 //
 //	State 0
@@ -5999,69 +4039,70 @@ state4:
 //	State 6
 //		on  "end"
 //			shift and goto state 5
-//
 // TryExpr is used internally from Parse.
 func (p *Parser) TryExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoTryExpr), 0)
-	// state0:
-	accept, errorSet = false, 30
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_try:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 22
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_or:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = false, 59
-	switch Symbol(p.tok.Ch) {
-	case Rugoident:
-		r = append(r, p.shift())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state5
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state6
-	}
-	return p.stop(r, accept, errorSet)
-state5:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state6:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state5
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoTryExpr), 0)
+// state0:
+accept, errorSet = false, 30
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_try:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 22
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_or:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = false, 59
+switch Symbol(p.tok.Ch) {
+	case  Rugoident:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state5
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state6
+}
+return p.stop(r, accept, errorSet)
+state5:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state6:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state5
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 // UnaryExpr grammar:
 //
+//	
 //	UnaryExpr   = '!' Postfix | '-' Postfix | Postfix .
 //
 //	State 0
@@ -6074,37 +4115,39 @@ state6:
 //			call Postfix and goto state 2
 //	State 2
 //		Accept
-//
 // UnaryExpr is used internally from Parse.
 func (p *Parser) UnaryExpr() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoUnaryExpr), 0)
-	// state0:
-	accept, errorSet = false, 11
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_0021, RugoTOK_002d:
-		r = append(r, p.shift())
-		goto state1
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Postfix())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 12
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Postfix())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoUnaryExpr), 0)
+// state0:
+accept, errorSet = false, 11
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_0021, RugoTOK_002d:
+r = append(r, p.shift())
+goto state1
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Postfix())
+goto state2
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 12
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Postfix())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // UseStmt grammar:
 //
+//	
+//	
 //	UseStmt     = "use" str_lit .
 //
 //	State 0
@@ -6115,34 +4158,35 @@ state2:
 //			shift and goto state 2
 //	State 2
 //		Accept
-//
 // UseStmt is used internally from Parse.
 func (p *Parser) UseStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoUseStmt), 0)
-	// state0:
-	accept, errorSet = false, 31
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_use:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 61
-	switch Symbol(p.tok.Ch) {
-	case Rugostr_lit:
-		r = append(r, p.shift())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoUseStmt), 0)
+// state0:
+accept, errorSet = false, 31
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_use:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 61
+switch Symbol(p.tok.Ch) {
+	case  Rugostr_lit:
+r = append(r, p.shift())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+}
+
 
 // WhileStmt grammar:
 //
+//	
 //	WhileStmt   = "while" Expr Body "end" .
 //
 //	State 0
@@ -6161,50 +4205,50 @@ state2:
 //	State 4
 //		on  "end"
 //			shift and goto state 3
-//
 // WhileStmt is used internally from Parse.
 func (p *Parser) WhileStmt() (r []int32) {
-	accept, errorSet := false, 0
-	r = append(p.get(), -int32(RugoWhileStmt), 0)
-	// state0:
-	accept, errorSet = false, 32
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_while:
-		r = append(r, p.shift())
-		goto state1
-	}
-	return p.stop(r, accept, errorSet)
-state1:
-	accept, errorSet = false, 4
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Expr())
-		goto state2
-	}
-	return p.stop(r, accept, errorSet)
-state2:
-	accept, errorSet = false, 49
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state3
-	case RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
-		r = p.add(r, p.Body())
-		goto state4
-	}
-	return p.stop(r, accept, errorSet)
-state3:
-	accept, errorSet = true, 0
-	return p.stop(r, accept, errorSet)
-state4:
-	accept, errorSet = false, 65
-	switch Symbol(p.tok.Ch) {
-	case RugoTOK_end:
-		r = append(r, p.shift())
-		goto state3
-	}
-	return p.stop(r, accept, errorSet)
+		accept, errorSet := false, 0
+		r = append(p.get(), -int32(RugoWhileStmt), 0)
+// state0:
+accept, errorSet = false, 32
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_while:
+r = append(r, p.shift())
+goto state1
 }
+return p.stop(r, accept, errorSet)
+state1:
+accept, errorSet = false, 4
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state2
+}
+return p.stop(r, accept, errorSet)
+state2:
+accept, errorSet = false, 49
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state3
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_def, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Body())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state3:
+accept, errorSet = true, 0
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 65
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_end:
+r = append(r, p.shift())
+goto state3
+}
+return p.stop(r, accept, errorSet)
+}
+
 
 func (p *Parser) shift() (r int32) {
 	r = p.tokIndex
@@ -6286,3 +4330,4 @@ func (p *Parser) err(pos token.Position, s string, args ...any) {
 		panic(p.sc.Err())
 	}
 }
+

@@ -1,0 +1,191 @@
+# RATS: Default parameter values for def and fn
+
+use "test"
+use "str"
+
+# --- def functions with default params ---
+
+def greet(name, greeting = "Hello")
+  return "#{greeting}, #{name}!"
+end
+
+def connect(host, port = 8080, timeout = 30)
+  return "#{host}:#{port} t=#{timeout}"
+end
+
+def all_optional(a = 1, b = 2, c = 3)
+  return a + b + c
+end
+
+def with_nil_default(text, transform = nil)
+  if transform != nil
+    return transform
+  end
+  return text
+end
+
+def with_expr_default(name, prefix = "Hello" + " there")
+  return "#{prefix}, #{name}"
+end
+
+def with_bool_default(msg, loud = false)
+  if loud
+    return msg + "!"
+  end
+  return msg
+end
+
+# --- def: basic calls ---
+
+rats "def with one default - uses default"
+  test.assert_eq(greet("World"), "Hello, World!")
+end
+
+rats "def with one default - overrides default"
+  test.assert_eq(greet("World", "Hi"), "Hi, World!")
+end
+
+rats "def with two defaults - all defaulted"
+  test.assert_eq(connect("localhost"), "localhost:8080 t=30")
+end
+
+rats "def with two defaults - first overridden"
+  test.assert_eq(connect("localhost", 9090), "localhost:9090 t=30")
+end
+
+rats "def with two defaults - both overridden"
+  test.assert_eq(connect("localhost", 9090, 60), "localhost:9090 t=60")
+end
+
+# --- def: all optional ---
+
+rats "all optional params - no args"
+  test.assert_eq(all_optional(), 6)
+end
+
+rats "all optional params - one arg"
+  test.assert_eq(all_optional(10), 15)
+end
+
+rats "all optional params - two args"
+  test.assert_eq(all_optional(10, 20), 33)
+end
+
+rats "all optional params - all args"
+  test.assert_eq(all_optional(10, 20, 30), 60)
+end
+
+# --- def: special default values ---
+
+rats "nil default - uses default"
+  test.assert_eq(with_nil_default("hello"), "hello")
+end
+
+rats "nil default - overrides default"
+  test.assert_eq(with_nil_default("hello", "HELLO"), "HELLO")
+end
+
+rats "expression default"
+  test.assert_eq(with_expr_default("World"), "Hello there, World")
+end
+
+rats "expression default overridden"
+  test.assert_eq(with_expr_default("World", "Hi"), "Hi, World")
+end
+
+rats "bool default - uses default"
+  test.assert_eq(with_bool_default("hey"), "hey")
+end
+
+rats "bool default - overrides default"
+  test.assert_eq(with_bool_default("hey", true), "hey!")
+end
+
+# --- fn lambdas with default params ---
+
+rats "lambda with one default - uses default"
+  adder = fn(a, b = 10)
+    a + b
+  end
+  test.assert_eq(adder(5), 15)
+end
+
+rats "lambda with one default - overrides default"
+  adder = fn(a, b = 10)
+    a + b
+  end
+  test.assert_eq(adder(5, 20), 25)
+end
+
+rats "lambda all optional"
+  f = fn(x = 1, y = 2)
+    x + y
+  end
+  test.assert_eq(f(), 3)
+  test.assert_eq(f(10), 12)
+  test.assert_eq(f(10, 20), 30)
+end
+
+rats "lambda with nil default"
+  f = fn(x, fallback = nil)
+    if fallback != nil
+      return fallback
+    end
+    return x
+  end
+  test.assert_eq(f("hello"), "hello")
+  test.assert_eq(f("hello", "world"), "world")
+end
+
+# --- arity errors ---
+
+rats "too few args - compile error"
+  result = test.run("rugo run rats/core/fixtures/default_params_too_few.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "takes 1 to 2 arguments")
+end
+
+rats "too many args - compile error"
+  result = test.run("rugo run rats/core/fixtures/default_params_too_many.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "takes 1 to 2 arguments")
+end
+
+# --- validation errors ---
+
+rats "required param after default - error"
+  result = test.run("rugo run rats/core/fixtures/default_params_required_after.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot follow a parameter with a default value")
+end
+
+rats "lambda required after default - error"
+  result = test.run("rugo run rats/core/fixtures/default_params_fn_required_after.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot follow a parameter with a default value")
+end
+
+# --- functions without defaults unchanged ---
+
+rats "functions without defaults are unchanged"
+  result = test.run("rugo emit rats/core/fixtures/default_params_no_defaults.rugo")
+  test.assert_eq(result["status"], 0)
+  # Should NOT have variadic _args signature
+  test.assert_contains(result["output"], "func rugofn_add(")
+  # Should have typed or named params, not _args
+  test.assert_false(str.contains(result["output"], "_args ...interface{}"))
+end
+
+# --- interaction with collection methods ---
+
+rats "lambda default in map callback"
+  arr = [1, 2, 3]
+  multiplier = fn(x, factor = 2)
+    x * factor
+  end
+  result = arr.map(fn(x) multiplier(x) end)
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], 2)
+  test.assert_eq(result[1], 4)
+  test.assert_eq(result[2], 6)
+end

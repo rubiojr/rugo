@@ -104,7 +104,7 @@ func convertStmt(s ast.Statement) map[interface{}]interface{} {
 		m["name"] = st.Name
 		params := make([]interface{}, len(st.Params))
 		for i, p := range st.Params {
-			params[i] = p
+			params[i] = p.Name
 		}
 		m["params"] = params
 		m["body"] = convertBody(st.Body)
