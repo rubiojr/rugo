@@ -1,0 +1,9 @@
+use "test"
+
+rats "another failure"
+  test.assert_eq("a", "b")
+end
+
+rats "this also passes"
+  test.assert_eq(1, 1)
+end

@@ -1062,6 +1062,42 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	if showTiming {
 		timingTotal = fmt.Sprintf(" in %s", formatTestDuration(time.Since(suiteStart)))
 	}
+
+	// Print consolidated recap of all failures across files
+	showRecap := os.Getenv("RUGO_TEST_RECAP") != ""
+	if showRecap && grandFailed > 0 {
+		stripAnsiRe := regexp.MustCompile(`\x1b\[[0-9;]*m`)
+		fmt.Fprintf(os.Stderr, "\n%s=== Failed tests ===%s\n", colorFail, colorReset)
+		for i, r := range results {
+			if !r.failed {
+				continue
+			}
+			lines := bytes.Split(r.output, []byte("\n"))
+			inRecap := false
+			printed := false
+			for _, line := range lines {
+				plain := stripAnsiRe.ReplaceAll(line, nil)
+				if bytes.Contains(plain, []byte("--- Failed tests ---")) {
+					inRecap = true
+					printed = true
+					fmt.Fprintf(os.Stderr, "\n  %s[%s]%s\n", colorFail, files[i], colorReset)
+					continue
+				}
+				if inRecap {
+					if summaryRe.Match(line) {
+						break
+					}
+					fmt.Fprintf(os.Stderr, "%s\n", line)
+				}
+			}
+			if !printed {
+				// File failed without producing a recap (compile error or similar)
+				fmt.Fprintf(os.Stderr, "\n  %s[%s]%s\n", colorFail, files[i], colorReset)
+				fmt.Fprintf(os.Stderr, "    (failed to compile or run)\n")
+			}
+		}
+	}
+
 	if grandFailed > 0 {
 		fmt.Fprintf(os.Stderr, "\n%d files, %d tests, %d passed, %s%d failed%s, %d skipped%s\n",
 			len(files), grandTests, grandPassed, colorFail, grandFailed, colorReset, grandSkipped, timingTotal)

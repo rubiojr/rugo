@@ -21,6 +21,30 @@ rats "recap is absent without flag"
   test.assert_false(found)
 end
 
+rats "multi-file recap consolidates all failures"
+  result = test.run("rugo rats --recap rats/fixtures/recap/ 2>&1")
+  # The consolidated recap should appear at the end
+  test.assert_contains(result["output"], "=== Failed tests ===")
+  # It should include failures from both files with file names
+  test.assert_contains(result["output"], "[rats/fixtures/recap/fail_test.rugo]")
+  test.assert_contains(result["output"], "[rats/fixtures/recap/fail2_test.rugo]")
+  # It should include the failure details from each file
+  test.assert_contains(result["output"], "not ok 1 - this fails")
+  test.assert_contains(result["output"], "not ok 1 - another failure")
+end
+
+rats "multi-file recap absent without flag"
+  result = test.run("RUGO_TEST_RECAP= rugo rats rats/fixtures/recap/ 2>&1")
+  lines = result["lines"]
+  found = false
+  for line in lines
+    if str.contains(line, "=== Failed tests ===")
+      found = true
+    end
+  end
+  test.assert_false(found)
+end
+
 rats "recap not shown when all tests pass"
   result = test.run("rugo rats --recap rats/core/08_rats_self_test.rugo 2>&1")
   test.assert_eq(result["status"], 0)
