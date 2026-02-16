@@ -1,0 +1,38 @@
+use "test"
+use "time"
+
+rats "time.now"
+  t = time.now()
+  test.assert_true(t > 1000000000.0)
+end
+
+rats "time.millis"
+  m = time.millis()
+  test.assert_true(m > 1000000000000)
+end
+
+rats "time.sleep"
+  start = time.now()
+  time.sleep(0.1)
+  elapsed = time.since(start)
+  test.assert_true(elapsed >= 0.09)
+end
+
+rats "time.since"
+  start = time.now()
+  time.sleep(0.05)
+  elapsed = time.since(start)
+  test.assert_true(elapsed >= 0.04)
+  test.assert_true(elapsed < 1.0)
+end
+
+rats "time.format"
+  result = time.format(0.0, "2006-01-02")
+  test.assert_eq(result, "1970-01-01")
+end
+
+rats "time.parse"
+  t = time.parse("2024-01-15", "2006-01-02")
+  test.assert_true(t > 1705000000.0)
+  test.assert_true(t < 1706000000.0)
+end

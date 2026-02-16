@@ -1,0 +1,18 @@
+# Encoding module examples
+use "base64"
+use "hex"
+
+puts "=== Base64 ==="
+encoded = base64.encode("Hello, Rugo!")
+puts "encoded: " + encoded
+puts "decoded: " + base64.decode(encoded)
+
+url_encoded = base64.url_encode("data+with/special?chars")
+puts "url_encoded: " + url_encoded
+puts "url_decoded: " + base64.url_decode(url_encoded)
+
+puts ""
+puts "=== Hex ==="
+hex_encoded = hex.encode("Rugo")
+puts "encoded: " + hex_encoded
+puts "decoded: " + hex.decode(hex_encoded)

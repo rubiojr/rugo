@@ -1,0 +1,50 @@
+use "test"
+use "conv"
+
+rats "conv.to_bool from bool"
+  test.assert_eq(conv.to_bool(true), true)
+  test.assert_eq(conv.to_bool(false), false)
+end
+
+rats "conv.to_bool from int"
+  test.assert_eq(conv.to_bool(0), false)
+  test.assert_eq(conv.to_bool(1), true)
+  test.assert_eq(conv.to_bool(-1), true)
+end
+
+rats "conv.to_bool from float"
+  test.assert_eq(conv.to_bool(0.0), false)
+  test.assert_eq(conv.to_bool(1.5), true)
+end
+
+rats "conv.to_bool from string"
+  test.assert_eq(conv.to_bool(""), false)
+  test.assert_eq(conv.to_bool("true"), true)
+  test.assert_eq(conv.to_bool("false"), false)
+  test.assert_eq(conv.to_bool("hello"), true)
+end
+
+rats "conv.to_bool from nil"
+  test.assert_eq(conv.to_bool(nil), false)
+end
+
+rats "conv.parse_int hex"
+  test.assert_eq(conv.parse_int("ff", 16), 255)
+  test.assert_eq(conv.parse_int("FF", 16), 255)
+  test.assert_eq(conv.parse_int("10", 16), 16)
+end
+
+rats "conv.parse_int binary"
+  test.assert_eq(conv.parse_int("1010", 2), 10)
+  test.assert_eq(conv.parse_int("11111111", 2), 255)
+end
+
+rats "conv.parse_int octal"
+  test.assert_eq(conv.parse_int("77", 8), 63)
+  test.assert_eq(conv.parse_int("10", 8), 8)
+end
+
+rats "conv.parse_int decimal"
+  test.assert_eq(conv.parse_int("42", 10), 42)
+  test.assert_eq(conv.parse_int("-5", 10), -5)
+end

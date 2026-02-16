@@ -73,3 +73,31 @@ func (*Conv) ToF(val interface{}) interface{} {
 func (*Conv) ToS(val interface{}) interface{} {
 	return rugo_to_string(val)
 }
+
+func (*Conv) ToBool(val interface{}) interface{} {
+	switch v := val.(type) {
+	case bool:
+		return v
+	case int:
+		return v != 0
+	case float64:
+		return v != 0.0
+	case string:
+		if v == "" || v == "false" {
+			return false
+		}
+		return true
+	case nil:
+		return false
+	default:
+		panic(fmt.Sprintf("conv.to_bool: cannot convert %s to boolean", rugoTypeName(val)))
+	}
+}
+
+func (*Conv) ParseInt(s string, base int) interface{} {
+	n, err := strconv.ParseInt(s, base, 64)
+	if err != nil {
+		panic(fmt.Sprintf("conv.parse_int: cannot parse %q with base %d: %v", s, base, err))
+	}
+	return int(n)
+}

@@ -1,0 +1,13 @@
+# Crypto module example
+use "crypto"
+
+puts "=== Crypto Hashing ==="
+message = "Hello, Rugo!"
+
+puts "MD5:    " + crypto.md5(message)
+puts "SHA1:   " + crypto.sha1(message)
+puts "SHA256: " + crypto.sha256(message)
+
+# Verify a known hash
+puts ""
+puts "empty string MD5: " + crypto.md5("")

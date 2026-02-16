@@ -1,0 +1,28 @@
+# Filepath module example
+use "filepath"
+use "conv"
+
+puts "=== Filepath Module ==="
+
+# Joining paths
+puts filepath.join("usr", "local", "bin")
+
+# Decomposing paths
+path = "/home/user/docs/report.pdf"
+puts "base: " + filepath.base(path)
+puts "dir: " + filepath.dir(path)
+puts "ext: " + filepath.ext(path)
+
+# Cleaning paths
+puts "clean: " + filepath.clean("a/b/../c/./d")
+
+# Absolute path
+puts "abs(.): " + filepath.abs(".")
+
+# Split
+parts = filepath.split(path)
+puts "split dir: " + parts[0]
+puts "split file: " + parts[1]
+
+# Pattern matching
+puts "match *.pdf: " + conv.to_s(filepath.match("*.pdf", "report.pdf"))

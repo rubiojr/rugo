@@ -1,0 +1,17 @@
+# Rand module example
+use "rand"
+use "conv"
+
+puts "=== Random ==="
+
+puts "int(1,100): " + conv.to_s(rand.int(1, 100))
+puts "float: " + conv.to_s(rand.float())
+puts "string(12): " + rand.string(12)
+puts "uuid: " + rand.uuid()
+
+fruits = ["apple", "banana", "cherry", "date"]
+puts "choice: " + rand.choice(fruits)
+
+nums = [1, 2, 3, 4, 5]
+shuffled = rand.shuffle(nums)
+puts "shuffled: " + conv.to_s(shuffled)

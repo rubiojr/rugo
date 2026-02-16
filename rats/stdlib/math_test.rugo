@@ -1,0 +1,73 @@
+use "test"
+use "math"
+
+rats "math.abs"
+  test.assert_eq(math.abs(-5.0), 5.0)
+  test.assert_eq(math.abs(3.0), 3.0)
+  test.assert_eq(math.abs(0.0), 0.0)
+end
+
+rats "math.ceil and floor"
+  test.assert_eq(math.ceil(2.3), 3)
+  test.assert_eq(math.floor(2.7), 2)
+  test.assert_eq(math.ceil(-1.5), -1)
+  test.assert_eq(math.floor(-1.5), -2)
+end
+
+rats "math.round"
+  test.assert_eq(math.round(2.5), 3)
+  test.assert_eq(math.round(2.4), 2)
+  test.assert_eq(math.round(-0.5), -1)  
+end
+
+rats "math.max and min"
+  test.assert_eq(math.max(3.0, 5.0), 5.0)
+  test.assert_eq(math.min(3.0, 5.0), 3.0)
+end
+
+rats "math.pow and sqrt"
+  test.assert_eq(math.pow(2.0, 10.0), 1024.0)
+  test.assert_eq(math.sqrt(144.0), 12.0)
+end
+
+rats "math.log"
+  test.assert_eq(math.log10(100.0), 2.0)
+  test.assert_eq(math.log2(8.0), 3.0)
+end
+
+rats "math.trig"
+  test.assert_eq(math.sin(0.0), 0.0)
+  test.assert_eq(math.cos(0.0), 1.0)
+end
+
+rats "math.constants"
+  pi = math.pi()
+  test.assert_true(pi > 3.14)
+  test.assert_true(pi < 3.15)
+  e = math.e()
+  test.assert_true(e > 2.71)
+  test.assert_true(e < 2.72)
+end
+
+rats "math.special values"
+  test.assert_true(math.is_nan(math.nan()))
+  test.assert_true(math.is_inf(math.inf()))
+end
+
+rats "math.clamp"
+  test.assert_eq(math.clamp(5.0, 0.0, 10.0), 5.0)
+  test.assert_eq(math.clamp(-5.0, 0.0, 10.0), 0.0)
+  test.assert_eq(math.clamp(15.0, 0.0, 10.0), 10.0)
+end
+
+rats "math.random"
+  r = math.random()
+  test.assert_true(r >= 0.0)
+  test.assert_true(r < 1.0)
+end
+
+rats "math.random_int"
+  r = math.random_int(1, 10)
+  test.assert_true(r >= 1)
+  test.assert_true(r < 10)
+end

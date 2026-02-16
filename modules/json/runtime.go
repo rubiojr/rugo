@@ -29,6 +29,14 @@ func (*JSON) Encode(val interface{}) interface{} {
 	return string(b)
 }
 
+func (*JSON) Pretty(val interface{}) interface{} {
+	b, err := json.MarshalIndent(prepareJSON(val), "", "  ")
+	if err != nil {
+		panic(fmt.Sprintf("json.pretty: %v", err))
+	}
+	return string(b)
+}
+
 // prepareJSON converts Rugo types back to standard Go types for json.Marshal.
 func prepareJSON(v interface{}) interface{} {
 	switch val := v.(type) {

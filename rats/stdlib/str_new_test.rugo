@@ -1,0 +1,131 @@
+use "test"
+use "str"
+
+rats "str.count"
+  test.assert_eq(str.count("hello world", "l"), 3)
+  test.assert_eq(str.count("aaa", "a"), 3)
+  test.assert_eq(str.count("hello", "xyz"), 0)
+  test.assert_eq(str.count("", "a"), 0)
+end
+
+rats "str.repeat"
+  test.assert_eq(str.repeat("ab", 3), "ababab")
+  test.assert_eq(str.repeat("x", 0), "")
+  test.assert_eq(str.repeat("", 5), "")
+end
+
+rats "str.reverse"
+  test.assert_eq(str.reverse("hello"), "olleh")
+  test.assert_eq(str.reverse(""), "")
+  test.assert_eq(str.reverse("a"), "a")
+  test.assert_eq(str.reverse("café"), "éfac")
+end
+
+rats "str.chars"
+  c = str.chars("hi")
+  test.assert_eq(len(c), 2)
+  test.assert_eq(c[0], "h")
+  test.assert_eq(c[1], "i")
+  test.assert_eq(len(str.chars("")), 0)
+  c2 = str.chars("café")
+  test.assert_eq(len(c2), 4)
+  test.assert_eq(c2[3], "é")
+end
+
+rats "str.fields"
+  f = str.fields("  a  b  c  ")
+  test.assert_eq(len(f), 3)
+  test.assert_eq(f[0], "a")
+  test.assert_eq(f[1], "b")
+  test.assert_eq(f[2], "c")
+  f2 = str.fields("hello")
+  test.assert_eq(len(f2), 1)
+  test.assert_eq(f2[0], "hello")
+  test.assert_eq(len(str.fields("")), 0)
+end
+
+rats "str.trim_prefix"
+  test.assert_eq(str.trim_prefix("hello", "he"), "llo")
+  test.assert_eq(str.trim_prefix("hello", "xyz"), "hello")
+  test.assert_eq(str.trim_prefix("hello", ""), "hello")
+end
+
+rats "str.trim_suffix"
+  test.assert_eq(str.trim_suffix("hello", "lo"), "hel")
+  test.assert_eq(str.trim_suffix("hello", "xyz"), "hello")
+  test.assert_eq(str.trim_suffix("hello", ""), "hello")
+end
+
+rats "str.pad_left default"
+  test.assert_eq(str.pad_left("hi", 5), "   hi")
+  test.assert_eq(str.pad_left("hello", 3), "hello")
+  test.assert_eq(str.pad_left("", 3), "   ")
+end
+
+rats "str.pad_left custom char"
+  test.assert_eq(str.pad_left("hi", 5, "0"), "000hi")
+  test.assert_eq(str.pad_left("x", 4, "."), "...x")
+end
+
+rats "str.pad_right default"
+  test.assert_eq(str.pad_right("hi", 5), "hi   ")
+  test.assert_eq(str.pad_right("hello", 3), "hello")
+end
+
+rats "str.pad_right custom char"
+  test.assert_eq(str.pad_right("hi", 5, "."), "hi...")
+end
+
+rats "str.each_line"
+  lines = str.each_line("a\nb\nc")
+  test.assert_eq(len(lines), 3)
+  test.assert_eq(lines[0], "a")
+  test.assert_eq(lines[1], "b")
+  test.assert_eq(lines[2], "c")
+  test.assert_eq(len(str.each_line("single")), 1)
+  test.assert_eq(len(str.each_line("")), 1)
+end
+
+rats "str.center default"
+  test.assert_eq(str.center("hi", 6), "  hi  ")
+  test.assert_eq(str.center("hi", 7), "  hi   ")
+  test.assert_eq(str.center("hello", 3), "hello")
+end
+
+rats "str.center custom char"
+  test.assert_eq(str.center("hi", 6, "-"), "--hi--")
+end
+
+rats "str.last_index"
+  test.assert_eq(str.last_index("hello", "l"), 3)
+  test.assert_eq(str.last_index("hello", "xyz"), -1)
+  test.assert_eq(str.last_index("abab", "ab"), 2)
+end
+
+rats "str.slice basic"
+  test.assert_eq(str.slice("hello", 1, 3), "el")
+  test.assert_eq(str.slice("hello", 0, 5), "hello")
+  test.assert_eq(str.slice("hello", 2, 2), "")
+end
+
+rats "str.slice negative indices"
+  test.assert_eq(str.slice("hello", -3, -1), "ll")
+  test.assert_eq(str.slice("hello", -2, 5), "lo")
+end
+
+rats "str.slice clamping"
+  test.assert_eq(str.slice("hello", 0, 100), "hello")
+  test.assert_eq(str.slice("hello", -100, 2), "he")
+  test.assert_eq(str.slice("hello", 10, 20), "")
+end
+
+rats "str.slice unicode"
+  test.assert_eq(str.slice("café", 0, 3), "caf")
+  test.assert_eq(str.slice("café", 3, 4), "é")
+end
+
+rats "str.empty"
+  test.assert_eq(str.empty(""), true)
+  test.assert_eq(str.empty("x"), false)
+  test.assert_eq(str.empty(" "), false)
+end

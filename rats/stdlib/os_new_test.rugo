@@ -1,0 +1,91 @@
+use "test"
+use "os"
+use "str"
+
+rats "os.getenv and os.setenv"
+  os.setenv("RUGO_TEST_VAR", "hello123")
+  test.assert_eq(os.getenv("RUGO_TEST_VAR"), "hello123")
+  test.assert_eq(os.getenv("RUGO_NONEXISTENT_VAR_XYZ"), "")
+end
+
+rats "os.cwd"
+  dir = os.cwd()
+  test.assert_true(len(dir) > 0)
+  test.assert_true(str.starts_with(dir, "/"))
+end
+
+rats "os.chdir and cwd"
+  original = os.cwd()
+  os.chdir("/tmp")
+  test.assert_eq(os.cwd(), "/tmp")
+  os.chdir(original)
+  test.assert_eq(os.cwd(), original)
+end
+
+rats "os.hostname"
+  h = os.hostname()
+  test.assert_true(len(h) > 0)
+end
+
+rats "os.read_file and write_file"
+  path = os.tmp_dir() + "/rugo_test_rw.txt"
+  os.write_file(path, "hello rugo")
+  test.assert_eq(os.read_file(path), "hello rugo")
+  os.remove(path)
+  test.assert_eq(os.file_exists(path), false)
+end
+
+rats "os.mkdir and remove"
+  path = os.tmp_dir() + "/rugo_test_mkdir"
+  os.mkdir(path)
+  test.assert_eq(os.is_dir(path), true)
+  os.remove(path)
+  test.assert_eq(os.file_exists(path), false)
+end
+
+rats "os.rename"
+  old_path = os.tmp_dir() + "/rugo_test_rename_old.txt"
+  new_path = os.tmp_dir() + "/rugo_test_rename_new.txt"
+  os.write_file(old_path, "test")
+  os.rename(old_path, new_path)
+  test.assert_eq(os.file_exists(old_path), false)
+  test.assert_eq(os.read_file(new_path), "test")
+  os.remove(new_path)
+end
+
+rats "os.glob"
+  dir = os.tmp_dir() + "/rugo_test_glob"
+  os.mkdir(dir)
+  os.write_file(dir + "/a.txt", "a")
+  os.write_file(dir + "/b.txt", "b")
+  matches = os.glob(dir + "/*.txt")
+  test.assert_eq(len(matches), 2)
+  os.remove(dir)
+end
+
+rats "os.tmp_dir"
+  d = os.tmp_dir()
+  test.assert_true(len(d) > 0)
+  test.assert_true(os.is_dir(d))
+end
+
+rats "os.args"
+  a = os.args()
+  test.assert_true(type_of(a) == "Array")
+end
+
+rats "os.pid"
+  p = os.pid()
+  test.assert_true(p > 0)
+end
+
+rats "os.symlink and readlink"
+  target = os.tmp_dir() + "/rugo_test_symlink_target.txt"
+  link = os.tmp_dir() + "/rugo_test_symlink_link"
+  os.write_file(target, "symlink test")
+  os.symlink(target, link)
+  test.assert_eq(os.readlink(link), target)
+  test.assert_eq(os.read_file(link), "symlink test")
+  os.remove(link)
+  os.remove(target)
+end

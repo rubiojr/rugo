@@ -1,0 +1,29 @@
+# Math module example
+use "math"
+use "conv"
+
+puts "=== Math Module ==="
+
+# Basic operations
+puts "abs(-42): " + conv.to_s(math.abs(-42.0))
+puts "ceil(2.3): " + conv.to_s(math.ceil(2.3))
+puts "floor(2.7): " + conv.to_s(math.floor(2.7))
+puts "round(2.5): " + conv.to_s(math.round(2.5))
+
+# Powers and roots
+puts "pow(2, 10): " + conv.to_s(math.pow(2.0, 10.0))
+puts "sqrt(144): " + conv.to_s(math.sqrt(144.0))
+
+# Logarithms
+puts "log10(1000): " + conv.to_s(math.log10(1000.0))
+
+# Constants
+puts "pi: " + conv.to_s(math.pi())
+puts "e: " + conv.to_s(math.e())
+
+# Clamp
+puts "clamp(15, 0, 10): " + conv.to_s(math.clamp(15.0, 0.0, 10.0))
+
+# Random
+puts "random: " + conv.to_s(math.random())
+puts "random_int(1,100): " + conv.to_s(math.random_int(1, 100))

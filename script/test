@@ -8,7 +8,8 @@ use "os"
 # Examples that block (e.g. start a server) or need network/auth in CI.
 skip = [
   "examples/web_example.rugo",
-  "examples/remote_require.rugo"
+  "examples/remote_require.rugo",
+  "examples/require_go_qt/main.rugo"
 ]
 
 def should_skip(path, skip_list)

@@ -1,0 +1,21 @@
+# Time module example
+use "time"
+use "conv"
+
+puts "=== Time Module ==="
+
+puts "now: " + conv.to_s(time.now())
+puts "millis: " + conv.to_s(time.millis())
+
+# Format a timestamp
+puts "epoch 0: " + time.format(0.0, "2006-01-02 15:04:05")
+
+# Measure elapsed time
+start = time.now()
+time.sleep(0.1)
+elapsed = time.since(start)
+puts "elapsed: " + conv.to_s(elapsed) + " seconds"
+
+# Parse a date string
+ts = time.parse("2024-06-15", "2006-01-02")
+puts "parsed: " + conv.to_s(ts)

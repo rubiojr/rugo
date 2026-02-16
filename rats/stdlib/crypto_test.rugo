@@ -1,0 +1,19 @@
+use "test"
+use "crypto"
+
+rats "crypto.md5"
+  test.assert_eq(crypto.md5("hello"), "5d41402abc4b2a76b9719d911017c592")
+  test.assert_eq(crypto.md5(""), "d41d8cd98f00b204e9800998ecf8427e")
+end
+
+rats "crypto.sha256"
+  h = crypto.sha256("hello")
+  test.assert_eq(len(h), 64)
+  test.assert_eq(h, "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+end
+
+rats "crypto.sha1"
+  h = crypto.sha1("hello")
+  test.assert_eq(len(h), 40)
+  test.assert_eq(h, "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d")
+end

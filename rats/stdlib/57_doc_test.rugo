@@ -31,11 +31,19 @@ end
 
 # Test: rugo doc for a bridge package
 rats "rugo doc time shows bridge docs"
-  result = test.run("rugo doc time")
+  result = test.run("rugo doc import:time")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "package time")
   test.assert_contains(result["output"], "time.now_unix")
   test.assert_contains(result["output"], "time.sleep_ms")
+end
+
+rats "rugo doc use:time shows module docs"
+  result = test.run("NO_COLOR=1 rugo doc use:time")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "module time")
+  test.assert_contains(result["output"], "time.now")
+  test.assert_contains(result["output"], "time.sleep")
 end
 
 # Test: rugo doc strings shows all bridge functions
@@ -104,25 +112,41 @@ end
 
 # Test: rugo doc filepath bridge package
 rats "rugo doc filepath shows bridge docs"
-  result = test.run("rugo doc filepath")
+  result = test.run("rugo doc import:filepath")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "package filepath")
   test.assert_contains(result["output"], "filepath.join")
   test.assert_contains(result["output"], "filepath.base")
 end
 
+rats "rugo doc use:filepath shows module docs"
+  result = test.run("NO_COLOR=1 rugo doc use:filepath")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "module filepath")
+  test.assert_contains(result["output"], "filepath.join")
+  test.assert_contains(result["output"], "filepath.base")
+end
+
 # Test: rugo doc math bridge package
 rats "rugo doc math shows bridge docs"
-  result = test.run("rugo doc math")
+  result = test.run("rugo doc import:math")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "package math")
   test.assert_contains(result["output"], "math.sqrt")
   test.assert_contains(result["output"], "math.pow")
 end
 
+rats "rugo doc use:math shows module docs"
+  result = test.run("NO_COLOR=1 rugo doc use:math")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "module math")
+  test.assert_contains(result["output"], "math.sqrt")
+  test.assert_contains(result["output"], "math.clamp")
+end
+
 # Test: rugo doc with NO_COLOR skips bat
 rats "rugo doc respects NO_COLOR"
-  result = test.run("NO_COLOR=1 rugo doc time")
+  result = test.run("NO_COLOR=1 rugo doc import:time")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "package time")
   test.assert_contains(result["output"], "time.sleep_ms")
@@ -218,11 +242,19 @@ rats "rugo doc sort shows functions"
 end
 
 # Test: rugo doc rand bridge
-rats "rugo doc rand shows functions"
-  result = test.run("NO_COLOR=1 rugo doc rand")
+rats "rugo doc rand shows bridge functions"
+  result = test.run("NO_COLOR=1 rugo doc import:rand")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "rand.int_n")
   test.assert_contains(result["output"], "rand.float64")
+end
+
+rats "rugo doc use:rand shows module functions"
+  result = test.run("NO_COLOR=1 rugo doc use:rand")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "module rand")
+  test.assert_contains(result["output"], "rand.int")
+  test.assert_contains(result["output"], "rand.uuid")
 end
 
 # Test: rugo doc example file works

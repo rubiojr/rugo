@@ -23,19 +23,147 @@ puts resp.body
 | Module | Description |
 |--------|-------------|
 | [ast](modules/ast.md) | Parse and inspect Rugo source files |
+| [base64](#base64) | Base64 encoding and decoding |
 | [cli](modules/cli.md) | CLI app builder with commands, flags, and dispatch |
 | [color](modules/color.md) | ANSI terminal colors and styles |
-| [conv](modules/conv.md) | Type conversions |
+| [conv](modules/conv.md) | Type conversions (to_i, to_f, to_s, to_bool, parse_int) |
+| [crypto](#crypto) | Cryptographic hash functions (md5, sha1, sha256) |
 | [eval](modules/eval.md) | Compile and run Rugo code at runtime |
+| [filepath](modules/filepath.md) | File path manipulation and querying |
 | [fmt](modules/fmt.md) | String formatting (sprintf, printf) |
+| [hex](#hex) | Hex encoding and decoding |
 | [http](modules/http.md) | HTTP client |
-| [json](modules/json.md) | JSON parsing and encoding |
-| [os](modules/os.md) | Shell execution and process control |
+| [json](modules/json.md) | JSON parsing, encoding, and pretty-printing |
+| [math](modules/math.md) | Mathematical functions and constants |
+| [os](modules/os.md) | Shell execution, process control, and filesystem operations |
 | [queue](modules/queue.md) | Thread-safe queue for producer-consumer concurrency |
+| [rand](#rand) | Random number generation, shuffling, and UUIDs |
 | [re](modules/re.md) | Regular expressions |
 | [sqlite](modules/sqlite.md) | SQLite database access |
 | [str](modules/str.md) | String utilities |
 | [test](modules/test.md) | Testing and assertions |
+| [time](modules/time.md) | Time operations: timestamps, sleeping, formatting, and parsing |
+
+### Module Quick Reference
+
+#### str
+
+String utilities: contains, split, trim, starts_with, ends_with, replace, upper, lower, index, join, rune_count, count, repeat, reverse, chars, fields, trim_prefix, trim_suffix, pad_left, pad_right, each_line, center, last_index, slice, empty.
+
+```ruby
+use "str"
+puts str.reverse("hello")            # olleh
+puts str.pad_left("42", 6, "0")      # 000042
+puts str.center("title", 20, "-")    # -------title--------
+puts str.count("banana", "a")        # 3
+puts str.empty("")                   # true
+```
+
+#### json
+
+JSON parsing, encoding, and pretty-printing: parse, encode, pretty.
+
+```ruby
+use "json"
+data = {"name": "Rugo", "version": 1}
+puts json.pretty(data)
+```
+
+#### os
+
+Shell execution, process control, and filesystem operations: exec, exit, file_exists, is_dir, read_line, getenv, setenv, cwd, chdir, hostname, read_file, write_file, remove, mkdir, rename, glob, tmp_dir, args, pid, symlink, readlink.
+
+```ruby
+use "os"
+puts os.cwd()
+puts os.hostname()
+puts os.getenv("HOME")
+```
+
+#### conv
+
+Type conversions: to_i, to_f, to_s, to_bool, parse_int.
+
+```ruby
+use "conv"
+puts conv.to_bool("true")    # true
+puts conv.parse_int("ff", 16) # 255
+```
+
+#### math
+
+Mathematical functions and constants: abs, ceil, floor, round, max, min, pow, sqrt, log, log2, log10, sin, cos, tan, pi, e, inf, nan, is_nan, is_inf, clamp, random, random_int.
+
+```ruby
+use "math"
+puts math.sqrt(144.0)        # 12
+puts math.pi()                # 3.141592653589793
+puts math.clamp(15, 0, 10)   # 10
+```
+
+#### filepath
+
+File path manipulation: join, base, dir, ext, abs, rel, glob, clean, is_abs, split, match.
+
+```ruby
+use "filepath"
+puts filepath.join("home", "user", "docs")   # home/user/docs
+puts filepath.ext("photo.jpg")                # .jpg
+puts filepath.base("/home/user/file.txt")     # file.txt
+```
+
+#### time
+
+Time operations: now, sleep, format, parse, since, millis.
+
+```ruby
+use "time"
+t = time.now()
+time.sleep(100)               # sleep 100ms
+puts time.millis()            # current time in milliseconds
+```
+
+#### base64
+
+Base64 encoding and decoding: encode, decode, url_encode, url_decode.
+
+```ruby
+use "base64"
+encoded = base64.encode("Hello, Rugo!")
+puts encoded                               # SGVsbG8sIFJ1Z28h
+puts base64.decode(encoded)                # Hello, Rugo!
+```
+
+#### hex
+
+Hex encoding and decoding: encode, decode.
+
+```ruby
+use "hex"
+puts hex.encode("hello")     # 68656c6c6f
+puts hex.decode("68656c6c6f") # hello
+```
+
+#### crypto
+
+Cryptographic hash functions: md5, sha256, sha1.
+
+```ruby
+use "crypto"
+puts crypto.sha256("hello")
+puts crypto.md5("hello")
+```
+
+#### rand
+
+Random number generation, shuffling, and UUIDs: int, float, string, choice, shuffle, uuid.
+
+```ruby
+use "rand"
+puts rand.uuid()
+puts rand.int(1, 100)
+puts rand.choice(["a", "b", "c"])
+```
 
 ## Go Stdlib Bridge (`import`)
 

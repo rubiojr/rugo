@@ -39,3 +39,31 @@ f = conv.to_f(42)       # 42.0
 ```
 
 Panics if the string is not a valid number.
+
+## to_bool
+
+Converts a value to a boolean.
+
+```ruby
+conv.to_bool(1)        # true
+conv.to_bool(0)        # false
+conv.to_bool("")       # false
+conv.to_bool("hello")  # true
+conv.to_bool("false")  # false
+conv.to_bool(nil)      # false
+```
+
+Rules: `false`, `0`, `0.0`, `""`, `"false"`, and `nil` are falsy. Everything else is truthy.
+
+## parse_int
+
+Parses a string as an integer with a given base.
+
+```ruby
+conv.parse_int("ff", 16)       # 255
+conv.parse_int("1010", 2)      # 10
+conv.parse_int("77", 8)        # 63
+conv.parse_int("42", 10)       # 42
+```
+
+Panics if the string is not valid for the given base.

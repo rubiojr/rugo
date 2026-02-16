@@ -1,0 +1,18 @@
+use "test"
+use "hex"
+
+rats "hex.encode and decode"
+  encoded = hex.encode("hello")
+  test.assert_eq(encoded, "68656c6c6f")
+  test.assert_eq(hex.decode(encoded), "hello")
+end
+
+rats "hex.encode empty"
+  test.assert_eq(hex.encode(""), "")
+  test.assert_eq(hex.decode(""), "")
+end
+
+rats "hex roundtrip"
+  original = "Rugo is fun!"
+  test.assert_eq(hex.decode(hex.encode(original)), original)
+end

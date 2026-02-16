@@ -17,6 +17,7 @@ func init() {
 		Funcs: []modules.FuncDef{
 			{Name: "parse", Args: []modules.ArgType{modules.String}, Doc: "Parse a JSON string into a hash or array."},
 			{Name: "encode", Args: []modules.ArgType{modules.Any}, Doc: "Encode a value as a JSON string."},
+			{Name: "pretty", Args: []modules.ArgType{modules.Any}, Doc: "Encode a value as a pretty-printed JSON string with indentation."},
 		},
 		GoImports: []string{"encoding/json", "math"},
 		Runtime:   modules.CleanRuntime(runtime),

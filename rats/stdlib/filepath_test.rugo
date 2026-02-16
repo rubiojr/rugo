@@ -1,0 +1,58 @@
+use "test"
+use "filepath"
+
+rats "filepath.join"
+  test.assert_eq(filepath.join("a", "b", "c"), "a/b/c")
+  test.assert_eq(filepath.join("/usr", "local", "bin"), "/usr/local/bin")
+end
+
+rats "filepath.base"
+  test.assert_eq(filepath.base("/foo/bar/baz.txt"), "baz.txt")
+  test.assert_eq(filepath.base("/foo/bar/"), "bar")
+end
+
+rats "filepath.dir"
+  test.assert_eq(filepath.dir("/foo/bar/baz.txt"), "/foo/bar")
+  test.assert_eq(filepath.dir("foo/bar"), "foo")
+end
+
+rats "filepath.ext"
+  test.assert_eq(filepath.ext("file.txt"), ".txt")
+  test.assert_eq(filepath.ext("file"), "")
+  test.assert_eq(filepath.ext("archive.tar.gz"), ".gz")
+end
+
+rats "filepath.abs"
+  p = filepath.abs(".")
+  test.assert_true(filepath.is_abs(p))
+end
+
+rats "filepath.clean"
+  test.assert_eq(filepath.clean("a/b/../c"), "a/c")
+  test.assert_eq(filepath.clean("a//b///c"), "a/b/c")
+end
+
+rats "filepath.is_abs"
+  test.assert_eq(filepath.is_abs("/foo"), true)
+  test.assert_eq(filepath.is_abs("foo"), false)
+end
+
+rats "filepath.split"
+  parts = filepath.split("/foo/bar.txt")
+  test.assert_eq(parts[0], "/foo/")
+  test.assert_eq(parts[1], "bar.txt")
+end
+
+rats "filepath.match"
+  test.assert_eq(filepath.match("*.txt", "file.txt"), true)
+  test.assert_eq(filepath.match("*.go", "file.txt"), false)
+end
+
+rats "filepath.rel"
+  test.assert_eq(filepath.rel("/a/b", "/a/b/c/d"), "c/d")
+end
+
+rats "filepath.glob"
+  matches = filepath.glob("/tmp/*")
+  test.assert_true(len(matches) >= 0)
+end

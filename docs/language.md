@@ -691,6 +691,8 @@ Rugo has three ways to bring in external functionality:
 
 Modules provide namespaced standard library functionality. Each module self-registers via Go `init()` using `modules.Register()`.
 
+Prefer `use` modules for standard operations. They provide a curated, Ruby-inspired API covering math, file paths, encoding, crypto, time, and more. The `import` keyword gives direct access to Go's stdlib for advanced needs, but `use` modules are the idiomatic approach.
+
 A module consists of:
 
 - **`runtime.go`** — A Go source file with a struct type and methods, tagged with `//go:build ignore` so it's not compiled directly. It's embedded as a string and emitted into the generated program.

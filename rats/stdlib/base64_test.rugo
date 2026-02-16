@@ -1,0 +1,25 @@
+use "test"
+use "base64"
+
+rats "base64.encode and decode"
+  encoded = base64.encode("hello world")
+  test.assert_eq(encoded, "aGVsbG8gd29ybGQ=")
+  test.assert_eq(base64.decode(encoded), "hello world")
+end
+
+rats "base64.encode empty"
+  test.assert_eq(base64.encode(""), "")
+  test.assert_eq(base64.decode(""), "")
+end
+
+rats "base64.url_encode and url_decode"
+  encoded = base64.url_encode("hello+world/foo")
+  decoded = base64.url_decode(encoded)
+  test.assert_eq(decoded, "hello+world/foo")
+end
+
+rats "base64 roundtrip"
+  original = "The quick brown fox jumps over the lazy dog"
+  test.assert_eq(base64.decode(base64.encode(original)), original)
+  test.assert_eq(base64.url_decode(base64.url_encode(original)), original)
+end

@@ -45,3 +45,21 @@ rugo doc http             # show module documentation
 21. [Doc Comments](quickstart/20-doc-comments.md)
 22. [Sandbox](quickstart/21-sandbox.md)
 23. [Go Modules via Require](quickstart/22-go-modules.md)
+
+## Standard Library
+
+The Rugo stdlib (`use` modules) is the idiomatic way to work in Rugo. It provides a curated, Ruby-inspired API covering common tasks — math, file paths, encoding, crypto, time, and more.
+
+```ruby
+use "math"
+use "filepath"
+use "base64"
+
+puts math.sqrt(144.0)                          # 12
+puts filepath.join("home", "user", "docs")     # home/user/docs
+puts base64.encode("Hello, Rugo!")             # SGVsbG8sIFJ1Z28h
+```
+
+Prefer `use` modules for standard operations. They are designed for Rugo and follow its conventions. The `import` keyword (Go bridge) is available for advanced use cases when you need direct access to Go's standard library, but `use` modules are the recommended, idiomatic approach.
+
+See the full list of available modules in the [Modules](modules.md) reference.

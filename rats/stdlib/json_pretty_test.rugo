@@ -1,0 +1,28 @@
+use "test"
+use "json"
+use "str"
+
+rats "json.pretty hash"
+  h = {"name" => "Alice", "age" => 30}
+  result = json.pretty(h)
+  test.assert_true(str.contains(result, "\n"))
+  test.assert_true(str.contains(result, "  "))
+  parsed = json.parse(result)
+  test.assert_eq(parsed["name"], "Alice")
+end
+
+rats "json.pretty array"
+  a = [1, 2, 3]
+  result = json.pretty(a)
+  test.assert_true(str.contains(result, "\n"))
+  parsed = json.parse(result)
+  test.assert_eq(len(parsed), 3)
+end
+
+rats "json.pretty roundtrip"
+  h = {"key" => "value"}
+  compact = json.encode(h)
+  pretty = json.pretty(h)
+  test.assert_true(len(pretty) > len(compact))
+  test.assert_eq(json.parse(pretty)["key"], "value")
+end
