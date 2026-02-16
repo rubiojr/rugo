@@ -60,6 +60,29 @@ func rugo_to_string(v interface{}) string {
 	return fmt.Sprintf("%v", v)
 }
 
+// rugo_to_go recursively normalizes a Rugo value for Go consumption.
+// Converts map[interface{}]interface{} → map[string]interface{} and
+// recurses into []interface{} elements so Go stdlib functions like
+// json.Marshal can process Rugo hashes and arrays.
+func rugo_to_go(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[interface{}]interface{}:
+		m := make(map[string]interface{}, len(val))
+		for k, v2 := range val {
+			m[fmt.Sprintf("%v", k)] = rugo_to_go(v2)
+		}
+		return m
+	case []interface{}:
+		out := make([]interface{}, len(val))
+		for i, v2 := range val {
+			out[i] = rugo_to_go(v2)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
 func rugo_add(a, b interface{}) interface{} {
 	switch av := a.(type) {
 	case int:

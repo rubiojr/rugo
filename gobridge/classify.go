@@ -43,6 +43,7 @@ type ClassifiedFunc struct {
 	Returns    []GoType
 	FuncTypes  map[int]*GoFuncType  // GoFunc param signatures
 	ArrayTypes map[int]*GoArrayType // fixed-size array return metadata
+	TypeCasts  map[int]string       // param index → named type cast (e.g., "os.FileMode")
 	Variadic   bool
 	Doc        string
 }
@@ -91,6 +92,14 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 			hasCast = true
 		}
 		bf.Params = append(bf.Params, gt)
+		// Detect named types that need explicit casts (e.g., os.FileMode).
+		if cast := namedTypeCastFromRaw(params.At(i).Type()); cast != "" {
+			if bf.TypeCasts == nil {
+				bf.TypeCasts = make(map[int]string)
+			}
+			bf.TypeCasts[i] = cast
+			hasCast = true
+		}
 	}
 
 	results := sig.Results()
@@ -207,6 +216,9 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 
 // ClassifyGoType maps a Go type to a GoType and tier.
 func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
+	// Unwrap type aliases (Go 1.22+): e.g., os.FileMode = fs.FileMode = uint32.
+	t = types.Unalias(t)
+
 	if named, ok := t.(*types.Named); ok {
 		if named.Obj().Pkg() == nil && named.Obj().Name() == "error" {
 			return GoError, TierAuto, ""
@@ -217,16 +229,18 @@ func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
 	switch u := t.(type) {
 	case *types.Basic:
 		switch u.Kind() {
-		case types.String:
+		case types.String, types.UntypedString:
 			return GoString, TierAuto, ""
-		case types.Int:
+		case types.Int, types.UntypedInt:
 			return GoInt, TierAuto, ""
-		case types.Float64:
+		case types.Float64, types.UntypedFloat:
 			return GoFloat64, TierAuto, ""
-		case types.Bool:
+		case types.Bool, types.UntypedBool:
 			return GoBool, TierAuto, ""
 		case types.Byte:
 			return GoByte, TierCastable, ""
+		case types.UntypedRune:
+			return GoRune, TierCastable, ""
 		case types.Int64:
 			return GoInt64, TierCastable, ""
 		case types.Int32:
@@ -263,6 +277,9 @@ func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
 	case *types.Signature:
 		return GoFunc, TierFunc, "function parameter"
 	case *types.Interface:
+		if u.NumMethods() == 0 {
+			return GoAny, TierAuto, ""
+		}
 		return 0, TierBlocked, "interface type"
 	case *types.Pointer:
 		return 0, TierBlocked, fmt.Sprintf("pointer to %s", u.Elem())
@@ -354,9 +371,50 @@ func GoTypeConst(t GoType) string {
 		return "GoDuration"
 	case GoError:
 		return "GoError"
+	case GoAny:
+		return "GoAny"
 	default:
 		return "GoString"
 	}
+}
+
+// namedTypeCastFromRaw returns the qualified Go type expression for a param
+// type that needs an explicit cast, handling both *types.Named and *types.Alias.
+// For example, os.WriteFile's perm param is fs.FileMode (alias for uint32)
+// which needs cast: os.FileMode(rugo_to_int(arg)).
+// Returns empty string if no cast is needed.
+func namedTypeCastFromRaw(t types.Type) string {
+	// Handle type aliases (Go 1.22+): e.g., os.FileMode = fs.FileMode.
+	if alias, ok := t.(*types.Alias); ok {
+		obj := alias.Obj()
+		if obj.Pkg() == nil {
+			return ""
+		}
+		// Only cast aliases whose target is ultimately a basic type.
+		target := types.Unalias(t)
+		if named, ok := target.(*types.Named); ok {
+			if _, isBasic := named.Underlying().(*types.Basic); isBasic {
+				return obj.Pkg().Name() + "." + obj.Name()
+			}
+		}
+		if _, isBasic := target.(*types.Basic); isBasic {
+			return obj.Pkg().Name() + "." + obj.Name()
+		}
+		return ""
+	}
+	// Handle regular named types.
+	named, ok := t.(*types.Named)
+	if !ok {
+		return ""
+	}
+	pkg := named.Obj().Pkg()
+	if pkg == nil {
+		return ""
+	}
+	if _, isBasic := named.Underlying().(*types.Basic); !isBasic {
+		return ""
+	}
+	return pkg.Name() + "." + named.Obj().Name()
 }
 
 // qualifiedGoTypeName returns the package-qualified Go type name for a type,

@@ -23,10 +23,10 @@ rats "required module top-level web.get route serves"
     require "webmod"
     use "http"
     use "conv"
-    import "time"
+    use "time"
 
     port = webmod.start()
-    time.sleep_ms(300)
+    time.sleep(0.3)
     resp = http.get("http://localhost:" + conv.to_s(port) + "/test")
     puts resp.status_code
   MAIN
@@ -57,10 +57,10 @@ rats "required module route handler in dispatch map"
     require "webmod"
     use "http"
     use "conv"
-    import "time"
+    use "time"
 
     port = webmod.serve()
-    time.sleep_ms(300)
+    time.sleep(0.3)
     resp = http.get("http://localhost:" + conv.to_s(port) + "/ping")
     puts resp.body
   MAIN
@@ -98,10 +98,10 @@ rats "required module with multiple routes"
     require "api"
     use "http"
     use "conv"
-    import "time"
+    use "time"
 
     port = api.start()
-    time.sleep_ms(300)
+    time.sleep(0.3)
     base = "http://localhost:" + conv.to_s(port)
     a = http.get(base + "/a")
     b = http.get(base + "/b")

@@ -98,91 +98,26 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 		return nil, fmt.Errorf("type checking failed for %s", modulePath)
 	}
 
-	var allFuncs []ClassifiedFunc
-	var structInfos []GoStructInfo
-	knownStructs := make(map[string]bool)       // Go type name → true
-	namedTypes := make(map[string]*types.Named) // Go type name → Named type (for method discovery)
-	scope := typePkg.Scope()
-	for _, name := range scope.Names() {
-		obj := scope.Lookup(name)
+	cr := classifyScope(typePkg.Scope(), true)
 
-		// Discover exported struct types.
-		if tn, ok := obj.(*types.TypeName); ok && tn.Exported() {
-			named, isNamed := tn.Type().(*types.Named)
-			st, ok := tn.Type().Underlying().(*types.Struct)
-			if !ok {
-				continue
-			}
-			si := classifyStructFields(name, st)
-			structInfos = append(structInfos, *si)
-			knownStructs[name] = true
-			if isNamed {
-				namedTypes[name] = named
-			}
-			continue
-		}
-
-		fn, ok := obj.(*types.Func)
-		if !ok || !fn.Exported() {
-			continue
-		}
-		sig, ok := fn.Type().(*types.Signature)
-		if !ok || sig.Recv() != nil {
-			continue
-		}
-		rugoName := ToSnakeCase(name)
-		bf := ClassifyFunc(name, rugoName, sig)
-		allFuncs = append(allFuncs, bf)
-	}
-
-	sort.Slice(allFuncs, func(i, j int) bool {
-		if allFuncs[i].Tier != allFuncs[j].Tier {
-			return allFuncs[i].Tier < allFuncs[j].Tier
-		}
-		return allFuncs[i].RugoName < allFuncs[j].RugoName
-	})
-
-	// Split into bridgeable and skipped.
-	funcs := make(map[string]GoFuncSig)
-	var skipped []ClassifiedFunc
-	for _, f := range allFuncs {
-		if f.Tier == TierAuto || f.Tier == TierCastable {
-			sig := GoFuncSig{
-				GoName:   f.GoName,
-				Params:   f.Params,
-				Returns:  f.Returns,
-				Variadic: f.Variadic,
-			}
-			if len(f.FuncTypes) > 0 {
-				sig.FuncTypes = f.FuncTypes
-			}
-			if len(f.ArrayTypes) > 0 {
-				sig.ArrayTypes = f.ArrayTypes
-			}
-			funcs[f.RugoName] = sig
-		} else {
-			skipped = append(skipped, f)
-		}
-	}
-
-	if len(funcs) == 0 && len(structInfos) == 0 && len(skipped) == 0 {
+	if len(cr.Funcs) == 0 && len(cr.Structs) == 0 && len(cr.Skipped) == 0 {
 		return nil, fmt.Errorf("no bridgeable functions found in %s", modulePath)
 	}
 
 	pkg := &Package{
 		Path:     modulePath,
-		Funcs:    funcs,
+		Funcs:    cr.Funcs,
 		Doc:      fmt.Sprintf("Functions from Go module %s.", modulePath),
 		External: true,
-		Structs:  structInfos,
+		Structs:  cr.Structs,
 	}
 
 	return &InspectedPackage{
 		Package:      pkg,
 		GoModulePath: modulePath,
-		Skipped:      skipped,
-		KnownStructs: knownStructs,
-		NamedTypes:   namedTypes,
+		Skipped:      cr.Skipped,
+		KnownStructs: cr.KnownStructs,
+		NamedTypes:   cr.NamedTypes,
 	}, nil
 }
 
@@ -304,6 +239,323 @@ func moduleAwareImporter(fset *token.FileSet, dir string) types.Importer {
 type importerFunc func(path string) (*types.Package, error)
 
 func (f importerFunc) Import(path string) (*types.Package, error) { return f(path) }
+
+// classifiedScope holds the results of classifying all exported symbols in a Go package scope.
+type classifiedScope struct {
+	Funcs        map[string]GoFuncSig
+	Skipped      []ClassifiedFunc
+	Structs      []GoStructInfo
+	KnownStructs map[string]bool
+	NamedTypes   map[string]*types.Named
+}
+
+// classifyScope enumerates exported symbols from a Go package scope and classifies them.
+// When discoverStructs is true, exported struct types are discovered for wrapper generation
+// (used by InspectSourcePackage for require'd Go modules).
+// Package-level var methods (e.g., base64.StdEncoding.EncodeToString) are always discovered.
+func classifyScope(scope *types.Scope, discoverStructs bool) classifiedScope {
+	var allFuncs []ClassifiedFunc
+	var structInfos []GoStructInfo
+	knownStructs := make(map[string]bool)
+	namedTypes := make(map[string]*types.Named)
+	varConsts := make(map[string]GoFuncSig)
+
+	for _, name := range scope.Names() {
+		obj := scope.Lookup(name)
+
+		// Discover exported struct types (for require'd Go modules).
+		if discoverStructs {
+			if tn, ok := obj.(*types.TypeName); ok && tn.Exported() {
+				named, isNamed := tn.Type().(*types.Named)
+				st, ok := tn.Type().Underlying().(*types.Struct)
+				if !ok {
+					continue
+				}
+				si := classifyStructFields(name, st)
+				structInfos = append(structInfos, *si)
+				knownStructs[name] = true
+				if isNamed {
+					namedTypes[name] = named
+				}
+				continue
+			}
+		}
+
+		// Package-level functions.
+		if fn, ok := obj.(*types.Func); ok {
+			if !fn.Exported() {
+				continue
+			}
+			sig := fn.Type().(*types.Signature)
+			if sig.Recv() != nil {
+				continue
+			}
+			bf := ClassifyFunc(name, ToSnakeCase(name), sig)
+			allFuncs = append(allFuncs, bf)
+			continue
+		}
+
+		// Package-level vars — enumerate methods and bridge value if type is bridgeable.
+		if v, ok := obj.(*types.Var); ok && v.Exported() {
+			allFuncs = append(allFuncs, classifyVarMethods(name, v)...)
+			if sig := classifyVarValue(name, v); sig != nil {
+				varConsts[ToSnakeCase(name)] = *sig
+			}
+		}
+
+		// Package-level consts — bridge value if type is bridgeable.
+		if c, ok := obj.(*types.Const); ok && c.Exported() {
+			if sig := classifyConstValue(name, c); sig != nil {
+				varConsts[ToSnakeCase(name)] = *sig
+			}
+		}
+	}
+
+	sort.Slice(allFuncs, func(i, j int) bool {
+		if allFuncs[i].Tier != allFuncs[j].Tier {
+			return allFuncs[i].Tier < allFuncs[j].Tier
+		}
+		return allFuncs[i].RugoName < allFuncs[j].RugoName
+	})
+
+	// Split into bridgeable and skipped.
+	funcs := make(map[string]GoFuncSig)
+	var skipped []ClassifiedFunc
+	for _, f := range allFuncs {
+		if f.Tier == TierAuto || f.Tier == TierCastable {
+			sig := GoFuncSig{
+				GoName:   f.GoName,
+				Params:   f.Params,
+				Returns:  f.Returns,
+				Variadic: f.Variadic,
+			}
+			if len(f.FuncTypes) > 0 {
+				sig.FuncTypes = f.FuncTypes
+			}
+			if len(f.ArrayTypes) > 0 {
+				sig.ArrayTypes = f.ArrayTypes
+			}
+			if len(f.TypeCasts) > 0 {
+				sig.TypeCasts = f.TypeCasts
+			}
+			funcs[f.RugoName] = sig
+		} else {
+			skipped = append(skipped, f)
+		}
+	}
+
+	// Merge var/const accessors (don't overwrite function entries).
+	for name, sig := range varConsts {
+		if _, exists := funcs[name]; !exists {
+			funcs[name] = sig
+		}
+	}
+
+	// Auto-wrap output-buffer functions: detect funcs where the first param
+	// is a write-destination []byte and a companion sizing function exists.
+	// E.g., hex.Encode(dst, src []byte) int → auto-allocates dst via EncodedLen.
+	autoWrapDstBufferFuncs(funcs)
+
+	return classifiedScope{
+		Funcs:        funcs,
+		Skipped:      skipped,
+		Structs:      structInfos,
+		KnownStructs: knownStructs,
+		NamedTypes:   namedTypes,
+	}
+}
+
+// autoWrapDstBufferFuncs detects Go functions with output-buffer params and
+// replaces them with auto-wrapping Codegen callbacks.
+//
+// Pattern: func Name(dst, src []byte) int — writes into dst, returns byte count.
+// The wrapper removes dst from the Rugo signature, auto-allocates it using a
+// companion NamedLen() function, and returns the filled buffer as a string.
+//
+// Examples:
+//
+//	hex.Encode(dst, src []byte) int        → hex.encode(src) returns string
+//	hex.Decode(dst, src []byte) (int, error) → hex.decode(src) returns string
+func autoWrapDstBufferFuncs(funcs map[string]GoFuncSig) {
+	for rugoName, sig := range funcs {
+		if !isDstBufferFunc(sig) {
+			continue
+		}
+		lenFunc := findCompanionLenFunc(sig.GoName, funcs)
+		if lenFunc == "" {
+			continue
+		}
+		hasError := len(sig.Returns) == 2 && sig.Returns[1] == GoError
+
+		// Capture for closure
+		goName := sig.GoName
+		lenFuncName := lenFunc
+
+		wrapped := sig
+		wrapped.Params = sig.Params[1:] // remove dst param
+		wrapped.Returns = []GoType{GoByteSlice}
+		wrapped.Codegen = func(pkgBase string, args []string, rugoName string) string {
+			srcExpr := TypeConvToGo(args[0], GoByteSlice)
+			call := fmt.Sprintf("%s.%s", pkgBase, goName)
+			lenCall := fmt.Sprintf("%s.%s(len(_src))", pkgBase, lenFuncName)
+			if hasError {
+				return fmt.Sprintf("func() interface{} { _src := %s; _dst := make([]byte, %s); _n, _err := %s(_dst, _src); if _err != nil { %s }; return interface{}(string(_dst[:_n])) }()",
+					srcExpr, lenCall, call, PanicOnErr(rugoName))
+			}
+			return fmt.Sprintf("func() interface{} { _src := %s; _dst := make([]byte, %s); %s(_dst, _src); return interface{}(string(_dst)) }()",
+				srcExpr, lenCall, call)
+		}
+		funcs[rugoName] = wrapped
+	}
+}
+
+// isDstBufferFunc returns true if the function matches the output-buffer pattern:
+// first param is GoByteSlice, second param is GoByteSlice, and the function
+// returns int or (int, error) — not []byte.
+func isDstBufferFunc(sig GoFuncSig) bool {
+	if len(sig.Params) < 2 || sig.Params[0] != GoByteSlice || sig.Params[1] != GoByteSlice {
+		return false
+	}
+	if len(sig.Returns) == 0 {
+		return false
+	}
+	// Must return int (byte count), not []byte
+	if sig.Returns[0] != GoInt {
+		return false
+	}
+	if len(sig.Returns) == 1 {
+		return true
+	}
+	// (int, error) is OK
+	return len(sig.Returns) == 2 && sig.Returns[1] == GoError
+}
+
+// findCompanionLenFunc finds a companion sizing function for an output-buffer
+// function. For example, "Encode" → "EncodedLen", "Decode" → "DecodedLen".
+func findCompanionLenFunc(goName string, funcs map[string]GoFuncSig) string {
+	// Pattern: Name → NamedLen (e.g., Encode → EncodedLen)
+	candidate := goName + "dLen"
+	for _, sig := range funcs {
+		if sig.GoName == candidate {
+			return candidate
+		}
+	}
+	// Pattern: Name → NameLen (e.g., Encode → EncodeLen — less common)
+	candidate = goName + "Len"
+	for _, sig := range funcs {
+		if sig.GoName == candidate {
+			return candidate
+		}
+	}
+	return ""
+}
+
+// classifyVarMethods enumerates bridgeable methods on an exported package-level var.
+// For example, base64.StdEncoding has methods like EncodeToString, DecodeString, etc.
+// Returns classified functions with dot-chain GoNames (e.g., "StdEncoding.EncodeToString").
+func classifyVarMethods(varName string, v *types.Var) []ClassifiedFunc {
+	varType := v.Type()
+	if ptr, ok := varType.(*types.Pointer); ok {
+		varType = ptr.Elem()
+	}
+	named, ok := varType.(*types.Named)
+	if !ok {
+		return nil
+	}
+
+	seen := make(map[string]bool)
+	var funcs []ClassifiedFunc
+
+	// Value receiver methods.
+	for i := 0; i < named.NumMethods(); i++ {
+		m := named.Method(i)
+		if !m.Exported() {
+			continue
+		}
+		goName := varName + "." + m.Name()
+		seen[goName] = true
+		rugoName := ToSnakeCase(varName) + "_" + ToSnakeCase(m.Name())
+		bf := ClassifyFunc(goName, rugoName, m.Type().(*types.Signature))
+		funcs = append(funcs, bf)
+	}
+
+	// Pointer receiver methods (deduped).
+	ptrMethods := types.NewMethodSet(types.NewPointer(named))
+	for i := 0; i < ptrMethods.Len(); i++ {
+		m := ptrMethods.At(i).Obj().(*types.Func)
+		if !m.Exported() {
+			continue
+		}
+		goName := varName + "." + m.Name()
+		if seen[goName] {
+			continue
+		}
+		rugoName := ToSnakeCase(varName) + "_" + ToSnakeCase(m.Name())
+		bf := ClassifyFunc(goName, rugoName, m.Type().(*types.Signature))
+		funcs = append(funcs, bf)
+	}
+
+	return funcs
+}
+
+// classifyVarValue bridges an exported var as a zero-arg accessor if its type
+// is bridgeable. For example, os.Args ([]string) is accessed as os.args.
+func classifyVarValue(name string, v *types.Var) *GoFuncSig {
+	gt, tier, _ := ClassifyGoType(v.Type(), false)
+	if tier == TierBlocked || tier == TierFunc {
+		return nil
+	}
+	goName := name
+	return &GoFuncSig{
+		GoName:  goName,
+		Returns: []GoType{gt},
+		Doc:     fmt.Sprintf("Variable %s.", name),
+		Codegen: func(pkgBase string, _ []string, _ string) string {
+			return TypeWrapReturn(pkgBase+"."+goName, gt)
+		},
+	}
+}
+
+// classifyConstValue bridges an exported const as a zero-arg accessor if its
+// type is bridgeable. For example, math.Pi is accessed as math.pi.
+func classifyConstValue(name string, c *types.Const) *GoFuncSig {
+	gt, tier, _ := ClassifyGoType(c.Type(), false)
+	if tier == TierBlocked || tier == TierFunc {
+		return nil
+	}
+	goName := name
+	return &GoFuncSig{
+		GoName:  goName,
+		Returns: []GoType{gt},
+		Doc:     fmt.Sprintf("Constant %s.", name),
+		Codegen: func(pkgBase string, _ []string, _ string) string {
+			return TypeWrapReturn(pkgBase+"."+goName, gt)
+		},
+	}
+}
+
+// InspectCompiledPackage introspects a compiled Go package (stdlib or installed)
+// using importer.Default() and returns a bridge Package ready for registration.
+// This is the compile-time equivalent of InspectSourcePackage — used by `import`
+// to dynamically bridge any Go stdlib package without pre-generated code.
+func InspectCompiledPackage(pkgPath string) (*Package, error) {
+	pkg, err := importer.Default().Import(pkgPath)
+	if err != nil {
+		return nil, fmt.Errorf("importing %s: %w", pkgPath, err)
+	}
+
+	cr := classifyScope(pkg.Scope(), false)
+
+	if len(cr.Funcs) == 0 {
+		return nil, fmt.Errorf("no bridgeable functions in %s", pkgPath)
+	}
+
+	return &Package{
+		Path:  pkgPath,
+		Funcs: cr.Funcs,
+		Doc:   fmt.Sprintf("Functions from Go's %s package.", pkgPath),
+	}, nil
+}
 
 // classifyStructFields examines an exported struct and returns a GoStructInfo
 // with all exported fields that have bridgeable types. Structs with no

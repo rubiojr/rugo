@@ -6,13 +6,13 @@ import "os"
 
 # --- GoByteSlice tests ---
 
-rats "hex.encode uses GoByteSlice param"
-  result = hex.encode("Hello!")
+rats "hex.encode_to_string uses GoByteSlice param"
+  result = hex.encode_to_string("Hello!")
   test.assert_eq(result, "48656c6c6f21")
 end
 
-rats "hex.decode returns GoByteSlice as string"
-  result = hex.decode("48656c6c6f21")
+rats "hex.decode_string returns GoByteSlice as string"
+  result = hex.decode_string("48656c6c6f21")
   test.assert_eq(result, "Hello!")
 end
 

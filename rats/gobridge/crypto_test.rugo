@@ -1,5 +1,5 @@
 # RATS: Test Go bridge — crypto/sha256 and crypto/md5 packages
-# NOTE: crypto functions return raw bytes. Use hex.encode() for hex output.
+# NOTE: crypto functions return raw bytes. Use hex.encode_to_string() for hex output.
 use "test"
 
 import "crypto/sha256"
@@ -7,19 +7,19 @@ import "crypto/md5"
 import "encoding/hex"
 
 rats "sha256.sum256 known hash"
-  test.assert_eq(hex.encode(sha256.sum256("hello")), "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
+  test.assert_eq(hex.encode_to_string(sha256.sum256("hello")), "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824")
 end
 
 rats "md5.sum known hash"
-  test.assert_eq(hex.encode(md5.sum("hello")), "5d41402abc4b2a76b9719d911017c592")
+  test.assert_eq(hex.encode_to_string(md5.sum("hello")), "5d41402abc4b2a76b9719d911017c592")
 end
 
 rats "sha256 empty string"
-  test.assert_eq(hex.encode(sha256.sum256("")), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+  test.assert_eq(hex.encode_to_string(sha256.sum256("")), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 end
 
 rats "md5 empty string"
-  test.assert_eq(hex.encode(md5.sum("")), "d41d8cd98f00b204e9800998ecf8427e")
+  test.assert_eq(hex.encode_to_string(md5.sum("")), "d41d8cd98f00b204e9800998ecf8427e")
 end
 
 rats "sha256 consistency"
@@ -35,6 +35,6 @@ rats "sha256 different inputs"
 end
 
 rats "sha256 and md5 together"
-  test.assert_eq(hex.encode(sha256.sum256("test")), "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
-  test.assert_eq(hex.encode(md5.sum("test")), "098f6bcd4621d373cade4e832627b4f6")
+  test.assert_eq(hex.encode_to_string(sha256.sum256("test")), "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+  test.assert_eq(hex.encode_to_string(md5.sum("test")), "098f6bcd4621d373cade4e832627b4f6")
 end

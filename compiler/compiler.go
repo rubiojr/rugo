@@ -659,11 +659,18 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 				return nil, fmt.Errorf("%s:%d: empty package name in import statement", prog.SourceFile, s.StmtLine())
 			}
 			ns := goBridgeNamespace(imp)
+			// Compile-time introspection: dynamically discover any Go package.
 			if !gobridge.IsPackage(imp.Package) {
-				if suggestion := closestMatch(imp.Package, gobridge.PackageNames()); suggestion != "" {
-					return nil, fmt.Errorf("%s:%d: unknown package %q — did you mean %q?", prog.SourceFile, s.StmtLine(), imp.Package, suggestion)
+				pkg, err := gobridge.InspectCompiledPackage(imp.Package)
+				if err != nil {
+					// Suggest similar well-known packages on typos.
+					gobridge.PackageNames() // ensure stdlib registered for suggestions
+					if suggestion := closestMatch(imp.Package, gobridge.PackageNames()); suggestion != "" {
+						return nil, fmt.Errorf("%s:%d: unknown package %q — did you mean %q?", prog.SourceFile, s.StmtLine(), imp.Package, suggestion)
+					}
+					return nil, fmt.Errorf("%s:%d: import %q: %w", prog.SourceFile, s.StmtLine(), imp.Package, err)
 				}
-				return nil, fmt.Errorf("%s:%d: unknown package %q (available: %s)", prog.SourceFile, s.StmtLine(), imp.Package, strings.Join(gobridge.PackageNames(), ", "))
+				gobridge.Register(pkg)
 			}
 			// Check for namespace conflicts with Rugo modules
 			if c.imports[ns] {

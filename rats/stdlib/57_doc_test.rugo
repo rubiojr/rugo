@@ -34,8 +34,8 @@ rats "rugo doc time shows bridge docs"
   result = test.run("rugo doc import:time")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "package time")
-  test.assert_contains(result["output"], "time.now_unix")
-  test.assert_contains(result["output"], "time.sleep_ms")
+  test.assert_contains(result["output"], "time.parse_duration")
+  test.assert_contains(result["output"], "time.sleep")
 end
 
 rats "rugo doc use:time shows module docs"
@@ -149,7 +149,7 @@ rats "rugo doc respects NO_COLOR"
   result = test.run("NO_COLOR=1 rugo doc import:time")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "package time")
-  test.assert_contains(result["output"], "time.sleep_ms")
+  test.assert_contains(result["output"], "time.sleep")
 end
 
 # Test: rugo doc with invalid remote path fails gracefully
@@ -236,9 +236,8 @@ end
 rats "rugo doc sort shows functions"
   result = test.run("NO_COLOR=1 rugo doc sort")
   test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "sort.strings")
-  test.assert_contains(result["output"], "sort.ints")
-  test.assert_contains(result["output"], "sort.is_sorted")
+  test.assert_contains(result["output"], "sort.search_strings")
+  test.assert_contains(result["output"], "sort.strings_are_sorted")
 end
 
 # Test: rugo doc rand bridge

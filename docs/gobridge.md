@@ -61,7 +61,7 @@ GoFloat64     // float ↔ float64       — rugo_to_float(arg)
 GoBool        // bool ↔ bool           — rugo_to_bool(arg)
 GoByte        // int ↔ byte            — byte(rugo_to_int(arg))
 GoStringSlice // array ↔ []string      — rugo_go_to_string_slice(arg)
-GoByteSlice   // string ↔ []byte       — []byte(rugo_to_string(arg))
+GoByteSlice   // string/array ↔ []byte   — rugo_to_byte_slice(arg)
 GoInt32       // int ↔ int32           — int32(rugo_to_int(arg))
 GoInt64       // int ↔ int64           — int64(rugo_to_int(arg))
 GoUint32      // int ↔ uint32          — uint32(rugo_to_int(arg))
@@ -77,7 +77,7 @@ GoError       // panic ↔ error         — return-only, auto-panics on non-nil
 Return conversions wrap Go values back to `interface{}`:
 - Most types: `interface{}(goValue)`
 - Narrowing types (int32, int64, uint*, float32): cast back to `int` or `float64`
-- `GoByteSlice`: `string(goValue)` — bytes are strings in Rugo
+- `GoByteSlice`: `string(goValue)` — bytes are strings in Rugo; Rugo arrays of ints also convert to `[]byte`
 - `GoRune`: `string(r)` with zero-rune → empty string
 - `GoDuration`: `int(d / time.Millisecond)` — always milliseconds
 - `GoStringSlice`: `rugo_go_from_string_slice(v)` → `[]interface{}`
@@ -145,6 +145,19 @@ a Rugo lambda:
 ```go
 "sum256": {Params: []GoType{GoByteSlice}, Returns: []GoType{GoByteSlice},
     ArrayTypes: map[int]*GoArrayType{0: {Elem: GoByte, Size: 32}}}
+```
+
+**Output-buffer auto-wrapping** — Functions where the first param is a
+write-destination `[]byte` and a companion sizing function exists (e.g.,
+`EncodedLen`) are auto-wrapped during introspection. The `dst` param is
+removed from the Rugo signature and auto-allocated internally:
+
+```
+Go:   hex.Encode(dst, src []byte) int
+Rugo: hex.encode(src) → allocates dst via EncodedLen, returns string(dst)
+
+Go:   hex.Decode(dst, src []byte) (int, error)
+Rugo: hex.decode(src) → allocates dst via DecodedLen, returns string(dst[:n])
 ```
 
 **TypeCasts** — Named Go type casts for params:

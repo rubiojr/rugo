@@ -1,4 +1,6 @@
-# RATS: Test Go bridge — encoding/json package
+# RATS: Test Go bridge — encoding/json package (1:1 mapping)
+# json.Marshal accepts any — the bridge normalizes Rugo hashes via rugo_to_go.
+# json.Unmarshal requires a pointer arg (not bridgeable 1:1) — use "json" module instead.
 use "test"
 
 import "encoding/json"
@@ -18,45 +20,6 @@ rats "json.marshal array"
   test.assert_eq(json.marshal([1, 2, 3]), "[1,2,3]")
 end
 
-rats "json.unmarshal object"
-  parsed = json.unmarshal("{\"name\":\"Rugo\",\"version\":1}")
-  test.assert_eq(parsed.name, "Rugo")
-end
-
-rats "json.unmarshal array"
-  parsed = json.unmarshal("[1,2,3]")
-  test.assert_eq(len(parsed), 3)
-end
-
-rats "json.unmarshal nested"
-  parsed = json.unmarshal("{\"user\":{\"name\":\"Alice\"}}")
-  test.assert_eq(parsed.user.name, "Alice")
-end
-
-rats "json round-trip"
-  data = {greeting: "hello", count: 42}
-  parsed = json.unmarshal(json.marshal(data))
-  test.assert_eq(parsed.greeting, "hello")
-end
-
-# Subprocess: tests exit code on unhandled error
-rats "json.unmarshal error"
-  script = <<~SCRIPT
-    import "encoding/json"
-    json.unmarshal("not json")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_eq(result["status"], 1)
-  test.assert_contains(result["output"], "json.unmarshal")
-end
-
-rats "json.marshal_indent"
-  result = json.marshal_indent({name: "Rugo"}, "", "  ")
-  test.assert_contains(result, "\"name\"")
-  test.assert_contains(result, "\"Rugo\"")
-end
-
 rats "json.marshal nil"
   test.assert_eq(json.marshal(nil), "null")
 end
@@ -66,29 +29,55 @@ rats "json.marshal boolean"
   test.assert_eq(json.marshal(false), "false")
 end
 
-rats "json.unmarshal boolean and null"
-  test.assert_eq(json.unmarshal("true"), true)
-  test.assert_eq(json.unmarshal("false"), false)
-  test.assert_nil(json.unmarshal("null"))
-end
-
-rats "json round-trip preserves integers"
-  data = {count: 42}
-  parsed = json.unmarshal(json.marshal(data))
-  test.assert_eq(parsed.count + 1, 43.0)
-end
-
-rats "json.unmarshal deeply nested"
-  parsed = json.unmarshal("{\"a\":{\"b\":{\"c\":\"deep\"}}}")
-  test.assert_eq(parsed.a.b.c, "deep")
+rats "json.marshal nested hash"
+  result = json.marshal({user: {name: "Alice", age: 30}})
+  test.assert_contains(result, "\"user\"")
+  test.assert_contains(result, "\"Alice\"")
 end
 
 rats "json.marshal array of hashes"
-  result = json.marshal([{name: "a"}, {name: "b"}])
-  test.assert_contains(result, "\"name\"")
+  result = json.marshal([{a: 1}, {b: 2}])
+  test.assert_contains(result, "\"a\"")
+  test.assert_contains(result, "\"b\"")
 end
 
-rats "json.unmarshal with try/or on bad input"
-  result = try json.unmarshal("{{invalid") or "fallback"
-  test.assert_eq(result, "fallback")
+rats "json.marshal_indent"
+  result = json.marshal_indent({name: "Rugo"}, "", "  ")
+  test.assert_contains(result, "\"name\"")
+  test.assert_contains(result, "\"Rugo\"")
+  test.assert_contains(result, "\n")
+end
+
+rats "json.valid with valid JSON"
+  test.assert_true(json.valid("{}"))
+  test.assert_true(json.valid("[1,2,3]"))
+  test.assert_true(json.valid("\"hello\""))
+  test.assert_true(json.valid("null"))
+end
+
+rats "json.valid with invalid JSON"
+  test.assert_false(json.valid("not json"))
+  test.assert_false(json.valid("{bad}"))
+  test.assert_false(json.valid(""))
+end
+
+rats "json.marshal empty hash"
+  test.assert_eq(json.marshal({}), "{}")
+end
+
+rats "json.marshal empty array"
+  test.assert_eq(json.marshal([]), "[]")
+end
+
+rats "json.marshal mixed array"
+  result = json.marshal([1, "two", true, nil])
+  test.assert_eq(result, "[1,\"two\",true,null]")
+end
+
+rats "json.marshal integer"
+  test.assert_eq(json.marshal(42), "42")
+end
+
+rats "json.marshal float"
+  test.assert_eq(json.marshal(3.14), "3.14")
 end

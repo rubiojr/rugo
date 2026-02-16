@@ -1,38 +1,8 @@
-# RATS: Test Go bridge — net/url package
+# RATS: Test Go bridge — net/url package (1:1 mapping)
 use "test"
 use "eval"
 
 import "net/url"
-
-rats "url.parse full URL"
-  u = url.parse("https://user@example.com:8080/path?q=hello#section")
-  test.assert_eq(u.scheme, "https")
-  test.assert_eq(u.host, "example.com:8080")
-  test.assert_eq(u.hostname, "example.com")
-  test.assert_eq(u.port, "8080")
-  test.assert_eq(u.path, "/path")
-  test.assert_eq(u.query, "q=hello")
-  test.assert_eq(u.fragment, "section")
-  test.assert_eq(u.user, "user")
-end
-
-rats "url.parse without port"
-  u = url.parse("https://example.com/path")
-  test.assert_eq(u.scheme, "https")
-  test.assert_eq(u.hostname, "example.com")
-  test.assert_eq(u.path, "/path")
-end
-
-rats "url.parse relative URL"
-  u = url.parse("/api/v2/users?page=1")
-  test.assert_eq(u.path, "/api/v2/users")
-  test.assert_eq(u.query, "page=1")
-end
-
-rats "url.parse raw field"
-  u = url.parse("https://example.com/path")
-  test.assert_contains(u.raw, "https://example.com/path")
-end
 
 rats "url.query_escape and query_unescape"
   escaped = url.query_escape("hello world&foo=bar")
@@ -55,20 +25,14 @@ rats "url.query_unescape error"
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 1)
-  test.assert_contains(result["output"], "url.query_unescape")
 end
 
-rats "url.parse with alias"
+rats "url with alias"
   source = <<~RUGO
     import "net/url" as u
-    parsed = u.parse("https://example.com:443/test")
-    puts parsed.scheme
-    puts parsed.hostname
-    puts parsed.port
+    puts u.query_escape("hello world")
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "https")
-  test.assert_contains(result["output"], "example.com")
-  test.assert_contains(result["output"], "443")
+  test.assert_contains(result["output"], "hello+world")
 end

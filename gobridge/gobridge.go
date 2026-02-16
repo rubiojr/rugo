@@ -33,6 +33,7 @@ const (
 	GoFunc        // func param — Rugo lambda adapted to typed Go func
 	GoDuration    // time.Duration — bridged as int (milliseconds) in Rugo
 	GoError       // error (panics on non-nil, invisible to Rugo)
+	GoAny         // interface{}/any — passed through unchanged
 )
 
 // GoFuncType describes a Go function signature for lambda adapter generation.
@@ -200,31 +201,44 @@ type Package struct {
 // registry maps Go package paths to their bridge definitions.
 var registry = map[string]*Package{}
 
-// Register adds a Go package to the bridge registry.
-// If Extend() was called first (init ordering), merges the extended funcs.
-func Register(pkg *Package) {
-	if existing, ok := registry[pkg.Path]; ok {
-		// Merge extended functions into the full package
-		for name, sig := range existing.Funcs {
-			pkg.Funcs[name] = sig
-		}
-	}
-	registry[pkg.Path] = pkg
+// stdlibPackages lists Go stdlib packages available for import.
+// These are lazily introspected and registered on first access.
+var stdlibPackages = []string{
+	"crypto/md5",
+	"crypto/sha256",
+	"encoding/base64",
+	"encoding/hex",
+	"encoding/json",
+	"html",
+	"math",
+	"math/rand/v2",
+	"net/url",
+	"os",
+	"path",
+	"path/filepath",
+	"sort",
+	"strconv",
+	"strings",
+	"time",
+	"unicode",
 }
 
-// Extend merges additional functions into an already-registered package.
-// If the package isn't registered yet (init order), it creates a placeholder
-// that Register() will merge into later.
-func Extend(path string, funcs map[string]GoFuncSig) {
-	pkg, ok := registry[path]
-	if !ok {
-		// Package not yet registered — create a stub that Register will merge into
-		registry[path] = &Package{Path: path, Funcs: funcs}
-		return
+// ensureStdlib lazily introspects and registers all well-known stdlib packages.
+// Safe to call multiple times — packages already in the registry are skipped.
+func ensureStdlib() {
+	for _, path := range stdlibPackages {
+		if _, ok := registry[path]; ok {
+			continue
+		}
+		if pkg, err := InspectCompiledPackage(path); err == nil {
+			registry[path] = pkg
+		}
 	}
-	for name, sig := range funcs {
-		pkg.Funcs[name] = sig
-	}
+}
+
+// Register adds a Go package to the bridge registry.
+func Register(pkg *Package) {
+	registry[pkg.Path] = pkg
 }
 
 // IsPackage returns true if the package is whitelisted for Go bridge.
@@ -233,8 +247,9 @@ func IsPackage(pkg string) bool {
 	return ok
 }
 
-// PackageNames returns sorted names of all whitelisted Go bridge packages.
+// PackageNames returns sorted names of all available Go bridge packages.
 func PackageNames() []string {
+	ensureStdlib()
 	names := make([]string, 0, len(registry))
 	for name := range registry {
 		names = append(names, name)
@@ -296,13 +311,35 @@ func PackageFuncs(pkg string) map[string]GoFuncSig {
 }
 
 // GetPackage returns the full Package definition for a given path, or nil.
+// Lazily introspects stdlib packages if not yet registered, and falls back
+// to compile-time introspection for arbitrary Go packages.
 func GetPackage(pkg string) *Package {
-	return registry[pkg]
+	if p, ok := registry[pkg]; ok {
+		return p
+	}
+	ensureStdlib()
+	if p, ok := registry[pkg]; ok {
+		return p
+	}
+	// Try on-demand introspection for any Go package (e.g., net/http).
+	if p, err := InspectCompiledPackage(pkg); err == nil {
+		registry[pkg] = p
+		return p
+	}
+	return nil
 }
 
 // LookupByNS finds a package by its namespace (last path segment).
+// Ensures well-known stdlib packages are registered before searching.
 // Returns the package and true if found.
 func LookupByNS(ns string) (*Package, bool) {
+	for _, pkg := range registry {
+		if DefaultNS(pkg.Path) == ns {
+			return pkg, true
+		}
+	}
+	// Try lazy introspection of well-known stdlib packages.
+	ensureStdlib()
 	for _, pkg := range registry {
 		if DefaultNS(pkg.Path) == ns {
 			return pkg, true
@@ -327,7 +364,7 @@ func TypeConvToGo(argExpr string, t GoType) string {
 	case GoStringSlice:
 		return "rugo_go_to_string_slice(" + argExpr + ")"
 	case GoByteSlice:
-		return "[]byte(rugo_to_string(" + argExpr + "))"
+		return "rugo_to_byte_slice(" + argExpr + ")"
 	case GoInt32:
 		return "int32(rugo_to_int(" + argExpr + "))"
 	case GoInt64:
@@ -344,6 +381,8 @@ func TypeConvToGo(argExpr string, t GoType) string {
 		return "rugo_first_rune(rugo_to_string(" + argExpr + "))"
 	case GoDuration:
 		return "time.Duration(rugo_to_int(" + argExpr + ")) * time.Millisecond"
+	case GoAny:
+		return "rugo_to_go(" + argExpr + ")"
 	default:
 		return argExpr
 	}
@@ -584,11 +623,17 @@ var RuneHelper = helperFromFile("rugo_first_rune", runeHelperSrc)
 // StringSliceHelper is loaded from helpers/string_slice.go via embed.
 var StringSliceHelper = helperFromFile("rugo_go_to_string_slice", stringSliceHelperSrc)
 
+// ByteSliceHelper is loaded from helpers/byte_slice.go via embed.
+var ByteSliceHelper = helperFromFile("rugo_to_byte_slice", byteSliceHelperSrc)
+
 // PackageNeedsHelper reports whether any function in a package uses the given GoType
-// in params or returns, including inside GoFunc adapter signatures.
+// in params or returns, including inside GoFunc adapter signatures and struct methods.
 func PackageNeedsHelper(pkg string, target GoType) bool {
-	funcs := PackageFuncs(pkg)
-	for _, sig := range funcs {
+	bp := GetPackage(pkg)
+	if bp == nil {
+		return false
+	}
+	for _, sig := range bp.Funcs {
 		for _, p := range sig.Params {
 			if p == target {
 				return true
@@ -606,6 +651,21 @@ func PackageNeedsHelper(pkg string, target GoType) bool {
 				}
 			}
 			for _, r := range ft.Returns {
+				if r == target {
+					return true
+				}
+			}
+		}
+	}
+	// Check struct method params/returns (e.g., bytes.Buffer.Read takes []byte).
+	for _, si := range bp.Structs {
+		for _, m := range si.Methods {
+			for _, p := range m.Params {
+				if p == target {
+					return true
+				}
+			}
+			for _, r := range m.Returns {
 				if r == target {
 					return true
 				}

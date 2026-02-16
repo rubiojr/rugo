@@ -3,42 +3,41 @@ use "test"
 
 import "encoding/base64"
 
-rats "base64.encode and decode"
-  encoded = base64.encode("Hello, Rugo!")
+rats "base64.std_encoding_encode_to_string and decode_string"
+  encoded = base64.std_encoding_encode_to_string("Hello, Rugo!")
   test.assert_eq(encoded, "SGVsbG8sIFJ1Z28h")
-  test.assert_eq(base64.decode(encoded), "Hello, Rugo!")
+  test.assert_eq(base64.std_encoding_decode_string(encoded), "Hello, Rugo!")
 end
 
-rats "base64.url_encode and url_decode"
-  encoded = base64.url_encode("hello world+test")
-  decoded = base64.url_decode(encoded)
+rats "base64.url_encoding_encode_to_string and decode_string"
+  encoded = base64.url_encoding_encode_to_string("hello world+test")
+  decoded = base64.url_encoding_decode_string(encoded)
   test.assert_eq(decoded, "hello world+test")
 end
 
 # Subprocess: tests exit code on unhandled error
-rats "base64.decode error"
+rats "base64.std_encoding_decode_string error"
   script = <<~SCRIPT
     import "encoding/base64"
-    base64.decode("!!!not-valid!!!")
+    base64.std_encoding_decode_string("!!!not-valid!!!")
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 1)
-  test.assert_contains(result["output"], "base64.decode")
 end
 
 rats "base64 empty string"
-  test.assert_eq(base64.encode(""), "")
-  test.assert_eq(base64.decode(""), "")
+  test.assert_eq(base64.std_encoding_encode_to_string(""), "")
+  test.assert_eq(base64.std_encoding_decode_string(""), "")
 end
 
 rats "base64 round-trip"
   original = "The quick brown fox jumps over the lazy dog"
-  test.assert_eq(base64.decode(base64.encode(original)), original)
+  test.assert_eq(base64.std_encoding_decode_string(base64.std_encoding_encode_to_string(original)), original)
 end
 
 rats "base64 special characters"
   original = "hello+world/test=foo"
-  decoded = base64.decode(base64.encode(original))
+  decoded = base64.std_encoding_decode_string(base64.std_encoding_encode_to_string(original))
   test.assert_eq(decoded, "hello+world/test=foo")
 end

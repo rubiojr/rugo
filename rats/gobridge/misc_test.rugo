@@ -1,4 +1,4 @@
-# RATS: Test Go bridge — sort, time, os packages
+# RATS: Test Go bridge — misc packages (1:1 mapping)
 use "test"
 use "str"
 use "conv"
@@ -7,39 +7,16 @@ import "sort"
 import "time"
 import "os" as go_os
 
-# sort
-rats "sort.strings"
-  arr = ["banana", "apple", "cherry"]
-  sort.strings(arr)
-  test.assert_eq(arr[0], "apple")
-  test.assert_eq(arr[1], "banana")
-  test.assert_eq(arr[2], "cherry")
+# sort (1:1 functions only)
+rats "sort.strings_are_sorted"
+  test.assert_true(sort.strings_are_sorted(["apple", "banana", "cherry"]))
+  test.assert_false(sort.strings_are_sorted(["cherry", "apple"]))
 end
 
-rats "sort.ints"
-  arr = [3, 1, 2]
-  sort.ints(arr)
-  test.assert_eq(conv.to_s(arr[0]), "1")
-  test.assert_eq(conv.to_s(arr[1]), "2")
-  test.assert_eq(conv.to_s(arr[2]), "3")
-end
-
-rats "sort.is_sorted"
-  test.assert_true(sort.is_sorted(["apple", "banana", "cherry"]))
-  test.assert_false(sort.is_sorted(["cherry", "apple"]))
-end
-
-# time
-rats "time.now_unix"
-  ts = time.now_unix()
-  test.assert_true(ts > 0)
-end
-
-rats "time.sleep_ms"
-  start = time.now_unix_nano()
-  time.sleep_ms(50)
-  elapsed = time.now_unix_nano() - start
-  test.assert_true(elapsed > 40000000)
+# time (1:1 functions only)
+rats "time.parse_duration"
+  ns = time.parse_duration("1s")
+  test.assert_eq(ns, 1000000000)
 end
 
 # os (Go bridge with alias)

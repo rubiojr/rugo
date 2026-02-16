@@ -1,88 +1,31 @@
-# RATS: Test Go bridge — sort package (behavioral)
+# RATS: Test Go bridge — sort package (1:1 mapping)
+# Note: sort.Strings mutates a []string in-place, but bridge passes a copy
+# of the Rugo []interface{} array, so in-place mutation is not visible.
+# Only non-mutating functions are testable via the 1:1 bridge.
 use "test"
-use "conv"
 
 import "sort"
 
-rats "sort.strings mutates original array"
-  arr = ["banana", "apple", "cherry"]
-  sort.strings(arr)
-  test.assert_eq(arr[0], "apple")
-  test.assert_eq(arr[1], "banana")
-  test.assert_eq(arr[2], "cherry")
+rats "sort.search_strings finds element"
+  test.assert_eq(sort.search_strings(["a", "b", "c", "d"], "c"), 2)
 end
 
-rats "sort.ints mutates original array"
-  arr = [3, 1, 4, 1, 5, 9, 2]
-  sort.ints(arr)
-  test.assert_eq(arr[0], 1)
-  test.assert_eq(arr[1], 1)
-  test.assert_eq(arr[2], 2)
-  test.assert_eq(arr[3], 3)
-  test.assert_eq(arr[4], 4)
-  test.assert_eq(arr[5], 5)
-  test.assert_eq(arr[6], 9)
+rats "sort.search_strings missing element"
+  test.assert_eq(sort.search_strings(["a", "b", "d"], "c"), 2)
 end
 
-rats "sort.strings returns nil"
-  arr = ["z", "a"]
-  result = sort.strings(arr)
-  test.assert_nil(result)
+rats "sort.strings_are_sorted with sorted array"
+  test.assert_true(sort.strings_are_sorted(["a", "b", "c"]))
 end
 
-rats "sort.ints returns nil"
-  arr = [2, 1]
-  result = sort.ints(arr)
-  test.assert_nil(result)
+rats "sort.strings_are_sorted with unsorted array"
+  test.assert_false(sort.strings_are_sorted(["c", "a", "b"]))
 end
 
-rats "sort.is_sorted with sorted strings"
-  test.assert_true(sort.is_sorted(["a", "b", "c"]))
+rats "sort.strings_are_sorted empty array"
+  test.assert_true(sort.strings_are_sorted([]))
 end
 
-rats "sort.is_sorted with unsorted strings"
-  test.assert_false(sort.is_sorted(["c", "a", "b"]))
-end
-
-rats "sort.is_sorted with sorted ints"
-  test.assert_true(sort.is_sorted([1, 2, 3, 4]))
-end
-
-rats "sort.is_sorted with unsorted ints"
-  test.assert_false(sort.is_sorted([3, 1, 2]))
-end
-
-rats "sort.strings empty array"
-  arr = []
-  sort.strings(arr)
-  test.assert_eq(len(arr), 0)
-end
-
-rats "sort.ints single element"
-  arr = [42]
-  sort.ints(arr)
-  test.assert_eq(arr[0], 42)
-end
-
-rats "sort.is_sorted empty array"
-  test.assert_true(sort.is_sorted([]))
-end
-
-rats "sort.is_sorted single element"
-  test.assert_true(sort.is_sorted(["only"]))
-end
-
-rats "sort.strings already sorted is idempotent"
-  arr = ["a", "b", "c"]
-  sort.strings(arr)
-  test.assert_eq(arr[0], "a")
-  test.assert_eq(arr[1], "b")
-  test.assert_eq(arr[2], "c")
-end
-
-rats "sort then is_sorted"
-  arr = [5, 3, 1, 4, 2]
-  test.assert_false(sort.is_sorted(arr))
-  sort.ints(arr)
-  test.assert_true(sort.is_sorted(arr))
+rats "sort.strings_are_sorted single element"
+  test.assert_true(sort.strings_are_sorted(["only"]))
 end

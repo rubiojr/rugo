@@ -8,17 +8,8 @@ var runeHelperSrc string
 //go:embed helpers/string_slice.go
 var stringSliceHelperSrc string
 
-//go:embed helpers/json.go
-var jsonHelperSrc string
-
-//go:embed helpers/slices.go
-var slicesHelperSrc string
-
-//go:embed helpers/maps.go
-var mapsHelperSrc string
-
-//go:embed helpers/sort.go
-var sortHelperSrc string
+//go:embed helpers/byte_slice.go
+var byteSliceHelperSrc string
 
 // stripBuildTag removes the //go:build ignore line and package declaration
 // from embedded helper source, returning only the function bodies.

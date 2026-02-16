@@ -20,7 +20,6 @@ func Command() *cli.Command {
 		Usage: "Developer tools for Rugo",
 		Commands: []*cli.Command{
 			modgenCommand(),
-			bridgegenCommand(),
 		},
 	}
 }

@@ -1,7 +1,7 @@
 # Fixture: rate_limiter recovers after waiting
 use "web"
 use "http"
-import "time"
+use "time"
 
 web.rate_limit(2)
 web.middleware("rate_limiter")
@@ -20,6 +20,6 @@ puts(http.get("http://localhost:#{_port}/ping").body)
 # Rate limited
 puts(http.get("http://localhost:#{_port}/ping").body)
 # Wait for token replenishment
-time.sleep_ms(600)
+time.sleep(0.6)
 # Should pass again
 puts(http.get("http://localhost:#{_port}/ping").body)

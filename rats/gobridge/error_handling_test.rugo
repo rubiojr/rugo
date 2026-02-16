@@ -2,21 +2,9 @@
 use "test"
 use "conv"
 
-import "encoding/json"
 import "strconv"
 import "time"
 import "os" as go_os
-
-# json errors
-rats "json.unmarshal bad json with try/or"
-  result = try json.unmarshal("{{bad json") or "parse_error"
-  test.assert_eq(result, "parse_error")
-end
-
-rats "json.unmarshal empty string with try/or"
-  result = try json.unmarshal("") or "empty_error"
-  test.assert_eq(result, "empty_error")
-end
 
 # strconv errors
 rats "strconv.atoi bad input with try/or"
@@ -66,17 +54,6 @@ rats "strconv.atoi without try/or panics"
   script = <<~SCRIPT
     import "strconv"
     strconv.atoi("bad")
-    puts("should not reach")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
-  test.assert_neq(result["status"], 0)
-end
-
-rats "json.unmarshal without try/or panics"
-  script = <<~SCRIPT
-    import "encoding/json"
-    json.unmarshal("not json")
     puts("should not reach")
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)

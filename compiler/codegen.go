@@ -1853,7 +1853,10 @@ func (g *codeGen) dotExpr(e *ast.DotExpr) (string, error) {
 			// Go bridge function reference (without call)
 			if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
 				if sig, ok := gobridge.Lookup(pkg, e.Field); ok {
-					_ = sig
+					// Zero-param entries (vars/consts) — property access, no parens needed.
+					if len(sig.Params) == 0 {
+						return g.generateGoBridgeCall(pkg, sig, nil, nsName+"."+e.Field), nil
+					}
 					return "", fmt.Errorf("Go bridge function %s.%s must be called with arguments", nsName, e.Field)
 				}
 			}
@@ -2792,7 +2795,11 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 func (g *codeGen) writeGoBridgeRuntime() {
 	g.sb.WriteString("\n// --- Go Bridge Helpers ---\n\n")
 
-	emitted := map[string]bool{}
+	// Always emit rugo_to_byte_slice — it's used by TypeConvToGo for GoByteSlice
+	// params in bridge calls, struct wrapper methods, and external type wrappers.
+	g.sb.WriteString(gobridge.ByteSliceHelper.Code)
+
+	emitted := map[string]bool{gobridge.ByteSliceHelper.Key: true}
 	for pkg := range g.goImports {
 		for _, h := range gobridge.AllRuntimeHelpers(pkg) {
 			if !emitted[h.Key] {

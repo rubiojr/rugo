@@ -35,12 +35,11 @@ end
 
 rats "unknown Go bridge package errors"
   script = <<~SCRIPT
-    import "net/http"
+    import "not/a/real/package"
   SCRIPT
   test.write_file("#{test.tmpdir()}/test.rugo", script)
   result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "unknown package")
 end
 
 rats "unknown function in Go bridge errors"

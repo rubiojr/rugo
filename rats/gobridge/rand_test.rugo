@@ -20,12 +20,6 @@ rats "rand.float64 returns value in range"
   test.assert_true(f < 1.0)
 end
 
-rats "rand.n alias works"
-  n = rand.n(100)
-  test.assert_true(n >= 0)
-  test.assert_true(n < 100)
-end
-
 rats "rand produces different values across calls"
   a = rand.int_n(1000000)
   b = rand.int_n(1000000)
