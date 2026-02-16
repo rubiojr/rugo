@@ -1,0 +1,11 @@
+# Heredoc returned directly from a function (raw, with semicolons)
+def css()
+  return <<~'CSS'
+    body {
+      font-size: 13px;
+      color: red;
+    }
+  CSS
+end
+
+puts css()

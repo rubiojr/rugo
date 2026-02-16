@@ -1,0 +1,9 @@
+# Heredoc returned directly from a function (interpolating)
+def greet(name)
+  return <<~TEXT
+    Hello #{name}
+    Welcome!
+  TEXT
+end
+
+puts greet("World")

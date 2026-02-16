@@ -90,6 +90,21 @@ rats "heredoc containing try/or syntax is not expanded"
   test.assert_contains(result["output"], 'or "fallback"')
 end
 
+rats "return heredoc with interpolation from function"
+  result = test.run("rugo run rats/fixtures/heredoc_return_interp.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "Hello World")
+  test.assert_eq(lines[1], "Welcome!")
+end
+
+rats "return raw heredoc with semicolons from function"
+  result = test.run("rugo run rats/fixtures/heredoc_return_raw.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "font-size: 13px;")
+  test.assert_contains(result["output"], "color: red;")
+end
+
 rats "heredoc compiles to native binary"
   test.run("rugo build -o #{test.tmpdir()}/heredoc_test rats/fixtures/heredoc_basic.rugo")
   result = test.run("#{test.tmpdir()}/heredoc_test")

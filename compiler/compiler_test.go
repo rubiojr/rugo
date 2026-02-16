@@ -1466,6 +1466,8 @@ func TestRejectSemicolons(t *testing.T) {
 		{"semicolon in double string", `puts "a;b"`, false},
 		{"semicolon in single string", `puts 'a;b'`, false},
 		{"semicolon on second line", "x = 1\ny = 2; z = 3", true},
+		{"semicolon in heredoc body (assignment)", "x = <<~'CSS'\n  font-size: 13px;\nCSS", false},
+		{"semicolon in heredoc body (return)", "return <<~'CSS'\n  font-size: 13px;\nCSS", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

@@ -1073,10 +1073,29 @@ func parseHeredocOpener(line string, pos int) (heredocOpener, int, bool) {
 	return h, i, true
 }
 
-// findHeredocOpener scans a line for a heredoc token. It only matches
-// <<DELIM that appears after '=' (assignment context) to avoid ambiguity.
+// findHeredocOpener scans a line for a heredoc token. It matches <<DELIM
+// that appears after '=' (assignment context) or after 'return' (return context)
+// to avoid ambiguity.
 // Returns the opener, the byte offset where the token starts, and whether found.
 func findHeredocOpener(line string) (heredocOpener, int, bool) {
+	// Check for 'return <<...' context first.
+	trimmed := strings.TrimLeft(line, " \t")
+	if strings.HasPrefix(trimmed, "return ") || strings.HasPrefix(trimmed, "return\t") {
+		// Find "return" in the original line, skip past it + whitespace.
+		retIdx := strings.Index(line, "return")
+		j := retIdx + len("return")
+		for j < len(line) && (line[j] == ' ' || line[j] == '\t') {
+			j++
+		}
+		h, end, ok := parseHeredocOpener(line, j)
+		if ok {
+			rest := strings.TrimSpace(line[end:])
+			if rest == "" {
+				return h, j, true
+			}
+		}
+	}
+
 	// Look for '=' followed by optional whitespace then <<
 	for i := 0; i < len(line); i++ {
 		if line[i] == '=' {
@@ -1215,10 +1234,12 @@ func buildHeredocReplacement(h heredocOpener, bodyLines []string) string {
 //
 // Supported forms (DELIM is [A-Z_][A-Z0-9_]*):
 //
-//	x = <<DELIM       — interpolating heredoc
-//	x = <<~DELIM      — interpolating, strip common indent
-//	x = <<'DELIM'     — raw heredoc (no interpolation)
-//	x = <<~'DELIM'    — raw, strip common indent
+//	x = <<DELIM          — interpolating heredoc (assignment context)
+//	x = <<~DELIM         — interpolating, strip common indent
+//	x = <<'DELIM'        — raw heredoc (no interpolation)
+//	x = <<~'DELIM'       — raw, strip common indent
+//	return <<DELIM       — heredoc in return context
+//	return <<~'DELIM'    — raw heredoc in return context
 //
 // The closing delimiter may be indented; leading whitespace is ignored when
 // matching. Body lines between the opener and closer are collected verbatim.
@@ -2379,17 +2400,39 @@ func segmentWithPipedArg(seg string, piped string, funcs map[string]bool) string
 }
 
 // RejectSemicolons scans source for user-written semicolons outside strings
-// and returns an error if found. Semicolons are reserved for internal use by
-// the preprocessor as statement separators.
+// and heredocs, and returns an error if found. Semicolons are reserved for
+// internal use by the preprocessor as statement separators.
 func RejectSemicolons(src string) error {
 	inDouble := false
 	inSingle := false
 	escaped := false
 	line := 1
+	lines := strings.Split(src, "\n")
+	// Build a set of lines that are inside heredoc bodies so we can skip them.
+	inHeredoc := make(map[int]bool)
+	var heredocDelim string
+	for li, ln := range lines {
+		lineNum := li + 1
+		if heredocDelim != "" {
+			inHeredoc[lineNum] = true
+			if strings.TrimSpace(ln) == heredocDelim {
+				heredocDelim = ""
+			}
+			continue
+		}
+		// Check if this line opens a heredoc.
+		if _, _, ok := findHeredocOpener(ln); ok {
+			h, _, _ := findHeredocOpener(ln)
+			heredocDelim = h.delimiter
+		}
+	}
 	for i := 0; i < len(src); i++ {
 		ch := src[i]
 		if ch == '\n' {
 			line++
+		}
+		if inHeredoc[line] {
+			continue
 		}
 		if escaped {
 			escaped = false
