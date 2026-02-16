@@ -222,19 +222,6 @@ Helpers are deduplicated by key and emitted once into generated code.
 Core helpers (`rugo_first_rune`, `rugo_go_to_string_slice`) are auto-emitted
 when the corresponding GoType is used — no RuntimeHelpers declaration needed.
 
-### Packages using NoGoImport
-
-For packages implemented entirely via runtime helpers (Go generics, etc.):
-
-```go
-Register(&Package{
-    Path:         "slices",
-    NoGoImport:   true,
-    ExtraImports: []string{"sort"},
-    Funcs: map[string]GoFuncSig{ ... },
-})
-```
-
 ### Verifying codegen
 
 ```bash
@@ -268,8 +255,6 @@ These packages require `_custom.go` with `Codegen` callbacks:
 | Package | Reason |
 |---------|--------|
 | `encoding/json` | Deep `map[interface{}]interface{}` ↔ `map[string]interface{}` recursive conversion |
-| `slices` | Go generics — pure runtime helpers, `NoGoImport` |
-| `maps` | Go generics — pure runtime helpers, `NoGoImport` |
 | `sort` | In-place mutation via `sort.Slice` + `rugo_compare` |
 
 Convenience aliases (curated short names) in `_custom.go`:

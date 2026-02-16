@@ -208,8 +208,6 @@ puts str_go.to_upper("hello")   # HELLO
 | `crypto/md5` | sum |
 | `net/url` | parse, path_escape, path_unescape, query_escape, query_unescape |
 | `unicode` | is_letter, is_digit, is_space, is_upper, is_lower, is_punct, to_upper, to_lower |
-| `slices` | contains, index, reverse, compact |
-| `maps` | keys, values, clone, equal |
 
 ### Error Handling
 
