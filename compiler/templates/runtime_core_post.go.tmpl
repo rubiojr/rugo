@@ -382,6 +382,46 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 			result = append(result, interface{}(ch))
 		}
 		return interface{}(result), true
+
+	case "contains":
+		if len(args) < 1 {
+			panic(".contains() requires an argument")
+		}
+		target := args[0]
+		for _, v := range arr {
+			if reflect.DeepEqual(v, target) {
+				return true, true
+			}
+		}
+		return false, true
+
+	case "index":
+		if len(args) < 1 {
+			panic(".index() requires an argument")
+		}
+		target := args[0]
+		for i, v := range arr {
+			if reflect.DeepEqual(v, target) {
+				return i, true
+			}
+		}
+		return -1, true
+
+	case "reverse":
+		result := make([]interface{}, len(arr))
+		for i, v := range arr {
+			result[len(arr)-1-i] = v
+		}
+		return interface{}(result), true
+
+	case "compact":
+		result := make([]interface{}, 0, len(arr))
+		for i, v := range arr {
+			if i == 0 || !reflect.DeepEqual(v, arr[i-1]) {
+				result = append(result, v)
+			}
+		}
+		return interface{}(result), true
 	}
 	return nil, false
 }
@@ -478,6 +518,9 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 		for k := range m {
 			result = append(result, k)
 		}
+		sort.Slice(result, func(i, j int) bool {
+			return rugo_compare(result[i], result[j]) < 0
+		})
 		return interface{}(result), true
 
 	case "values":
@@ -497,6 +540,13 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 			result[k] = v
 		}
 		for k, v := range other {
+			result[k] = v
+		}
+		return interface{}(result), true
+
+	case "clone":
+		result := make(map[interface{}]interface{}, len(m))
+		for k, v := range m {
 			result[k] = v
 		}
 		return interface{}(result), true

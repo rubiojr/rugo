@@ -287,3 +287,117 @@ rats "array map then reduce chain"
   result = [1, 2, 3].map(fn(x) x * x end).reduce(0, fn(acc, x) acc + x end)
   test.assert_eq(result, 14)
 end
+
+# ============================================================
+# S. contains
+# ============================================================
+
+rats "array.contains returns true when value is present"
+  test.assert_true([1, 2, 3].contains(2))
+end
+
+rats "array.contains returns false when value is absent"
+  test.assert_false([1, 2, 3].contains(99))
+end
+
+rats "array.contains works with strings"
+  test.assert_true(["a", "b", "c"].contains("b"))
+  test.assert_false(["a", "b", "c"].contains("z"))
+end
+
+rats "array.contains on empty array returns false"
+  test.assert_false([].contains(1))
+end
+
+rats "array.contains uses deep equality"
+  test.assert_true([[1, 2], [3, 4]].contains([3, 4]))
+  test.assert_false([[1, 2], [3, 4]].contains([5, 6]))
+end
+
+# ============================================================
+# T. index
+# ============================================================
+
+rats "array.index returns index of first occurrence"
+  test.assert_eq([10, 20, 30, 20].index(20), 1)
+end
+
+rats "array.index returns -1 when not found"
+  test.assert_eq([1, 2, 3].index(99), -1)
+end
+
+rats "array.index on empty array returns -1"
+  test.assert_eq([].index(1), -1)
+end
+
+rats "array.index works with strings"
+  test.assert_eq(["a", "b", "c"].index("c"), 2)
+end
+
+rats "array.index uses deep equality"
+  test.assert_eq([[1], [2], [3]].index([2]), 1)
+end
+
+# ============================================================
+# U. reverse
+# ============================================================
+
+rats "array.reverse returns new reversed array"
+  result = [1, 2, 3].reverse()
+  test.assert_eq(result[0], 3)
+  test.assert_eq(result[1], 2)
+  test.assert_eq(result[2], 1)
+end
+
+rats "array.reverse on empty array returns empty"
+  test.assert_eq(len([].reverse()), 0)
+end
+
+rats "array.reverse does not mutate original"
+  arr = [1, 2, 3]
+  rev = arr.reverse()
+  test.assert_eq(arr[0], 1)
+  test.assert_eq(rev[0], 3)
+end
+
+rats "array.reverse on single element"
+  result = [42].reverse()
+  test.assert_eq(len(result), 1)
+  test.assert_eq(result[0], 42)
+end
+
+# ============================================================
+# V. compact
+# ============================================================
+
+rats "array.compact removes consecutive duplicates"
+  result = [1, 1, 2, 2, 2, 3, 1, 1].compact()
+  test.assert_eq(len(result), 4)
+  test.assert_eq(result[0], 1)
+  test.assert_eq(result[1], 2)
+  test.assert_eq(result[2], 3)
+  test.assert_eq(result[3], 1)
+end
+
+rats "array.compact on empty array returns empty"
+  test.assert_eq(len([].compact()), 0)
+end
+
+rats "array.compact with no consecutive duplicates"
+  result = [1, 2, 3].compact()
+  test.assert_eq(len(result), 3)
+end
+
+rats "array.compact on single element"
+  result = [42].compact()
+  test.assert_eq(len(result), 1)
+  test.assert_eq(result[0], 42)
+end
+
+rats "array.compact works with strings"
+  result = ["a", "a", "b", "b", "a"].compact()
+  test.assert_eq(len(result), 3)
+  test.assert_eq(result[0], "a")
+  test.assert_eq(result[1], "b")
+  test.assert_eq(result[2], "a")
+end

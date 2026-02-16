@@ -175,3 +175,43 @@ rats "built-in method takes priority over hash key"
   test.assert_eq(type_of(result), "Array")
   test.assert_eq(len(result), 2)
 end
+
+# ============================================================
+# M. keys returns sorted keys
+# ============================================================
+
+rats "hash.keys returns sorted keys"
+  h = {c: 3, a: 1, b: 2}
+  keys = h.keys()
+  test.assert_eq(keys[0], "a")
+  test.assert_eq(keys[1], "b")
+  test.assert_eq(keys[2], "c")
+end
+
+# ============================================================
+# N. clone
+# ============================================================
+
+rats "hash.clone returns a shallow copy"
+  h = {a: 1, b: 2, c: 3}
+  copy = h.clone()
+  test.assert_eq(len(copy), 3)
+  test.assert_eq(copy["a"], 1)
+  test.assert_eq(copy["b"], 2)
+  test.assert_eq(copy["c"], 3)
+end
+
+rats "hash.clone does not mutate original"
+  h = {x: 10}
+  copy = h.clone()
+  copy["y"] = 20
+  test.assert_eq(len(h), 1)
+  test.assert_eq(len(copy), 2)
+end
+
+rats "hash.clone of empty hash"
+  h = {}
+  copy = h.clone()
+  test.assert_eq(len(copy), 0)
+  test.assert_eq(type_of(copy), "Hash")
+end
