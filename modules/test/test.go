@@ -16,6 +16,7 @@ func init() {
 		Doc:  "Testing framework with assertions for RATS test files.",
 		GoImports: []string{
 			"path/filepath",
+			"reflect",
 			"strconv",
 			"time",
 		},

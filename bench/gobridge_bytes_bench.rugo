@@ -1,0 +1,38 @@
+# Go bridge byte slice pipeline benchmarks
+# Tracks: []byte -> string -> []byte copy overhead in GoByteSlice bridge calls
+use "bench"
+use "str"
+
+import "crypto/sha256"
+import "encoding/hex"
+
+def make_4k()
+  return str.repeat("x", 4096)
+end
+
+bench "sha256 -> hex.encode pipeline"
+  data = "benchmark payload for byte slice pipeline"
+  hash = sha256.sum256(data)
+  hex.encode_to_string(hash)
+end
+
+bench "sha256.sum256 only"
+  data = "benchmark payload for byte slice pipeline"
+  sha256.sum256(data)
+end
+
+bench "hex.encode_to_string only"
+  data = "benchmark payload for byte slice pipeline"
+  hex.encode_to_string(data)
+end
+
+bench "sha256 -> hex.encode (4KB payload)"
+  large = make_4k()
+  hash = sha256.sum256(large)
+  hex.encode_to_string(hash)
+end
+
+bench "sha256.sum256 only (4KB payload)"
+  large = make_4k()
+  sha256.sum256(large)
+end

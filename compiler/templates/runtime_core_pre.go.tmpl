@@ -57,6 +57,9 @@ func rugo_to_float(v interface{}) float64 {
 }
 
 func rugo_to_string(v interface{}) string {
+	if b, ok := v.([]byte); ok {
+		return string(b)
+	}
 	return fmt.Sprintf("%v", v)
 }
 
@@ -328,6 +331,8 @@ func rugo_len(args ...interface{}) interface{} {
 	switch v := args[0].(type) {
 	case string:
 		return len(v)
+	case []byte:
+		return len(v)
 	case []interface{}:
 		return len(v)
 	case map[interface{}]interface{}:
@@ -350,6 +355,8 @@ func rugo_type_of(args ...interface{}) interface{} {
 		return "Float"
 	case string:
 		return "String"
+	case []byte:
+		return "Bytes"
 	case []interface{}:
 		return "Array"
 	case map[interface{}]interface{}:
@@ -464,6 +471,10 @@ func rugo_index(obj, idx interface{}) interface{} {
 	switch o := obj.(type) {
 	case []interface{}:
 		return rugo_array_index(o, rugo_to_int(idx))
+	case []byte:
+		i := rugo_to_int(idx)
+		if i < 0 { i += len(o) }
+		return int(o[i])
 	case map[interface{}]interface{}:
 		return o[idx]
 	default:
@@ -483,6 +494,8 @@ func rugo_type_name(v interface{}) string {
 		return "float"
 	case string:
 		return "string"
+	case []byte:
+		return "bytes"
 	case []interface{}:
 		return "array"
 	case map[interface{}]interface{}:
@@ -510,6 +523,17 @@ func rugo_slice(obj, start, length interface{}) interface{} {
 			end = len(v)
 		}
 		return interface{}(v[s:end])
+	case []byte:
+		if s >= len(v) {
+			return interface{}([]byte{})
+		}
+		end := s + l
+		if end > len(v) {
+			end = len(v)
+		}
+		result := make([]byte, end-s)
+		copy(result, v[s:end])
+		return interface{}(result)
 	case []interface{}:
 		if s >= len(v) {
 			return interface{}([]interface{}{})

@@ -399,10 +399,10 @@ func autoWrapDstBufferFuncs(funcs map[string]GoFuncSig) {
 			call := fmt.Sprintf("%s.%s", pkgBase, goName)
 			lenCall := fmt.Sprintf("%s.%s(len(_src))", pkgBase, lenFuncName)
 			if hasError {
-				return fmt.Sprintf("func() interface{} { _src := %s; _dst := make([]byte, %s); _n, _err := %s(_dst, _src); if _err != nil { %s }; return interface{}(string(_dst[:_n])) }()",
+				return fmt.Sprintf("func() interface{} { _src := %s; _dst := make([]byte, %s); _n, _err := %s(_dst, _src); if _err != nil { %s }; return interface{}([]byte(_dst[:_n])) }()",
 					srcExpr, lenCall, call, PanicOnErr(rugoName))
 			}
-			return fmt.Sprintf("func() interface{} { _src := %s; _dst := make([]byte, %s); %s(_dst, _src); return interface{}(string(_dst)) }()",
+			return fmt.Sprintf("func() interface{} { _src := %s; _dst := make([]byte, %s); %s(_dst, _src); return interface{}([]byte(_dst)) }()",
 				srcExpr, lenCall, call)
 		}
 		funcs[rugoName] = wrapped

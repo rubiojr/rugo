@@ -507,7 +507,7 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 		case GoRune:
 			callArgs = append(callArgs, "interface{}(string([]rune{"+pName+"}))")
 		case GoByteSlice:
-			callArgs = append(callArgs, "interface{}(string("+pName+"))")
+			callArgs = append(callArgs, "interface{}([]byte("+pName+"))")
 		default:
 			callArgs = append(callArgs, "interface{}("+pName+")")
 		}
@@ -559,7 +559,7 @@ func TypeWrapReturn(expr string, t GoType) string {
 	case GoStringSlice:
 		return "rugo_go_from_string_slice(" + expr + ")"
 	case GoByteSlice:
-		return "interface{}(string(" + expr + "))"
+		return "interface{}([]byte(" + expr + "))"
 	case GoInt32:
 		return "interface{}(int(" + expr + "))"
 	case GoInt64:

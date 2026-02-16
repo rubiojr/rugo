@@ -2,6 +2,7 @@
 # json.Marshal accepts any — the bridge normalizes Rugo hashes via rugo_to_go.
 # json.Unmarshal requires a pointer arg (not bridgeable 1:1) — use "json" module instead.
 use "test"
+use "conv"
 
 import "encoding/json"
 
@@ -13,20 +14,20 @@ rats "json.marshal hash"
 end
 
 rats "json.marshal string"
-  test.assert_eq(json.marshal("hello"), "\"hello\"")
+  test.assert_eq(conv.to_s(json.marshal("hello")), "\"hello\"")
 end
 
 rats "json.marshal array"
-  test.assert_eq(json.marshal([1, 2, 3]), "[1,2,3]")
+  test.assert_eq(conv.to_s(json.marshal([1, 2, 3])), "[1,2,3]")
 end
 
 rats "json.marshal nil"
-  test.assert_eq(json.marshal(nil), "null")
+  test.assert_eq(conv.to_s(json.marshal(nil)), "null")
 end
 
 rats "json.marshal boolean"
-  test.assert_eq(json.marshal(true), "true")
-  test.assert_eq(json.marshal(false), "false")
+  test.assert_eq(conv.to_s(json.marshal(true)), "true")
+  test.assert_eq(conv.to_s(json.marshal(false)), "false")
 end
 
 rats "json.marshal nested hash"
@@ -62,22 +63,22 @@ rats "json.valid with invalid JSON"
 end
 
 rats "json.marshal empty hash"
-  test.assert_eq(json.marshal({}), "{}")
+  test.assert_eq(conv.to_s(json.marshal({})), "{}")
 end
 
 rats "json.marshal empty array"
-  test.assert_eq(json.marshal([]), "[]")
+  test.assert_eq(conv.to_s(json.marshal([])), "[]")
 end
 
 rats "json.marshal mixed array"
   result = json.marshal([1, "two", true, nil])
-  test.assert_eq(result, "[1,\"two\",true,null]")
+  test.assert_eq(conv.to_s(result), "[1,\"two\",true,null]")
 end
 
 rats "json.marshal integer"
-  test.assert_eq(json.marshal(42), "42")
+  test.assert_eq(conv.to_s(json.marshal(42)), "42")
 end
 
 rats "json.marshal float"
-  test.assert_eq(json.marshal(3.14), "3.14")
+  test.assert_eq(conv.to_s(json.marshal(3.14)), "3.14")
 end

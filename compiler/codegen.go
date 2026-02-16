@@ -1621,7 +1621,14 @@ func (g *codeGen) stringLiteral(value string, typed bool) (string, error) {
 			if allString {
 				return g.buildStringConcat(escapedFmt, args), nil
 			}
-			return fmt.Sprintf(`fmt.Sprintf("%s", %s)`, escapedFmt, strings.Join(args, ", ")), nil
+			// Wrap each arg in rugo_to_string so types like []byte
+			// are properly converted (fmt.Sprintf %v prints []byte as
+			// integer list instead of string content).
+			wrappedArgs := make([]string, len(args))
+			for i, a := range args {
+				wrappedArgs[i] = fmt.Sprintf("rugo_to_string(%s)", a)
+			}
+			return fmt.Sprintf(`fmt.Sprintf("%s", %s)`, escapedFmt, strings.Join(wrappedArgs, ", ")), nil
 		}
 		if typed {
 			return fmt.Sprintf(`"%s"`, escapedFmt), nil

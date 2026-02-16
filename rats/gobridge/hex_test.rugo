@@ -1,5 +1,6 @@
 # RATS: Test Go bridge — encoding/hex package
 use "test"
+use "conv"
 
 import "encoding/hex"
 import "crypto/sha256"
@@ -7,7 +8,7 @@ import "crypto/sha256"
 rats "hex.encode_to_string and decode_string"
   encoded = hex.encode_to_string("Hello!")
   test.assert_eq(encoded, "48656c6c6f21")
-  test.assert_eq(hex.decode_string(encoded), "Hello!")
+  test.assert_eq(conv.to_s(hex.decode_string(encoded)), "Hello!")
 end
 
 rats "hex.encode_to_string known value"
@@ -27,39 +28,39 @@ end
 
 rats "hex empty string"
   test.assert_eq(hex.encode_to_string(""), "")
-  test.assert_eq(hex.decode_string(""), "")
+  test.assert_eq(conv.to_s(hex.decode_string("")), "")
 end
 
 rats "hex round-trip"
   original = "Rugo is great!"
-  test.assert_eq(hex.decode_string(hex.encode_to_string(original)), "Rugo is great!")
+  test.assert_eq(conv.to_s(hex.decode_string(hex.encode_to_string(original))), "Rugo is great!")
 end
 
 rats "hex.encode auto-wraps dst buffer"
-  test.assert_eq(hex.encode("hello"), "68656c6c6f")
-  test.assert_eq(hex.encode("abc"), "616263")
-  test.assert_eq(hex.encode(""), "")
+  test.assert_eq(conv.to_s(hex.encode("hello")), "68656c6c6f")
+  test.assert_eq(conv.to_s(hex.encode("abc")), "616263")
+  test.assert_eq(conv.to_s(hex.encode("")), "")
 end
 
 rats "hex.decode auto-wraps dst buffer"
-  test.assert_eq(hex.decode("68656c6c6f"), "hello")
-  test.assert_eq(hex.decode("616263"), "abc")
-  test.assert_eq(hex.decode(""), "")
+  test.assert_eq(conv.to_s(hex.decode("68656c6c6f")), "hello")
+  test.assert_eq(conv.to_s(hex.decode("616263")), "abc")
+  test.assert_eq(conv.to_s(hex.decode("")), "")
 end
 
 rats "hex.encode round-trip with decode"
   original = "binary data \x00\x01\x02"
-  test.assert_eq(hex.decode(hex.encode(original)), original)
+  test.assert_eq(conv.to_s(hex.decode(hex.encode(original))), original)
 end
 
 rats "hex.encode with sha256 pipeline"
   hash = sha256.sum256("test")
   encoded = hex.encode(hash)
   test.assert_eq(len(encoded), 64)
-  test.assert_eq(encoded, "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+  test.assert_eq(conv.to_s(encoded), "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
 end
 
 rats "hex.append_encode with byte array"
   result = hex.append_encode("", [104, 105])
-  test.assert_eq(result, "6869")
+  test.assert_eq(conv.to_s(result), "6869")
 end

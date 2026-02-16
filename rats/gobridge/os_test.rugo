@@ -61,7 +61,7 @@ rats "os.write_file and read_file round-trip"
   path = "#{go_os.temp_dir()}/rugo_os_test_roundtrip.txt"
   go_os.write_file(path, "test content", 0644)
   content = go_os.read_file(path)
-  test.assert_eq(content, "test content")
+  test.assert_eq(conv.to_s(content), "test content")
   go_os.remove(path)
 end
 
@@ -72,7 +72,7 @@ rats "os.mkdir_all and remove_all"
   path = "#{base}/test.txt"
   go_os.write_file(path, "nested", 0644)
   content = go_os.read_file(path)
-  test.assert_eq(content, "nested")
+  test.assert_eq(conv.to_s(content), "nested")
   go_os.remove_all("#{go_os.temp_dir()}/rugo_os_test_dirs")
 end
 
@@ -82,7 +82,7 @@ rats "os.rename file"
   go_os.write_file(src, "rename me", 0644)
   go_os.rename(src, dst)
   content = go_os.read_file(dst)
-  test.assert_eq(content, "rename me")
+  test.assert_eq(conv.to_s(content), "rename me")
   # Source should no longer exist
   err = try go_os.read_file(src) or "gone"
   test.assert_eq(err, "gone")

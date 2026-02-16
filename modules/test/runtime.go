@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -71,14 +72,14 @@ func (*Test) Run(command string) interface{} {
 }
 
 func (*Test) AssertEq(actual, expected interface{}) interface{} {
-	if actual != expected {
+	if !reflect.DeepEqual(actual, expected) {
 		panic(rugoTestFail(fmt.Sprintf("assert_eq failed\n  expected: %v\n       got: %v", expected, actual)))
 	}
 	return nil
 }
 
 func (*Test) AssertNeq(actual, expected interface{}) interface{} {
-	if actual == expected {
+	if reflect.DeepEqual(actual, expected) {
 		panic(rugoTestFail(fmt.Sprintf("assert_neq failed: both values are %v", actual)))
 	}
 	return nil

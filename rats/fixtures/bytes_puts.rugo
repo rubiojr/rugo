@@ -1,0 +1,3 @@
+import "encoding/hex"
+data = hex.encode("hi")
+puts data

@@ -1,0 +1,74 @@
+# RATS: Test Bytes type — []byte values from Go bridge
+use "test"
+
+import "crypto/sha256"
+import "encoding/hex"
+
+rats "type_of bytes"
+  hash = sha256.sum256("hello")
+  test.assert_eq(type_of(hash), "Bytes")
+end
+
+rats "bytes len"
+  hash = sha256.sum256("hello")
+  test.assert_eq(len(hash), 32)
+end
+
+rats "bytes puts"
+  # puts should convert bytes to string without crashing
+  hash = hex.encode("hi")
+  result = test.run("./bin/rugo run rats/fixtures/bytes_puts.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "6869")
+end
+
+rats "bytes to string via interpolation"
+  hash = hex.encode("hi")
+  s = "result: #{hash}"
+  test.assert_eq(s, "result: 6869")
+end
+
+rats "bytes equality"
+  a = sha256.sum256("test")
+  b = sha256.sum256("test")
+  test.assert_eq(a, b)
+end
+
+rats "bytes inequality"
+  a = sha256.sum256("hello")
+  b = sha256.sum256("world")
+  test.assert_neq(a, b)
+end
+
+rats "bytes index returns integer"
+  data = hex.encode("A")
+  # hex.encode("A") = "41" as bytes = [52, 49] (ASCII '4', '1')
+  test.assert_eq(type_of(data[0]), "Integer")
+end
+
+rats "bytes slice returns bytes"
+  hash = sha256.sum256("hello")
+  chunk = hash[0, 4]
+  test.assert_eq(type_of(chunk), "Bytes")
+  test.assert_eq(len(chunk), 4)
+end
+
+rats "bytes flows through GoByteSlice pipeline"
+  # sha256 returns bytes, hex.encode_to_string accepts bytes — zero-copy path
+  hash = sha256.sum256("test")
+  encoded = hex.encode_to_string(hash)
+  test.assert_eq(encoded, "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+end
+
+rats "bytes hex.encode pipeline"
+  hash = sha256.sum256("test")
+  encoded = hex.encode(hash)
+  test.assert_eq(len(encoded), 64)
+  test.assert_eq(type_of(encoded), "Bytes")
+end
+
+rats "bytes add raises error"
+  result = test.run("./bin/rugo run rats/fixtures/bytes_add.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot add")
+end

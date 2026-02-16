@@ -1,18 +1,19 @@
 # RATS: Test Go bridge — encoding/base64 package
 use "test"
+use "conv"
 
 import "encoding/base64"
 
 rats "base64.std_encoding_encode_to_string and decode_string"
   encoded = base64.std_encoding_encode_to_string("Hello, Rugo!")
   test.assert_eq(encoded, "SGVsbG8sIFJ1Z28h")
-  test.assert_eq(base64.std_encoding_decode_string(encoded), "Hello, Rugo!")
+  test.assert_eq(conv.to_s(base64.std_encoding_decode_string(encoded)), "Hello, Rugo!")
 end
 
 rats "base64.url_encoding_encode_to_string and decode_string"
   encoded = base64.url_encoding_encode_to_string("hello world+test")
   decoded = base64.url_encoding_decode_string(encoded)
-  test.assert_eq(decoded, "hello world+test")
+  test.assert_eq(conv.to_s(decoded), "hello world+test")
 end
 
 # Subprocess: tests exit code on unhandled error
@@ -28,16 +29,16 @@ end
 
 rats "base64 empty string"
   test.assert_eq(base64.std_encoding_encode_to_string(""), "")
-  test.assert_eq(base64.std_encoding_decode_string(""), "")
+  test.assert_eq(conv.to_s(base64.std_encoding_decode_string("")), "")
 end
 
 rats "base64 round-trip"
   original = "The quick brown fox jumps over the lazy dog"
-  test.assert_eq(base64.std_encoding_decode_string(base64.std_encoding_encode_to_string(original)), original)
+  test.assert_eq(conv.to_s(base64.std_encoding_decode_string(base64.std_encoding_encode_to_string(original))), original)
 end
 
 rats "base64 special characters"
   original = "hello+world/test=foo"
   decoded = base64.std_encoding_decode_string(base64.std_encoding_encode_to_string(original))
-  test.assert_eq(decoded, "hello+world/test=foo")
+  test.assert_eq(conv.to_s(decoded), "hello+world/test=foo")
 end

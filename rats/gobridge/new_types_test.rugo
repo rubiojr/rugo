@@ -1,4 +1,5 @@
 use "test"
+use "conv"
 import "encoding/hex"
 import "strconv"
 import "unicode"
@@ -11,17 +12,19 @@ rats "hex.encode_to_string uses GoByteSlice param"
   test.assert_eq(result, "48656c6c6f21")
 end
 
-rats "hex.decode_string returns GoByteSlice as string"
+rats "hex.decode_string returns Bytes type"
   result = hex.decode_string("48656c6c6f21")
-  test.assert_eq(result, "Hello!")
+  test.assert_eq(type_of(result), "Bytes")
+  test.assert_eq(conv.to_s(result), "Hello!")
 end
 
-rats "os.read_file uses GoByteSlice return"
+rats "os.read_file returns Bytes type"
   dir = test.tmpdir()
   path = dir + "/test.txt"
   os.write_file(path, "hello world", 420)
   content = os.read_file(path)
-  test.assert_eq(content, "hello world")
+  test.assert_eq(type_of(content), "Bytes")
+  test.assert_eq(conv.to_s(content), "hello world")
 end
 
 rats "os.write_file uses GoByteSlice param"
