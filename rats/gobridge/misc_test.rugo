@@ -36,11 +36,13 @@ rats "os bridge hostname"
 end
 
 rats "os bridge temp_dir"
-  test.assert_contains(go_os.temp_dir(), "tmp")
+  d = go_os.temp_dir()
+  test.assert_neq(d, "")
+  test.assert_true(len(d) > 0)
 end
 
 rats "os bridge read_file"
-  content = go_os.read_file("/etc/os-release")
+  content = go_os.read_file("/etc/hosts")
   test.assert_neq(content, "")
 end
 

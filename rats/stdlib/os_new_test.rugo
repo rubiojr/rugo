@@ -17,7 +17,9 @@ end
 rats "os.chdir and cwd"
   original = os.cwd()
   os.chdir("/tmp")
-  test.assert_eq(os.cwd(), "/tmp")
+  cwd = os.cwd()
+  # On macOS, /tmp is a symlink to /private/tmp
+  test.assert_true(str.ends_with(cwd, "/tmp"))
   os.chdir(original)
   test.assert_eq(os.cwd(), original)
 end

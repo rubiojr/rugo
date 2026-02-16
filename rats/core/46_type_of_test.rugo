@@ -93,7 +93,7 @@ rats "type_of distinguishes struct from hash"
 end
 
 rats ".__type__ access is a compile error"
-  result = test.run("./bin/rugo run rats/fixtures/type_of_blocked.rugo")
+  result = test.run("rugo run rats/fixtures/type_of_blocked.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "use type_of() instead")
 end

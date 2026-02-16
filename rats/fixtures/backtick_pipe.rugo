@@ -1,2 +1,2 @@
-count = `echo -n hello | wc -c`
+count = `printf hello | wc -c | tr -d ' '`
 puts count
