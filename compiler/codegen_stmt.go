@@ -96,7 +96,9 @@ func (g *codeGen) emitGoStmt(s GoStmt) {
 	case GoBlankLine:
 		g.writeln("")
 	case GoLineDirective:
-		g.writef("//line %s:%d\n", st.File, st.Line)
+		if st.Line > 0 && st.File != "" {
+			g.w.sb.WriteString(fmt.Sprintf("//line %s:%d\n", st.File, st.Line))
+		}
 	case GoComment:
 		g.writef("// %s\n", st.Text)
 	case GoRawStmt:
