@@ -98,7 +98,7 @@ func (g *codeGen) buildSandboxApply() []GoStmt {
 			stmts = append(stmts, GoRawStmt{Code: "os.Clearenv()"})
 			for i, name := range cfg.Env {
 				stmts = append(stmts, GoIfStmt{
-					Cond: fmtExpr(`rugo_sandbox_env_%d != ""`, i),
+					Cond: GoRawExpr{Code: fmt.Sprintf(`rugo_sandbox_env_%d != ""`, i)},
 					Body: []GoStmt{GoRawStmt{Code: fmt.Sprintf("os.Setenv(%q, rugo_sandbox_env_%d)", name, i)}},
 				})
 			}
@@ -142,7 +142,7 @@ func (g *codeGen) buildSandboxApply() []GoStmt {
 
 	errHandler := func(msg string) GoIfStmt {
 		return GoIfStmt{
-			Cond: fmtExpr("err := %s; err != nil", msg),
+			Cond: GoRawExpr{Code: fmt.Sprintf("err := %s; err != nil", msg)},
 			Body: []GoStmt{GoRawStmt{Code: fmt.Sprintf(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox: %%v\n", err)`)}},
 		}
 	}
@@ -152,30 +152,30 @@ func (g *codeGen) buildSandboxApply() []GoStmt {
 	} else {
 		if hasFS {
 			landlockBody = append(landlockBody, GoIfStmt{
-				Cond: rawExpr("err := rugo_sandbox_cfg.RestrictPaths(rugo_sandbox_fs...); err != nil"),
+				Cond: GoRawExpr{Code: "err := rugo_sandbox_cfg.RestrictPaths(rugo_sandbox_fs...); err != nil"},
 				Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`}},
 			})
 		} else {
 			landlockBody = append(landlockBody, GoIfStmt{
-				Cond: rawExpr("err := rugo_sandbox_cfg.RestrictPaths(); err != nil"),
+				Cond: GoRawExpr{Code: "err := rugo_sandbox_cfg.RestrictPaths(); err != nil"},
 				Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`}},
 			})
 		}
 		if hasNet {
 			landlockBody = append(landlockBody, GoIfStmt{
-				Cond: rawExpr("err := rugo_sandbox_cfg.RestrictNet(rugo_sandbox_net...); err != nil"),
+				Cond: GoRawExpr{Code: "err := rugo_sandbox_cfg.RestrictNet(rugo_sandbox_net...); err != nil"},
 				Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`}},
 			})
 		} else {
 			landlockBody = append(landlockBody, GoIfStmt{
-				Cond: rawExpr("err := rugo_sandbox_cfg.RestrictNet(); err != nil"),
+				Cond: GoRawExpr{Code: "err := rugo_sandbox_cfg.RestrictNet(); err != nil"},
 				Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`}},
 			})
 		}
 	}
 
 	stmts = append(stmts, GoIfStmt{
-		Cond: rawExpr(`runtime.GOOS != "linux"`),
+		Cond: GoRawExpr{Code: `runtime.GOOS != "linux"`},
 		Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintln(os.Stderr, "rugo: warning: sandbox requires Linux with Landlock support, running unrestricted")`}},
 		Else: landlockBody,
 	})
