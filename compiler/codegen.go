@@ -396,15 +396,6 @@ func (g *codeGen) varType(name string) RugoType {
 	return g.typeInfo.VarType(scope, name)
 }
 
-// condExpr wraps a condition string for use in if/while.
-// If the condition is typed bool, use it directly; otherwise wrap with rugo_to_bool.
-func (g *codeGen) condExpr(condStr string, condExpr ast.Expr) string {
-	if g.exprType(condExpr) == TypeBool {
-		return condStr
-	}
-	return fmt.Sprintf("rugo_to_bool(%s)", g.boxed(condStr, g.exprType(condExpr)))
-}
-
 // boxed wraps a typed value in interface{} if it's a resolved primitive type.
 // This is needed when passing typed values to runtime helpers that expect interface{}.
 func (g *codeGen) boxed(s string, t RugoType) string {
