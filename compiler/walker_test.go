@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"github.com/rubiojr/rugo/ast"
+	"github.com/rubiojr/rugo/preprocess"
 	"strings"
 	"testing"
 
@@ -13,7 +14,7 @@ import (
 // Helper to parse and walk a rugo source string into a typed AST.
 func parseAndWalk(t *testing.T, src string) *ast.Program {
 	t.Helper()
-	cleaned, err := ast.StripComments(src)
+	cleaned, err := preprocess.StripComments(src)
 	if err != nil {
 		t.Fatalf("stripComments error: %v", err)
 	}

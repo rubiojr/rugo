@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/rubiojr/rugo/parser"
+	"github.com/rubiojr/rugo/preprocess"
 	"modernc.org/scanner"
 )
 
@@ -26,24 +27,24 @@ func (c *Compiler) ParseFile(filename string) (*Program, error) {
 func (c *Compiler) ParseSource(source, name string) (*Program, error) {
 	rawSource := source
 
-	cleaned, heredocLineMap, err := ExpandHeredocs(source)
+	cleaned, heredocLineMap, err := preprocess.ExpandHeredocs(source)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", name, err)
 	}
 
-	cleaned, err = StripComments(cleaned)
+	cleaned, err = preprocess.StripComments(cleaned)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", name, err)
 	}
 
 	var structLineMap []int
-	var structInfos []StructInfo
-	cleaned, structLineMap, structInfos = ExpandStructDefs(cleaned)
+	var structInfos []preprocess.StructInfo
+	cleaned, structLineMap, structInfos = preprocess.ExpandStructDefs(cleaned)
 
-	userFuncs := ScanFuncDefs(cleaned)
+	userFuncs := preprocess.ScanFuncDefs(cleaned)
 
 	var lineMap []int
-	cleaned, lineMap, err = Preprocess(cleaned, userFuncs)
+	cleaned, lineMap, err = preprocess.Preprocess(cleaned, userFuncs)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", name, err)
 	}
@@ -96,32 +97,4 @@ func firstParseError(err error) error {
 		return fmt.Errorf("%s", el[0])
 	}
 	return err
-}
-
-// levenshtein computes the edit distance between two strings.
-func levenshtein(a, b string) int {
-	la, lb := len(a), len(b)
-	if la == 0 {
-		return lb
-	}
-	if lb == 0 {
-		return la
-	}
-	prev := make([]int, lb+1)
-	for j := range prev {
-		prev[j] = j
-	}
-	for i := 1; i <= la; i++ {
-		curr := make([]int, lb+1)
-		curr[0] = i
-		for j := 1; j <= lb; j++ {
-			cost := 1
-			if a[i-1] == b[j-1] {
-				cost = 0
-			}
-			curr[j] = min(curr[j-1]+1, min(prev[j]+1, prev[j-1]+cost))
-		}
-		prev = curr
-	}
-	return prev[lb]
 }

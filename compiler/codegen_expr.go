@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"github.com/rubiojr/rugo/ast"
+	"github.com/rubiojr/rugo/preprocess"
 	"strings"
 
 	"github.com/rubiojr/rugo/gobridge"
@@ -313,8 +314,8 @@ func (g *codeGen) buildHashLiteral(e *ast.HashLiteral) (GoExpr, error) {
 }
 
 func (g *codeGen) buildStringLiteral(value string, typed bool) (GoExpr, error) {
-	if ast.HasInterpolation(value) {
-		format, exprStrs, err := ast.ProcessInterpolation(value)
+	if preprocess.HasInterpolation(value) {
+		format, exprStrs, err := preprocess.ProcessInterpolation(value)
 		if err != nil {
 			return nil, err
 		}

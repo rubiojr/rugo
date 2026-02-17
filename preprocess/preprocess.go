@@ -1,8 +1,8 @@
-package ast
+package preprocess
 
 import (
 	"fmt"
-	"github.com/rubiojr/rugo/scanner"
+	"github.com/rubiojr/rugo/util"
 	"math"
 	"strings"
 	"unicode"
@@ -483,7 +483,7 @@ func closestKeywordOrBuiltin(s string) string {
 		if min(len(s), len(kw)) <= 4 {
 			maxDist = 1
 		}
-		d := levenshtein(s, kw)
+		d := util.Levenshtein(s, kw)
 		if d > 0 && d <= maxDist && d < bestDist {
 			bestDist = d
 			best = kw
@@ -507,7 +507,7 @@ func closestKeywordOrBuiltin(s string) string {
 //
 //	try timeout 30 ping host or "fallback"
 func hasOrphanOr(line string) bool {
-	sc := scanner.New(line)
+	sc := NewStringTracker(line)
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
 			continue
@@ -1751,13 +1751,13 @@ func isAlphaNum(ch byte) bool {
 
 // isInsideString reports whether position pos in line falls inside a string literal.
 func isInsideString(line string, pos int) bool {
-	return scanner.IsInsideString(line, pos)
+	return IsInsideString(line, pos)
 }
 
 // findTopLevelOr finds " or " at the top level (not inside parens, brackets, or strings).
 // Returns the index of the start of " or " in s, or -1 if not found.
 func findTopLevelOr(s string) int {
-	pos := scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+	pos := FindTopLevel(s, func(ch byte, pos int, src string) bool {
 		if ch != ' ' {
 			return false
 		}
@@ -1847,7 +1847,7 @@ func expandDestructuring(src string) string {
 // in a line, skipping content inside strings, parens, and brackets.
 // Returns the index of `=` or -1.
 func findDestructAssign(s string) int {
-	return scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+	return FindTopLevel(s, func(ch byte, pos int, src string) bool {
 		if ch != '=' {
 			return false
 		}
@@ -1902,7 +1902,7 @@ func ExpandCompoundAssign(src string) string {
 // findCompoundOp finds a compound operator (e.g. "+=") at the top level of a line,
 // not inside strings, parens, or brackets. Returns the index or -1.
 func findCompoundOp(s string, op string) int {
-	return scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+	return FindTopLevel(s, func(ch byte, pos int, src string) bool {
 		return pos+len(op) <= len(src) && src[pos:pos+len(op)] == op
 	})
 }
@@ -1939,7 +1939,7 @@ func ExpandBareAppend(src string) string {
 // list, respecting balanced parens, brackets, braces, and string boundaries.
 // Returns "" if no comma separator is found.
 func extractFirstArg(s string) string {
-	pos := scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+	pos := FindTopLevel(s, func(ch byte, pos int, src string) bool {
 		return ch == ','
 	})
 	if pos < 0 {
@@ -2092,7 +2092,7 @@ func extractPipeAssignPrefix(trimmed string) (string, string) {
 // findTopLevelPipes finds positions of | characters that are pipe operators
 // (not part of ||, not inside strings, parens, or brackets).
 func findTopLevelPipes(s string) []int {
-	return scanner.FindAllTopLevel(s, func(ch byte, pos int, src string) bool {
+	return FindAllTopLevel(s, func(ch byte, pos int, src string) bool {
 		if ch != '|' {
 			return false
 		}
@@ -2637,7 +2637,7 @@ func rewriteDoPrefix(prefix, indent string) string {
 // findDoAssignment finds a top-level `=` (not `==`, `!=`, `<=`, `>=`, `=>`)
 // suitable for splitting assignment from a do-block call prefix.
 func findDoAssignment(s string) int {
-	return scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+	return FindTopLevel(s, func(ch byte, pos int, src string) bool {
 		if ch != '=' {
 			return false
 		}
@@ -2649,4 +2649,13 @@ func findDoAssignment(s string) int {
 		}
 		return true
 	})
+}
+
+// StructInfo holds metadata about a struct definition extracted during
+// preprocessing. Structs are expanded into constructor functions before
+// parsing, so they don't appear in the AST as nodes.
+type StructInfo struct {
+	Name   string   // struct name (e.g. "Dog")
+	Fields []string // field names
+	Line   int      // 1-based line number of the struct keyword in original source
 }

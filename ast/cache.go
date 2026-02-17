@@ -9,10 +9,11 @@ import (
 	"path/filepath"
 
 	"github.com/rubiojr/rugo/parser"
-	"github.com/rubiojr/rugo/scanner"
+	"github.com/rubiojr/rugo/preprocess"
+	"github.com/rubiojr/rugo/util"
 )
 
-//go:embed check.go nodes.go walker.go preprocess.go parse.go lower.go transform.go factory.go implicit_return.go
+//go:embed check.go nodes.go walker.go parse.go lower.go transform.go factory.go implicit_return.go
 var Sources embed.FS
 
 // goModTemplate is the go.mod for the cached AST module.
@@ -74,23 +75,14 @@ func EnsureCache() (string, error) {
 		return "", fmt.Errorf("writing parser.go: %w", err)
 	}
 
-	// Write scanner/ sources.
-	scannerDir := filepath.Join(cacheDir, "scanner")
-	if err := os.MkdirAll(scannerDir, 0755); err != nil {
-		return "", fmt.Errorf("creating scanner cache dir: %w", err)
+	// Write preprocess/ sources.
+	if err := writeEmbedFS(preprocess.Sources, filepath.Join(cacheDir, "preprocess")); err != nil {
+		return "", fmt.Errorf("writing preprocess sources: %w", err)
 	}
-	scannerEntries, err := fs.ReadDir(scanner.Sources, ".")
-	if err != nil {
-		return "", fmt.Errorf("reading embedded scanner sources: %w", err)
-	}
-	for _, e := range scannerEntries {
-		data, err := fs.ReadFile(scanner.Sources, e.Name())
-		if err != nil {
-			return "", fmt.Errorf("reading embedded %s: %w", e.Name(), err)
-		}
-		if err := os.WriteFile(filepath.Join(scannerDir, e.Name()), data, 0644); err != nil {
-			return "", fmt.Errorf("writing %s: %w", e.Name(), err)
-		}
+
+	// Write util/ sources.
+	if err := writeEmbedFS(util.Sources, filepath.Join(cacheDir, "util")); err != nil {
+		return "", fmt.Errorf("writing util sources: %w", err)
 	}
 
 	// Write go.mod.
@@ -106,6 +98,25 @@ func EnsureCache() (string, error) {
 	return cacheDir, nil
 }
 
+// writeEmbedFS writes all files from an embed.FS to the given directory,
+// preserving subdirectory structure.
+func writeEmbedFS(fsys embed.FS, destDir string) error {
+	return fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		dest := filepath.Join(destDir, path)
+		if d.IsDir() {
+			return os.MkdirAll(dest, 0755)
+		}
+		data, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			return fmt.Errorf("reading embedded %s: %w", path, err)
+		}
+		return os.WriteFile(dest, data, 0644)
+	})
+}
+
 // cacheHash returns a short hash of the embedded sources for cache keying.
 func cacheHash() string {
 	h := sha256.New()
@@ -115,10 +126,21 @@ func cacheHash() string {
 		h.Write(data)
 	}
 	h.Write(parser.Source)
-	scannerEntries, _ := fs.ReadDir(scanner.Sources, ".")
-	for _, e := range scannerEntries {
-		data, _ := fs.ReadFile(scanner.Sources, e.Name())
-		h.Write(data)
-	}
+	hashFS(h, preprocess.Sources)
 	return fmt.Sprintf("%x", h.Sum(nil))[:16]
+}
+
+// hashFS walks an embed.FS and writes all file contents to the hash.
+func hashFS(h interface{ Write([]byte) (int, error) }, fsys embed.FS) {
+	fs.WalkDir(fsys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		data, err := fs.ReadFile(fsys, path)
+		if err != nil {
+			return err
+		}
+		h.Write(data)
+		return nil
+	})
 }

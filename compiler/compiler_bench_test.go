@@ -1,7 +1,7 @@
 package compiler
 
 import (
-	"github.com/rubiojr/rugo/ast"
+	"github.com/rubiojr/rugo/preprocess"
 	"testing"
 )
 
@@ -74,10 +74,10 @@ end
 x = 10
 puts "fib(#{x}) = #{conv.to_s(fib(x))}"
 `
-	funcs := ast.ScanFuncDefs(src)
+	funcs := preprocess.ScanFuncDefs(src)
 	b.ResetTimer()
 	for b.Loop() {
-		_, _, err := ast.Preprocess(src, funcs)
+		_, _, err := preprocess.Preprocess(src, funcs)
 		if err != nil {
 			b.Fatal(err)
 		}

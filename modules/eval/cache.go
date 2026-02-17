@@ -13,8 +13,9 @@ import (
 	"github.com/rubiojr/rugo/gobridge"
 	"github.com/rubiojr/rugo/modules"
 	"github.com/rubiojr/rugo/parser"
+	"github.com/rubiojr/rugo/preprocess"
 	"github.com/rubiojr/rugo/remote"
-	"github.com/rubiojr/rugo/scanner"
+	"github.com/rubiojr/rugo/util"
 )
 
 // goModTemplate declares the module path and all dependencies needed to build
@@ -78,9 +79,14 @@ func EnsureCompilerCache() (string, error) {
 		return "", fmt.Errorf("writing remote sources: %w", err)
 	}
 
-	// Write scanner/ sources.
-	if err := writeEmbedFS(scanner.Sources, filepath.Join(cacheDir, "scanner")); err != nil {
-		return "", fmt.Errorf("writing scanner sources: %w", err)
+	// Write preprocess/ sources.
+	if err := writeEmbedFS(preprocess.Sources, filepath.Join(cacheDir, "preprocess")); err != nil {
+		return "", fmt.Errorf("writing preprocess sources: %w", err)
+	}
+
+	// Write util/ sources.
+	if err := writeEmbedFS(util.Sources, filepath.Join(cacheDir, "util")); err != nil {
+		return "", fmt.Errorf("writing util sources: %w", err)
 	}
 
 	// Write go.mod.
@@ -124,7 +130,8 @@ func compilerCacheHash() string {
 	hashFS(h, gobridge.Sources)
 	hashFS(h, modules.Sources)
 	hashFS(h, remote.Sources)
-	hashFS(h, scanner.Sources)
+	hashFS(h, preprocess.Sources)
+	hashFS(h, util.Sources)
 	return fmt.Sprintf("%x", h.Sum(nil))[:16]
 }
 

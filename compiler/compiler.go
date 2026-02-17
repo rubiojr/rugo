@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"github.com/rubiojr/rugo/ast"
+	"github.com/rubiojr/rugo/preprocess"
+	"github.com/rubiojr/rugo/util"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -444,28 +446,28 @@ func (c *Compiler) parseSource(source, displayName string) (*ast.Program, error)
 	rawSource := source
 
 	// Expand heredocs before comment stripping (bodies may contain #).
-	cleaned, heredocLineMap, err := ast.ExpandHeredocs(source)
+	cleaned, heredocLineMap, err := preprocess.ExpandHeredocs(source)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
 
 	// Strip comments
-	cleaned, err = ast.StripComments(cleaned)
+	cleaned, err = preprocess.StripComments(cleaned)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
 
 	// Expand struct definitions and method definitions before other preprocessing
 	var structLineMap []int
-	var structInfos []ast.StructInfo
-	cleaned, structLineMap, structInfos = ast.ExpandStructDefs(cleaned)
+	var structInfos []preprocess.StructInfo
+	cleaned, structLineMap, structInfos = preprocess.ExpandStructDefs(cleaned)
 
 	// Scan for user-defined function names (quick pass for def lines)
-	userFuncs := ast.ScanFuncDefs(cleaned)
+	userFuncs := preprocess.ScanFuncDefs(cleaned)
 
 	// preprocess: paren-free calls + shell fallback
 	var lineMap []int
-	cleaned, lineMap, err = ast.Preprocess(cleaned, userFuncs)
+	cleaned, lineMap, err = preprocess.Preprocess(cleaned, userFuncs)
 	if err != nil {
 		return nil, fmt.Errorf("%s:%w", displayName, err)
 	}
@@ -1406,41 +1408,13 @@ func closestMatch(name string, candidates []string) string {
 	best := ""
 	bestDist := 3 // threshold: max distance 2
 	for _, c := range candidates {
-		d := levenshtein(name, c)
+		d := util.Levenshtein(name, c)
 		if d < bestDist {
 			bestDist = d
 			best = c
 		}
 	}
 	return best
-}
-
-// levenshtein computes the edit distance between two strings.
-func levenshtein(a, b string) int {
-	la, lb := len(a), len(b)
-	if la == 0 {
-		return lb
-	}
-	if lb == 0 {
-		return la
-	}
-	prev := make([]int, lb+1)
-	for j := range prev {
-		prev[j] = j
-	}
-	for i := 1; i <= la; i++ {
-		curr := make([]int, lb+1)
-		curr[0] = i
-		for j := 1; j <= lb; j++ {
-			cost := 1
-			if a[i-1] == b[j-1] {
-				cost = 0
-			}
-			curr[j] = min(curr[j-1]+1, min(prev[j]+1, prev[j-1]+cost))
-		}
-		prev = curr
-	}
-	return prev[lb]
 }
 
 func isStatementExpectedSet(raw string) bool {
@@ -1783,7 +1757,7 @@ func validateNamespace(name string) error {
 			return fmt.Errorf("contains invalid character %q", ch)
 		}
 	}
-	if ast.RugoKeywords[name] {
+	if preprocess.RugoKeywords[name] {
 		return fmt.Errorf("%q is a reserved keyword", name)
 	}
 	return nil

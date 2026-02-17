@@ -1,8 +1,7 @@
-// Package scanner provides string-boundary-aware scanning for the Rugo
-// preprocessor. It encapsulates the tracking of double-quoted, single-quoted,
-// and backtick string literals plus escape sequences, eliminating the need
-// for every preprocessor function to re-implement this logic.
-package scanner
+// Package preprocess provides the Rugo source preprocessing pipeline.
+// It handles syntactic sugar expansion, shell fallback, string interpolation,
+// and other source transformations that run before parsing.
+package preprocess
 
 import "strings"
 
@@ -16,7 +15,7 @@ const (
 	closingBacktick             // just closed a `...` expression
 )
 
-// CodeScanner iterates byte-by-byte over source text, tracking string
+// StringTracker iterates byte-by-byte over source text, tracking string
 // literal boundaries (double-quoted, single-quoted, backtick) and escape
 // sequences. Callers check InString() instead of maintaining their own
 // inDouble/inSingle/escaped flags.
@@ -24,7 +23,7 @@ const (
 // InString() returns true for the entire string span including both
 // opening and closing delimiters, matching the preprocessor's convention
 // of skipping all bytes that are part of string literals.
-type CodeScanner struct {
+type StringTracker struct {
 	src     string
 	pos     int
 	line    int
@@ -35,15 +34,15 @@ type CodeScanner struct {
 	closing closingKind // set when a closing delimiter is processed
 }
 
-// New creates a CodeScanner for the given source text.
+// New creates a StringTracker for the given source text.
 // Call Next() to advance to the first byte.
-func New(src string) *CodeScanner {
-	return &CodeScanner{src: src, pos: -1, line: 1}
+func NewStringTracker(src string) *StringTracker {
+	return &StringTracker{src: src, pos: -1, line: 1}
 }
 
 // Next advances to the next byte, updating string/escape state.
 // Returns the byte and true, or (0, false) at end of input.
-func (s *CodeScanner) Next() (byte, bool) {
+func (s *StringTracker) Next() (byte, bool) {
 	s.closing = noClosing
 	s.pos++
 	if s.pos >= len(s.src) {
@@ -85,37 +84,37 @@ func (s *CodeScanner) Next() (byte, bool) {
 // InString reports whether the current position is inside a string literal
 // (double-quoted, single-quoted, or backtick), including both opening and
 // closing delimiters.
-func (s *CodeScanner) InString() bool {
+func (s *StringTracker) InString() bool {
 	return s.inDbl || s.inSgl || s.inBt || s.closing != noClosing
 }
 
 // InDoubleString reports whether the current position is inside a
 // double-quoted string literal.
-func (s *CodeScanner) InDoubleString() bool { return s.inDbl || s.closing == closingDouble }
+func (s *StringTracker) InDoubleString() bool { return s.inDbl || s.closing == closingDouble }
 
 // InSingleString reports whether the current position is inside a
 // single-quoted string literal.
-func (s *CodeScanner) InSingleString() bool { return s.inSgl || s.closing == closingSingle }
+func (s *StringTracker) InSingleString() bool { return s.inSgl || s.closing == closingSingle }
 
 // InBacktick reports whether the current position is inside a backtick
 // expression.
-func (s *CodeScanner) InBacktick() bool { return s.inBt || s.closing == closingBacktick }
+func (s *StringTracker) InBacktick() bool { return s.inBt || s.closing == closingBacktick }
 
 // InCode reports whether the current position is outside all string literals.
-func (s *CodeScanner) InCode() bool { return !s.InString() }
+func (s *StringTracker) InCode() bool { return !s.InString() }
 
 // Pos returns the current byte offset (the position of the last byte
 // returned by Next). Returns -1 before the first call to Next.
-func (s *CodeScanner) Pos() int { return s.pos }
+func (s *StringTracker) Pos() int { return s.pos }
 
 // Line returns the current 1-based line number.
-func (s *CodeScanner) Line() int { return s.line }
+func (s *StringTracker) Line() int { return s.line }
 
 // Src returns the full source text being scanned.
-func (s *CodeScanner) Src() string { return s.src }
+func (s *StringTracker) Src() string { return s.src }
 
 // Peek returns the next byte without advancing, or (0, false) at end.
-func (s *CodeScanner) Peek() (byte, bool) {
+func (s *StringTracker) Peek() (byte, bool) {
 	if s.pos+1 >= len(s.src) {
 		return 0, false
 	}
@@ -124,14 +123,14 @@ func (s *CodeScanner) Peek() (byte, bool) {
 
 // LookingAt checks if src[pos:] starts with the given prefix.
 // Useful for multi-character token detection (e.g., "||", "or", "fn(").
-func (s *CodeScanner) LookingAt(prefix string) bool {
+func (s *StringTracker) LookingAt(prefix string) bool {
 	return strings.HasPrefix(s.src[s.pos:], prefix)
 }
 
 // Skip advances past n bytes without returning them. String/escape state
 // is updated for each skipped byte. Returns the number of bytes actually
 // skipped (may be less than n at end of input).
-func (s *CodeScanner) Skip(n int) int {
+func (s *StringTracker) Skip(n int) int {
 	skipped := 0
 	for i := 0; i < n; i++ {
 		if _, ok := s.Next(); !ok {
@@ -159,7 +158,7 @@ func IsCloseBracket(ch byte) bool {
 // findDoAssignment, findTopLevelOr, findTopLevelPipes, etc.
 func FindTopLevel(s string, pred func(ch byte, pos int, src string) bool) int {
 	depth := 0
-	sc := New(s)
+	sc := NewStringTracker(s)
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
 			continue
@@ -180,7 +179,7 @@ func FindTopLevel(s string, pred func(ch byte, pos int, src string) bool) int {
 func FindAllTopLevel(s string, pred func(ch byte, pos int, src string) bool) []int {
 	var positions []int
 	depth := 0
-	sc := New(s)
+	sc := NewStringTracker(s)
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
 			continue
@@ -202,7 +201,7 @@ func FindAllTopLevel(s string, pred func(ch byte, pos int, src string) bool) []i
 // checks the string state just before pos (scanning bytes 0..pos-1),
 // so opening delimiters return false and closing delimiters return true.
 func IsInsideString(s string, pos int) bool {
-	sc := New(s)
+	sc := NewStringTracker(s)
 	for i := 0; i < pos; i++ {
 		if _, ok := sc.Next(); !ok {
 			return false

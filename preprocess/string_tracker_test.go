@@ -1,4 +1,4 @@
-package scanner
+package preprocess
 
 import (
 	"testing"
@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCodeScanner_BasicIteration(t *testing.T) {
-	sc := New("abc")
+func TestStringTracker_BasicIteration(t *testing.T) {
+	sc := NewStringTracker("abc")
 	ch, ok := sc.Next()
 	require.True(t, ok)
 	assert.Equal(t, byte('a'), ch)
@@ -26,8 +26,8 @@ func TestCodeScanner_BasicIteration(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestCodeScanner_LineTracking(t *testing.T) {
-	sc := New("a\nb\nc")
+func TestStringTracker_LineTracking(t *testing.T) {
+	sc := NewStringTracker("a\nb\nc")
 	sc.Next() // a
 	assert.Equal(t, 1, sc.Line())
 	sc.Next() // \n
@@ -40,8 +40,8 @@ func TestCodeScanner_LineTracking(t *testing.T) {
 	assert.Equal(t, 3, sc.Line())
 }
 
-func TestCodeScanner_DoubleQuotedString(t *testing.T) {
-	sc := New(`x = "hello" + y`)
+func TestStringTracker_DoubleQuotedString(t *testing.T) {
+	sc := NewStringTracker(`x = "hello" + y`)
 	var codeBytes, strBytes []byte
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
@@ -54,8 +54,8 @@ func TestCodeScanner_DoubleQuotedString(t *testing.T) {
 	assert.Equal(t, `"hello"`, string(strBytes))
 }
 
-func TestCodeScanner_SingleQuotedString(t *testing.T) {
-	sc := New(`x = 'hello' + y`)
+func TestStringTracker_SingleQuotedString(t *testing.T) {
+	sc := NewStringTracker(`x = 'hello' + y`)
 	var strBytes []byte
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
@@ -65,9 +65,9 @@ func TestCodeScanner_SingleQuotedString(t *testing.T) {
 	assert.Equal(t, `'hello'`, string(strBytes))
 }
 
-func TestCodeScanner_BacktickString(t *testing.T) {
+func TestStringTracker_BacktickString(t *testing.T) {
 	input := "x = `ls -la` + y"
-	sc := New(input)
+	sc := NewStringTracker(input)
 	var strBytes []byte
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InBacktick() {
@@ -77,9 +77,9 @@ func TestCodeScanner_BacktickString(t *testing.T) {
 	assert.Equal(t, "`ls -la`", string(strBytes))
 }
 
-func TestCodeScanner_EscapedQuotes(t *testing.T) {
+func TestStringTracker_EscapedQuotes(t *testing.T) {
 	// "he\"llo" — the escaped quote should NOT end the string
-	sc := New(`"he\"llo" + x`)
+	sc := NewStringTracker(`"he\"llo" + x`)
 	var strBytes []byte
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
@@ -89,8 +89,8 @@ func TestCodeScanner_EscapedQuotes(t *testing.T) {
 	assert.Equal(t, `"he\"llo"`, string(strBytes))
 }
 
-func TestCodeScanner_EscapedSingleQuotes(t *testing.T) {
-	sc := New(`'he\'llo' + x`)
+func TestStringTracker_EscapedSingleQuotes(t *testing.T) {
+	sc := NewStringTracker(`'he\'llo' + x`)
 	var strBytes []byte
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
@@ -100,9 +100,9 @@ func TestCodeScanner_EscapedSingleQuotes(t *testing.T) {
 	assert.Equal(t, `'he\'llo'`, string(strBytes))
 }
 
-func TestCodeScanner_NestedQuotes(t *testing.T) {
+func TestStringTracker_NestedQuotes(t *testing.T) {
 	// Double quotes inside single quotes should not toggle double state
-	sc := New(`'"hello"' + x`)
+	sc := NewStringTracker(`'"hello"' + x`)
 	var strBytes []byte
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
@@ -112,8 +112,8 @@ func TestCodeScanner_NestedQuotes(t *testing.T) {
 	assert.Equal(t, `'"hello"'`, string(strBytes))
 }
 
-func TestCodeScanner_BacktickInsideDoubleQuote(t *testing.T) {
-	sc := New("\"hello `world`\" + x")
+func TestStringTracker_BacktickInsideDoubleQuote(t *testing.T) {
+	sc := NewStringTracker("\"hello `world`\" + x")
 	var strBytes []byte
 	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
 		if sc.InString() {
@@ -123,8 +123,8 @@ func TestCodeScanner_BacktickInsideDoubleQuote(t *testing.T) {
 	assert.Equal(t, "\"hello `world`\"", string(strBytes))
 }
 
-func TestCodeScanner_Peek(t *testing.T) {
-	sc := New("ab")
+func TestStringTracker_Peek(t *testing.T) {
+	sc := NewStringTracker("ab")
 	ch, ok := sc.Peek()
 	require.True(t, ok)
 	assert.Equal(t, byte('a'), ch)
@@ -140,8 +140,8 @@ func TestCodeScanner_Peek(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestCodeScanner_LookingAt(t *testing.T) {
-	sc := New("fn(x) end")
+func TestStringTracker_LookingAt(t *testing.T) {
+	sc := NewStringTracker("fn(x) end")
 	sc.Next() // f - pos 0
 	assert.True(t, sc.LookingAt("fn("))
 	assert.False(t, sc.LookingAt("end"))
@@ -151,8 +151,8 @@ func TestCodeScanner_LookingAt(t *testing.T) {
 	assert.True(t, sc.LookingAt("end"))
 }
 
-func TestCodeScanner_Skip(t *testing.T) {
-	sc := New("abcde")
+func TestStringTracker_Skip(t *testing.T) {
+	sc := NewStringTracker("abcde")
 	n := sc.Skip(3)
 	assert.Equal(t, 3, n)
 	assert.Equal(t, 2, sc.Pos()) // 0-indexed, skipped bytes 0,1,2
@@ -162,13 +162,13 @@ func TestCodeScanner_Skip(t *testing.T) {
 	assert.Equal(t, byte('d'), ch)
 }
 
-func TestCodeScanner_SkipPastEnd(t *testing.T) {
-	sc := New("ab")
+func TestStringTracker_SkipPastEnd(t *testing.T) {
+	sc := NewStringTracker("ab")
 	n := sc.Skip(5)
 	assert.Equal(t, 2, n)
 }
 
-func TestCodeScanner_InStringVariants(t *testing.T) {
+func TestStringTracker_InStringVariants(t *testing.T) {
 	tests := []struct {
 		name    string
 		input   string
@@ -184,7 +184,7 @@ func TestCodeScanner_InStringVariants(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sc := New(tt.input)
+			sc := NewStringTracker(tt.input)
 			for {
 				if _, ok := sc.Next(); !ok {
 					break
@@ -201,8 +201,8 @@ func TestCodeScanner_InStringVariants(t *testing.T) {
 	}
 }
 
-func TestCodeScanner_EmptyInput(t *testing.T) {
-	sc := New("")
+func TestStringTracker_EmptyInput(t *testing.T) {
+	sc := NewStringTracker("")
 	_, ok := sc.Next()
 	assert.False(t, ok)
 	assert.True(t, sc.InCode())

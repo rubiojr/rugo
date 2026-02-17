@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"github.com/rubiojr/rugo/preprocess"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -67,7 +68,7 @@ func TestFactoryProgramFrom(t *testing.T) {
 	src := &Program{
 		SourceFile: "test.rugo",
 		RawSource:  "source code",
-		Structs:    []StructInfo{{Name: "Dog"}},
+		Structs:    []preprocess.StructInfo{{Name: "Dog"}},
 		Statements: []Statement{&ExprStmt{Expression: &IntLiteral{Value: "1"}}},
 	}
 	newStmts := []Statement{&ExprStmt{Expression: &IntLiteral{Value: "2"}}}

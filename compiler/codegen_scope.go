@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"github.com/rubiojr/rugo/ast"
+	"github.com/rubiojr/rugo/preprocess"
 	"sort"
 
 	"github.com/rubiojr/rugo/modules"
@@ -134,8 +135,8 @@ func collectIdentsFromExpr(e ast.Expr, names map[string]bool) {
 			collectIdentsFromStmt(b, names)
 		}
 	case *ast.StringLiteral:
-		if ast.HasInterpolation(ex.Value) {
-			_, exprStrs, err := ast.ProcessInterpolation(ex.Value)
+		if preprocess.HasInterpolation(ex.Value) {
+			_, exprStrs, err := preprocess.ProcessInterpolation(ex.Value)
 			if err != nil {
 				break
 			}
