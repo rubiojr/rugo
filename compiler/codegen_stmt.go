@@ -7,61 +7,110 @@ import (
 )
 
 func (g *codeGen) writeStmt(s ast.Statement) error {
-	// Temporarily switch source file for statements from required files.
-	if src := s.StmtSource(); src != "" && src != g.sourceFile {
-		saved := g.sourceFile
-		g.sourceFile = src
-		g.w.source = src
-		defer func() { g.sourceFile = saved; g.w.source = saved }()
-	}
-	g.emitLineDirective(s.StmtLine())
-	var err error
-	switch st := s.(type) {
-	case *ast.AssignStmt:
-		err = g.writeAssign(st)
-	case *ast.IndexAssignStmt:
-		err = g.writeIndexAssign(st)
-	case *ast.DotAssignStmt:
-		err = g.writeDotAssign(st)
-	case *ast.ExprStmt:
-		err = g.writeExprStmt(st)
-	case *ast.IfStmt:
-		err = g.writeIf(st)
-	case *ast.WhileStmt:
-		err = g.writeWhile(st)
-	case *ast.ForStmt:
-		err = g.writeFor(st)
-	case *ast.BreakStmt:
-		g.writeln("break")
-		return nil
-	case *ast.NextStmt:
-		g.writeln("continue")
-		return nil
-	case *ast.ReturnStmt:
-		err = g.writeReturn(st)
-	case *ast.ImplicitReturnStmt:
-		err = g.writeImplicitReturn(st)
-	case *ast.TryResultStmt:
-		err = g.writeTryResult(st)
-	case *ast.SpawnReturnStmt:
-		err = g.writeSpawnReturn(st)
-	case *ast.TryHandlerReturnStmt:
-		err = g.writeTryHandlerReturn(st)
-	case *ast.FuncDef:
-		err = fmt.Errorf("nested function definitions not supported")
-	case *ast.RequireStmt:
-		return nil
-	case *ast.ImportStmt:
-		return nil
-	case *ast.SandboxStmt:
-		err = fmt.Errorf("sandbox must be a top-level directive — it cannot appear inside functions, blocks, or control flow")
-	default:
-		err = fmt.Errorf("unknown statement type: %T", s)
-	}
+	nodes, err := g.buildStmt(s)
 	if err != nil {
-		return g.stmtError(s, err)
+		return err
 	}
+	g.emitGoStmts(nodes)
 	return nil
+}
+
+// emitGoStmts writes Go output AST nodes through the old goWriter.
+// This is the bridge between the new buildStmt and the old write system.
+func (g *codeGen) emitGoStmts(nodes []GoStmt) {
+	for _, n := range nodes {
+		g.emitGoStmt(n)
+	}
+}
+
+func (g *codeGen) emitGoStmt(s GoStmt) {
+	switch st := s.(type) {
+	case GoExprStmt:
+		g.writef("%s\n", g.goExprStr(st.Expr))
+	case GoAssignStmt:
+		g.writef("%s %s %s\n", st.Target, st.Op, g.goExprStr(st.Value))
+	case GoMultiAssignStmt:
+		g.writef("%s %s %s\n", strings.Join(st.Targets, ", "), st.Op, g.goExprStr(st.Value))
+	case GoReturnStmt:
+		if st.Value != nil {
+			g.writef("return %s\n", g.goExprStr(st.Value))
+		} else {
+			g.writeln("return")
+		}
+	case GoIfStmt:
+		g.writef("if %s {\n", g.goExprStr(st.Cond))
+		g.w.Indent()
+		g.emitGoStmts(st.Body)
+		g.w.Dedent()
+		for _, ei := range st.ElseIf {
+			g.writef("} else if %s {\n", g.goExprStr(ei.Cond))
+			g.w.Indent()
+			g.emitGoStmts(ei.Body)
+			g.w.Dedent()
+		}
+		if len(st.Else) > 0 {
+			g.writeln("} else {")
+			g.w.Indent()
+			g.emitGoStmts(st.Else)
+			g.w.Dedent()
+		}
+		g.writeln("}")
+	case GoForStmt:
+		if st.Init != "" {
+			g.writef("for %s; %s; %s {\n", st.Init, st.Cond, st.Post)
+		} else if st.Cond != "" {
+			g.writef("for %s {\n", st.Cond)
+		} else {
+			g.writeln("for {")
+		}
+		g.w.Indent()
+		g.emitGoStmts(st.Body)
+		g.w.Dedent()
+		g.writeln("}")
+	case GoForRangeStmt:
+		if st.Value != "" {
+			g.writef("for %s, %s := range %s {\n", st.Key, st.Value, g.goExprStr(st.Collection))
+		} else {
+			g.writef("for %s := range %s {\n", st.Key, g.goExprStr(st.Collection))
+		}
+		g.w.Indent()
+		g.emitGoStmts(st.Body)
+		g.w.Dedent()
+		g.writeln("}")
+	case GoDeferStmt:
+		g.writeln("defer func() {")
+		g.w.Indent()
+		g.emitGoStmts(st.Body)
+		g.w.Dedent()
+		g.writeln("}()")
+	case GoGoStmt:
+		g.writeln("go func() {")
+		g.w.Indent()
+		g.emitGoStmts(st.Body)
+		g.w.Dedent()
+		g.writeln("}()")
+	case GoBreakStmt:
+		g.writeln("break")
+	case GoContinueStmt:
+		g.writeln("continue")
+	case GoBlankLine:
+		g.writeln("")
+	case GoLineDirective:
+		g.writef("//line %s:%d\n", st.File, st.Line)
+	case GoComment:
+		g.writef("// %s\n", st.Text)
+	case GoRawStmt:
+		g.writef("%s\n", st.Code)
+	}
+}
+
+func (g *codeGen) goExprStr(e GoExpr) string {
+	switch ex := e.(type) {
+	case GoRawExpr:
+		return ex.Code
+	default:
+		return "<unknown>"
+	}
 }
 
 // bodyHasImplicitReturn checks if all code paths in a body produce a value
