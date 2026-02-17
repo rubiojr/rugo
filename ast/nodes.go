@@ -460,6 +460,47 @@ type LoweredParallelExpr struct {
 func (p *LoweredParallelExpr) node() {}
 func (p *LoweredParallelExpr) expr() {}
 
+// ImplicitReturnStmt wraps an expression that should be returned from the
+// enclosing function or lambda body. Inserted by the ImplicitReturn transform
+// to make implicit returns explicit in the AST.
+type ImplicitReturnStmt struct {
+	BaseStmt
+	Value Expr
+}
+
+func (r *ImplicitReturnStmt) node() {}
+func (r *ImplicitReturnStmt) stmt() {}
+
+// TryResultStmt wraps an expression that should be assigned as the result
+// of a try/or handler. Inserted by the ImplicitReturn transform.
+type TryResultStmt struct {
+	BaseStmt
+	Value Expr
+}
+
+func (r *TryResultStmt) node() {}
+func (r *TryResultStmt) stmt() {}
+
+// SpawnReturnStmt replaces ReturnStmt inside spawn blocks. The value is
+// assigned to the task result and the goroutine returns.
+type SpawnReturnStmt struct {
+	BaseStmt
+	Value Expr // nil for bare return
+}
+
+func (r *SpawnReturnStmt) node() {}
+func (r *SpawnReturnStmt) stmt() {}
+
+// TryHandlerReturnStmt replaces ReturnStmt inside try/or handler blocks.
+// The value is assigned to the handler result and the deferred function returns.
+type TryHandlerReturnStmt struct {
+	BaseStmt
+	Value Expr // nil for bare return
+}
+
+func (r *TryHandlerReturnStmt) node() {}
+func (r *TryHandlerReturnStmt) stmt() {}
+
 // FnExpr represents fn(params) body end (first-class lambda).
 type FnExpr struct {
 	Params []Param

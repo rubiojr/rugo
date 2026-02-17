@@ -217,6 +217,22 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 			inferExpr(ti, scope, st.Value)
 		}
 
+	case *ast.ImplicitReturnStmt:
+		inferExpr(ti, scope, st.Value)
+
+	case *ast.TryResultStmt:
+		inferExpr(ti, scope, st.Value)
+
+	case *ast.SpawnReturnStmt:
+		if st.Value != nil {
+			inferExpr(ti, scope, st.Value)
+		}
+
+	case *ast.TryHandlerReturnStmt:
+		if st.Value != nil {
+			inferExpr(ti, scope, st.Value)
+		}
+
 	case *ast.IndexAssignStmt:
 		inferExpr(ti, scope, st.Object)
 		inferExpr(ti, scope, st.Index)
@@ -252,6 +268,11 @@ func collectReturns(ti *TypeInfo, scope *typeScope, s ast.Statement, out *[]Rugo
 		} else {
 			*out = append(*out, TypeNil)
 		}
+	case *ast.ImplicitReturnStmt:
+		t := inferExpr(ti, scope, st.Value)
+		*out = append(*out, t)
+	case *ast.SpawnReturnStmt, *ast.TryHandlerReturnStmt, *ast.TryResultStmt:
+		// These are exits from nested concurrency contexts, not function returns.
 	case *ast.IfStmt:
 		for _, s := range st.Body {
 			collectReturns(ti, scope, s, out)

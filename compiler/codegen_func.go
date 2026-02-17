@@ -1,11 +1,11 @@
 package compiler
 
 import (
-"fmt"
-"github.com/rubiojr/rugo/ast"
-"strings"
+	"fmt"
+	"github.com/rubiojr/rugo/ast"
+	"strings"
 
-"github.com/rubiojr/rugo/modules"
+	"github.com/rubiojr/rugo/modules"
 )
 
 func (g *codeGen) generateTestHarness(tests []*ast.TestDef, topStmts []ast.Statement, setup, teardown, setupFile, teardownFile *ast.FuncDef) (string, error) {
@@ -353,24 +353,12 @@ func (g *codeGen) writeFunc(f *ast.FuncDef) error {
 
 	g.currentFunc = f
 	g.inFunc = true
-	hasImplicitReturn := false
-	for i, s := range f.Body {
-		// Implicit return: last expression or if/else in function body becomes the return value.
-		if i == len(f.Body)-1 {
-			handled, allCovered, err := g.writeLastStmtAs(s, "return %s\n")
-			if err != nil {
-				return err
-			}
-			if handled {
-				hasImplicitReturn = allCovered
-				continue
-			}
-		}
+	for _, s := range f.Body {
 		if err := g.writeStmt(s); err != nil {
 			return err
 		}
 	}
-	if !hasImplicitReturn {
+	if !g.bodyHasImplicitReturn(f.Body) {
 		// Default return: typed zero value or nil.
 		if fti != nil && fti.ReturnType.IsTyped() {
 			g.writef("return %s\n", typedZero(fti.ReturnType))

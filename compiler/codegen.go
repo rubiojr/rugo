@@ -49,8 +49,6 @@ type codeGen struct {
 	typeInfo        *TypeInfo            // inferred type information (nil disables typed codegen)
 	currentFunc     *ast.FuncDef         // current function being generated (for type lookups)
 	varTypeScope    string               // override scope key for varType lookups (test/bench blocks)
-	inSpawn         int                  // nesting depth of spawn blocks (>0 means inside spawn)
-	inTryHandler    int                  // nesting depth of try/or handler defers (>0 means inside handler)
 	lambdaDepth     int                  // nesting depth of lambda bodies (>0 means inside fn)
 	lambdaScopeBase []int                // scope index at each lambda entry (stack)
 	lambdaOuterFunc []*ast.FuncDef       // enclosing function at each lambda entry (stack)
@@ -59,8 +57,11 @@ type codeGen struct {
 
 // generate produces Go source code from a ast.Program AST.
 func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *SandboxConfig) (string, error) {
-	// Lower concurrency constructs before type inference and codegen.
-	prog = ast.Lower(prog)
+	// Run AST transform chain before type inference and codegen.
+	prog = ast.Chain(
+		ast.ConcurrencyLowering(),
+		ast.ImplicitReturnLowering(),
+	).Transform(prog)
 
 	// Run type inference before code generation.
 	ti := Infer(prog)
@@ -445,7 +446,6 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 
 	return g.w.String(), nil
 }
-
 
 // --- Type inference helpers for codegen ---
 

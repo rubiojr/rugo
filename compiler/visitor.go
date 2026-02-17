@@ -136,6 +136,18 @@ func walkStmtExprs(s ast.Statement, fn func(ast.Expr) bool) bool {
 		if st.Value != nil {
 			return walkExpr(st.Value, fn)
 		}
+	case *ast.ImplicitReturnStmt:
+		return walkExpr(st.Value, fn)
+	case *ast.TryResultStmt:
+		return walkExpr(st.Value, fn)
+	case *ast.SpawnReturnStmt:
+		if st.Value != nil {
+			return walkExpr(st.Value, fn)
+		}
+	case *ast.TryHandlerReturnStmt:
+		if st.Value != nil {
+			return walkExpr(st.Value, fn)
+		}
 	}
 	return false
 }

@@ -1,9 +1,9 @@
 package compiler
 
 import (
-"fmt"
-"github.com/rubiojr/rugo/ast"
-"strings"
+	"fmt"
+	"github.com/rubiojr/rugo/ast"
+	"strings"
 )
 
 func (g *codeGen) writeStmt(s ast.Statement) error {
@@ -39,6 +39,14 @@ func (g *codeGen) writeStmt(s ast.Statement) error {
 		return nil
 	case *ast.ReturnStmt:
 		err = g.writeReturn(st)
+	case *ast.ImplicitReturnStmt:
+		err = g.writeImplicitReturn(st)
+	case *ast.TryResultStmt:
+		err = g.writeTryResult(st)
+	case *ast.SpawnReturnStmt:
+		err = g.writeSpawnReturn(st)
+	case *ast.TryHandlerReturnStmt:
+		err = g.writeTryHandlerReturn(st)
 	case *ast.FuncDef:
 		err = fmt.Errorf("nested function definitions not supported")
 	case *ast.RequireStmt:
@@ -54,6 +62,47 @@ func (g *codeGen) writeStmt(s ast.Statement) error {
 		return g.stmtError(s, err)
 	}
 	return nil
+}
+
+// bodyHasImplicitReturn checks if all code paths in a body produce a value
+// via ImplicitReturnStmt nodes. Returns true if no default return is needed.
+func (g *codeGen) bodyHasImplicitReturn(body []ast.Statement) bool {
+	if len(body) == 0 {
+		return false
+	}
+	return stmtCoversAllPaths(body[len(body)-1])
+}
+
+// stmtCoversAllPaths returns true if a statement produces a return value
+// in all code paths (ImplicitReturnStmt always does; IfStmt does if all
+// branches including else cover all paths).
+func stmtCoversAllPaths(s ast.Statement) bool {
+	switch st := s.(type) {
+	case *ast.ImplicitReturnStmt:
+		return true
+	case *ast.IfStmt:
+		if len(st.ElseBody) == 0 {
+			return false
+		}
+		if !branchCoversAllPaths(st.Body) {
+			return false
+		}
+		for _, ec := range st.ElsifClauses {
+			if !branchCoversAllPaths(ec.Body) {
+				return false
+			}
+		}
+		return branchCoversAllPaths(st.ElseBody)
+	default:
+		return false
+	}
+}
+
+func branchCoversAllPaths(body []ast.Statement) bool {
+	if len(body) == 0 {
+		return false
+	}
+	return stmtCoversAllPaths(body[len(body)-1])
 }
 
 // stmtError wraps a codegen error with file:line context from the statement.
@@ -247,92 +296,6 @@ func (g *codeGen) predeclareIfVars(i *ast.IfStmt) {
 			g.declareVar(name)
 		}
 	}
-}
-
-// writeLastStmtAs tries to write a statement as an implicit return or assignment.
-// format is the format string for the last expression (e.g. "return %s\n" or "r = %s\n").
-// Returns handled=true if the statement was written, allCovered=true if all code paths
-// produce a value (e.g. if/elsif/else with all branches handled).
-func (g *codeGen) writeLastStmtAs(s ast.Statement, format string) (handled bool, allCovered bool, err error) {
-	switch st := s.(type) {
-	case *ast.ExprStmt:
-		g.emitLineDirective(st.StmtLine())
-		expr, err := g.exprString(st.Expression)
-		if err != nil {
-			return false, false, err
-		}
-		g.writef(format, expr)
-		return true, true, nil
-	case *ast.IfStmt:
-		allCovered, err := g.writeIfWithLastAction(st, format)
-		if err != nil {
-			return false, false, err
-		}
-		return true, allCovered, nil
-	default:
-		return false, false, nil
-	}
-}
-
-// writeIfWithLastAction writes an if/elsif/else block where the last expression
-// in each branch is formatted with the given format string (for implicit returns).
-func (g *codeGen) writeIfWithLastAction(i *ast.IfStmt, format string) (bool, error) {
-	g.predeclareIfVars(i)
-
-	cond, err := g.exprString(i.Condition)
-	if err != nil {
-		return false, err
-	}
-	g.writef("if %s {\n", g.condExpr(cond, i.Condition))
-	g.w.Indent()
-	if err := g.writeBodyWithLastAction(i.Body, format); err != nil {
-		return false, err
-	}
-	g.w.Dedent()
-	for _, ec := range i.ElsifClauses {
-		cond, err := g.exprString(ec.Condition)
-		if err != nil {
-			return false, err
-		}
-		g.writef("} else if %s {\n", g.condExpr(cond, ec.Condition))
-		g.w.Indent()
-		if err := g.writeBodyWithLastAction(ec.Body, format); err != nil {
-			return false, err
-		}
-		g.w.Dedent()
-	}
-	allCovered := false
-	if len(i.ElseBody) > 0 {
-		g.writeln("} else {")
-		g.w.Indent()
-		if err := g.writeBodyWithLastAction(i.ElseBody, format); err != nil {
-			return false, err
-		}
-		g.w.Dedent()
-		allCovered = true
-	}
-	g.writeln("}")
-	return allCovered, nil
-}
-
-// writeBodyWithLastAction writes a list of statements, converting the last
-// expression into the given format (e.g. "return %s\n").
-func (g *codeGen) writeBodyWithLastAction(body []ast.Statement, format string) error {
-	for i, s := range body {
-		if i == len(body)-1 {
-			handled, _, err := g.writeLastStmtAs(s, format)
-			if err != nil {
-				return err
-			}
-			if handled {
-				continue
-			}
-		}
-		if err := g.writeStmt(s); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // collectAssignTargets returns variable names assigned in a list of statements,
@@ -533,31 +496,6 @@ func (g *codeGen) rangeIntExpr(e ast.Expr) string {
 }
 
 func (g *codeGen) writeReturn(r *ast.ReturnStmt) error {
-	// Inside a try/or handler defer, return sets the handler result (r).
-	if g.inTryHandler > 0 {
-		if r.Value != nil {
-			expr, err := g.exprString(r.Value)
-			if err != nil {
-				return err
-			}
-			g.writef("r = %s\n", expr)
-		}
-		g.writeln("return")
-		return nil
-	}
-	// Inside a spawn block, return EXPR must assign to t.result and
-	// use a bare return (the goroutine closure has no return value).
-	if g.inSpawn > 0 {
-		if r.Value != nil {
-			expr, err := g.exprString(r.Value)
-			if err != nil {
-				return err
-			}
-			g.writef("t.result = %s\n", expr)
-		}
-		g.writeln("return")
-		return nil
-	}
 	fti := g.currentFuncTypeInfo()
 	if r.Value == nil {
 		if fti != nil && fti.ReturnType.IsTyped() {
@@ -572,5 +510,47 @@ func (g *codeGen) writeReturn(r *ast.ReturnStmt) error {
 		}
 		g.writef("return %s\n", expr)
 	}
+	return nil
+}
+
+func (g *codeGen) writeImplicitReturn(r *ast.ImplicitReturnStmt) error {
+	expr, err := g.exprString(r.Value)
+	if err != nil {
+		return err
+	}
+	g.writef("return %s\n", expr)
+	return nil
+}
+
+func (g *codeGen) writeTryResult(r *ast.TryResultStmt) error {
+	expr, err := g.exprString(r.Value)
+	if err != nil {
+		return err
+	}
+	g.writef("r = %s\n", expr)
+	return nil
+}
+
+func (g *codeGen) writeSpawnReturn(r *ast.SpawnReturnStmt) error {
+	if r.Value != nil {
+		expr, err := g.exprString(r.Value)
+		if err != nil {
+			return err
+		}
+		g.writef("t.result = %s\n", expr)
+	}
+	g.writeln("return")
+	return nil
+}
+
+func (g *codeGen) writeTryHandlerReturn(r *ast.TryHandlerReturnStmt) error {
+	if r.Value != nil {
+		expr, err := g.exprString(r.Value)
+		if err != nil {
+			return err
+		}
+		g.writef("r = %s\n", expr)
+	}
+	g.writeln("return")
 	return nil
 }

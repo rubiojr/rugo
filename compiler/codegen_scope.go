@@ -58,6 +58,18 @@ func collectIdentsFromStmt(s ast.Statement, names map[string]bool) {
 		if st.Value != nil {
 			collectIdentsFromExpr(st.Value, names)
 		}
+	case *ast.ImplicitReturnStmt:
+		collectIdentsFromExpr(st.Value, names)
+	case *ast.TryResultStmt:
+		collectIdentsFromExpr(st.Value, names)
+	case *ast.SpawnReturnStmt:
+		if st.Value != nil {
+			collectIdentsFromExpr(st.Value, names)
+		}
+	case *ast.TryHandlerReturnStmt:
+		if st.Value != nil {
+			collectIdentsFromExpr(st.Value, names)
+		}
 	}
 }
 

@@ -1,13 +1,13 @@
 package compiler
 
 import (
-"fmt"
-"github.com/rubiojr/rugo/ast"
-"strings"
+	"fmt"
+	"github.com/rubiojr/rugo/ast"
+	"strings"
 
-"github.com/rubiojr/rugo/gobridge"
-"github.com/rubiojr/rugo/modules"
-"github.com/rubiojr/rugo/parser"
+	"github.com/rubiojr/rugo/gobridge"
+	"github.com/rubiojr/rugo/modules"
+	"github.com/rubiojr/rugo/parser"
 )
 
 func (g *codeGen) exprString(e ast.Expr) (string, error) {
@@ -648,48 +648,32 @@ func (g *codeGen) loweredTryExpr(e *ast.LoweredTryExpr) (string, error) {
 	handlerCode, cerr := g.captureOutput(func() error {
 		g.pushScope()
 		g.declareVar(e.ErrVar)
-		g.inTryHandler++
 
 		// Emit pre-extracted result expression if present
 		if e.ResultExpr != nil {
 			for _, s := range e.Handler {
 				if werr := g.writeStmt(s); werr != nil {
-					g.inTryHandler--
 					g.popScope()
 					return werr
 				}
 			}
 			val, verr := g.exprString(e.ResultExpr)
 			if verr != nil {
-				g.inTryHandler--
 				g.popScope()
 				return verr
 			}
 			g.writef("r = %s\n", val)
 		} else {
-			// No extracted result — fall back to writeLastStmtAs for complex cases
-			for i, s := range e.Handler {
-				isLast := i == len(e.Handler)-1
-				if isLast {
-					handled, _, herr := g.writeLastStmtAs(s, "r = %s\n")
-					if herr != nil {
-						g.inTryHandler--
-						g.popScope()
-						return herr
-					}
-					if handled {
-						continue
-					}
-				}
+			// Handler body pre-processed by ImplicitReturnLowering:
+			// TryResultStmt/TryHandlerReturnStmt nodes handle their own emission.
+			for _, s := range e.Handler {
 				if werr := g.writeStmt(s); werr != nil {
-					g.inTryHandler--
 					g.popScope()
 					return werr
 				}
 			}
 		}
 
-		g.inTryHandler--
 		g.popScope()
 		return nil
 	})
@@ -717,7 +701,7 @@ func (g *codeGen) loweredTryExpr(e *ast.LoweredTryExpr) (string, error) {
 
 func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
 	// Generate the body code in a temporary buffer.
-	g.inSpawn++
+	// SpawnReturnStmt nodes handle their own emission.
 	bodyCode, cerr := g.captureOutput(func() error {
 		g.pushScope()
 		for _, s := range e.Body {
@@ -738,7 +722,6 @@ func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
 		g.popScope()
 		return nil
 	})
-	g.inSpawn--
 	if cerr != nil {
 		return "", cerr
 	}
@@ -786,19 +769,7 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 			g.lambdaDepth--
 		}
 
-		for i, s := range e.Body {
-			isLast := i == len(e.Body)-1
-			if isLast {
-				// Last statement: if it's a bare expression or if/else, make it the return value
-				handled, _, herr := g.writeLastStmtAs(s, "return %s\n")
-				if herr != nil {
-					restoreLambda()
-					return herr
-				}
-				if handled {
-					continue
-				}
-			}
+		for _, s := range e.Body {
 			if werr := g.writeStmt(s); werr != nil {
 				restoreLambda()
 				return werr

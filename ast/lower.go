@@ -1,71 +1,51 @@
 package ast
 
-// Lower performs an AST-to-AST transformation pass that replaces high-level
-// concurrency constructs (SpawnExpr, ParallelExpr, TryExpr) with their lowered
-// equivalents. The lowered nodes carry pre-processed information that simplifies
-// code generation.
+// ConcurrencyLowering returns a Transform that replaces high-level concurrency
+// constructs (SpawnExpr, ParallelExpr, TryExpr) with their lowered equivalents.
+// The lowered nodes carry pre-processed information that simplifies code generation.
 //
 // The pass walks the entire AST recursively, creating new nodes for transformed
 // constructs while passing through everything else unchanged. The original AST
 // is not mutated.
-func Lower(prog *Program) *Program {
-	l := &lowerer{}
-	stmts, changed := l.lowerStmts(prog.Statements)
-	if !changed {
-		return prog
-	}
-	return &Program{
-		Statements: stmts,
-		SourceFile: prog.SourceFile,
-		RawSource:  prog.RawSource,
-		Structs:    prog.Structs,
+func ConcurrencyLowering() Transform {
+	return TransformFunc{
+		N: "concurrency-lowering",
+		F: func(prog *Program) *Program {
+			l := &lowerer{f: NewFactory()}
+			stmts, changed := l.lowerStmts(prog.Statements)
+			if !changed {
+				return prog
+			}
+			return l.f.ProgramFrom(prog, stmts)
+		},
 	}
 }
 
-type lowerer struct{}
+// Lower is a convenience wrapper that runs ConcurrencyLowering on a program.
+func Lower(prog *Program) *Program {
+	return ConcurrencyLowering().Transform(prog)
+}
+
+type lowerer struct {
+	f   *Factory
+	ctx lowerContext
+}
+
+// lowerContext tracks which concurrency construct the lowerer is inside.
+type lowerContext int
+
+const (
+	lowerNormal       lowerContext = iota
+	lowerInSpawn                   // inside spawn body
+	lowerInTryHandler              // inside try/or handler
+)
 
 func (l *lowerer) lowerStmts(stmts []Statement) ([]Statement, bool) {
-	var out []Statement
-	modified := false
-	for i, s := range stmts {
-		ns := l.lowerStmt(s)
-		if ns != s {
-			if !modified {
-				out = make([]Statement, len(stmts))
-				copy(out[:i], stmts[:i])
-				modified = true
-			}
-		}
-		if modified {
-			out[i] = ns
-		}
-	}
-	if !modified {
-		return stmts, false
-	}
-	return out, true
+	return mapSlice(stmts, l.lowerStmt)
 }
 
 func (l *lowerer) lowerExprs(exprs []Expr) ([]Expr, bool) {
-	var out []Expr
-	modified := false
-	for i, e := range exprs {
-		ne := l.lowerExpr(e)
-		if ne != e {
-			if !modified {
-				out = make([]Expr, len(exprs))
-				copy(out[:i], exprs[:i])
-				modified = true
-			}
-		}
-		if modified {
-			out[i] = ne
-		}
-	}
-	if !modified {
-		return exprs, false
-	}
-	return out, true
+	return mapSlice(exprs, l.lowerExpr)
 }
 
 func (l *lowerer) lowerStmt(s Statement) Statement {
@@ -137,14 +117,21 @@ func (l *lowerer) lowerStmt(s Statement) Statement {
 		return &cp
 
 	case *ReturnStmt:
-		if st.Value == nil {
-			return s
+		var val Expr
+		if st.Value != nil {
+			val = l.lowerExpr(st.Value)
 		}
-		val := l.lowerExpr(st.Value)
-		if val == st.Value {
-			return s
+		switch l.ctx {
+		case lowerInSpawn:
+			return l.f.SpawnReturn(val, st.StmtLine())
+		case lowerInTryHandler:
+			return l.f.TryHandlerReturn(val, st.StmtLine())
+		default:
+			if val == st.Value {
+				return s
+			}
+			return &ReturnStmt{BaseStmt: st.BaseStmt, Value: val}
 		}
-		return &ReturnStmt{BaseStmt: st.BaseStmt, Value: val}
 
 	case *ExprStmt:
 		expr := l.lowerExpr(st.Expression)
@@ -346,18 +333,18 @@ func (l *lowerer) lowerPairs(pairs []HashPair) ([]HashPair, bool) {
 // --- Lowering transforms ---
 
 func (l *lowerer) lowerSpawn(e *SpawnExpr) Expr {
+	saved := l.ctx
+	l.ctx = lowerInSpawn
 	body, _ := l.lowerStmts(e.Body)
+	l.ctx = saved
 
 	// Extract last ExprStmt as ResultExpr
 	if len(body) > 0 {
 		if es, ok := body[len(body)-1].(*ExprStmt); ok {
-			return &LoweredSpawnExpr{
-				Body:       body[:len(body)-1],
-				ResultExpr: es.Expression,
-			}
+			return l.f.LoweredSpawn(body[:len(body)-1], es.Expression)
 		}
 	}
-	return &LoweredSpawnExpr{Body: body}
+	return l.f.LoweredSpawn(body, nil)
 }
 
 func (l *lowerer) lowerParallel(e *ParallelExpr) Expr {
@@ -365,33 +352,27 @@ func (l *lowerer) lowerParallel(e *ParallelExpr) Expr {
 	for i, s := range e.Body {
 		ns := l.lowerStmt(s)
 		if es, ok := ns.(*ExprStmt); ok {
-			branches[i] = ParallelBranch{Expr: es.Expression, Index: i}
+			branches[i] = l.f.ParallelBranchExpr(es.Expression, i)
 		} else {
-			branches[i] = ParallelBranch{Stmts: []Statement{ns}, Index: i}
+			branches[i] = l.f.ParallelBranchStmts([]Statement{ns}, i)
 		}
 	}
-	return &LoweredParallelExpr{Branches: branches}
+	return l.f.LoweredParallel(branches)
 }
 
 func (l *lowerer) lowerTry(e *TryExpr) Expr {
 	expr := l.lowerExpr(e.Expr)
+	saved := l.ctx
+	l.ctx = lowerInTryHandler
 	handler, _ := l.lowerStmts(e.Handler)
+	l.ctx = saved
 
 	// Extract last ExprStmt as ResultExpr (simple case)
 	if len(handler) > 0 {
 		if es, ok := handler[len(handler)-1].(*ExprStmt); ok {
-			return &LoweredTryExpr{
-				Expr:       expr,
-				ErrVar:     e.ErrVar,
-				Handler:    handler[:len(handler)-1],
-				ResultExpr: es.Expression,
-			}
+			return l.f.LoweredTry(expr, e.ErrVar, handler[:len(handler)-1], es.Expression)
 		}
 	}
 	// Complex case (IfStmt result) or empty handler: codegen handles it
-	return &LoweredTryExpr{
-		Expr:    expr,
-		ErrVar:  e.ErrVar,
-		Handler: handler,
-	}
+	return l.f.LoweredTry(expr, e.ErrVar, handler, nil)
 }
