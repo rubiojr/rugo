@@ -78,6 +78,19 @@ func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
 		}
 		return GoIdentExpr{Name: ex.Name}, nil
 
+	case *ast.BinaryExpr:
+		return g.buildBinaryExpr(ex)
+	case *ast.UnaryExpr:
+		return g.buildUnaryExpr(ex)
+	case *ast.IndexExpr:
+		return g.buildIndexExpr(ex)
+	case *ast.SliceExpr:
+		return g.buildSliceExpr(ex)
+	case *ast.ArrayLiteral:
+		return g.buildArrayLiteral(ex)
+	case *ast.HashLiteral:
+		return g.buildHashLiteral(ex)
+
 	default:
 		// Complex expressions delegate to exprString
 		s, err := g.exprString(e)
@@ -86,6 +99,215 @@ func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
 		}
 		return GoRawExpr{Code: s}, nil
 	}
+}
+
+func (g *codeGen) buildBinaryExpr(e *ast.BinaryExpr) (GoExpr, error) {
+	leftType := g.exprType(e.Left)
+	rightType := g.exprType(e.Right)
+
+	left, err := g.buildExpr(e.Left)
+	if err != nil {
+		return nil, err
+	}
+	right, err := g.buildExpr(e.Right)
+	if err != nil {
+		return nil, err
+	}
+
+	p := &goPrinter{}
+	leftStr := p.exprStr(left)
+	rightStr := p.exprStr(right)
+	boxedLeft := GoRawExpr{Code: g.boxed(leftStr, leftType)}
+	boxedRight := GoRawExpr{Code: g.boxed(rightStr, rightType)}
+
+	typedBinOp := func(op string) GoExpr {
+		return GoParenExpr{Inner: GoBinaryExpr{Left: left, Op: op, Right: right}}
+	}
+	typedFloatBinOp := func(op string) GoExpr {
+		return GoParenExpr{Inner: GoBinaryExpr{
+			Left:  GoRawExpr{Code: g.ensureFloat(leftStr, leftType)},
+			Op:    op,
+			Right: GoRawExpr{Code: g.ensureFloat(rightStr, rightType)},
+		}}
+	}
+	runtimeCall := func(fn string) GoExpr {
+		return GoCallExpr{Func: fn, Args: []GoExpr{boxedLeft, boxedRight}}
+	}
+
+	bothGoTyped := g.goTyped(e.Left) && g.goTyped(e.Right)
+	bothInts := leftType == TypeInt && rightType == TypeInt && bothGoTyped
+	bothNumeric := leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && bothGoTyped
+	bothStrings := leftType == TypeString && rightType == TypeString && bothGoTyped
+	sameTyped := leftType == rightType && leftType.IsTyped()
+
+	switch e.Op {
+	case "+":
+		if bothInts || bothStrings {
+			return typedBinOp("+"), nil
+		}
+		if bothNumeric {
+			return typedFloatBinOp("+"), nil
+		}
+		return runtimeCall("rugo_add"), nil
+	case "-":
+		if bothInts {
+			return typedBinOp("-"), nil
+		}
+		if bothNumeric {
+			return typedFloatBinOp("-"), nil
+		}
+		return runtimeCall("rugo_sub"), nil
+	case "*":
+		if bothInts {
+			return typedBinOp("*"), nil
+		}
+		if bothNumeric {
+			return typedFloatBinOp("*"), nil
+		}
+		return runtimeCall("rugo_mul"), nil
+	case "/":
+		if bothInts {
+			return typedBinOp("/"), nil
+		}
+		if bothNumeric {
+			return typedFloatBinOp("/"), nil
+		}
+		return runtimeCall("rugo_div"), nil
+	case "%":
+		if bothInts {
+			return typedBinOp("%"), nil
+		}
+		return runtimeCall("rugo_mod"), nil
+	case "==":
+		if sameTyped {
+			return typedBinOp("=="), nil
+		}
+		return runtimeCall("rugo_eq"), nil
+	case "!=":
+		if sameTyped {
+			return typedBinOp("!="), nil
+		}
+		return runtimeCall("rugo_neq"), nil
+	case "<":
+		if sameTyped && (leftType.IsNumeric() || leftType == TypeString) {
+			return typedBinOp("<"), nil
+		}
+		return runtimeCall("rugo_lt"), nil
+	case ">":
+		if sameTyped && (leftType.IsNumeric() || leftType == TypeString) {
+			return typedBinOp(">"), nil
+		}
+		return runtimeCall("rugo_gt"), nil
+	case "<=":
+		if sameTyped && (leftType.IsNumeric() || leftType == TypeString) {
+			return typedBinOp("<="), nil
+		}
+		return runtimeCall("rugo_le"), nil
+	case ">=":
+		if sameTyped && (leftType.IsNumeric() || leftType == TypeString) {
+			return typedBinOp(">="), nil
+		}
+		return runtimeCall("rugo_ge"), nil
+	case "&&":
+		if leftType == TypeBool && rightType == TypeBool {
+			return typedBinOp("&&"), nil
+		}
+		return GoCastExpr{Type: "interface{}", Value: GoParenExpr{Inner: GoBinaryExpr{
+			Left:  GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{boxedLeft}},
+			Op:    "&&",
+			Right: GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{boxedRight}},
+		}}}, nil
+	case "||":
+		if leftType == TypeBool && rightType == TypeBool {
+			return typedBinOp("||"), nil
+		}
+		return GoCastExpr{Type: "interface{}", Value: GoParenExpr{Inner: GoBinaryExpr{
+			Left:  GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{boxedLeft}},
+			Op:    "||",
+			Right: GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{boxedRight}},
+		}}}, nil
+	default:
+		return nil, fmt.Errorf("unknown operator: %s", e.Op)
+	}
+}
+
+func (g *codeGen) buildUnaryExpr(e *ast.UnaryExpr) (GoExpr, error) {
+	operandType := g.exprType(e.Operand)
+	operand, err := g.buildExpr(e.Operand)
+	if err != nil {
+		return nil, err
+	}
+	p := &goPrinter{}
+	switch e.Op {
+	case "-":
+		if operandType == TypeInt || operandType == TypeFloat {
+			return GoParenExpr{Inner: GoUnaryExpr{Op: "-", Operand: operand}}, nil
+		}
+		return GoCallExpr{Func: "rugo_negate", Args: []GoExpr{GoRawExpr{Code: g.boxed(p.exprStr(operand), operandType)}}}, nil
+	case "!":
+		if operandType == TypeBool {
+			return GoParenExpr{Inner: GoUnaryExpr{Op: "!", Operand: operand}}, nil
+		}
+		return GoCallExpr{Func: "rugo_not", Args: []GoExpr{GoRawExpr{Code: g.boxed(p.exprStr(operand), operandType)}}}, nil
+	default:
+		return nil, fmt.Errorf("unknown unary operator: %s", e.Op)
+	}
+}
+
+func (g *codeGen) buildIndexExpr(e *ast.IndexExpr) (GoExpr, error) {
+	obj, err := g.buildExpr(e.Object)
+	if err != nil {
+		return nil, err
+	}
+	idx, err := g.buildExpr(e.Index)
+	if err != nil {
+		return nil, err
+	}
+	return GoCallExpr{Func: "rugo_index", Args: []GoExpr{obj, idx}}, nil
+}
+
+func (g *codeGen) buildSliceExpr(e *ast.SliceExpr) (GoExpr, error) {
+	obj, err := g.buildExpr(e.Object)
+	if err != nil {
+		return nil, err
+	}
+	start, err := g.buildExpr(e.Start)
+	if err != nil {
+		return nil, err
+	}
+	length, err := g.buildExpr(e.Length)
+	if err != nil {
+		return nil, err
+	}
+	return GoCallExpr{Func: "rugo_slice", Args: []GoExpr{obj, start, length}}, nil
+}
+
+func (g *codeGen) buildArrayLiteral(e *ast.ArrayLiteral) (GoExpr, error) {
+	elems := make([]GoExpr, len(e.Elements))
+	for i, el := range e.Elements {
+		expr, err := g.buildExpr(el)
+		if err != nil {
+			return nil, err
+		}
+		elems[i] = expr
+	}
+	return GoCastExpr{Type: "interface{}", Value: GoSliceLit{Type: "[]interface{}", Elements: elems}}, nil
+}
+
+func (g *codeGen) buildHashLiteral(e *ast.HashLiteral) (GoExpr, error) {
+	pairs := make([]GoMapPair, len(e.Pairs))
+	for i, p := range e.Pairs {
+		key, err := g.buildExpr(p.Key)
+		if err != nil {
+			return nil, err
+		}
+		val, err := g.buildExpr(p.Value)
+		if err != nil {
+			return nil, err
+		}
+		pairs[i] = GoMapPair{Key: key, Value: val}
+	}
+	return GoCastExpr{Type: "interface{}", Value: GoMapLit{KeyType: "interface{}", ValType: "interface{}", Pairs: pairs}}, nil
 }
 
 // buildCondExpr builds a condition expression for use in if/while.
