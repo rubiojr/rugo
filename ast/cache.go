@@ -11,7 +11,7 @@ import (
 	"github.com/rubiojr/rugo/parser"
 )
 
-//go:embed nodes.go walker.go preprocess.go parse.go
+//go:embed nodes.go walker.go preprocess.go parse.go lower.go
 var Sources embed.FS
 
 // goModTemplate is the go.mod for the cached AST module.

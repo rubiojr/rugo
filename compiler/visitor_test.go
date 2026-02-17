@@ -10,7 +10,7 @@ import (
 func TestWalkExpressionsFindsSpawn(t *testing.T) {
 	prog := &ast.Program{
 		Statements: []ast.Statement{
-			&ast.AssignStmt{Target: "t", Value: &ast.SpawnExpr{
+			&ast.AssignStmt{Target: "t", Value: &ast.LoweredSpawnExpr{
 				Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 			}},
 		},
@@ -26,8 +26,8 @@ func TestWalkExpressionsFindsSpawn(t *testing.T) {
 func TestWalkExpressionsFindsParallel(t *testing.T) {
 	prog := &ast.Program{
 		Statements: []ast.Statement{
-			&ast.ExprStmt{Expression: &ast.ParallelExpr{
-				Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
+			&ast.ExprStmt{Expression: &ast.LoweredParallelExpr{
+				Branches: []ast.ParallelBranch{{Expr: &ast.IntLiteral{Value: "1"}, Index: 0}},
 			}},
 		},
 	}
@@ -77,7 +77,7 @@ func TestWalkExpressionsNestedSpawnInIf(t *testing.T) {
 			&ast.IfStmt{
 				Condition: &ast.BoolLiteral{Value: true},
 				Body: []ast.Statement{
-					&ast.AssignStmt{Target: "t", Value: &ast.SpawnExpr{
+					&ast.AssignStmt{Target: "t", Value: &ast.LoweredSpawnExpr{
 						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 					}},
 				},
@@ -96,8 +96,8 @@ func TestWalkExpressionsNestedInFor(t *testing.T) {
 				Var:        "x",
 				Collection: &ast.ArrayLiteral{Elements: []ast.Expr{&ast.IntLiteral{Value: "1"}}},
 				Body: []ast.Statement{
-					&ast.ExprStmt{Expression: &ast.ParallelExpr{
-						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
+					&ast.ExprStmt{Expression: &ast.LoweredParallelExpr{
+						Branches: []ast.ParallelBranch{{Expr: &ast.IntLiteral{Value: "1"}, Index: 0}},
 					}},
 				},
 			},
@@ -114,7 +114,7 @@ func TestWalkExpressionsNestedInFuncDef(t *testing.T) {
 			&ast.FuncDef{
 				Name: "foo",
 				Body: []ast.Statement{
-					&ast.ReturnStmt{Value: &ast.SpawnExpr{
+					&ast.ReturnStmt{Value: &ast.LoweredSpawnExpr{
 						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "42"}}},
 					}},
 				},
@@ -129,8 +129,8 @@ func TestWalkExpressionsNestedInFuncDef(t *testing.T) {
 func TestWalkExpressionsNestedInTry(t *testing.T) {
 	prog := &ast.Program{
 		Statements: []ast.Statement{
-			&ast.ExprStmt{Expression: &ast.TryExpr{
-				Expr:   &ast.SpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
+			&ast.ExprStmt{Expression: &ast.LoweredTryExpr{
+				Expr:   &ast.LoweredSpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
 				ErrVar: "e",
 				Handler: []ast.Statement{
 					&ast.ExprStmt{Expression: &ast.NilLiteral{}},
@@ -185,7 +185,7 @@ func TestWalkExpressionsInElsifClause(t *testing.T) {
 					{
 						Condition: &ast.BoolLiteral{Value: true},
 						Body: []ast.Statement{
-							&ast.ExprStmt{Expression: &ast.SpawnExpr{
+							&ast.ExprStmt{Expression: &ast.LoweredSpawnExpr{
 								Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 							}},
 						},
@@ -206,8 +206,8 @@ func TestWalkExpressionsInElseBody(t *testing.T) {
 				Condition: &ast.BoolLiteral{Value: false},
 				Body:      []ast.Statement{},
 				ElseBody: []ast.Statement{
-					&ast.ExprStmt{Expression: &ast.ParallelExpr{
-						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
+					&ast.ExprStmt{Expression: &ast.LoweredParallelExpr{
+						Branches: []ast.ParallelBranch{{Expr: &ast.IntLiteral{Value: "1"}, Index: 0}},
 					}},
 				},
 			},
@@ -224,7 +224,7 @@ func TestWalkExpressionsInTestDef(t *testing.T) {
 			&ast.TestDef{
 				Name: "test spawn",
 				Body: []ast.Statement{
-					&ast.ExprStmt{Expression: &ast.SpawnExpr{
+					&ast.ExprStmt{Expression: &ast.LoweredSpawnExpr{
 						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 					}},
 				},
@@ -242,7 +242,7 @@ func TestWalkExpressionsInIndexAssign(t *testing.T) {
 			&ast.IndexAssignStmt{
 				Object: &ast.IdentExpr{Name: "arr"},
 				Index:  &ast.IntLiteral{Value: "0"},
-				Value: &ast.SpawnExpr{
+				Value: &ast.LoweredSpawnExpr{
 					Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
 				},
 			},
@@ -289,7 +289,7 @@ func TestWalkExpressionsInArrayLiteral(t *testing.T) {
 		Statements: []ast.Statement{
 			&ast.ExprStmt{Expression: &ast.ArrayLiteral{
 				Elements: []ast.Expr{
-					&ast.SpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
+					&ast.LoweredSpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
 				},
 			}},
 		},
@@ -306,7 +306,7 @@ func TestWalkExpressionsInHashLiteral(t *testing.T) {
 				Pairs: []ast.HashPair{
 					{
 						Key:   &ast.StringLiteral{Value: "key"},
-						Value: &ast.SpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
+						Value: &ast.LoweredSpawnExpr{Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}}},
 					},
 				},
 			}},
@@ -320,12 +320,13 @@ func TestWalkExpressionsInHashLiteral(t *testing.T) {
 func TestWalkExpressionsSpawnInsideParallel(t *testing.T) {
 	prog := &ast.Program{
 		Statements: []ast.Statement{
-			&ast.ExprStmt{Expression: &ast.ParallelExpr{
-				Body: []ast.Statement{
-					&ast.ExprStmt{Expression: &ast.SpawnExpr{
+			&ast.ExprStmt{Expression: &ast.LoweredParallelExpr{
+				Branches: []ast.ParallelBranch{{
+					Expr: &ast.LoweredSpawnExpr{
 						Body: []ast.Statement{&ast.ExprStmt{Expression: &ast.IntLiteral{Value: "1"}}},
-					}},
-				},
+					},
+					Index: 0,
+				}},
 			}},
 		},
 	}

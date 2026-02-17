@@ -59,6 +59,9 @@ type codeGen struct {
 
 // generate produces Go source code from a ast.Program AST.
 func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *SandboxConfig) (string, error) {
+	// Lower concurrency constructs before type inference and codegen.
+	prog = ast.Lower(prog)
+
 	// Run type inference before code generation.
 	ti := Infer(prog)
 

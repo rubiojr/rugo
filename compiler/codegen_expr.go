@@ -85,12 +85,12 @@ func (g *codeGen) exprString(e ast.Expr) (string, error) {
 		return g.arrayLiteral(ex)
 	case *ast.HashLiteral:
 		return g.hashLiteral(ex)
-	case *ast.TryExpr:
-		return g.tryExpr(ex)
-	case *ast.SpawnExpr:
-		return g.spawnExpr(ex)
-	case *ast.ParallelExpr:
-		return g.parallelExpr(ex)
+	case *ast.LoweredTryExpr:
+		return g.loweredTryExpr(ex)
+	case *ast.LoweredSpawnExpr:
+		return g.loweredSpawnExpr(ex)
+	case *ast.LoweredParallelExpr:
+		return g.loweredParallelExpr(ex)
 	case *ast.FnExpr:
 		return g.fnExpr(ex)
 	default:
@@ -638,7 +638,7 @@ func (g *codeGen) hashLiteral(e *ast.HashLiteral) (string, error) {
 	return fmt.Sprintf("interface{}(map[interface{}]interface{}{%s})", strings.Join(pairs, ", ")), nil
 }
 
-func (g *codeGen) tryExpr(e *ast.TryExpr) (string, error) {
+func (g *codeGen) loweredTryExpr(e *ast.LoweredTryExpr) (string, error) {
 	exprStr, err := g.exprString(e.Expr)
 	if err != nil {
 		return "", err
@@ -650,24 +650,42 @@ func (g *codeGen) tryExpr(e *ast.TryExpr) (string, error) {
 		g.declareVar(e.ErrVar)
 		g.inTryHandler++
 
-		for i, s := range e.Handler {
-			isLast := i == len(e.Handler)-1
-			if isLast {
-				// Last statement: if it's a bare expression or if/else, assign to r (return value)
-				handled, _, herr := g.writeLastStmtAs(s, "r = %s\n")
-				if herr != nil {
+		// Emit pre-extracted result expression if present
+		if e.ResultExpr != nil {
+			for _, s := range e.Handler {
+				if werr := g.writeStmt(s); werr != nil {
 					g.inTryHandler--
 					g.popScope()
-					return herr
-				}
-				if handled {
-					continue
+					return werr
 				}
 			}
-			if werr := g.writeStmt(s); werr != nil {
+			val, verr := g.exprString(e.ResultExpr)
+			if verr != nil {
 				g.inTryHandler--
 				g.popScope()
-				return werr
+				return verr
+			}
+			g.writef("r = %s\n", val)
+		} else {
+			// No extracted result — fall back to writeLastStmtAs for complex cases
+			for i, s := range e.Handler {
+				isLast := i == len(e.Handler)-1
+				if isLast {
+					handled, _, herr := g.writeLastStmtAs(s, "r = %s\n")
+					if herr != nil {
+						g.inTryHandler--
+						g.popScope()
+						return herr
+					}
+					if handled {
+						continue
+					}
+				}
+				if werr := g.writeStmt(s); werr != nil {
+					g.inTryHandler--
+					g.popScope()
+					return werr
+				}
 			}
 		}
 
@@ -697,29 +715,25 @@ func (g *codeGen) tryExpr(e *ast.TryExpr) (string, error) {
 	return g.emitGoIR(ir), nil
 }
 
-func (g *codeGen) spawnExpr(e *ast.SpawnExpr) (string, error) {
+func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
 	// Generate the body code in a temporary buffer.
 	g.inSpawn++
 	bodyCode, cerr := g.captureOutput(func() error {
 		g.pushScope()
-		for i, s := range e.Body {
-			isLast := i == len(e.Body)-1
-			if isLast {
-				// Last statement: if it's a bare expression, assign to t.result
-				if es, ok := s.(*ast.ExprStmt); ok {
-					val, verr := g.exprString(es.Expression)
-					if verr != nil {
-						g.popScope()
-						return verr
-					}
-					g.writef("t.result = %s\n", val)
-					continue
-				}
-			}
+		for _, s := range e.Body {
 			if werr := g.writeStmt(s); werr != nil {
 				g.popScope()
 				return werr
 			}
+		}
+		// Emit pre-extracted result expression
+		if e.ResultExpr != nil {
+			val, verr := g.exprString(e.ResultExpr)
+			if verr != nil {
+				g.popScope()
+				return verr
+			}
+			g.writef("t.result = %s\n", val)
 		}
 		g.popScope()
 		return nil
@@ -850,34 +864,34 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 	return buf.String(), nil
 }
 
-func (g *codeGen) parallelExpr(e *ast.ParallelExpr) (string, error) {
-	// Each statement becomes a goroutine; collect results in an ordered array.
-	n := len(e.Body)
+func (g *codeGen) loweredParallelExpr(e *ast.LoweredParallelExpr) (string, error) {
+	n := len(e.Branches)
 
 	if n == 0 {
 		return "interface{}([]interface{}{})", nil
 	}
 
-	// Generate each statement's Go expression
-	type stmtCode struct {
+	// Generate each branch's Go code using pre-categorized branches
+	type branchCode struct {
 		code   string
 		isExpr bool
 	}
-	stmts := make([]stmtCode, n)
-	for i, s := range e.Body {
-		if es, ok := s.(*ast.ExprStmt); ok {
-			code, err := g.exprString(es.Expression)
+	branches := make([]branchCode, n)
+	for _, br := range e.Branches {
+		if br.Expr != nil {
+			code, err := g.exprString(br.Expr)
 			if err != nil {
 				return "", err
 			}
-			stmts[i] = stmtCode{code: code, isExpr: true}
+			branches[br.Index] = branchCode{code: code, isExpr: true}
 		} else {
-			// Non-expression statement: generate into a temp buffer
 			code, err := g.captureOutput(func() error {
 				g.pushScope()
-				if err := g.writeStmt(s); err != nil {
-					g.popScope()
-					return err
+				for _, s := range br.Stmts {
+					if err := g.writeStmt(s); err != nil {
+						g.popScope()
+						return err
+					}
 				}
 				g.popScope()
 				return nil
@@ -885,18 +899,18 @@ func (g *codeGen) parallelExpr(e *ast.ParallelExpr) (string, error) {
 			if err != nil {
 				return "", err
 			}
-			stmts[i] = stmtCode{code: code, isExpr: false}
+			branches[br.Index] = branchCode{code: code, isExpr: false}
 		}
 	}
 
 	// Build goroutine nodes for each parallel branch
 	var goroutines []goNode
-	for i, sc := range stmts {
+	for i, bc := range branches {
 		var bodyNode goNode
-		if sc.isExpr {
-			bodyNode = goRaw{Code: fmt.Sprintf("_results[%d] = %s", i, sc.code)}
+		if bc.isExpr {
+			bodyNode = goRaw{Code: fmt.Sprintf("_results[%d] = %s", i, bc.code)}
 		} else {
-			bodyNode = goUserCode{Code: sc.code}
+			bodyNode = goUserCode{Code: bc.code}
 		}
 		goroutines = append(goroutines, goGoroutine{Body: []goNode{
 			goRaw{Code: "defer _wg.Done()"},

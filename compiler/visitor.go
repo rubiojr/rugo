@@ -179,7 +179,7 @@ func walkExpr(e ast.Expr, fn func(ast.Expr) bool) bool {
 				return true
 			}
 		}
-	case *ast.TryExpr:
+	case *ast.LoweredTryExpr:
 		if walkExpr(ex.Expr, fn) {
 			return true
 		}
@@ -188,16 +188,33 @@ func walkExpr(e ast.Expr, fn func(ast.Expr) bool) bool {
 				return true
 			}
 		}
-	case *ast.SpawnExpr:
+		if ex.ResultExpr != nil {
+			if walkExpr(ex.ResultExpr, fn) {
+				return true
+			}
+		}
+	case *ast.LoweredSpawnExpr:
 		for _, s := range ex.Body {
 			if walkStmtExprs(s, fn) {
 				return true
 			}
 		}
-	case *ast.ParallelExpr:
-		for _, s := range ex.Body {
-			if walkStmtExprs(s, fn) {
+		if ex.ResultExpr != nil {
+			if walkExpr(ex.ResultExpr, fn) {
 				return true
+			}
+		}
+	case *ast.LoweredParallelExpr:
+		for _, br := range ex.Branches {
+			if br.Expr != nil {
+				if walkExpr(br.Expr, fn) {
+					return true
+				}
+			}
+			for _, s := range br.Stmts {
+				if walkStmtExprs(s, fn) {
+					return true
+				}
 			}
 		}
 	}

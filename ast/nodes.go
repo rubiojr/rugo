@@ -420,6 +420,46 @@ type ParallelExpr struct {
 func (p *ParallelExpr) node() {}
 func (p *ParallelExpr) expr() {}
 
+// LoweredTryExpr is the lowered form of TryExpr, produced by the AST lowering pass.
+// When ResultExpr is non-nil, the last handler ExprStmt has been extracted.
+// When ResultExpr is nil and the handler is non-empty, codegen falls back to
+// writeLastStmtAs for complex cases (e.g. if/else as last statement).
+type LoweredTryExpr struct {
+	Expr       Expr        // expression to try
+	ErrVar     string      // error variable name
+	Handler    []Statement // handler body (last ExprStmt removed if ResultExpr is set)
+	ResultExpr Expr        // extracted last handler expression; nil if complex or empty
+}
+
+func (t *LoweredTryExpr) node() {}
+func (t *LoweredTryExpr) expr() {}
+
+// LoweredSpawnExpr is the lowered form of SpawnExpr, produced by the AST lowering pass.
+// The body's last ExprStmt has been extracted into ResultExpr.
+type LoweredSpawnExpr struct {
+	Body       []Statement // goroutine body (last ExprStmt removed if ResultExpr is set)
+	ResultExpr Expr        // final expression to assign as task result; nil if none
+}
+
+func (s *LoweredSpawnExpr) node() {}
+func (s *LoweredSpawnExpr) expr() {}
+
+// ParallelBranch represents one branch in a LoweredParallelExpr.
+type ParallelBranch struct {
+	Expr  Expr        // non-nil if the branch is a single expression (from ExprStmt)
+	Stmts []Statement // non-nil if the branch is a non-expression statement
+	Index int         // position in results array
+}
+
+// LoweredParallelExpr is the lowered form of ParallelExpr, produced by the AST lowering pass.
+// Each body statement is pre-categorized as an expression or statement block.
+type LoweredParallelExpr struct {
+	Branches []ParallelBranch
+}
+
+func (p *LoweredParallelExpr) node() {}
+func (p *LoweredParallelExpr) expr() {}
+
 // FnExpr represents fn(params) body end (first-class lambda).
 type FnExpr struct {
 	Params []Param

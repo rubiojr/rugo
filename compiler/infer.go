@@ -338,22 +338,33 @@ func inferExprInner(ti *TypeInfo, scope *typeScope, e ast.Expr) RugoType {
 		inferExpr(ti, scope, ex.Object)
 		return TypeDynamic
 
-	case *ast.TryExpr:
+	case *ast.LoweredTryExpr:
 		inferExpr(ti, scope, ex.Expr)
-		return TypeDynamic
-
-	case *ast.SpawnExpr:
-		// Walk the spawn body so expressions inside get typed.
-		// Spawn shares the parent scope via Go closure.
-		for _, s := range ex.Body {
+		for _, s := range ex.Handler {
 			inferStmt(ti, scope, s)
+		}
+		if ex.ResultExpr != nil {
+			inferExpr(ti, scope, ex.ResultExpr)
 		}
 		return TypeDynamic
 
-	case *ast.ParallelExpr:
-		// Walk the parallel body so expressions inside get typed.
+	case *ast.LoweredSpawnExpr:
 		for _, s := range ex.Body {
 			inferStmt(ti, scope, s)
+		}
+		if ex.ResultExpr != nil {
+			inferExpr(ti, scope, ex.ResultExpr)
+		}
+		return TypeDynamic
+
+	case *ast.LoweredParallelExpr:
+		for _, br := range ex.Branches {
+			if br.Expr != nil {
+				inferExpr(ti, scope, br.Expr)
+			}
+			for _, s := range br.Stmts {
+				inferStmt(ti, scope, s)
+			}
 		}
 		return TypeDynamic
 

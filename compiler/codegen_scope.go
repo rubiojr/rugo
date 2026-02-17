@@ -93,10 +93,29 @@ func collectIdentsFromExpr(e ast.Expr, names map[string]bool) {
 			collectIdentsFromExpr(p.Key, names)
 			collectIdentsFromExpr(p.Value, names)
 		}
-	case *ast.TryExpr:
+	case *ast.LoweredTryExpr:
 		collectIdentsFromExpr(ex.Expr, names)
 		for _, b := range ex.Handler {
 			collectIdentsFromStmt(b, names)
+		}
+		if ex.ResultExpr != nil {
+			collectIdentsFromExpr(ex.ResultExpr, names)
+		}
+	case *ast.LoweredSpawnExpr:
+		for _, s := range ex.Body {
+			collectIdentsFromStmt(s, names)
+		}
+		if ex.ResultExpr != nil {
+			collectIdentsFromExpr(ex.ResultExpr, names)
+		}
+	case *ast.LoweredParallelExpr:
+		for _, br := range ex.Branches {
+			if br.Expr != nil {
+				collectIdentsFromExpr(br.Expr, names)
+			}
+			for _, s := range br.Stmts {
+				collectIdentsFromStmt(s, names)
+			}
 		}
 	case *ast.FnExpr:
 		for _, b := range ex.Body {
@@ -218,10 +237,10 @@ func importedModuleNames(imports map[string]bool) []string {
 	return names
 }
 
-// astUsesSpawn checks if any ast.SpawnExpr exists in the AST.
+// astUsesSpawn checks if any LoweredSpawnExpr exists in the AST.
 func astUsesSpawn(prog *ast.Program) bool {
 	return WalkExprs(prog, func(e ast.Expr) bool {
-		_, ok := e.(*ast.SpawnExpr)
+		_, ok := e.(*ast.LoweredSpawnExpr)
 		return ok
 	})
 }
@@ -244,10 +263,10 @@ func astUsesTaskMethods(prog *ast.Program) bool {
 
 var taskMethodNames = map[string]bool{"value": true, "done": true, "wait": true}
 
-// astUsesParallel checks if any ast.ParallelExpr exists in the AST.
+// astUsesParallel checks if any LoweredParallelExpr exists in the AST.
 func astUsesParallel(prog *ast.Program) bool {
 	return WalkExprs(prog, func(e ast.Expr) bool {
-		_, ok := e.(*ast.ParallelExpr)
+		_, ok := e.(*ast.LoweredParallelExpr)
 		return ok
 	})
 }
