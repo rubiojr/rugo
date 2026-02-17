@@ -99,6 +99,15 @@ type GoReturnStmt struct {
 
 func (GoReturnStmt) goStmt() {}
 
+// GoVarStmt represents: var name type [= value]
+type GoVarStmt struct {
+	Name  string
+	Type  string
+	Value GoExpr // nil for uninitialized
+}
+
+func (GoVarStmt) goStmt() {}
+
 // GoIfStmt represents: if cond { body } [else if ...] [else { body }]
 type GoIfStmt struct {
 	Cond   GoExpr

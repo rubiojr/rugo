@@ -123,6 +123,12 @@ func (p *goPrinter) printStmt(s GoStmt) {
 		} else {
 			p.line("return")
 		}
+	case GoVarStmt:
+		if st.Value != nil {
+			p.line("var %s %s = %s", st.Name, st.Type, p.exprStr(st.Value))
+		} else {
+			p.line("var %s %s", st.Name, st.Type)
+		}
 	case GoIfStmt:
 		p.printIf(st)
 	case GoForStmt:

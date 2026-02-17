@@ -22,23 +22,23 @@ func (g *codeGen) buildTestHarness(tests []*ast.TestDef, topStmts []ast.Statemen
 					GoIfStmt{
 						Cond: GoRawExpr{Code: "reason, ok := r.(rugoTestSkip); ok"},
 						Body: []GoStmt{
-							GoRawStmt{Code: "skipped = true"},
-							GoRawStmt{Code: "skipReason = string(reason)"},
+							GoAssignStmt{Target: "skipped", Op: "=", Value: GoRawExpr{Code: "true"}},
+							GoAssignStmt{Target: "skipReason", Op: "=", Value: GoRawExpr{Code: "string(reason)"}},
 							GoReturnStmt{},
 						},
 					},
-					GoRawStmt{Code: `failColor := "\033[31m"`},
-					GoRawStmt{Code: `failReset := "\033[0m"`},
+					GoAssignStmt{Target: "failColor", Op: ":=", Value: GoRawExpr{Code: `"\033[31m"`}},
+					GoAssignStmt{Target: "failReset", Op: ":=", Value: GoRawExpr{Code: `"\033[0m"`}},
 					GoIfStmt{
 						Cond: GoRawExpr{Code: `os.Getenv("NO_COLOR") != ""`},
 						Body: []GoStmt{
-							GoRawStmt{Code: `failColor = ""`},
-							GoRawStmt{Code: `failReset = ""`},
+							GoAssignStmt{Target: "failColor", Op: "=", Value: GoRawExpr{Code: `""`}},
+							GoAssignStmt{Target: "failReset", Op: "=", Value: GoRawExpr{Code: `""`}},
 						},
 					},
-					GoRawStmt{Code: `failReason = fmt.Sprintf("%v", r)`},
+					GoAssignStmt{Target: "failReason", Op: "=", Value: GoRawExpr{Code: `fmt.Sprintf("%v", r)`}},
 					GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "  %sFAIL%s: %v\n", failColor, failReset, r)`},
-					GoRawStmt{Code: "passed = false"},
+					GoAssignStmt{Target: "passed", Op: "=", Value: GoRawExpr{Code: "false"}},
 				},
 			},
 		}}
@@ -56,7 +56,7 @@ func (g *codeGen) buildTestHarness(tests []*ast.TestDef, topStmts []ast.Statemen
 		g.popScope()
 
 		body = append(body, bodyStmts...)
-		body = append(body, GoRawStmt{Code: "passed = true"})
+		body = append(body, GoAssignStmt{Target: "passed", Op: "=", Value: GoRawExpr{Code: "true"}})
 		body = append(body, GoReturnStmt{})
 
 		decls = append(decls, GoFuncDecl{

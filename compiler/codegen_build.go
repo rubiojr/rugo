@@ -260,9 +260,9 @@ func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 		if !g.isDeclared(name) {
 			varType := g.varType(name)
 			if varType.IsTyped() {
-				preDecls = append(preDecls, GoRawStmt{Code: fmt.Sprintf("var %s %s", name, varType.GoType())})
+				preDecls = append(preDecls, GoVarStmt{Name: name, Type: varType.GoType()})
 			} else {
-				preDecls = append(preDecls, GoRawStmt{Code: fmt.Sprintf("var %s interface{}", name)})
+				preDecls = append(preDecls, GoVarStmt{Name: name, Type: "interface{}"})
 			}
 			g.declareVar(name)
 		}
@@ -508,7 +508,7 @@ func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
 
 	// Recursion depth guard
 	body = append(body, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("rugo_check_depth(%q)", f.Name)}})
-	body = append(body, GoRawStmt{Code: "defer func() { rugo_call_depth-- }()"})
+	body = append(body, GoDeferStmt{Body: []GoStmt{GoRawStmt{Code: "rugo_call_depth--"}}})
 
 	if hasDefaults {
 		// Arity range check
@@ -525,13 +525,13 @@ func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
 		for i, p := range f.Params {
 			g.declareVar(p.Name)
 			if p.Default == nil {
-				body = append(body, GoRawStmt{Code: fmt.Sprintf("var %s interface{} = _args[%d]", p.Name, i)})
+				body = append(body, GoVarStmt{Name: p.Name, Type: "interface{}", Value: GoRawExpr{Code: fmt.Sprintf("_args[%d]", i)}})
 			} else {
 				defaultExpr, err := g.exprString(p.Default)
 				if err != nil {
 					return GoFuncDecl{}, err
 				}
-				body = append(body, GoRawStmt{Code: fmt.Sprintf("var %s interface{}", p.Name)})
+				body = append(body, GoVarStmt{Name: p.Name, Type: "interface{}"})
 				body = append(body, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] } else { %s = %s }", i, p.Name, i, p.Name, defaultExpr)})
 			}
 			body = append(body, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", p.Name)}})

@@ -718,7 +718,7 @@ func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
 					}},
 					GoRawStmt{Code: "close(t.done)"},
 				}},
-				GoRawStmt{Code: "// spawn body"},
+				GoComment{Text: "spawn body"},
 			}},
 		},
 		Result: GoRawExpr{Code: "interface{}(t)"},
@@ -789,10 +789,10 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 			if derr != nil {
 				return "", derr
 			}
-			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("var %s interface{}", p.Name)})
+			preamble = append(preamble, GoVarStmt{Name: p.Name, Type: "interface{}"})
 			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] } else { %s = %s }", i, p.Name, i, p.Name, defaultExpr)})
 		} else {
-			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("var %s interface{}", p.Name)})
+			preamble = append(preamble, GoVarStmt{Name: p.Name, Type: "interface{}"})
 			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] }", i, p.Name, i)})
 		}
 		preamble = append(preamble, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", p.Name)}})
