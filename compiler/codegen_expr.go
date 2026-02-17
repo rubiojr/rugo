@@ -660,7 +660,7 @@ func (g *codeGen) loweredTryExpr(e *ast.LoweredTryExpr) (string, error) {
 			g.popScope()
 			return "", verr
 		}
-		handlerBody = append(handlerBody, GoAssignStmt{Target: "r", Op: "=", Value: GoRawExpr{Code: val}})
+		handlerBody = append(handlerBody, GoAssignStmt{Target: "r", Op: "=", Value: rawExpr(val)})
 	} else {
 		stmts, berr := g.buildStmts(e.Handler)
 		if berr != nil {
@@ -675,16 +675,16 @@ func (g *codeGen) loweredTryExpr(e *ast.LoweredTryExpr) (string, error) {
 		ReturnType: "(r interface{})",
 		Body: []GoStmt{
 			GoDeferStmt{Body: []GoStmt{
-				GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: append(
+				GoIfStmt{Cond: rawExpr("e := recover(); e != nil"), Body: append(
 					[]GoStmt{
-						GoAssignStmt{Target: fmt.Sprintf("%s", e.ErrVar), Op: ":=", Value: GoRawExpr{Code: "fmt.Sprint(e)"}},
-						GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", e.ErrVar)}},
+						GoAssignStmt{Target: fmt.Sprintf("%s", e.ErrVar), Op: ":=", Value: rawExpr("fmt.Sprint(e)")},
+						GoExprStmt{Expr: fmtExpr("_ = %s", e.ErrVar)},
 					},
 					handlerBody...,
 				)},
 			}},
 		},
-		Result: GoRawExpr{Code: exprStr},
+		Result: rawExpr(exprStr),
 	}
 
 	return g.goExprStr(ir), nil
@@ -704,7 +704,7 @@ func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
 			g.popScope()
 			return "", verr
 		}
-		bodyStmts = append(bodyStmts, GoAssignStmt{Target: "t.result", Op: "=", Value: GoRawExpr{Code: val}})
+		bodyStmts = append(bodyStmts, GoAssignStmt{Target: "t.result", Op: "=", Value: rawExpr(val)})
 	}
 	g.popScope()
 
@@ -713,7 +713,7 @@ func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
 			GoRawStmt{Code: "t := &rugoTask{done: make(chan struct{})}"},
 			GoGoStmt{Body: []GoStmt{
 				GoDeferStmt{Body: []GoStmt{
-					GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: []GoStmt{
+					GoIfStmt{Cond: rawExpr("e := recover(); e != nil"), Body: []GoStmt{
 						GoRawStmt{Code: "t.err = fmt.Sprint(e)"},
 					}},
 					GoRawStmt{Code: "close(t.done)"},
@@ -721,7 +721,7 @@ func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
 				GoComment{Text: "spawn body"},
 			}},
 		},
-		Result: GoRawExpr{Code: "interface{}(t)"},
+		Result: rawExpr("interface{}(t)"),
 	}
 
 	// Insert body stmts into the goroutine body, replacing the placeholder
@@ -795,14 +795,14 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 			preamble = append(preamble, GoVarStmt{Name: p.Name, Type: "interface{}"})
 			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] }", i, p.Name, i)})
 		}
-		preamble = append(preamble, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", p.Name)}})
+		preamble = append(preamble, GoExprStmt{Expr: fmtExpr("_ = %s", p.Name)})
 	}
 
 	// Assemble full body
 	var fullBody []GoStmt
 	fullBody = append(fullBody, preamble...)
 	fullBody = append(fullBody, bodyStmts...)
-	fullBody = append(fullBody, GoReturnStmt{Value: GoRawExpr{Code: "nil"}})
+	fullBody = append(fullBody, GoReturnStmt{Value: rawExpr("nil")})
 
 	// Render using GoIIFEExpr — but we need interface{}(...) wrapping
 	ir := GoIIFEExpr{
@@ -874,7 +874,7 @@ func (g *codeGen) loweredParallelExpr(e *ast.LoweredParallelExpr) (string, error
 		goroutineBody := []GoStmt{
 			GoRawStmt{Code: "defer _wg.Done()"},
 			GoDeferStmt{Body: []GoStmt{
-				GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: []GoStmt{
+				GoIfStmt{Cond: rawExpr("e := recover(); e != nil"), Body: []GoStmt{
 					GoRawStmt{Code: `_parOnce.Do(func() { _parErr = fmt.Sprint(e) })`},
 				}},
 			}},
@@ -893,7 +893,7 @@ func (g *codeGen) loweredParallelExpr(e *ast.LoweredParallelExpr) (string, error
 	body = append(body, goroutines...)
 	body = append(body,
 		GoRawStmt{Code: "_wg.Wait()"},
-		GoIfStmt{Cond: GoRawExpr{Code: `_parErr != ""`}, Body: []GoStmt{
+		GoIfStmt{Cond: rawExpr(`_parErr != ""`), Body: []GoStmt{
 			GoRawStmt{Code: "panic(_parErr)"},
 		}},
 		GoRawStmt{Code: "out := make([]interface{}, len(_results))"},
@@ -902,7 +902,7 @@ func (g *codeGen) loweredParallelExpr(e *ast.LoweredParallelExpr) (string, error
 
 	ir := GoIIFEExpr{
 		Body:   body,
-		Result: GoRawExpr{Code: "interface{}(out)"},
+		Result: rawExpr("interface{}(out)"),
 	}
 
 	return g.goExprStr(ir), nil

@@ -290,7 +290,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		file.Decls = append(file.Decls, GoVarDecl{
 			Name:  fmt.Sprintf("rugons_%s_%s", nv.Namespace, nv.Target),
 			Type:  "interface{}",
-			Value: GoRawExpr{Code: expr},
+			Value: rawExpr(expr),
 		})
 	}
 	if len(nsVars) > 0 {

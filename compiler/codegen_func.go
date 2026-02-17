@@ -17,28 +17,28 @@ func (g *codeGen) buildTestHarness(tests []*ast.TestDef, topStmts []ast.Statemen
 
 		testDefer := GoDeferStmt{Body: []GoStmt{
 			GoIfStmt{
-				Cond: GoRawExpr{Code: "r := recover(); r != nil"},
+				Cond: rawExpr("r := recover(); r != nil"),
 				Body: []GoStmt{
 					GoIfStmt{
-						Cond: GoRawExpr{Code: "reason, ok := r.(rugoTestSkip); ok"},
+						Cond: rawExpr("reason, ok := r.(rugoTestSkip); ok"),
 						Body: []GoStmt{
-							GoAssignStmt{Target: "skipped", Op: "=", Value: GoRawExpr{Code: "true"}},
-							GoAssignStmt{Target: "skipReason", Op: "=", Value: GoRawExpr{Code: "string(reason)"}},
+							GoAssignStmt{Target: "skipped", Op: "=", Value: rawExpr("true")},
+							GoAssignStmt{Target: "skipReason", Op: "=", Value: rawExpr("string(reason)")},
 							GoReturnStmt{},
 						},
 					},
-					GoAssignStmt{Target: "failColor", Op: ":=", Value: GoRawExpr{Code: `"\033[31m"`}},
-					GoAssignStmt{Target: "failReset", Op: ":=", Value: GoRawExpr{Code: `"\033[0m"`}},
+					GoAssignStmt{Target: "failColor", Op: ":=", Value: rawExpr(`"\033[31m"`)},
+					GoAssignStmt{Target: "failReset", Op: ":=", Value: rawExpr(`"\033[0m"`)},
 					GoIfStmt{
-						Cond: GoRawExpr{Code: `os.Getenv("NO_COLOR") != ""`},
+						Cond: rawExpr(`os.Getenv("NO_COLOR") != ""`),
 						Body: []GoStmt{
-							GoAssignStmt{Target: "failColor", Op: "=", Value: GoRawExpr{Code: `""`}},
-							GoAssignStmt{Target: "failReset", Op: "=", Value: GoRawExpr{Code: `""`}},
+							GoAssignStmt{Target: "failColor", Op: "=", Value: rawExpr(`""`)},
+							GoAssignStmt{Target: "failReset", Op: "=", Value: rawExpr(`""`)},
 						},
 					},
-					GoAssignStmt{Target: "failReason", Op: "=", Value: GoRawExpr{Code: `fmt.Sprintf("%v", r)`}},
+					GoAssignStmt{Target: "failReason", Op: "=", Value: rawExpr(`fmt.Sprintf("%v", r)`)},
 					GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "  %sFAIL%s: %v\n", failColor, failReset, r)`},
-					GoAssignStmt{Target: "passed", Op: "=", Value: GoRawExpr{Code: "false"}},
+					GoAssignStmt{Target: "passed", Op: "=", Value: rawExpr("false")},
 				},
 			},
 		}}
@@ -56,7 +56,7 @@ func (g *codeGen) buildTestHarness(tests []*ast.TestDef, topStmts []ast.Statemen
 		g.popScope()
 
 		body = append(body, bodyStmts...)
-		body = append(body, GoAssignStmt{Target: "passed", Op: "=", Value: GoRawExpr{Code: "true"}})
+		body = append(body, GoAssignStmt{Target: "passed", Op: "=", Value: rawExpr("true")})
 		body = append(body, GoReturnStmt{})
 
 		decls = append(decls, GoFuncDecl{
