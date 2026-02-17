@@ -46,12 +46,7 @@ func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
 			}
 			return GoCastExpr{Type: "interface{}", Value: lit}, nil
 		}
-		// Interpolated strings still use exprString
-		s, err := g.stringLiteral(ex.Value, g.exprIsTyped(e))
-		if err != nil {
-			return nil, err
-		}
-		return GoRawExpr{Code: s}, nil
+		return g.buildStringLiteral(ex.Value, g.exprIsTyped(e))
 
 	case *ast.IdentExpr:
 		// Bare function name without parens: treat as zero-arg call (Ruby semantics).
@@ -308,6 +303,78 @@ func (g *codeGen) buildHashLiteral(e *ast.HashLiteral) (GoExpr, error) {
 		pairs[i] = GoMapPair{Key: key, Value: val}
 	}
 	return GoCastExpr{Type: "interface{}", Value: GoMapLit{KeyType: "interface{}", ValType: "interface{}", Pairs: pairs}}, nil
+}
+
+func (g *codeGen) buildStringLiteral(value string, typed bool) (GoExpr, error) {
+	if ast.HasInterpolation(value) {
+		format, exprStrs, err := ast.ProcessInterpolation(value)
+		if err != nil {
+			return nil, err
+		}
+		args := make([]string, len(exprStrs))
+		argTypes := make([]RugoType, len(exprStrs))
+		for i, exprStr := range exprStrs {
+			goExpr, typ, err := g.compileInterpolatedExpr(exprStr)
+			if err != nil {
+				return nil, fmt.Errorf("interpolation error in #{%s}: %w", exprStr, err)
+			}
+			args[i] = goExpr
+			argTypes[i] = typ
+		}
+		escapedFmt := goEscapeString(format)
+		if len(args) > 0 {
+			// Optimization: when all interpolated expressions are typed strings,
+			// emit direct concatenation instead of fmt.Sprintf.
+			allString := true
+			for _, t := range argTypes {
+				if t != TypeString {
+					allString = false
+					break
+				}
+			}
+			if allString {
+				return g.buildStringConcatExpr(escapedFmt, args), nil
+			}
+			// Wrap each arg in rugo_to_string
+			goArgs := make([]GoExpr, len(args))
+			for i, a := range args {
+				goArgs[i] = GoCallExpr{Func: "rugo_to_string", Args: []GoExpr{GoRawExpr{Code: a}}}
+			}
+			return GoFmtSprintf{Format: escapedFmt, Args: goArgs}, nil
+		}
+		lit := GoStringLit{Value: escapedFmt}
+		if typed {
+			return lit, nil
+		}
+		return GoCastExpr{Type: "interface{}", Value: lit}, nil
+	}
+	lit := GoStringLit{Value: goEscapeString(value)}
+	if typed {
+		return lit, nil
+	}
+	return GoCastExpr{Type: "interface{}", Value: lit}, nil
+}
+
+// buildStringConcatExpr builds a GoStringConcat from a format string
+// with %v placeholders and corresponding typed string arguments.
+func (g *codeGen) buildStringConcatExpr(escapedFmt string, args []string) GoExpr {
+	segments := strings.Split(escapedFmt, "%v")
+	var parts []GoExpr
+	for i, seg := range segments {
+		if seg != "" {
+			parts = append(parts, GoStringLit{Value: seg})
+		}
+		if i < len(args) {
+			parts = append(parts, GoRawExpr{Code: args[i]})
+		}
+	}
+	if len(parts) == 0 {
+		return GoStringLit{Value: ""}
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return GoStringConcat{Parts: parts}
 }
 
 // buildCondExpr builds a condition expression for use in if/while.
