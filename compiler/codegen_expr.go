@@ -645,7 +645,6 @@ func (g *codeGen) tryExpr(e *ast.TryExpr) (string, error) {
 	}
 
 	// Build the handler body as Go source in a temporary buffer.
-	var handlerBuf strings.Builder
 	handlerCode, cerr := g.captureOutput(func() error {
 		g.pushScope()
 		g.declareVar(e.ErrVar)
@@ -680,24 +679,22 @@ func (g *codeGen) tryExpr(e *ast.TryExpr) (string, error) {
 		return "", cerr
 	}
 
-	// Build the IIFE
-	handlerBuf.WriteString("func() (r interface{}) {\n")
-	handlerBuf.WriteString("\t\tdefer func() {\n")
-	handlerBuf.WriteString("\t\t\tif e := recover(); e != nil {\n")
-	handlerBuf.WriteString(fmt.Sprintf("\t\t\t\t%s := fmt.Sprint(e)\n", e.ErrVar))
-	handlerBuf.WriteString(fmt.Sprintf("\t\t\t\t_ = %s\n", e.ErrVar))
-	// Indent and write handler code
-	for _, line := range strings.Split(handlerCode, "\n") {
-		if line != "" {
-			handlerBuf.WriteString("\t\t\t\t" + strings.TrimLeft(line, "\t") + "\n")
-		}
+	// Build the IIFE using Go IR
+	ir := goIIFE{
+		ReturnType: "(r interface{})",
+		Body: []goNode{
+			goDefer{Body: []goNode{
+				goIf{Cond: "e := recover(); e != nil", Body: []goNode{
+					goRaw{Code: fmt.Sprintf("%s := fmt.Sprint(e)", e.ErrVar)},
+					goRaw{Code: fmt.Sprintf("_ = %s", e.ErrVar)},
+					goUserCode{Code: handlerCode},
+				}},
+			}},
+		},
+		Return: exprStr,
 	}
-	handlerBuf.WriteString("\t\t\t}\n")
-	handlerBuf.WriteString("\t\t}()\n")
-	handlerBuf.WriteString(fmt.Sprintf("\t\treturn %s\n", exprStr))
-	handlerBuf.WriteString("\t}()")
 
-	return handlerBuf.String(), nil
+	return g.emitGoIR(ir), nil
 }
 
 func (g *codeGen) spawnExpr(e *ast.SpawnExpr) (string, error) {
@@ -732,27 +729,24 @@ func (g *codeGen) spawnExpr(e *ast.SpawnExpr) (string, error) {
 		return "", cerr
 	}
 
-	// Build the IIFE that creates a rugoTask and launches a goroutine
-	var buf strings.Builder
-	buf.WriteString("func() interface{} {\n")
-	buf.WriteString("\t\tt := &rugoTask{done: make(chan struct{})}\n")
-	buf.WriteString("\t\tgo func() {\n")
-	buf.WriteString("\t\t\tdefer func() {\n")
-	buf.WriteString("\t\t\t\tif e := recover(); e != nil {\n")
-	buf.WriteString("\t\t\t\t\tt.err = fmt.Sprint(e)\n")
-	buf.WriteString("\t\t\t\t}\n")
-	buf.WriteString("\t\t\t\tclose(t.done)\n")
-	buf.WriteString("\t\t\t}()\n")
-	for _, line := range strings.Split(bodyCode, "\n") {
-		if line != "" {
-			buf.WriteString("\t\t\t" + strings.TrimLeft(line, "\t") + "\n")
-		}
+	// Build the IIFE using Go IR
+	ir := goIIFE{
+		Body: []goNode{
+			goRaw{Code: "t := &rugoTask{done: make(chan struct{})}"},
+			goGoroutine{Body: []goNode{
+				goDefer{Body: []goNode{
+					goIf{Cond: "e := recover(); e != nil", Body: []goNode{
+						goRaw{Code: "t.err = fmt.Sprint(e)"},
+					}},
+					goRaw{Code: "close(t.done)"},
+				}},
+				goUserCode{Code: bodyCode},
+			}},
+		},
+		Return: "interface{}(t)",
 	}
-	buf.WriteString("\t\t}()\n")
-	buf.WriteString("\t\treturn interface{}(t)\n")
-	buf.WriteString("\t}()")
 
-	return buf.String(), nil
+	return g.emitGoIR(ir), nil
 }
 
 func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
@@ -895,42 +889,48 @@ func (g *codeGen) parallelExpr(e *ast.ParallelExpr) (string, error) {
 		}
 	}
 
-	var buf strings.Builder
-	buf.WriteString("func() interface{} {\n")
-	buf.WriteString(fmt.Sprintf("\t\t_results := make([]interface{}, %d)\n", n))
-	buf.WriteString("\t\tvar _wg sync.WaitGroup\n")
-	buf.WriteString("\t\tvar _parErr string\n")
-	buf.WriteString("\t\tvar _parOnce sync.Once\n")
-	buf.WriteString(fmt.Sprintf("\t\t_wg.Add(%d)\n", n))
-
+	// Build goroutine nodes for each parallel branch
+	var goroutines []goNode
 	for i, sc := range stmts {
-		buf.WriteString("\t\tgo func() {\n")
-		buf.WriteString("\t\t\tdefer _wg.Done()\n")
-		buf.WriteString("\t\t\tdefer func() {\n")
-		buf.WriteString("\t\t\t\tif e := recover(); e != nil {\n")
-		buf.WriteString("\t\t\t\t\t_parOnce.Do(func() { _parErr = fmt.Sprint(e) })\n")
-		buf.WriteString("\t\t\t\t}\n")
-		buf.WriteString("\t\t\t}()\n")
+		var bodyNode goNode
 		if sc.isExpr {
-			buf.WriteString(fmt.Sprintf("\t\t\t_results[%d] = %s\n", i, sc.code))
+			bodyNode = goRaw{Code: fmt.Sprintf("_results[%d] = %s", i, sc.code)}
 		} else {
-			for _, line := range strings.Split(sc.code, "\n") {
-				if line != "" {
-					buf.WriteString("\t\t\t" + strings.TrimLeft(line, "\t") + "\n")
-				}
-			}
+			bodyNode = goUserCode{Code: sc.code}
 		}
-		buf.WriteString("\t\t}()\n")
+		goroutines = append(goroutines, goGoroutine{Body: []goNode{
+			goRaw{Code: "defer _wg.Done()"},
+			goDefer{Body: []goNode{
+				goIf{Cond: "e := recover(); e != nil", Body: []goNode{
+					goRaw{Code: `_parOnce.Do(func() { _parErr = fmt.Sprint(e) })`},
+				}},
+			}},
+			bodyNode,
+		}})
 	}
 
-	buf.WriteString("\t\t_wg.Wait()\n")
-	buf.WriteString("\t\tif _parErr != \"\" {\n")
-	buf.WriteString("\t\t\tpanic(_parErr)\n")
-	buf.WriteString("\t\t}\n")
-	buf.WriteString("\t\tout := make([]interface{}, len(_results))\n")
-	buf.WriteString("\t\tcopy(out, _results)\n")
-	buf.WriteString("\t\treturn interface{}(out)\n")
-	buf.WriteString("\t}()")
+	// Build the IIFE using Go IR
+	body := []goNode{
+		goRaw{Code: fmt.Sprintf("_results := make([]interface{}, %d)", n)},
+		goRaw{Code: "var _wg sync.WaitGroup"},
+		goRaw{Code: "var _parErr string"},
+		goRaw{Code: "var _parOnce sync.Once"},
+		goRaw{Code: fmt.Sprintf("_wg.Add(%d)", n)},
+	}
+	body = append(body, goroutines...)
+	body = append(body,
+		goRaw{Code: "_wg.Wait()"},
+		goIf{Cond: `_parErr != ""`, Body: []goNode{
+			goRaw{Code: "panic(_parErr)"},
+		}},
+		goRaw{Code: "out := make([]interface{}, len(_results))"},
+		goRaw{Code: "copy(out, _results)"},
+	)
 
-	return buf.String(), nil
+	ir := goIIFE{
+		Body:   body,
+		Return: "interface{}(out)",
+	}
+
+	return g.emitGoIR(ir), nil
 }
