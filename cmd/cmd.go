@@ -139,6 +139,12 @@ func Execute(version string) {
 						Aliases: []string{"C"},
 						Usage:   "Disable ANSI color output",
 					},
+					&cli.IntFlag{
+						Name:    "count",
+						Aliases: []string{"n"},
+						Usage:   "Run each benchmark file N times (best result kept)",
+						Value:   1,
+					},
 				},
 				Action: benchAction,
 			},
@@ -855,11 +861,21 @@ func benchAction(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("no benchmark files found")
 	}
 
+	count := cmd.Int("count")
+	if count < 1 {
+		count = 1
+	}
+
 	for _, f := range files {
 		fmt.Fprintf(os.Stderr, "=== %s ===\n", f)
-		comp := &compiler.Compiler{}
-		if err := comp.Run(f); err != nil {
-			return err
+		for i := 0; i < int(count); i++ {
+			if count > 1 {
+				fmt.Fprintf(os.Stderr, "  --- run %d/%d ---\n", i+1, count)
+			}
+			comp := &compiler.Compiler{}
+			if err := comp.Run(f); err != nil {
+				return err
+			}
 		}
 	}
 
