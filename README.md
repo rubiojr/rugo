@@ -197,7 +197,7 @@ rugo run --sandbox --ro /etc --rox /usr script.rugo
 With the experimental, Qt backed, [Cute](https://github.com/rubiojr/cute) module:
 
 ```ruby
-require "github.com/rubiojr/cute@v0.1.1"
+require "github.com/rubiojr/cute@v0.3.1"
 
 cute.app("Counter", 400, 300) do
   count = cute.state(0)
