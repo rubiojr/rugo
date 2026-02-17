@@ -10,16 +10,16 @@ import (
 )
 
 func (g *codeGen) writeRuntime() {
-	g.sb.WriteString(runtimeCorePre)
+	g.w.Raw(runtimeCorePre)
 
 	// Module runtimes (only for use'd modules)
 	for _, name := range importedModuleNames(g.imports) {
 		if m, ok := modules.Get(name); ok {
-			g.sb.WriteString(m.FullRuntime())
+			g.w.Raw(m.FullRuntime())
 		}
 	}
 
-	g.sb.WriteString(runtimeCorePost)
+	g.w.Raw(runtimeCorePost)
 
 	if g.hasSpawn || g.usesTaskMethods {
 		g.writeSpawnRuntime()
@@ -37,12 +37,12 @@ func (g *codeGen) writeRuntime() {
 }
 
 func (g *codeGen) writeSpawnRuntime() {
-	g.sb.WriteString(runtimeSpawn)
+	g.w.Raw(runtimeSpawn)
 }
 
 // writeSandboxRuntime emits helper functions for Landlock-based sandboxing.
 func (g *codeGen) writeSandboxRuntime() {
-	g.sb.WriteString(`
+	g.w.Raw(`
 func rugo_sandbox_fs_ro(dir bool) landlock.AccessFSSet {
 	rights := landlock.AccessFSSet(llsyscall.AccessFSReadFile)
 	if dir { rights |= landlock.AccessFSSet(llsyscall.AccessFSReadDir) }
@@ -103,9 +103,9 @@ func (g *codeGen) writeSandboxApply() {
 			g.writeln("os.Clearenv()")
 			for i, name := range cfg.Env {
 				g.writef("if rugo_sandbox_env_%d != \"\" {\n", i)
-				g.indent++
+				g.w.Indent()
 				g.writef("os.Setenv(%q, rugo_sandbox_env_%d)\n", name, i)
-				g.indent--
+				g.w.Dedent()
 				g.writeln("}")
 			}
 		} else {
@@ -115,11 +115,11 @@ func (g *codeGen) writeSandboxApply() {
 	}
 
 	g.writeln(`if runtime.GOOS != "linux" {`)
-	g.indent++
+	g.w.Indent()
 	g.writeln(`fmt.Fprintln(os.Stderr, "rugo: warning: sandbox requires Linux with Landlock support, running unrestricted")`)
-	g.indent--
+	g.w.Dedent()
 	g.writeln("} else {")
-	g.indent++
+	g.w.Indent()
 	g.writeln("rugo_sandbox_cfg := landlock.V5.BestEffort()")
 
 	hasFS := len(cfg.RO) > 0 || len(cfg.RW) > 0 || len(cfg.ROX) > 0 || len(cfg.RWX) > 0
@@ -155,42 +155,42 @@ func (g *codeGen) writeSandboxApply() {
 	if !hasFS && !hasNet {
 		// Bare sandbox: maximum restriction
 		g.writeln(`if err := rugo_sandbox_cfg.Restrict(); err != nil {`)
-		g.indent++
+		g.w.Indent()
 		g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox: %v\n", err)`)
-		g.indent--
+		g.w.Dedent()
 		g.writeln("}")
 	} else {
 		if hasFS {
 			g.writeln("if err := rugo_sandbox_cfg.RestrictPaths(rugo_sandbox_fs...); err != nil {")
-			g.indent++
+			g.w.Indent()
 			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`)
-			g.indent--
+			g.w.Dedent()
 			g.writeln("}")
 		} else {
 			// No FS rules but has net rules — still restrict FS (deny all)
 			g.writeln("if err := rugo_sandbox_cfg.RestrictPaths(); err != nil {")
-			g.indent++
+			g.w.Indent()
 			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`)
-			g.indent--
+			g.w.Dedent()
 			g.writeln("}")
 		}
 		if hasNet {
 			g.writeln("if err := rugo_sandbox_cfg.RestrictNet(rugo_sandbox_net...); err != nil {")
-			g.indent++
+			g.w.Indent()
 			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`)
-			g.indent--
+			g.w.Dedent()
 			g.writeln("}")
 		} else {
 			// No net rules but has FS rules — still restrict net (deny all)
 			g.writeln("if err := rugo_sandbox_cfg.RestrictNet(); err != nil {")
-			g.indent++
+			g.w.Indent()
 			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`)
-			g.indent--
+			g.w.Dedent()
 			g.writeln("}")
 		}
 	}
 
-	g.indent--
+	g.w.Dedent()
 	g.writeln("}")
 }
 
@@ -374,28 +374,28 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 // Helpers are declared by bridge files via RuntimeHelpers on GoFuncSig,
 // deduplicated by key, and emitted once.
 func (g *codeGen) writeGoBridgeRuntime() {
-	g.sb.WriteString("\n// --- Go Bridge Helpers ---\n\n")
+	g.w.Raw("\n// --- Go Bridge Helpers ---\n\n")
 
 	// Always emit rugo_to_byte_slice — it's used by TypeConvToGo for GoByteSlice
 	// params in bridge calls, struct wrapper methods, and external type wrappers.
-	g.sb.WriteString(gobridge.ByteSliceHelper.Code)
+	g.w.Raw(gobridge.ByteSliceHelper.Code)
 
 	emitted := map[string]bool{gobridge.ByteSliceHelper.Key: true}
 	for pkg := range g.goImports {
 		for _, h := range gobridge.AllRuntimeHelpers(pkg) {
 			if !emitted[h.Key] {
 				emitted[h.Key] = true
-				g.sb.WriteString(h.Code)
+				g.w.Raw(h.Code)
 			}
 		}
 		// Auto-emit helpers for GoType-based conversions
 		if !emitted[gobridge.RuneHelper.Key] && gobridge.PackageNeedsRuneHelper(pkg) {
 			emitted[gobridge.RuneHelper.Key] = true
-			g.sb.WriteString(gobridge.RuneHelper.Code)
+			g.w.Raw(gobridge.RuneHelper.Code)
 		}
 		if !emitted[gobridge.StringSliceHelper.Key] && gobridge.PackageNeedsHelper(pkg, gobridge.GoStringSlice) {
 			emitted[gobridge.StringSliceHelper.Key] = true
-			g.sb.WriteString(gobridge.StringSliceHelper.Code)
+			g.w.Raw(gobridge.StringSliceHelper.Code)
 		}
 	}
 }

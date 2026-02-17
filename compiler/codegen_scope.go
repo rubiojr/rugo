@@ -1,13 +1,11 @@
 package compiler
 
 import (
-"fmt"
-"github.com/rubiojr/rugo/ast"
-"sort"
-"strings"
+	"github.com/rubiojr/rugo/ast"
+	"sort"
 
-"github.com/rubiojr/rugo/modules"
-"github.com/rubiojr/rugo/parser"
+	"github.com/rubiojr/rugo/modules"
+	"github.com/rubiojr/rugo/parser"
 )
 
 // collectIdents returns the set of identifier names referenced in statements.
@@ -201,19 +199,13 @@ func (g *codeGen) constantLine(name string) (int, bool) {
 	return 0, false
 }
 
-// Output helpers
+// Output helpers — delegate to the goWriter.
 func (g *codeGen) writeln(s string) {
-	g.writef("%s\n", s)
+	g.w.Linef("%s", s)
 }
 
 func (g *codeGen) writef(format string, args ...interface{}) {
-	line := fmt.Sprintf(format, args...)
-	if strings.HasSuffix(strings.TrimRight(line, "\n"), "\n") || line == "\n" {
-		g.sb.WriteString(line)
-		return
-	}
-	indent := strings.Repeat("\t", g.indent)
-	g.sb.WriteString(indent + line)
+	g.w.Line(format, args...)
 }
 
 // importedModuleNames returns sorted module names from the imports map.

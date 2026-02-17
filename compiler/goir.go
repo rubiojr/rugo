@@ -69,10 +69,10 @@ func (goUserCode) goNode() {}
 
 // emitGoIR renders a Go IR node tree into a string suitable for use as
 // an expression (e.g., the right side of an assignment). The first line
-// has no indentation; subsequent lines are indented relative to g.indent.
+// has no indentation; subsequent lines are indented relative to g.w.indent.
 func (g *codeGen) emitGoIR(node goNode) string {
 	var sb strings.Builder
-	emitNode(&sb, node, g.indent, true)
+	emitNode(&sb, node, g.w.indent, true)
 	// Trim trailing newline so caller controls line ending
 	s := sb.String()
 	return strings.TrimRight(s, "\n")

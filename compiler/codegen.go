@@ -29,8 +29,7 @@ type funcArity struct {
 
 // codeGen generates Go source code from a typed AST.
 type codeGen struct {
-	sb              strings.Builder
-	indent          int
+	w               goWriter
 	declared        map[string]bool // track declared variables per scope
 	scopes          []map[string]bool
 	constScopes     []map[string]int // track constant bindings: name → line of first assignment
@@ -78,6 +77,7 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 		typeInfo:    ti,
 		sandbox:     sandbox,
 	}
+	g.w.source = sourceFile
 	return g.generate(prog)
 }
 
@@ -232,7 +232,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	g.writeln("package main")
 	g.writeln("")
 	g.writeln("import (")
-	g.indent++
+	g.w.Indent()
 	g.writeln(`"fmt"`)
 	g.writeln(`"math"`)
 	g.writeln(`"os"`)
@@ -329,7 +329,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		g.writeln(`"github.com/landlock-lsm/go-landlock/landlock"`)
 		g.writeln(`llsyscall "github.com/landlock-lsm/go-landlock/landlock/syscall"`)
 	}
-	g.indent--
+	g.w.Dedent()
 	g.writeln(")")
 	g.writeln("")
 
@@ -425,7 +425,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 
 	// Main function
 	g.writeln("func main() {")
-	g.indent++
+	g.w.Indent()
 	g.writePanicHandler()
 	if g.sandbox != nil {
 		g.writeSandboxApply()
@@ -437,10 +437,10 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		}
 	}
 	g.popScope()
-	g.indent--
+	g.w.Dedent()
 	g.writeln("}")
 
-	return g.sb.String(), nil
+	return g.w.String(), nil
 }
 
 

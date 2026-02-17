@@ -11,7 +11,8 @@ func (g *codeGen) writeStmt(s ast.Statement) error {
 	if src := s.StmtSource(); src != "" && src != g.sourceFile {
 		saved := g.sourceFile
 		g.sourceFile = src
-		defer func() { g.sourceFile = saved }()
+		g.w.source = src
+		defer func() { g.sourceFile = saved; g.w.source = saved }()
 	}
 	g.emitLineDirective(s.StmtLine())
 	var err error
@@ -191,36 +192,36 @@ func (g *codeGen) writeIf(i *ast.IfStmt) error {
 		return err
 	}
 	g.writef("if %s {\n", g.condExpr(cond, i.Condition))
-	g.indent++
+	g.w.Indent()
 	for _, s := range i.Body {
 		if err := g.writeStmt(s); err != nil {
 			return err
 		}
 	}
-	g.indent--
+	g.w.Dedent()
 	for _, ec := range i.ElsifClauses {
 		cond, err := g.exprString(ec.Condition)
 		if err != nil {
 			return err
 		}
 		g.writef("} else if %s {\n", g.condExpr(cond, ec.Condition))
-		g.indent++
+		g.w.Indent()
 		for _, s := range ec.Body {
 			if err := g.writeStmt(s); err != nil {
 				return err
 			}
 		}
-		g.indent--
+		g.w.Dedent()
 	}
 	if len(i.ElseBody) > 0 {
 		g.writeln("} else {")
-		g.indent++
+		g.w.Indent()
 		for _, s := range i.ElseBody {
 			if err := g.writeStmt(s); err != nil {
 				return err
 			}
 		}
-		g.indent--
+		g.w.Dedent()
 	}
 	g.writeln("}")
 	return nil
@@ -283,31 +284,31 @@ func (g *codeGen) writeIfWithLastAction(i *ast.IfStmt, format string) (bool, err
 		return false, err
 	}
 	g.writef("if %s {\n", g.condExpr(cond, i.Condition))
-	g.indent++
+	g.w.Indent()
 	if err := g.writeBodyWithLastAction(i.Body, format); err != nil {
 		return false, err
 	}
-	g.indent--
+	g.w.Dedent()
 	for _, ec := range i.ElsifClauses {
 		cond, err := g.exprString(ec.Condition)
 		if err != nil {
 			return false, err
 		}
 		g.writef("} else if %s {\n", g.condExpr(cond, ec.Condition))
-		g.indent++
+		g.w.Indent()
 		if err := g.writeBodyWithLastAction(ec.Body, format); err != nil {
 			return false, err
 		}
-		g.indent--
+		g.w.Dedent()
 	}
 	allCovered := false
 	if len(i.ElseBody) > 0 {
 		g.writeln("} else {")
-		g.indent++
+		g.w.Indent()
 		if err := g.writeBodyWithLastAction(i.ElseBody, format); err != nil {
 			return false, err
 		}
-		g.indent--
+		g.w.Dedent()
 		allCovered = true
 	}
 	g.writeln("}")
@@ -367,7 +368,7 @@ func (g *codeGen) writeWhile(w *ast.WhileStmt) error {
 		return err
 	}
 	g.writef("for %s {\n", g.condExpr(cond, w.Condition))
-	g.indent++
+	g.w.Indent()
 	g.pushScope()
 	for _, s := range w.Body {
 		if err := g.writeStmt(s); err != nil {
@@ -375,7 +376,7 @@ func (g *codeGen) writeWhile(w *ast.WhileStmt) error {
 		}
 	}
 	g.popScope()
-	g.indent--
+	g.w.Dedent()
 	g.writeln("}")
 	return nil
 }
@@ -398,7 +399,7 @@ func (g *codeGen) writeFor(f *ast.ForStmt) error {
 	if idxVar != "" {
 		// Two-variable form: for key, val in hash / for idx, val in arr
 		g.writef("for _, rugo_for_kv := range rugo_iterable(%s) {\n", coll)
-		g.indent++
+		g.w.Indent()
 		g.pushScope()
 		if iterVar == "_" {
 			g.writef("_ = rugo_for_kv.Key\n")
@@ -417,7 +418,7 @@ func (g *codeGen) writeFor(f *ast.ForStmt) error {
 	} else {
 		// Single-variable form: for val in arr / for key in hash
 		g.writef("for _, rugo_for_item := range rugo_iterable_default(%s) {\n", coll)
-		g.indent++
+		g.w.Indent()
 		g.pushScope()
 		g.writef("%s := rugo_for_item\n", iterVar)
 		g.writef("_ = %s\n", iterVar)
@@ -435,7 +436,7 @@ func (g *codeGen) writeForBody(f *ast.ForStmt) error {
 		}
 	}
 	g.popScope()
-	g.indent--
+	g.w.Dedent()
 	g.writeln("}")
 	return nil
 }
@@ -455,7 +456,7 @@ func (g *codeGen) writeForRange(f *ast.ForStmt) bool {
 	if idxVar != "" {
 		// Two-variable form: for idx, val in range(5, 20)
 		g.writef("for rugo_range_i, rugo_range_idx := %s, 0; rugo_range_i < %s; rugo_range_i, rugo_range_idx = rugo_range_i+1, rugo_range_idx+1 {\n", startExpr, endExpr)
-		g.indent++
+		g.w.Indent()
 		g.pushScope()
 		if iterVar == "_" {
 			g.writef("_ = rugo_range_idx\n")
@@ -474,7 +475,7 @@ func (g *codeGen) writeForRange(f *ast.ForStmt) bool {
 	} else {
 		// Single-variable form: for i in range(5, 20)
 		g.writef("for rugo_range_i := %s; rugo_range_i < %s; rugo_range_i++ {\n", startExpr, endExpr)
-		g.indent++
+		g.w.Indent()
 		g.pushScope()
 		g.writef("%s := rugo_range_i\n", iterVar)
 		g.writef("_ = %s\n", iterVar)
