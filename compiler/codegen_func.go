@@ -3,7 +3,6 @@ package compiler
 import (
 	"fmt"
 	"github.com/rubiojr/rugo/ast"
-	"strings"
 
 	"github.com/rubiojr/rugo/modules"
 )
@@ -265,47 +264,6 @@ func collectDispatchHandlersFromExpr(e ast.Expr, dispatchModules map[string]bool
 		if str, ok := arg.(*ast.StringLiteral); ok {
 			handlers[str.Value] = true
 		}
-	}
-}
-
-func (g *codeGen) writeFunc(f *ast.FuncDef) error {
-	decl, err := g.buildFunc(f)
-	if err != nil {
-		return err
-	}
-	g.emitGoDecl(decl)
-	return nil
-}
-
-// emitGoDecl writes a Go declaration through the old goWriter.
-func (g *codeGen) emitGoDecl(d GoDecl) {
-	switch dt := d.(type) {
-	case GoFuncDecl:
-		var params []string
-		for _, p := range dt.Params {
-			params = append(params, p.Name+" "+p.Type)
-		}
-		sig := fmt.Sprintf("func %s(%s)", dt.Name, strings.Join(params, ", "))
-		if dt.Return != "" {
-			sig += " " + dt.Return
-		}
-		g.writef("%s {\n", sig)
-		g.w.Indent()
-		g.emitGoStmts(dt.Body)
-		g.w.Dedent()
-		g.writeln("}")
-	case GoVarDecl:
-		if dt.Value != nil {
-			g.writef("var %s %s = %s\n", dt.Name, dt.Type, g.goExprStr(dt.Value))
-		} else {
-			g.writef("var %s %s\n", dt.Name, dt.Type)
-		}
-	case GoRawDecl:
-		g.w.sb.WriteString(dt.Code)
-	case GoBlankLine:
-		g.writeln("")
-	case GoComment:
-		g.writef("// %s\n", dt.Text)
 	}
 }
 

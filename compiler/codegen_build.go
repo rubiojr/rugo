@@ -3,6 +3,10 @@ package compiler
 import (
 	"fmt"
 	"github.com/rubiojr/rugo/ast"
+	"strings"
+
+	"github.com/rubiojr/rugo/gobridge"
+	"github.com/rubiojr/rugo/modules"
 )
 
 // buildStmt converts an AST statement into Go output AST nodes.
@@ -599,4 +603,88 @@ func (g *codeGen) buildMainFunc(topStmts []ast.Statement) (GoFuncDecl, error) {
 	g.popScope()
 
 	return GoFuncDecl{Name: "main", Body: body}, nil
+}
+
+// buildImports constructs the GoImport list for a Rugo program.
+func (g *codeGen) buildImports(needsSync, needsTime bool) []GoImport {
+	var imports []GoImport
+	base := []string{"fmt", "math", "os", "os/exec", "reflect", "runtime/debug", "sort", "strings"}
+	for _, p := range base {
+		imports = append(imports, GoImport{Path: p})
+	}
+	if needsSync {
+		imports = append(imports, GoImport{Path: "sync"})
+	}
+	if needsTime {
+		imports = append(imports, GoImport{Path: "time"})
+	}
+
+	emitted := make(map[string]bool)
+	for _, imp := range imports {
+		emitted[imp.Path] = true
+	}
+
+	// Module imports (use)
+	for _, name := range importedModuleNames(g.imports) {
+		if m, ok := modules.Get(name); ok {
+			for _, imp := range m.GoImports {
+				barePath := imp
+				alias := ""
+				if strings.Contains(imp, `"`) {
+					parts := strings.Fields(imp)
+					if len(parts) == 2 {
+						alias = parts[0]
+						barePath = strings.Trim(parts[1], `"`)
+					}
+				}
+				if emitted[barePath] {
+					continue
+				}
+				emitted[barePath] = true
+				imports = append(imports, GoImport{Path: barePath, Alias: alias})
+			}
+		}
+	}
+
+	// Go bridge imports (import)
+	for _, pkg := range sortedGoBridgeImports(g.goImports) {
+		bp := gobridge.GetPackage(pkg)
+		if bp != nil && bp.NoGoImport {
+			for _, extra := range bp.ExtraImports {
+				if !emitted[extra] {
+					imports = append(imports, GoImport{Path: extra})
+					emitted[extra] = true
+				}
+			}
+			continue
+		}
+		alias := g.goImports[pkg]
+		if alias == "" && emitted[pkg] {
+			continue
+		}
+		if !emitted[pkg] {
+			emitted[pkg] = true
+		}
+		imports = append(imports, GoImport{Path: pkg, Alias: alias})
+		if bp != nil {
+			for _, extra := range bp.ExtraImports {
+				if !emitted[extra] {
+					imports = append(imports, GoImport{Path: extra})
+					emitted[extra] = true
+				}
+			}
+		}
+	}
+
+	// Sandbox imports
+	if g.sandbox != nil {
+		if !emitted["runtime"] {
+			imports = append(imports, GoImport{Path: "runtime"})
+			emitted["runtime"] = true
+		}
+		imports = append(imports, GoImport{Path: "github.com/landlock-lsm/go-landlock/landlock"})
+		imports = append(imports, GoImport{Path: "github.com/landlock-lsm/go-landlock/landlock/syscall", Alias: "llsyscall"})
+	}
+
+	return imports
 }

@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/rubiojr/rugo/gobridge"
-	"github.com/rubiojr/rugo/modules"
 )
 
 //go:embed templates/runtime_core_pre.go.tmpl
@@ -233,138 +232,37 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	needsSyncImport := needsSpawnRuntime || g.hasParallel
 	needsTimeImport := needsSpawnRuntime || g.hasBench
 
-	g.writeln("package main")
-	g.writeln("")
-	g.writeln("import (")
-	g.w.Indent()
-	g.writeln(`"fmt"`)
-	g.writeln(`"math"`)
-	g.writeln(`"os"`)
-	g.writeln(`"os/exec"`)
-	g.writeln(`"reflect"`)
-	g.writeln(`"runtime/debug"`)
-	g.writeln(`"sort"`)
-	g.writeln(`"strings"`)
-	if needsSyncImport {
-		g.writeln(`"sync"`)
-	}
-	if needsTimeImport {
-		g.writeln(`"time"`)
-	}
-	baseImports := map[string]bool{
-		"fmt": true, "math": true, "os": true, "os/exec": true,
-		"reflect": true, "runtime/debug": true, "strings": true, "sort": true,
-	}
-	emittedImports := make(map[string]bool)
-	for k := range baseImports {
-		emittedImports[k] = true
-	}
-	if needsSyncImport {
-		emittedImports["sync"] = true
-	}
-	if needsTimeImport {
-		emittedImports["time"] = true
-	}
-	// Emit Go imports for Rugo stdlib modules (use)
-	for _, name := range importedModuleNames(g.imports) {
-		if m, ok := modules.Get(name); ok {
-			for _, imp := range m.GoImports {
-				// Extract bare path from potentially aliased import
-				barePath := imp
-				if strings.Contains(imp, `"`) {
-					// aliased import: alias "path"
-					parts := strings.Fields(imp)
-					if len(parts) == 2 {
-						barePath = strings.Trim(parts[1], `"`)
-					}
-				}
-				if emittedImports[barePath] {
-					continue
-				}
-				emittedImports[barePath] = true
-				if strings.Contains(imp, `"`) {
-					g.writef("%s\n", imp)
-				} else {
-					g.writef("\"%s\"\n", imp)
-				}
-			}
-		}
-	}
-	// Emit Go imports for Go bridge packages (import)
-	// Packages with NoGoImport are skipped (runtime-only helpers)
-	for _, pkg := range sortedGoBridgeImports(g.goImports) {
-		bp := gobridge.GetPackage(pkg)
-		if bp != nil && bp.NoGoImport {
-			// Emit extra imports needed by runtime helpers (e.g. maps needs sort)
-			for _, extra := range bp.ExtraImports {
-				if !emittedImports[extra] {
-					g.writef("\"%s\"\n", extra)
-					emittedImports[extra] = true
-				}
-			}
-			continue
-		}
-		alias := g.goImports[pkg]
-		if alias == "" && emittedImports[pkg] {
-			continue // already imported without alias
-		}
-		if alias != "" {
-			g.writef("%s \"%s\"\n", alias, pkg)
-		} else {
-			emittedImports[pkg] = true
-			g.writef("\"%s\"\n", pkg)
-		}
-		// Emit extra imports for external type wrappers (e.g. external dependencies).
-		if bp != nil {
-			for _, extra := range bp.ExtraImports {
-				if !emittedImports[extra] {
-					g.writef("\"%s\"\n", extra)
-					emittedImports[extra] = true
-				}
-			}
-		}
-	}
-	// Sandbox imports (go-landlock)
-	if g.sandbox != nil {
-		if !emittedImports["runtime"] {
-			g.writeln(`"runtime"`)
-			emittedImports["runtime"] = true
-		}
-		g.writeln(`"github.com/landlock-lsm/go-landlock/landlock"`)
-		g.writeln(`llsyscall "github.com/landlock-lsm/go-landlock/landlock/syscall"`)
-	}
-	g.w.Dedent()
-	g.writeln(")")
-	g.writeln("")
+	// --- Build GoFile ---
+	file := &GoFile{Package: "main"}
 
-	// Silence unused import warnings
-	g.writeln("var _ = fmt.Sprintf")
-	g.writeln("var _ = os.Exit")
-	g.writeln("var _ = exec.Command")
-	g.writeln("var _ = strings.NewReader")
-	g.writeln("var _ = sort.Slice")
-	g.writeln("var _ = debug.Stack")
+	// Imports
+	file.Imports = g.buildImports(needsSyncImport, needsTimeImport)
+
+	// Unused import suppressors
+	var suppressors []string
+	suppressors = append(suppressors,
+		"var _ = fmt.Sprintf",
+		"var _ = os.Exit",
+		"var _ = exec.Command",
+		"var _ = strings.NewReader",
+		"var _ = sort.Slice",
+		"var _ = debug.Stack",
+	)
 	if needsSyncImport {
-		g.writeln("var _ sync.Once")
+		suppressors = append(suppressors, "var _ sync.Once")
 	}
 	if needsTimeImport {
-		g.writeln("var _ = time.Now")
+		suppressors = append(suppressors, "var _ = time.Now")
 	}
 	if g.sandbox != nil {
-		g.writeln("var _ = landlock.V5")
-		g.writeln("var _ = llsyscall.AccessFSExecute")
-		g.writeln("var _ = runtime.GOOS")
+		suppressors = append(suppressors, "var _ = landlock.V5", "var _ = llsyscall.AccessFSExecute", "var _ = runtime.GOOS")
 	}
-	// Silence unused import warnings for Go module requires.
-	// Stdlib bridge packages are always used by the runtime, but external
-	// Go module packages may be imported without immediate function calls.
 	for _, pkg := range sortedGoBridgeImports(g.goImports) {
 		bp := gobridge.GetPackage(pkg)
 		if bp == nil || !bp.External {
 			continue
 		}
 		for _, sig := range bp.Funcs {
-			// Skip struct constructors (their GoName is a type, not a function).
 			if sig.Codegen != nil {
 				continue
 			}
@@ -373,14 +271,19 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			if pkgBase == "" {
 				pkgBase = gobridge.DefaultNS(pkg)
 			}
-			g.writef("var _ = %s.%s\n", pkgBase, sig.GoName)
+			suppressors = append(suppressors, fmt.Sprintf("var _ = %s.%s", pkgBase, sig.GoName))
 			break
 		}
 	}
-	g.writeln("")
+	file.Decls = append(file.Decls, GoRawDecl{Code: strings.Join(suppressors, "\n") + "\n"})
+	file.Decls = append(file.Decls, GoBlankLine{})
 
-	// Runtime helpers
-	g.writeRuntime()
+	// Runtime helpers (capture via old writer)
+	runtimeCode, _ := g.w.Capture(func() error {
+		g.writeRuntime()
+		return nil
+	})
+	file.Decls = append(file.Decls, GoRawDecl{Code: runtimeCode})
 
 	// Package-level variables from require'd files
 	for _, nv := range nsVars {
@@ -388,10 +291,14 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		g.writef("var rugons_%s_%s interface{} = %s\n", nv.Namespace, nv.Target, expr)
+		file.Decls = append(file.Decls, GoVarDecl{
+			Name:  fmt.Sprintf("rugons_%s_%s", nv.Namespace, nv.Target),
+			Type:  "interface{}",
+			Value: GoRawExpr{Code: expr},
+		})
 	}
 	if len(nsVars) > 0 {
-		g.writeln("")
+		file.Decls = append(file.Decls, GoBlankLine{})
 	}
 
 	// Package-level variables for user-defined function access
@@ -402,49 +309,76 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		}
 		sort.Strings(names)
 		for _, name := range names {
-			g.writef("var %s interface{}\n", name)
+			file.Decls = append(file.Decls, GoVarDecl{Name: name, Type: "interface{}"})
 		}
-		g.writeln("")
+		file.Decls = append(file.Decls, GoBlankLine{})
 	}
 
 	// User-defined functions
 	for _, f := range funcs {
-		if err := g.writeFunc(f); err != nil {
+		decl, err := g.buildFunc(f)
+		if err != nil {
 			return "", err
 		}
-		g.writeln("")
+		file.Decls = append(file.Decls, decl)
 	}
 
-	// Dispatch maps for modules that declare DispatchEntry
+	// Dispatch maps (capture via old writer)
 	dispatchHandlers := collectDispatchHandlers(prog.Statements, g.imports)
-	g.writeDispatchMaps(funcs, dispatchHandlers)
+	dispatchCode, _ := g.w.Capture(func() error {
+		g.writeDispatchMaps(funcs, dispatchHandlers)
+		return nil
+	})
+	if dispatchCode != "" {
+		file.Decls = append(file.Decls, GoRawDecl{Code: dispatchCode})
+	}
 
+	// Test harness (returns entire file via old writer — capture and append)
 	if len(tests) > 0 {
-		return g.generateTestHarness(tests, topStmts, setupFunc, teardownFunc, setupFileFunc, teardownFileFunc)
+		harnessCode, herr := g.w.Capture(func() error {
+			_, err := g.generateTestHarness(tests, topStmts, setupFunc, teardownFunc, setupFileFunc, teardownFileFunc)
+			return err
+		})
+		if herr != nil {
+			return "", herr
+		}
+		file.Decls = append(file.Decls, GoRawDecl{Code: harnessCode})
+		return PrintGoFile(file), nil
 	}
 
+	// Bench harness
 	if len(benches) > 0 {
-		return g.generateBenchHarness(benches, topStmts)
+		harnessCode, herr := g.w.Capture(func() error {
+			_, err := g.generateBenchHarness(benches, topStmts)
+			return err
+		})
+		if herr != nil {
+			return "", herr
+		}
+		file.Decls = append(file.Decls, GoRawDecl{Code: harnessCode})
+		return PrintGoFile(file), nil
 	}
 
-	// Main function
-	g.writeln("func main() {")
-	g.w.Indent()
-	g.writePanicHandler()
+	// Main function body
+	var mainBody []GoStmt
+	mainBody = append(mainBody, g.buildPanicHandler())
 	if g.sandbox != nil {
-		g.writeSandboxApply()
+		sandboxCode, _ := g.w.Capture(func() error {
+			g.writeSandboxApply()
+			return nil
+		})
+		mainBody = append(mainBody, GoRawStmt{Code: sandboxCode})
 	}
 	g.pushScope()
 	mainStmts, merr := g.buildStmts(topStmts)
 	if merr != nil {
 		return "", merr
 	}
-	g.emitGoStmts(mainStmts)
+	mainBody = append(mainBody, mainStmts...)
 	g.popScope()
-	g.w.Dedent()
-	g.writeln("}")
 
-	return g.w.String(), nil
+	file.Init = mainBody
+	return PrintGoFile(file), nil
 }
 
 // --- Type inference helpers for codegen ---
