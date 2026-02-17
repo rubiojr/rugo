@@ -11,15 +11,81 @@ import (
 )
 
 // buildExpr converts a Rugo AST expression into a Go output AST expression.
-// This is the bridge between the Rugo AST and the Go output AST.
-// Currently delegates to exprString(); later phases will replace this
-// with direct structured GoExpr construction.
+// Leaf types are handled structurally; complex types delegate to exprString().
 func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
-	s, err := g.exprString(e)
-	if err != nil {
-		return nil, err
+	switch ex := e.(type) {
+	case *ast.IntLiteral:
+		lit := GoIntLit{Value: ex.Value}
+		if g.exprIsTyped(e) {
+			return lit, nil
+		}
+		return GoCastExpr{Type: "interface{}", Value: lit}, nil
+
+	case *ast.FloatLiteral:
+		lit := GoFloatLit{Value: ex.Value}
+		if g.exprIsTyped(e) {
+			return lit, nil
+		}
+		return GoCastExpr{Type: "interface{}", Value: lit}, nil
+
+	case *ast.BoolLiteral:
+		lit := GoBoolLit{Value: ex.Value}
+		if g.exprIsTyped(e) {
+			return lit, nil
+		}
+		return GoCastExpr{Type: "interface{}", Value: lit}, nil
+
+	case *ast.NilLiteral:
+		return GoCastExpr{Type: "interface{}", Value: GoNilExpr{}}, nil
+
+	case *ast.StringLiteral:
+		if ex.Raw {
+			lit := GoStringLit{Value: goEscapeString(ex.Value)}
+			if g.exprIsTyped(e) {
+				return lit, nil
+			}
+			return GoCastExpr{Type: "interface{}", Value: lit}, nil
+		}
+		// Interpolated strings still use exprString
+		s, err := g.stringLiteral(ex.Value, g.exprIsTyped(e))
+		if err != nil {
+			return nil, err
+		}
+		return GoRawExpr{Code: s}, nil
+
+	case *ast.IdentExpr:
+		// Bare function name without parens: treat as zero-arg call (Ruby semantics).
+		if !g.isDeclared(ex.Name) {
+			if expected, ok := g.funcDefs[ex.Name]; ok {
+				if expected.Min != 0 {
+					return nil, fmt.Errorf("function '%s' expects %d argument(s), called with 0", ex.Name, expected.Min)
+				}
+				call := GoCallExpr{Func: fmt.Sprintf("rugofn_%s", ex.Name)}
+				if g.typeInfo != nil {
+					if fti, ok := g.typeInfo.FuncTypes[ex.Name]; ok && fti.ReturnType.IsTyped() {
+						return call, nil
+					}
+				}
+				return GoCastExpr{Type: "interface{}", Value: call}, nil
+			}
+		}
+		// Sibling constant reference within a namespace
+		if g.currentFunc != nil && g.currentFunc.Namespace != "" && !g.isDeclared(ex.Name) {
+			nsKey := g.currentFunc.Namespace + "." + ex.Name
+			if g.nsVarNames[nsKey] {
+				return GoIdentExpr{Name: fmt.Sprintf("rugons_%s_%s", g.currentFunc.Namespace, ex.Name)}, nil
+			}
+		}
+		return GoIdentExpr{Name: ex.Name}, nil
+
+	default:
+		// Complex expressions delegate to exprString
+		s, err := g.exprString(e)
+		if err != nil {
+			return nil, err
+		}
+		return GoRawExpr{Code: s}, nil
 	}
-	return GoRawExpr{Code: s}, nil
 }
 
 // buildCondExpr builds a condition expression for use in if/while.
