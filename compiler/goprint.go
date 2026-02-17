@@ -337,6 +337,8 @@ func (p *goPrinter) exprStr(e GoExpr) string {
 		return fmt.Sprintf("%s[%s]", p.exprStr(ex.Object), p.exprStr(ex.Index))
 	case GoParenExpr:
 		return fmt.Sprintf("(%s)", p.exprStr(ex.Inner))
+	case GoLambdaExpr:
+		return p.printLambda(ex)
 	default:
 		return "<unknown expr>"
 	}
@@ -361,5 +363,18 @@ func (p *goPrinter) printIIFE(e GoIIFEExpr) string {
 	sb.WriteString(inner.sb.String())
 	p.writeIndent()
 	sb.WriteString("}()")
+	return sb.String()
+}
+
+func (p *goPrinter) printLambda(e GoLambdaExpr) string {
+	var sb strings.Builder
+	sb.WriteString("interface{}(func(_args ...interface{}) interface{} {\n")
+	inner := &goPrinter{indent: p.indent + 1}
+	for _, s := range e.Body {
+		inner.printStmt(s)
+	}
+	sb.WriteString(inner.sb.String())
+	p.writeIndent()
+	sb.WriteString("})")
 	return sb.String()
 }

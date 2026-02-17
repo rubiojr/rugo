@@ -1527,7 +1527,6 @@ func expandInlineFnLine(line string) string {
 		if paramEnd < 0 {
 			// No matching ) — leave unchanged
 			buf.WriteString(line[fnIdx:])
-			pos = len(line)
 			break
 		}
 

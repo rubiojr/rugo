@@ -597,23 +597,6 @@ func (g *codeGen) buildPanicHandler() GoDeferStmt {
 	}}
 }
 
-// buildMainFunc builds the main() function declaration.
-func (g *codeGen) buildMainFunc(topStmts []ast.Statement) (GoFuncDecl, error) {
-	var body []GoStmt
-	body = append(body, g.buildPanicHandler())
-
-	g.pushScope()
-	stmts, err := g.buildStmts(topStmts)
-	if err != nil {
-		g.popScope()
-		return GoFuncDecl{}, err
-	}
-	body = append(body, stmts...)
-	g.popScope()
-
-	return GoFuncDecl{Name: "main", Body: body}, nil
-}
-
 // buildImports constructs the GoImport list for a Rugo program.
 func (g *codeGen) buildImports(needsSync, needsTime bool) []GoImport {
 	var imports []GoImport

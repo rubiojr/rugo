@@ -202,9 +202,7 @@ func Execute(version string) {
 	}
 
 	// Inject installed tools as top-level commands so they appear in help.
-	for _, tc := range installedToolCommands() {
-		cmd.Commands = append(cmd.Commands, tc)
-	}
+	cmd.Commands = append(cmd.Commands, installedToolCommands()...)
 
 	if err := cmd.Run(context.Background(), os.Args); err != nil {
 		fmt.Fprintln(os.Stderr, formatError(err.Error()))
@@ -428,7 +426,7 @@ func modTidyAction(ctx context.Context, cmd *cli.Command) error {
 				continue
 			}
 			if existing, ok := moduleVersions[mod]; ok && existing.version != ver {
-				return fmt.Errorf("version conflict for %s:\n  %s requires %s\n  %s requires %s\nAlign on a single version, then re-run 'rugo mod tidy'.",
+				return fmt.Errorf("version conflict for %s:\n  %s requires %s\n  %s requires %s\nAlign on a single version, then re-run 'rugo mod tidy'",
 					mod, existing.file, existing.version, filepath.Base(f), ver)
 			}
 			moduleVersions[mod] = modSource{version: ver, file: filepath.Base(f)}

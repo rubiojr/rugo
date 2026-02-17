@@ -11,7 +11,7 @@ type GoDecl interface{ goDecl() }
 // GoStmt is a statement inside a function body.
 type GoStmt interface{ goStmt() }
 
-// GoExpr is an expression (currently just raw strings wrapping exprString output).
+// GoExpr is an expression in the Go output AST.
 type GoExpr interface{ goExpr() }
 
 // --- File level ---
@@ -214,7 +214,7 @@ func (GoRawStmt) goStmt() {}
 
 // --- Expression level ---
 
-// GoRawExpr wraps a raw Go expression string (from exprString).
+// GoRawExpr wraps a raw Go expression string.
 type GoRawExpr struct {
 	Code string
 }
@@ -229,6 +229,14 @@ type GoIIFEExpr struct {
 }
 
 func (GoIIFEExpr) goExpr() {}
+
+// GoLambdaExpr represents a Rugo lambda:
+// interface{}(func(_args ...interface{}) interface{} { body })
+type GoLambdaExpr struct {
+	Body []GoStmt // lambda body (preamble + user code + return nil)
+}
+
+func (GoLambdaExpr) goExpr() {}
 
 // --- Structured expression types ---
 

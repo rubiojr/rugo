@@ -50,7 +50,6 @@ type codeGen struct {
 	lambdaDepth     int                  // nesting depth of lambda bodies (>0 means inside fn)
 	lambdaScopeBase []int                // scope index at each lambda entry (stack)
 	lambdaOuterFunc []*ast.FuncDef       // enclosing function at each lambda entry (stack)
-	indent          int                  // current indent level for nested expression rendering
 	sandbox         *SandboxConfig       // Landlock sandbox config (nil = no sandbox)
 }
 
@@ -429,54 +428,56 @@ func (g *codeGen) ensureFloat(s string, t RugoType) string {
 	return s
 }
 
-// boxedArgs returns comma-joined args, boxing typed values for runtime helpers.
-func (g *codeGen) boxedArgs(args []string, exprs []ast.Expr) string {
-	result := make([]string, len(args))
+// boxedExprs wraps typed GoExpr args in GoCastExpr for runtime helpers.
+func (g *codeGen) boxedExprs(args []GoExpr, exprs []ast.Expr) []GoExpr {
+	result := make([]GoExpr, len(args))
 	for i, a := range args {
-		result[i] = g.boxed(a, g.exprType(exprs[i]))
+		if g.exprType(exprs[i]).IsTyped() {
+			result[i] = GoCastExpr{Type: "interface{}", Value: a}
+		} else {
+			result[i] = a
+		}
 	}
-	return strings.Join(result, ", ")
+	return result
 }
 
-// typedCallArgs generates the argument list for a user-defined function call,
+// typedCallExprs generates GoExpr arguments for a user-defined function call,
 // converting typed args to match the function's typed param signature.
-func (g *codeGen) typedCallArgs(funcName string, args []string, argExprs []ast.Expr) string {
+func (g *codeGen) typedCallExprs(funcName string, args []GoExpr, argExprs []ast.Expr) []GoExpr {
 	if g.typeInfo == nil {
-		return strings.Join(args, ", ")
+		return args
 	}
 	fti, ok := g.typeInfo.FuncTypes[funcName]
 	if !ok {
-		return strings.Join(args, ", ")
+		return args
 	}
 
-	result := make([]string, len(args))
+	result := make([]GoExpr, len(args))
 	for i, a := range args {
 		argType := g.exprType(argExprs[i])
 		if i < len(fti.ParamTypes) && fti.ParamTypes[i].IsTyped() {
-			// Target param is typed — ensure arg matches.
 			if argType == fti.ParamTypes[i] {
-				result[i] = a // Already the right type.
+				result[i] = a
 			} else if argType.IsTyped() && argType.IsNumeric() && fti.ParamTypes[i].IsNumeric() {
-				// Numeric promotion.
 				if fti.ParamTypes[i] == TypeFloat && argType == TypeInt {
-					result[i] = fmt.Sprintf("float64(%s)", a)
+					result[i] = GoCastExpr{Type: "float64", Value: a}
 				} else if fti.ParamTypes[i] == TypeInt && argType == TypeFloat {
-					result[i] = fmt.Sprintf("int(%s)", a)
+					result[i] = GoCastExpr{Type: "int", Value: a}
 				} else {
 					result[i] = a
 				}
 			} else if argType.IsTyped() {
-				// Type mismatch — shouldn't happen with correct inference,
-				// but be safe.
 				result[i] = a
 			} else {
-				// Arg is interface{} but param is typed — need type assertion.
-				result[i] = fmt.Sprintf("%s.(%s)", a, fti.ParamTypes[i].GoType())
+				result[i] = GoTypeAssert{Value: a, Type: fti.ParamTypes[i].GoType()}
 			}
 		} else {
-			// Target param is interface{} — box typed args.
-			result[i] = g.boxed(a, argType)
+			if argType.IsTyped() {
+				result[i] = GoCastExpr{Type: "interface{}", Value: a}
+			} else {
+				result[i] = a
+			}
 		}
 	}
-	return strings.Join(result, ", ")
+	return result
 }

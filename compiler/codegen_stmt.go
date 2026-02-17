@@ -6,43 +6,6 @@ import (
 	"strings"
 )
 
-func (g *codeGen) goExprStr(e GoExpr) string {
-	switch ex := e.(type) {
-	case GoRawExpr:
-		return ex.Code
-	case GoIIFEExpr:
-		return g.renderIIFE(ex)
-	default:
-		return "<unknown>"
-	}
-}
-
-// renderIIFE renders a GoIIFEExpr to a string at the current indent level.
-func (g *codeGen) renderIIFE(e GoIIFEExpr) string {
-	p := &goPrinter{indent: g.indent + 1}
-	retType := e.ReturnType
-	if retType == "" {
-		retType = "interface{}"
-	}
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "func() %s {\n", retType)
-	for _, s := range e.Body {
-		p.printStmt(s)
-	}
-	sb.WriteString(p.sb.String())
-	if e.Result != nil {
-		for range g.indent + 1 {
-			sb.WriteByte('\t')
-		}
-		fmt.Fprintf(&sb, "return %s\n", g.goExprStr(e.Result))
-	}
-	for range g.indent {
-		sb.WriteByte('\t')
-	}
-	sb.WriteString("}()")
-	return sb.String()
-}
-
 // bodyHasImplicitReturn checks if all code paths in a body produce a value
 // via ImplicitReturnStmt nodes. Returns true if no default return is needed.
 func (g *codeGen) bodyHasImplicitReturn(body []ast.Statement) bool {
@@ -175,9 +138,10 @@ func (g *codeGen) rangeIntExpr(e ast.Expr) string {
 	if intLit, ok := e.(*ast.IntLiteral); ok {
 		return intLit.Value
 	}
-	s, err := g.exprString(e)
+	goExpr, err := g.buildExpr(e)
 	if err != nil {
 		return ""
 	}
-	return fmt.Sprintf("rugo_to_int(%s)", s)
+	pr := &goPrinter{}
+	return fmt.Sprintf("rugo_to_int(%s)", pr.exprStr(goExpr))
 }

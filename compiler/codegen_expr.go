@@ -11,7 +11,6 @@ import (
 )
 
 // buildExpr converts a Rugo AST expression into a Go output AST expression.
-// Leaf types are handled structurally; complex types delegate to exprString().
 func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
 	switch ex := e.(type) {
 	case *ast.IntLiteral:
@@ -87,17 +86,9 @@ func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
 		return g.buildHashLiteral(ex)
 
 	case *ast.DotExpr:
-		s, err := g.dotExpr(ex)
-		if err != nil {
-			return nil, err
-		}
-		return GoRawExpr{Code: s}, nil
+		return g.buildDotExpr(ex)
 	case *ast.CallExpr:
-		s, err := g.callExpr(ex)
-		if err != nil {
-			return nil, err
-		}
-		return GoRawExpr{Code: s}, nil
+		return g.buildCallExpr(ex)
 	case *ast.LoweredTryExpr:
 		return g.buildLoweredTryExpr(ex)
 	case *ast.LoweredSpawnExpr:
@@ -105,19 +96,10 @@ func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
 	case *ast.LoweredParallelExpr:
 		return g.buildLoweredParallelExpr(ex)
 	case *ast.FnExpr:
-		s, err := g.fnExpr(ex)
-		if err != nil {
-			return nil, err
-		}
-		return GoRawExpr{Code: s}, nil
+		return g.buildFnExpr(ex)
 
 	default:
-		// Complex expressions delegate to exprString
-		s, err := g.exprString(e)
-		if err != nil {
-			return nil, err
-		}
-		return GoRawExpr{Code: s}, nil
+		return nil, fmt.Errorf("unknown expression type: %T", e)
 	}
 }
 
@@ -573,145 +555,6 @@ func (g *codeGen) buildCondExpr(e ast.Expr) (GoExpr, error) {
 	return GoRawExpr{Code: fmt.Sprintf("rugo_to_bool(%s)", g.boxed(s, g.exprType(e)))}, nil
 }
 
-func (g *codeGen) exprString(e ast.Expr) (string, error) {
-	switch ex := e.(type) {
-	case *ast.IntLiteral:
-		if g.exprIsTyped(e) {
-			return ex.Value, nil
-		}
-		return fmt.Sprintf("interface{}(%s)", ex.Value), nil
-	case *ast.FloatLiteral:
-		if g.exprIsTyped(e) {
-			return ex.Value, nil
-		}
-		return fmt.Sprintf("interface{}(%s)", ex.Value), nil
-	case *ast.BoolLiteral:
-		if g.exprIsTyped(e) {
-			if ex.Value {
-				return "true", nil
-			}
-			return "false", nil
-		}
-		if ex.Value {
-			return "interface{}(true)", nil
-		}
-		return "interface{}(false)", nil
-	case *ast.NilLiteral:
-		return "interface{}(nil)", nil
-	case *ast.StringLiteral:
-		if ex.Raw {
-			escaped := goEscapeString(ex.Value)
-			if g.exprIsTyped(e) {
-				return fmt.Sprintf(`"%s"`, escaped), nil
-			}
-			return fmt.Sprintf(`interface{}("%s")`, escaped), nil
-		}
-		return g.stringLiteral(ex.Value, g.exprIsTyped(e))
-	case *ast.IdentExpr:
-		// Bare function name without parens: treat as zero-arg call (Ruby semantics).
-		// Local variables shadow function names.
-		if !g.isDeclared(ex.Name) {
-			if expected, ok := g.funcDefs[ex.Name]; ok {
-				if expected.Min != 0 {
-					return "", fmt.Errorf("function '%s' expects %d argument(s), called with 0", ex.Name, expected.Min)
-				}
-				call := fmt.Sprintf("rugofn_%s()", ex.Name)
-				if g.typeInfo != nil {
-					if fti, ok := g.typeInfo.FuncTypes[ex.Name]; ok && fti.ReturnType.IsTyped() {
-						return call, nil
-					}
-				}
-				return fmt.Sprintf("interface{}(%s)", call), nil
-			}
-		}
-		// Sibling constant reference within a namespace
-		if g.currentFunc != nil && g.currentFunc.Namespace != "" && !g.isDeclared(ex.Name) {
-			nsKey := g.currentFunc.Namespace + "." + ex.Name
-			if g.nsVarNames[nsKey] {
-				return fmt.Sprintf("rugons_%s_%s", g.currentFunc.Namespace, ex.Name), nil
-			}
-		}
-		return ex.Name, nil
-	case *ast.DotExpr:
-		return g.dotExpr(ex)
-	case *ast.BinaryExpr:
-		return g.binaryExpr(ex)
-	case *ast.UnaryExpr:
-		return g.unaryExpr(ex)
-	case *ast.CallExpr:
-		return g.callExpr(ex)
-	case *ast.IndexExpr:
-		return g.indexExpr(ex)
-	case *ast.SliceExpr:
-		return g.sliceExpr(ex)
-	case *ast.ArrayLiteral:
-		return g.arrayLiteral(ex)
-	case *ast.HashLiteral:
-		return g.hashLiteral(ex)
-	case *ast.LoweredTryExpr:
-		return g.loweredTryExpr(ex)
-	case *ast.LoweredSpawnExpr:
-		return g.loweredSpawnExpr(ex)
-	case *ast.LoweredParallelExpr:
-		return g.loweredParallelExpr(ex)
-	case *ast.FnExpr:
-		return g.fnExpr(ex)
-	default:
-		return "", fmt.Errorf("unknown expression type: %T", e)
-	}
-}
-
-func (g *codeGen) stringLiteral(value string, typed bool) (string, error) {
-	if ast.HasInterpolation(value) {
-		format, exprStrs, err := ast.ProcessInterpolation(value)
-		if err != nil {
-			return "", err
-		}
-		args := make([]string, len(exprStrs))
-		argTypes := make([]RugoType, len(exprStrs))
-		for i, exprStr := range exprStrs {
-			goExpr, typ, err := g.compileInterpolatedExpr(exprStr)
-			if err != nil {
-				return "", fmt.Errorf("interpolation error in #{%s}: %w", exprStr, err)
-			}
-			args[i] = goExpr
-			argTypes[i] = typ
-		}
-		escapedFmt := goEscapeString(format)
-		if len(args) > 0 {
-			// Optimization: when all interpolated expressions are typed strings,
-			// emit direct concatenation instead of fmt.Sprintf.
-			allString := true
-			for _, t := range argTypes {
-				if t != TypeString {
-					allString = false
-					break
-				}
-			}
-			if allString {
-				return g.buildStringConcat(escapedFmt, args), nil
-			}
-			// Wrap each arg in rugo_to_string so types like []byte
-			// are properly converted (fmt.Sprintf %v prints []byte as
-			// integer list instead of string content).
-			wrappedArgs := make([]string, len(args))
-			for i, a := range args {
-				wrappedArgs[i] = fmt.Sprintf("rugo_to_string(%s)", a)
-			}
-			return fmt.Sprintf(`fmt.Sprintf("%s", %s)`, escapedFmt, strings.Join(wrappedArgs, ", ")), nil
-		}
-		if typed {
-			return fmt.Sprintf(`"%s"`, escapedFmt), nil
-		}
-		return fmt.Sprintf(`interface{}("%s")`, escapedFmt), nil
-	}
-	escaped := goEscapeString(value)
-	if typed {
-		return fmt.Sprintf(`"%s"`, escaped), nil
-	}
-	return fmt.Sprintf(`interface{}("%s")`, escaped), nil
-}
-
 // compileInterpolatedExpr parses a rugo expression string and returns the
 // generated Go code along with the inferred type of the expression.
 func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, RugoType, error) {
@@ -750,11 +593,12 @@ func (g *codeGen) compileInterpolatedExpr(exprStr string) (string, RugoType, err
 	default:
 		return "", TypeDynamic, fmt.Errorf("unexpected statement type in interpolation: %T", s)
 	}
-	goExpr, err := g.exprString(expr)
+	goExpr, err := g.buildExpr(expr)
 	if err != nil {
 		return "", TypeDynamic, err
 	}
-	return goExpr, g.interpExprType(expr), nil
+	pr := &goPrinter{}
+	return pr.exprStr(goExpr), g.interpExprType(expr), nil
 }
 
 // interpExprType infers the type of an interpolated expression.
@@ -775,28 +619,6 @@ func (g *codeGen) interpExprType(e ast.Expr) RugoType {
 	default:
 		return TypeDynamic
 	}
-}
-
-// buildStringConcat emits a Go string concatenation expression from a format
-// string with %v placeholders and corresponding typed string arguments.
-func (g *codeGen) buildStringConcat(escapedFmt string, args []string) string {
-	segments := strings.Split(escapedFmt, "%v")
-	var parts []string
-	for i, seg := range segments {
-		if seg != "" {
-			parts = append(parts, fmt.Sprintf(`"%s"`, seg))
-		}
-		if i < len(args) {
-			parts = append(parts, args[i])
-		}
-	}
-	if len(parts) == 0 {
-		return `""`
-	}
-	if len(parts) == 1 {
-		return parts[0]
-	}
-	return "(" + strings.Join(parts, " + ") + ")"
 }
 
 func goEscapeString(s string) string {
@@ -823,145 +645,9 @@ func goEscapeString(s string) string {
 	return sb.String()
 }
 
-func (g *codeGen) binaryExpr(e *ast.BinaryExpr) (string, error) {
-	leftType := g.exprType(e.Left)
-	rightType := g.exprType(e.Right)
-
-	left, err := g.exprString(e.Left)
-	if err != nil {
-		return "", err
-	}
-	right, err := g.exprString(e.Right)
-	if err != nil {
-		return "", err
-	}
-
-	// Typed native ops: emit direct Go operators when both sides are typed
-	// AND will actually produce typed Go values (not interface{}).
-	switch e.Op {
-	case "+":
-		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s + %s)", left, right), nil
-		}
-		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s + %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
-		}
-		if leftType == TypeString && rightType == TypeString && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s + %s)", left, right), nil
-		}
-		return fmt.Sprintf("rugo_add(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "-":
-		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s - %s)", left, right), nil
-		}
-		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s - %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
-		}
-		return fmt.Sprintf("rugo_sub(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "*":
-		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s * %s)", left, right), nil
-		}
-		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s * %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
-		}
-		return fmt.Sprintf("rugo_mul(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "/":
-		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s / %s)", left, right), nil
-		}
-		if leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s / %s)", g.ensureFloat(left, leftType), g.ensureFloat(right, rightType)), nil
-		}
-		return fmt.Sprintf("rugo_div(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "%":
-		if leftType == TypeInt && rightType == TypeInt && g.goTyped(e.Left) && g.goTyped(e.Right) {
-			return fmt.Sprintf("(%s %% %s)", left, right), nil
-		}
-		return fmt.Sprintf("rugo_mod(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "==":
-		if leftType == rightType && leftType.IsTyped() {
-			return fmt.Sprintf("(%s == %s)", left, right), nil
-		}
-		return fmt.Sprintf("rugo_eq(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "!=":
-		if leftType == rightType && leftType.IsTyped() {
-			return fmt.Sprintf("(%s != %s)", left, right), nil
-		}
-		return fmt.Sprintf("rugo_neq(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "<":
-		if leftType == rightType && leftType.IsTyped() && (leftType.IsNumeric() || leftType == TypeString) {
-			return fmt.Sprintf("(%s < %s)", left, right), nil
-		}
-		return fmt.Sprintf("rugo_lt(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case ">":
-		if leftType == rightType && leftType.IsTyped() && (leftType.IsNumeric() || leftType == TypeString) {
-			return fmt.Sprintf("(%s > %s)", left, right), nil
-		}
-		return fmt.Sprintf("rugo_gt(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "<=":
-		if leftType == rightType && leftType.IsTyped() && (leftType.IsNumeric() || leftType == TypeString) {
-			return fmt.Sprintf("(%s <= %s)", left, right), nil
-		}
-		return fmt.Sprintf("rugo_le(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case ">=":
-		if leftType == rightType && leftType.IsTyped() && (leftType.IsNumeric() || leftType == TypeString) {
-			return fmt.Sprintf("(%s >= %s)", left, right), nil
-		}
-		return fmt.Sprintf("rugo_ge(%s, %s)", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "&&":
-		if leftType == TypeBool && rightType == TypeBool {
-			return fmt.Sprintf("(%s && %s)", left, right), nil
-		}
-		return fmt.Sprintf("interface{}(rugo_to_bool(%s) && rugo_to_bool(%s))", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	case "||":
-		if leftType == TypeBool && rightType == TypeBool {
-			return fmt.Sprintf("(%s || %s)", left, right), nil
-		}
-		return fmt.Sprintf("interface{}(rugo_to_bool(%s) || rugo_to_bool(%s))", g.boxed(left, leftType), g.boxed(right, rightType)), nil
-
-	default:
-		return "", fmt.Errorf("unknown operator: %s", e.Op)
-	}
-}
-
-func (g *codeGen) unaryExpr(e *ast.UnaryExpr) (string, error) {
-	operandType := g.exprType(e.Operand)
-	operand, err := g.exprString(e.Operand)
-	if err != nil {
-		return "", err
-	}
-	switch e.Op {
-	case "-":
-		if operandType == TypeInt || operandType == TypeFloat {
-			return fmt.Sprintf("(-%s)", operand), nil
-		}
-		return fmt.Sprintf("rugo_negate(%s)", g.boxed(operand, operandType)), nil
-	case "!":
-		if operandType == TypeBool {
-			return fmt.Sprintf("(!%s)", operand), nil
-		}
-		return fmt.Sprintf("rugo_not(%s)", g.boxed(operand, operandType)), nil
-	default:
-		return "", fmt.Errorf("unknown unary operator: %s", e.Op)
-	}
-}
-
-func (g *codeGen) dotExpr(e *ast.DotExpr) (string, error) {
+func (g *codeGen) buildDotExpr(e *ast.DotExpr) (GoExpr, error) {
 	if e.Field == "__type__" {
-		return "", fmt.Errorf("cannot access .__type__ directly — use type_of() instead")
+		return nil, fmt.Errorf("cannot access .__type__ directly — use type_of() instead")
 	}
 	// Rugo stdlib or namespace access without call
 	if ns, ok := e.Object.(*ast.IdentExpr); ok {
@@ -970,7 +656,7 @@ func (g *codeGen) dotExpr(e *ast.DotExpr) (string, error) {
 		if !g.isDeclared(nsName) {
 			if g.imports[nsName] {
 				if goFunc, ok := modules.LookupFunc(nsName, e.Field); ok {
-					return fmt.Sprintf("interface{}(%s)", goFunc), nil
+					return GoCastExpr{Type: "interface{}", Value: GoRawExpr{Code: goFunc}}, nil
 				}
 			}
 			// Go bridge function reference (without call)
@@ -978,39 +664,39 @@ func (g *codeGen) dotExpr(e *ast.DotExpr) (string, error) {
 				if sig, ok := gobridge.Lookup(pkg, e.Field); ok {
 					// Zero-param entries (vars/consts) — property access, no parens needed.
 					if len(sig.Params) == 0 {
-						return g.generateGoBridgeCall(pkg, sig, nil, nsName+"."+e.Field), nil
+						return GoRawExpr{Code: g.generateGoBridgeCall(pkg, sig, nil, nsName+"."+e.Field)}, nil
 					}
-					return "", fmt.Errorf("Go bridge function %s.%s must be called with arguments", nsName, e.Field)
+					return nil, fmt.Errorf("go bridge function %s.%s must be called with arguments", nsName, e.Field)
 				}
 			}
 			// Known require namespace — function reference
 			if g.namespaces[nsName] {
-				return fmt.Sprintf("interface{}(rugons_%s_%s)", nsName, e.Field), nil
+				return GoCastExpr{Type: "interface{}", Value: GoIdentExpr{Name: fmt.Sprintf("rugons_%s_%s", nsName, e.Field)}}, nil
 			}
 		}
 		// Not a known namespace or shadowed by variable — dot access (handles both hashes and tasks at runtime)
 		g.usesTaskMethods = g.usesTaskMethods || taskMethodNames[e.Field]
-		return fmt.Sprintf("rugo_dot_get(%s, %q)", nsName, e.Field), nil
+		return GoCallExpr{Func: "rugo_dot_get", Args: []GoExpr{GoIdentExpr{Name: nsName}, GoStringLit{Value: e.Field}}}, nil
 	}
-	obj, err := g.exprString(e.Object)
+	obj, err := g.buildExpr(e.Object)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	// Dot access on non-ident expressions (handles both hashes and tasks at runtime)
 	g.usesTaskMethods = g.usesTaskMethods || taskMethodNames[e.Field]
-	return fmt.Sprintf("rugo_dot_get(%s, %q)", obj, e.Field), nil
+	return GoCallExpr{Func: "rugo_dot_get", Args: []GoExpr{obj, GoStringLit{Value: e.Field}}}, nil
 }
 
-func (g *codeGen) callExpr(e *ast.CallExpr) (string, error) {
-	args := make([]string, len(e.Args))
+func (g *codeGen) buildCallExpr(e *ast.CallExpr) (GoExpr, error) {
+	pr := &goPrinter{}
+	goArgs := make([]GoExpr, len(e.Args))
 	for i, a := range e.Args {
-		s, err := g.exprString(a)
+		expr, err := g.buildExpr(a)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
-		args[i] = s
+		goArgs[i] = expr
 	}
-	argStr := strings.Join(args, ", ")
 
 	// Check for namespaced function calls: ns.func(args)
 	if dot, ok := e.Func.(*ast.DotExpr); ok {
@@ -1021,281 +707,153 @@ func (g *codeGen) callExpr(e *ast.CallExpr) (string, error) {
 				// Rugo stdlib module call
 				if g.imports[nsName] {
 					if goFunc, ok := modules.LookupFunc(nsName, dot.Field); ok {
-						return fmt.Sprintf("%s(%s)", goFunc, argStr), nil
+						return GoCallExpr{Func: goFunc, Args: goArgs}, nil
 					}
-					return "", fmt.Errorf("unknown function %s.%s in module %q", nsName, dot.Field, nsName)
+					return nil, fmt.Errorf("unknown function %s.%s in module %q", nsName, dot.Field, nsName)
 				}
-				// Go bridge call
+				// Go bridge call — render args to strings for generateGoBridgeCall
 				if pkg, ok := gobridge.PackageForNS(nsName, g.goImports); ok {
 					if sig, ok := gobridge.Lookup(pkg, dot.Field); ok {
 						if !sig.Variadic && len(e.Args) != len(sig.Params) {
-							return "", argCountError(nsName+"."+dot.Field, len(e.Args), len(sig.Params))
+							return nil, argCountError(nsName+"."+dot.Field, len(e.Args), len(sig.Params))
 						}
-						return g.generateGoBridgeCall(pkg, sig, args, nsName+"."+dot.Field), nil
+						strArgs := make([]string, len(goArgs))
+						for i, a := range goArgs {
+							strArgs[i] = pr.exprStr(a)
+						}
+						return GoRawExpr{Code: g.generateGoBridgeCall(pkg, sig, strArgs, nsName+"."+dot.Field)}, nil
 					}
-					return "", fmt.Errorf("unknown function %s.%s in Go bridge package %q", nsName, dot.Field, pkg)
+					return nil, fmt.Errorf("unknown function %s.%s in Go bridge package %q", nsName, dot.Field, pkg)
 				}
 				// Known require namespace
 				if g.namespaces[nsName] {
 					if strings.HasPrefix(dot.Field, "_") {
-						return "", fmt.Errorf("'%s' is private to module '%s'", dot.Field, nsName)
+						return nil, fmt.Errorf("'%s' is private to module '%s'", dot.Field, nsName)
 					}
 					nsKey := nsName + "." + dot.Field
 					if expected, ok := g.funcDefs[nsKey]; ok {
 						if len(e.Args) < expected.Min || len(e.Args) > expected.Max {
-							return "", arityCountError(nsName+"."+dot.Field, len(e.Args), expected)
+							return nil, arityCountError(nsName+"."+dot.Field, len(e.Args), expected)
 						}
 						if expected.HasDefaults {
-							return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, argStr), nil
+							return GoCallExpr{Func: fmt.Sprintf("rugons_%s_%s", nsName, dot.Field), Args: goArgs}, nil
 						}
 					}
-					typedArgs := g.typedCallArgs(nsKey, args, e.Args)
-					return fmt.Sprintf("rugons_%s_%s(%s)", nsName, dot.Field, typedArgs), nil
+					typedArgs := g.typedCallExprs(nsKey, goArgs, e.Args)
+					return GoCallExpr{Func: fmt.Sprintf("rugons_%s_%s", nsName, dot.Field), Args: typedArgs}, nil
 				}
 			}
 			// Not a known namespace or shadowed by variable — dispatch via generic DotCall
-			return fmt.Sprintf("rugo_dot_call(%s, %q, %s)", nsName, dot.Field, argStr), nil
+			argStrs := make([]string, len(goArgs))
+			for i, a := range goArgs {
+				argStrs[i] = pr.exprStr(a)
+			}
+			argStr := strings.Join(argStrs, ", ")
+			return GoRawExpr{Code: fmt.Sprintf("rugo_dot_call(%s, %q, %s)", nsName, dot.Field, argStr)}, nil
 		}
 		// Non-ident object: e.g. tasks[i].wait(n), q.push(val)
-		obj, oerr := g.exprString(dot.Object)
+		obj, oerr := g.buildExpr(dot.Object)
 		if oerr != nil {
-			return "", oerr
+			return nil, oerr
 		}
-		return fmt.Sprintf("rugo_dot_call(%s, %q, %s)", obj, dot.Field, argStr), nil
+		argStrs := make([]string, len(goArgs))
+		for i, a := range goArgs {
+			argStrs[i] = pr.exprStr(a)
+		}
+		argStr := strings.Join(argStrs, ", ")
+		return GoRawExpr{Code: fmt.Sprintf("rugo_dot_call(%s, %q, %s)", pr.exprStr(obj), dot.Field, argStr)}, nil
 	}
 
 	// Check for built-in functions (globals)
 	if ident, ok := e.Func.(*ast.IdentExpr); ok {
+		boxed := g.boxedExprs(goArgs, e.Args)
 		switch ident.Name {
 		case "puts":
-			return fmt.Sprintf("rugo_puts(%s)", g.boxedArgs(args, e.Args)), nil
+			return GoCallExpr{Func: "rugo_puts", Args: boxed}, nil
 		case "print":
-			return fmt.Sprintf("rugo_print(%s)", g.boxedArgs(args, e.Args)), nil
+			return GoCallExpr{Func: "rugo_print", Args: boxed}, nil
 		case "__shell__":
-			return fmt.Sprintf("rugo_shell(%s)", argStr), nil
+			return GoCallExpr{Func: "rugo_shell", Args: goArgs}, nil
 		case "__capture__":
-			return fmt.Sprintf("rugo_capture(%s)", argStr), nil
+			return GoCallExpr{Func: "rugo_capture", Args: goArgs}, nil
 		case "__pipe_shell__":
-			return fmt.Sprintf("rugo_pipe_shell(%s)", argStr), nil
+			return GoCallExpr{Func: "rugo_pipe_shell", Args: goArgs}, nil
 		case "len":
-			call := fmt.Sprintf("rugo_len(%s)", g.boxedArgs(args, e.Args))
+			call := GoCallExpr{Func: "rugo_len", Args: boxed}
 			if g.exprType(e) == TypeInt {
-				return call + ".(int)", nil
+				return GoTypeAssert{Value: call, Type: "int"}, nil
 			}
 			return call, nil
 		case "append":
-			return fmt.Sprintf("rugo_append(%s)", g.boxedArgs(args, e.Args)), nil
+			return GoCallExpr{Func: "rugo_append", Args: boxed}, nil
 		case "raise":
-			return fmt.Sprintf("rugo_raise(%s)", g.boxedArgs(args, e.Args)), nil
+			return GoCallExpr{Func: "rugo_raise", Args: boxed}, nil
 		case "exit":
-			return fmt.Sprintf("rugo_exit(%s)", g.boxedArgs(args, e.Args)), nil
+			return GoCallExpr{Func: "rugo_exit", Args: boxed}, nil
 		case "type_of":
 			if len(e.Args) != 1 {
-				return "", fmt.Errorf("type_of expects 1 argument, got %d", len(e.Args))
+				return nil, fmt.Errorf("type_of expects 1 argument, got %d", len(e.Args))
 			}
-			return fmt.Sprintf("rugo_type_of(%s)", g.boxedArgs(args, e.Args)), nil
+			return GoCallExpr{Func: "rugo_type_of", Args: boxed}, nil
 		case "range":
 			if len(e.Args) < 1 || len(e.Args) > 2 {
-				return "", fmt.Errorf("range expects 1 or 2 arguments, got %d", len(e.Args))
+				return nil, fmt.Errorf("range expects 1 or 2 arguments, got %d", len(e.Args))
 			}
-			return fmt.Sprintf("rugo_range(%s)", g.boxedArgs(args, e.Args)), nil
+			return GoCallExpr{Func: "rugo_range", Args: boxed}, nil
 		default:
-			// Sibling function call within a namespace: resolve unqualified
-			// calls against the current function's namespace first.
+			// Sibling function call within a namespace
 			if g.currentFunc != nil && g.currentFunc.Namespace != "" {
 				nsKey := g.currentFunc.Namespace + "." + ident.Name
 				if expected, ok := g.funcDefs[nsKey]; ok {
 					if len(e.Args) < expected.Min || len(e.Args) > expected.Max {
-						return "", arityCountError(ident.Name, len(e.Args), expected)
+						return nil, arityCountError(ident.Name, len(e.Args), expected)
 					}
 					if expected.HasDefaults {
-						return fmt.Sprintf("rugons_%s_%s(%s)", g.currentFunc.Namespace, ident.Name, argStr), nil
+						return GoCallExpr{Func: fmt.Sprintf("rugons_%s_%s", g.currentFunc.Namespace, ident.Name), Args: goArgs}, nil
 					}
-					typedArgs := g.typedCallArgs(nsKey, args, e.Args)
-					return fmt.Sprintf("rugons_%s_%s(%s)", g.currentFunc.Namespace, ident.Name, typedArgs), nil
+					typedArgs := g.typedCallExprs(nsKey, goArgs, e.Args)
+					return GoCallExpr{Func: fmt.Sprintf("rugons_%s_%s", g.currentFunc.Namespace, ident.Name), Args: typedArgs}, nil
 				}
 			}
 			// User-defined function — validate argument count
 			if expected, ok := g.funcDefs[ident.Name]; ok {
 				if len(e.Args) < expected.Min || len(e.Args) > expected.Max {
-					return "", arityCountError(ident.Name, len(e.Args), expected)
+					return nil, arityCountError(ident.Name, len(e.Args), expected)
 				}
 				if expected.HasDefaults {
-					return fmt.Sprintf("rugofn_%s(%s)", ident.Name, argStr), nil
+					return GoCallExpr{Func: fmt.Sprintf("rugofn_%s", ident.Name), Args: goArgs}, nil
 				}
-				// Generate typed call if function has typed params.
-				typedArgs := g.typedCallArgs(ident.Name, args, e.Args)
-				return fmt.Sprintf("rugofn_%s(%s)", ident.Name, typedArgs), nil
+				typedArgs := g.typedCallExprs(ident.Name, goArgs, e.Args)
+				return GoCallExpr{Func: fmt.Sprintf("rugofn_%s", ident.Name), Args: typedArgs}, nil
 			}
 			// Lambda variable call — dynamic dispatch via type assertion
 			if g.isDeclared(ident.Name) {
-				return fmt.Sprintf("%s.(func(...interface{}) interface{})(%s)", ident.Name, argStr), nil
+				argStrs := make([]string, len(goArgs))
+				for i, a := range goArgs {
+					argStrs[i] = pr.exprStr(a)
+				}
+				argStr := strings.Join(argStrs, ", ")
+				return GoRawExpr{Code: fmt.Sprintf("%s.(func(...interface{}) interface{})(%s)", ident.Name, argStr)}, nil
 			}
-			// Generate typed call if function has typed params.
-			typedArgs := g.typedCallArgs(ident.Name, args, e.Args)
-			return fmt.Sprintf("rugofn_%s(%s)", ident.Name, typedArgs), nil
+			typedArgs := g.typedCallExprs(ident.Name, goArgs, e.Args)
+			return GoCallExpr{Func: fmt.Sprintf("rugofn_%s", ident.Name), Args: typedArgs}, nil
 		}
 	}
 
 	// Dynamic call (shouldn't happen in v1 but handle gracefully)
-	funcExpr, err := g.exprString(e.Func)
+	funcExpr, err := g.buildExpr(e.Func)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return fmt.Sprintf("%s.(%s)(%s)", funcExpr, "func(...interface{}) interface{}", argStr), nil
+	argStrs := make([]string, len(goArgs))
+	for i, a := range goArgs {
+		argStrs[i] = pr.exprStr(a)
+	}
+	argStr := strings.Join(argStrs, ", ")
+	return GoRawExpr{Code: fmt.Sprintf("%s.(%s)(%s)", pr.exprStr(funcExpr), "func(...interface{}) interface{}", argStr)}, nil
 }
 
-func (g *codeGen) indexExpr(e *ast.IndexExpr) (string, error) {
-	obj, err := g.exprString(e.Object)
-	if err != nil {
-		return "", err
-	}
-	idx, err := g.exprString(e.Index)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("rugo_index(%s, %s)", obj, idx), nil
-}
-
-func (g *codeGen) sliceExpr(e *ast.SliceExpr) (string, error) {
-	obj, err := g.exprString(e.Object)
-	if err != nil {
-		return "", err
-	}
-	start, err := g.exprString(e.Start)
-	if err != nil {
-		return "", err
-	}
-	length, err := g.exprString(e.Length)
-	if err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("rugo_slice(%s, %s, %s)", obj, start, length), nil
-}
-
-func (g *codeGen) arrayLiteral(e *ast.ArrayLiteral) (string, error) {
-	elems := make([]string, len(e.Elements))
-	for i, el := range e.Elements {
-		s, err := g.exprString(el)
-		if err != nil {
-			return "", err
-		}
-		elems[i] = s
-	}
-	return fmt.Sprintf("interface{}([]interface{}{%s})", strings.Join(elems, ", ")), nil
-}
-
-func (g *codeGen) hashLiteral(e *ast.HashLiteral) (string, error) {
-	pairs := make([]string, len(e.Pairs))
-	for i, p := range e.Pairs {
-		key, err := g.exprString(p.Key)
-		if err != nil {
-			return "", err
-		}
-		val, err := g.exprString(p.Value)
-		if err != nil {
-			return "", err
-		}
-		pairs[i] = fmt.Sprintf("%s: %s", key, val)
-	}
-	return fmt.Sprintf("interface{}(map[interface{}]interface{}{%s})", strings.Join(pairs, ", ")), nil
-}
-
-func (g *codeGen) loweredTryExpr(e *ast.LoweredTryExpr) (string, error) {
-	exprStr, err := g.exprString(e.Expr)
-	if err != nil {
-		return "", err
-	}
-
-	// Build handler body as GoStmt nodes
-	g.pushScope()
-	g.declareVar(e.ErrVar)
-	var handlerBody []GoStmt
-	if e.ResultExpr != nil {
-		stmts, berr := g.buildStmts(e.Handler)
-		if berr != nil {
-			g.popScope()
-			return "", berr
-		}
-		handlerBody = append(handlerBody, stmts...)
-		val, verr := g.buildExpr(e.ResultExpr)
-		if verr != nil {
-			g.popScope()
-			return "", verr
-		}
-		handlerBody = append(handlerBody, GoAssignStmt{Target: "r", Op: "=", Value: val})
-	} else {
-		stmts, berr := g.buildStmts(e.Handler)
-		if berr != nil {
-			g.popScope()
-			return "", berr
-		}
-		handlerBody = append(handlerBody, stmts...)
-	}
-	g.popScope()
-
-	ir := GoIIFEExpr{
-		ReturnType: "(r interface{})",
-		Body: []GoStmt{
-			GoDeferStmt{Body: []GoStmt{
-				GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: append(
-					[]GoStmt{
-						GoAssignStmt{Target: fmt.Sprintf("%s", e.ErrVar), Op: ":=", Value: GoRawExpr{Code: "fmt.Sprint(e)"}},
-						GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", e.ErrVar)}},
-					},
-					handlerBody...,
-				)},
-			}},
-		},
-		Result: GoRawExpr{Code: exprStr},
-	}
-
-	return g.goExprStr(ir), nil
-}
-
-func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
-	// Build body as GoStmt nodes
-	g.pushScope()
-	bodyStmts, err := g.buildStmts(e.Body)
-	if err != nil {
-		g.popScope()
-		return "", err
-	}
-	if e.ResultExpr != nil {
-		val, verr := g.buildExpr(e.ResultExpr)
-		if verr != nil {
-			g.popScope()
-			return "", verr
-		}
-		bodyStmts = append(bodyStmts, GoAssignStmt{Target: "t.result", Op: "=", Value: val})
-	}
-	g.popScope()
-
-	ir := GoIIFEExpr{
-		Body: []GoStmt{
-			GoRawStmt{Code: "t := &rugoTask{done: make(chan struct{})}"},
-			GoGoStmt{Body: []GoStmt{
-				GoDeferStmt{Body: []GoStmt{
-					GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: []GoStmt{
-						GoRawStmt{Code: "t.err = fmt.Sprint(e)"},
-					}},
-					GoRawStmt{Code: "close(t.done)"},
-				}},
-				GoComment{Text: "spawn body"},
-			}},
-		},
-		Result: GoRawExpr{Code: "interface{}(t)"},
-	}
-
-	// Insert body stmts into the goroutine body, replacing the placeholder
-	goStmt := ir.Body[1].(GoGoStmt)
-	goStmt.Body = append(goStmt.Body[:len(goStmt.Body)-1], bodyStmts...)
-	ir.Body[1] = goStmt
-
-	return g.goExprStr(ir), nil
-}
-
-func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
+func (g *codeGen) buildFnExpr(e *ast.FnExpr) (GoExpr, error) {
 	// Build lambda body as GoStmt nodes
 	g.lambdaDepth++
 	g.lambdaOuterFunc = append(g.lambdaOuterFunc, g.currentFunc)
@@ -1320,7 +878,7 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 	bodyStmts, berr := g.buildStmts(e.Body)
 	if berr != nil {
 		restoreLambda()
-		return "", berr
+		return nil, berr
 	}
 	restoreLambda()
 
@@ -1350,7 +908,7 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 		if p.Default != nil {
 			defaultExpr, derr := g.buildExpr(p.Default)
 			if derr != nil {
-				return "", derr
+				return nil, derr
 			}
 			pr := &goPrinter{}
 			preamble = append(preamble, GoVarStmt{Name: p.Name, Type: "interface{}"})
@@ -1368,107 +926,6 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 	fullBody = append(fullBody, bodyStmts...)
 	fullBody = append(fullBody, GoReturnStmt{Value: GoRawExpr{Code: "nil"}})
 
-	// Render using GoIIFEExpr — but we need interface{}(...) wrapping
-	ir := GoIIFEExpr{
-		ReturnType: "interface{}",
-		Body:       fullBody,
-	}
-
-	// The lambda is wrapped in interface{}(func(...) ... { ... })
-	// We render the IIFE without the outer func()...{}() and wrap manually
-	// Actually, GoIIFEExpr renders as func() T { body }() — but lambdas are
-	// interface{}(func(_args ...interface{}) interface{} { body }) — not called.
-	// We need a different rendering for lambdas.
-
-	// Use a custom rendering since lambda shape differs from IIFE
-	p := &goPrinter{indent: g.indent + 1}
-	var sb strings.Builder
-	sb.WriteString("interface{}(func(_args ...interface{}) interface{} {\n")
-	for _, s := range fullBody {
-		p.printStmt(s)
-	}
-	sb.WriteString(p.sb.String())
-	for range g.indent {
-		sb.WriteByte('\t')
-	}
-	sb.WriteString("})")
-
-	_ = ir // suppress unused
-	return sb.String(), nil
+	return GoLambdaExpr{Body: fullBody}, nil
 }
 
-func (g *codeGen) loweredParallelExpr(e *ast.LoweredParallelExpr) (string, error) {
-	n := len(e.Branches)
-
-	if n == 0 {
-		return "interface{}([]interface{}{})", nil
-	}
-
-	// Build each branch as GoStmt nodes
-	type branchInfo struct {
-		stmts  []GoStmt
-		isExpr bool
-	}
-	branches := make([]branchInfo, n)
-	for _, br := range e.Branches {
-		if br.Expr != nil {
-			code, err := g.buildExpr(br.Expr)
-			if err != nil {
-				return "", err
-			}
-			p := &goPrinter{}
-			branches[br.Index] = branchInfo{
-				stmts:  []GoStmt{GoRawStmt{Code: fmt.Sprintf("_results[%d] = %s", br.Index, p.exprStr(code))}},
-				isExpr: true,
-			}
-		} else {
-			g.pushScope()
-			stmts, err := g.buildStmts(br.Stmts)
-			if err != nil {
-				g.popScope()
-				return "", err
-			}
-			g.popScope()
-			branches[br.Index] = branchInfo{stmts: stmts, isExpr: false}
-		}
-	}
-
-	// Build goroutine nodes
-	var goroutines []GoStmt
-	for _, bc := range branches {
-		goroutineBody := []GoStmt{
-			GoRawStmt{Code: "defer _wg.Done()"},
-			GoDeferStmt{Body: []GoStmt{
-				GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: []GoStmt{
-					GoRawStmt{Code: `_parOnce.Do(func() { _parErr = fmt.Sprint(e) })`},
-				}},
-			}},
-		}
-		goroutineBody = append(goroutineBody, bc.stmts...)
-		goroutines = append(goroutines, GoGoStmt{Body: goroutineBody})
-	}
-
-	body := []GoStmt{
-		GoRawStmt{Code: fmt.Sprintf("_results := make([]interface{}, %d)", n)},
-		GoRawStmt{Code: "var _wg sync.WaitGroup"},
-		GoRawStmt{Code: "var _parErr string"},
-		GoRawStmt{Code: "var _parOnce sync.Once"},
-		GoRawStmt{Code: fmt.Sprintf("_wg.Add(%d)", n)},
-	}
-	body = append(body, goroutines...)
-	body = append(body,
-		GoRawStmt{Code: "_wg.Wait()"},
-		GoIfStmt{Cond: GoRawExpr{Code: `_parErr != ""`}, Body: []GoStmt{
-			GoRawStmt{Code: "panic(_parErr)"},
-		}},
-		GoRawStmt{Code: "out := make([]interface{}, len(_results))"},
-		GoRawStmt{Code: "copy(out, _results)"},
-	)
-
-	ir := GoIIFEExpr{
-		Body:   body,
-		Result: GoRawExpr{Code: "interface{}(out)"},
-	}
-
-	return g.goExprStr(ir), nil
-}
