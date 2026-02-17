@@ -25,13 +25,35 @@ Walk (flat AST → typed AST nodes)
 Resolve (imports & requires)
    │
    ▼
-Code generation (AST → Go source)
+Transform chain (immutable AST rewrites)
+ ├─ ConcurrencyLowering  — desugar spawn/parallel/try into lowered nodes
+ └─ ImplicitReturnLowering — convert last-expr-as-return into explicit nodes
+   │
+   ▼
+Type inference (fixed-point analysis)
+   │
+   ▼
+Code generation (AST → Go AST → Go source)
    │
    ▼
 go build → native binary
 ```
 
 The compiler is orchestrated by `compiler.Compiler`, which chains these stages together. The `run`, `build`, and `emit` CLI subcommands each exercise different parts of this pipeline.
+
+### Transform Chain
+
+After resolving imports and requires, the AST passes through a chain of immutable transforms (`ast/transform.go`). Transforms implement the `Transform` interface and are composed via `Chain()`, which runs them left-to-right. Each transform receives the output of the previous one and must not mutate its input — a copy-on-write helper (`mapSlice`) only allocates new slices when children actually change.
+
+**ConcurrencyLowering** (`ast/lower.go`): Replaces high-level concurrency constructs (`SpawnExpr`, `ParallelExpr`, `TryExpr`) with lowered equivalents (`LoweredSpawnExpr`, `LoweredParallelExpr`, `LoweredTryExpr`) that carry pre-processed information — for example, extracting the last expression in a spawn body into a dedicated `ResultExpr` field, or pre-categorizing parallel branches as expression vs. statement. This pass also rewrites `return` statements inside spawn blocks and try handlers into `SpawnReturnStmt` and `TryHandlerReturnStmt` respectively.
+
+**ImplicitReturnLowering** (`ast/implicit_return.go`): Converts last-expression-as-return-value patterns into explicit AST nodes. A trailing `ExprStmt` in a `FuncDef` or `FnExpr` body becomes an `ImplicitReturnStmt`; in a try handler it becomes a `TryResultStmt`. When the last statement is an `IfStmt`, the transform recurses into each branch.
+
+The `Factory` (`ast/factory.go`) centralizes AST node construction for transform passes, ensuring consistent creation and providing a hook point for future enhancements.
+
+### Type Inference
+
+After transforms, `compiler.Infer()` (`compiler/infer.go`) runs a fixed-point type inference pass (up to 10 rounds). It walks all expressions and statements to resolve variable and function return types. Anything that can't be proven typed remains `TypeDynamic` (`interface{}`). The resulting `TypeInfo` feeds codegen, allowing it to emit unboxed Go types where possible instead of wrapping everything in `interface{}`.
 
 ### Build Cache
 
@@ -654,7 +676,13 @@ Node (interface)
 │   ├── ReturnStmt        — return [expr]
 │   ├── ExprStmt          — expression as statement
 │   ├── AssignStmt        — target = value
-│   └── IndexAssignStmt   — obj[index] = value
+│   ├── IndexAssignStmt   — obj[index] = value
+│   │
+│   │   (produced by transforms — not in the parse tree)
+│   ├── ImplicitReturnStmt — last expr converted to return (from ImplicitReturnLowering)
+│   ├── TryResultStmt      — last expr in try handler (from ImplicitReturnLowering)
+│   ├── SpawnReturnStmt    — return inside spawn body (from ConcurrencyLowering)
+│   └── TryHandlerReturnStmt — return inside try handler (from ConcurrencyLowering)
 │
 └── Expr (interface)
     ├── BinaryExpr        — left op right
@@ -674,10 +702,17 @@ Node (interface)
     ├── TryExpr           — try expr or err handler end
     ├── SpawnExpr         — spawn body end
     ├── ParallelExpr      — parallel body end
-    └── FnExpr            — fn(params) body end (lambda)
+    ├── FnExpr            — fn(params) body end (lambda)
+    │
+    │   (produced by ConcurrencyLowering — replace their non-lowered counterparts)
+    ├── LoweredTryExpr      — try with extracted result expr and handler body
+    ├── LoweredSpawnExpr    — spawn with extracted result expr
+    └── LoweredParallelExpr — parallel with pre-categorized branches (ParallelBranch)
 ```
 
 Every statement node embeds `BaseStmt`, which carries a `SourceLine` field mapping back to the original `.rugo` source. This is populated by the walker using the line map from the preprocessor.
+
+The `Factory` (`ast/factory.go`) centralizes AST node creation for transform passes, providing copy-on-write helpers like `ProgramFrom`, `FuncDefWithBody`, and `IfStmtWithBranches` to ensure consistent construction without mutating the original tree.
 
 ### AST Walker
 
@@ -685,7 +720,25 @@ The walker (`ast/walker.go`) transforms the parser's flat `[]int32` encoding int
 
 ## Code Generation
 
-The code generator (`compiler/codegen.go`) traverses the typed AST and emits a self-contained Go `main.go` file. The generated file includes:
+The code generator (`compiler/codegen.go`) traverses the typed AST and produces Go source via a two-stage process: first building a Go AST (`compiler/goast.go`), then serializing it to source (`compiler/goprint.go`).
+
+Before codegen begins, the `generate()` function runs the transform chain (ConcurrencyLowering + ImplicitReturnLowering) and type inference. The codegen is split across several files:
+
+| File | Responsibility |
+|------|---------------|
+| `codegen.go` | Orchestration, `codeGen` struct, `generate()` entry point |
+| `codegen_expr.go` | Expression compilation: `exprString()` converts Rugo expressions to Go source strings |
+| `codegen_stmt.go` | Statement compilation: `buildStmt()` converts statements to `GoStmt` nodes |
+| `codegen_func.go` | Function and lambda codegen, including closure variable capture |
+| `codegen_scope.go` | Variable scope tracking and management |
+| `codegen_runtime.go` | Runtime helper injection: sandbox, spawn/parallel templates, Go bridge stubs |
+| `codegen_build.go` | Test and benchmark harness generation |
+
+### Go AST Middle Layer
+
+Rather than emitting raw strings, codegen builds a `GoFile` tree (`compiler/goast.go`) composed of `GoDecl`, `GoStmt`, and `GoExpr` nodes. The `GoFile` contains the package name, imports, top-level declarations (functions, variables, runtime code), and the `main()` body. The printer (`compiler/goprint.go`, `PrintGoFile()`) then serializes this tree to properly formatted Go source with correct indentation. A `GoRawDecl` escape hatch allows injecting pre-formatted code for runtime templates and complex generated blocks.
+
+The generated file includes:
 
 1. **Imports** — standard library imports plus any module-specific Go imports.
 2. **Runtime helpers** — type conversion, arithmetic, comparison, shell execution, iteration, and panic handling functions.
