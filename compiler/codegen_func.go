@@ -355,9 +355,3 @@ func (g *codeGen) writePanicHandler() {
 	g.w.Dedent()
 	g.writeln(`}()`)
 }
-
-// captureOutput runs fn while writing to a temporary buffer,
-// then restores the original buffer and returns the captured output.
-func (g *codeGen) captureOutput(fn func() error) (string, error) {
-	return g.w.Capture(fn)
-}

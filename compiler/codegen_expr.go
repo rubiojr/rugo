@@ -644,195 +644,193 @@ func (g *codeGen) loweredTryExpr(e *ast.LoweredTryExpr) (string, error) {
 		return "", err
 	}
 
-	// Build the handler body as Go source in a temporary buffer.
-	handlerCode, cerr := g.captureOutput(func() error {
-		g.pushScope()
-		g.declareVar(e.ErrVar)
-
-		// Emit pre-extracted result expression if present
-		if e.ResultExpr != nil {
-			for _, s := range e.Handler {
-				if werr := g.writeStmt(s); werr != nil {
-					g.popScope()
-					return werr
-				}
-			}
-			val, verr := g.exprString(e.ResultExpr)
-			if verr != nil {
-				g.popScope()
-				return verr
-			}
-			g.writef("r = %s\n", val)
-		} else {
-			// Handler body pre-processed by ImplicitReturnLowering:
-			// TryResultStmt/TryHandlerReturnStmt nodes handle their own emission.
-			for _, s := range e.Handler {
-				if werr := g.writeStmt(s); werr != nil {
-					g.popScope()
-					return werr
-				}
-			}
+	// Build handler body as GoStmt nodes
+	g.pushScope()
+	g.declareVar(e.ErrVar)
+	var handlerBody []GoStmt
+	if e.ResultExpr != nil {
+		stmts, berr := g.buildStmts(e.Handler)
+		if berr != nil {
+			g.popScope()
+			return "", berr
 		}
-
-		g.popScope()
-		return nil
-	})
-	if cerr != nil {
-		return "", cerr
+		handlerBody = append(handlerBody, stmts...)
+		val, verr := g.exprString(e.ResultExpr)
+		if verr != nil {
+			g.popScope()
+			return "", verr
+		}
+		handlerBody = append(handlerBody, GoAssignStmt{Target: "r", Op: "=", Value: GoRawExpr{Code: val}})
+	} else {
+		stmts, berr := g.buildStmts(e.Handler)
+		if berr != nil {
+			g.popScope()
+			return "", berr
+		}
+		handlerBody = append(handlerBody, stmts...)
 	}
+	g.popScope()
 
-	// Build the IIFE using Go IR
-	ir := goIIFE{
+	ir := GoIIFEExpr{
 		ReturnType: "(r interface{})",
-		Body: []goNode{
-			goDefer{Body: []goNode{
-				goIf{Cond: "e := recover(); e != nil", Body: []goNode{
-					goRaw{Code: fmt.Sprintf("%s := fmt.Sprint(e)", e.ErrVar)},
-					goRaw{Code: fmt.Sprintf("_ = %s", e.ErrVar)},
-					goUserCode{Code: handlerCode},
-				}},
+		Body: []GoStmt{
+			GoDeferStmt{Body: []GoStmt{
+				GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: append(
+					[]GoStmt{
+						GoAssignStmt{Target: fmt.Sprintf("%s", e.ErrVar), Op: ":=", Value: GoRawExpr{Code: "fmt.Sprint(e)"}},
+						GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", e.ErrVar)}},
+					},
+					handlerBody...,
+				)},
 			}},
 		},
-		Return: exprStr,
+		Result: GoRawExpr{Code: exprStr},
 	}
 
-	return g.emitGoIR(ir), nil
+	return g.goExprStr(ir), nil
 }
 
 func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
-	// Generate the body code in a temporary buffer.
-	// SpawnReturnStmt nodes handle their own emission.
-	bodyCode, cerr := g.captureOutput(func() error {
-		g.pushScope()
-		for _, s := range e.Body {
-			if werr := g.writeStmt(s); werr != nil {
-				g.popScope()
-				return werr
-			}
-		}
-		// Emit pre-extracted result expression
-		if e.ResultExpr != nil {
-			val, verr := g.exprString(e.ResultExpr)
-			if verr != nil {
-				g.popScope()
-				return verr
-			}
-			g.writef("t.result = %s\n", val)
-		}
+	// Build body as GoStmt nodes
+	g.pushScope()
+	bodyStmts, err := g.buildStmts(e.Body)
+	if err != nil {
 		g.popScope()
-		return nil
-	})
-	if cerr != nil {
-		return "", cerr
+		return "", err
 	}
+	if e.ResultExpr != nil {
+		val, verr := g.exprString(e.ResultExpr)
+		if verr != nil {
+			g.popScope()
+			return "", verr
+		}
+		bodyStmts = append(bodyStmts, GoAssignStmt{Target: "t.result", Op: "=", Value: GoRawExpr{Code: val}})
+	}
+	g.popScope()
 
-	// Build the IIFE using Go IR
-	ir := goIIFE{
-		Body: []goNode{
-			goRaw{Code: "t := &rugoTask{done: make(chan struct{})}"},
-			goGoroutine{Body: []goNode{
-				goDefer{Body: []goNode{
-					goIf{Cond: "e := recover(); e != nil", Body: []goNode{
-						goRaw{Code: "t.err = fmt.Sprint(e)"},
+	ir := GoIIFEExpr{
+		Body: []GoStmt{
+			GoRawStmt{Code: "t := &rugoTask{done: make(chan struct{})}"},
+			GoGoStmt{Body: []GoStmt{
+				GoDeferStmt{Body: []GoStmt{
+					GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: []GoStmt{
+						GoRawStmt{Code: "t.err = fmt.Sprint(e)"},
 					}},
-					goRaw{Code: "close(t.done)"},
+					GoRawStmt{Code: "close(t.done)"},
 				}},
-				goUserCode{Code: bodyCode},
+				GoRawStmt{Code: "// spawn body"},
 			}},
 		},
-		Return: "interface{}(t)",
+		Result: GoRawExpr{Code: "interface{}(t)"},
 	}
 
-	return g.emitGoIR(ir), nil
+	// Insert body stmts into the goroutine body, replacing the placeholder
+	goStmt := ir.Body[1].(GoGoStmt)
+	goStmt.Body = append(goStmt.Body[:len(goStmt.Body)-1], bodyStmts...)
+	ir.Body[1] = goStmt
+
+	return g.goExprStr(ir), nil
 }
 
 func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
-	// Emit: func(_args ...interface{}) interface{} { p1 := _args[0]; ...; body; return nil }
-	bodyCode, cerr := g.captureOutput(func() error {
-		g.lambdaDepth++
-		g.lambdaOuterFunc = append(g.lambdaOuterFunc, g.currentFunc)
-		g.pushScope()
-		g.lambdaScopeBase = append(g.lambdaScopeBase, len(g.scopes)-1)
-		for _, p := range e.Params {
-			g.declareVar(p.Name)
-		}
-		savedFunc := g.currentFunc
-		savedInFunc := g.inFunc
-		g.inFunc = true
+	// Build lambda body as GoStmt nodes
+	g.lambdaDepth++
+	g.lambdaOuterFunc = append(g.lambdaOuterFunc, g.currentFunc)
+	g.pushScope()
+	g.lambdaScopeBase = append(g.lambdaScopeBase, len(g.scopes)-1)
+	for _, p := range e.Params {
+		g.declareVar(p.Name)
+	}
+	savedFunc := g.currentFunc
+	savedInFunc := g.inFunc
+	g.inFunc = true
 
-		restoreLambda := func() {
-			g.inFunc = savedInFunc
-			g.currentFunc = savedFunc
-			g.lambdaScopeBase = g.lambdaScopeBase[:len(g.lambdaScopeBase)-1]
-			g.lambdaOuterFunc = g.lambdaOuterFunc[:len(g.lambdaOuterFunc)-1]
-			g.popScope()
-			g.lambdaDepth--
-		}
-
-		for _, s := range e.Body {
-			if werr := g.writeStmt(s); werr != nil {
-				restoreLambda()
-				return werr
-			}
-		}
-		restoreLambda()
-		return nil
-	})
-	if cerr != nil {
-		return "", cerr
+	restoreLambda := func() {
+		g.inFunc = savedInFunc
+		g.currentFunc = savedFunc
+		g.lambdaScopeBase = g.lambdaScopeBase[:len(g.lambdaScopeBase)-1]
+		g.lambdaOuterFunc = g.lambdaOuterFunc[:len(g.lambdaOuterFunc)-1]
+		g.popScope()
+		g.lambdaDepth--
 	}
 
-	var buf strings.Builder
-	buf.WriteString("interface{}(func(_args ...interface{}) interface{} {\n")
+	bodyStmts, berr := g.buildStmts(e.Body)
+	if berr != nil {
+		restoreLambda()
+		return "", berr
+	}
+	restoreLambda()
 
+	// Build preamble: arity check + param unpacking
+	var preamble []GoStmt
 	hasDefaults := ast.HasDefaults(e.Params)
 	if hasDefaults {
-		// Range arity check for lambdas with default params
 		minArity := ast.MinArity(e.Params)
 		maxArity := len(e.Params)
-		buf.WriteString(fmt.Sprintf("\t\tif len(_args) < %d || len(_args) > %d { panic(fmt.Sprintf(\"lambda takes %d to %d arguments but %%d %%s given\", len(_args), map[bool]string{true: \"was\", false: \"were\"}[len(_args) == 1])) }\n", minArity, maxArity, minArity, maxArity))
+		preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf(
+			"if len(_args) < %d || len(_args) > %d { panic(fmt.Sprintf(\"lambda takes %d to %d arguments but %%d %%s given\", len(_args), map[bool]string{true: \"was\", false: \"were\"}[len(_args) == 1])) }",
+			minArity, maxArity, minArity, maxArity)})
 	} else {
-		// Exact arity check for lambdas without default params
 		nParams := len(e.Params)
 		if nParams == 1 {
-			buf.WriteString(fmt.Sprintf("\t\tif len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d argument but %%d were given\", len(_args))) }\n", nParams, nParams))
+			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf(
+				"if len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d argument but %%d were given\", len(_args))) }",
+				nParams, nParams)})
 		} else {
-			buf.WriteString(fmt.Sprintf("\t\tif len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d arguments but %%d %%s given\", len(_args), map[bool]string{true: \"was\", false: \"were\"}[len(_args) == 1])) }\n", nParams, nParams))
+			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf(
+				"if len(_args) != %d { panic(fmt.Sprintf(\"lambda takes %d arguments but %%d %%s given\", len(_args), map[bool]string{true: \"was\", false: \"were\"}[len(_args) == 1])) }",
+				nParams, nParams)})
 		}
 	}
 
-	// Unpack parameters from variadic args
 	for i, p := range e.Params {
 		if p.Default != nil {
-			// Optional param — use default if not provided
 			defaultExpr, derr := g.exprString(p.Default)
 			if derr != nil {
 				return "", derr
 			}
-			buf.WriteString(fmt.Sprintf("\t\tvar %s interface{}\n", p.Name))
-			buf.WriteString(fmt.Sprintf("\t\tif len(_args) > %d { %s = _args[%d] } else { %s = %s }\n", i, p.Name, i, p.Name, defaultExpr))
+			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("var %s interface{}", p.Name)})
+			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] } else { %s = %s }", i, p.Name, i, p.Name, defaultExpr)})
 		} else {
-			// Required param — unpack from _args
-			buf.WriteString(fmt.Sprintf("\t\tvar %s interface{}\n", p.Name))
-			buf.WriteString(fmt.Sprintf("\t\tif len(_args) > %d { %s = _args[%d] }\n", i, p.Name, i))
+			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("var %s interface{}", p.Name)})
+			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] }", i, p.Name, i)})
 		}
-		buf.WriteString(fmt.Sprintf("\t\t_ = %s\n", p.Name))
+		preamble = append(preamble, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", p.Name)}})
 	}
-	for _, line := range strings.Split(bodyCode, "\n") {
-		if line != "" {
-			trimmed := strings.TrimLeft(line, "\t")
-			// //line directives must start at column 1 (no indentation)
-			if strings.HasPrefix(trimmed, "//line ") {
-				buf.WriteString(trimmed + "\n")
-			} else {
-				buf.WriteString("\t\t" + trimmed + "\n")
-			}
-		}
-	}
-	buf.WriteString("\t\treturn nil\n")
-	buf.WriteString("\t})")
 
-	return buf.String(), nil
+	// Assemble full body
+	var fullBody []GoStmt
+	fullBody = append(fullBody, preamble...)
+	fullBody = append(fullBody, bodyStmts...)
+	fullBody = append(fullBody, GoReturnStmt{Value: GoRawExpr{Code: "nil"}})
+
+	// Render using GoIIFEExpr — but we need interface{}(...) wrapping
+	ir := GoIIFEExpr{
+		ReturnType: "interface{}",
+		Body:       fullBody,
+	}
+
+	// The lambda is wrapped in interface{}(func(...) ... { ... })
+	// We render the IIFE without the outer func()...{}() and wrap manually
+	// Actually, GoIIFEExpr renders as func() T { body }() — but lambdas are
+	// interface{}(func(_args ...interface{}) interface{} { body }) — not called.
+	// We need a different rendering for lambdas.
+
+	// Use a custom rendering since lambda shape differs from IIFE
+	p := &goPrinter{indent: g.w.indent + 1}
+	var sb strings.Builder
+	sb.WriteString("interface{}(func(_args ...interface{}) interface{} {\n")
+	for _, s := range fullBody {
+		p.printStmt(s)
+	}
+	sb.WriteString(p.sb.String())
+	for range g.w.indent {
+		sb.WriteByte('\t')
+	}
+	sb.WriteString("})")
+
+	_ = ir // suppress unused
+	return sb.String(), nil
 }
 
 func (g *codeGen) loweredParallelExpr(e *ast.LoweredParallelExpr) (string, error) {
@@ -842,80 +840,70 @@ func (g *codeGen) loweredParallelExpr(e *ast.LoweredParallelExpr) (string, error
 		return "interface{}([]interface{}{})", nil
 	}
 
-	// Generate each branch's Go code using pre-categorized branches
-	type branchCode struct {
-		code   string
+	// Build each branch as GoStmt nodes
+	type branchInfo struct {
+		stmts  []GoStmt
 		isExpr bool
 	}
-	branches := make([]branchCode, n)
+	branches := make([]branchInfo, n)
 	for _, br := range e.Branches {
 		if br.Expr != nil {
 			code, err := g.exprString(br.Expr)
 			if err != nil {
 				return "", err
 			}
-			branches[br.Index] = branchCode{code: code, isExpr: true}
+			branches[br.Index] = branchInfo{
+				stmts:  []GoStmt{GoRawStmt{Code: fmt.Sprintf("_results[%d] = %s", br.Index, code)}},
+				isExpr: true,
+			}
 		} else {
-			code, err := g.captureOutput(func() error {
-				g.pushScope()
-				for _, s := range br.Stmts {
-					if err := g.writeStmt(s); err != nil {
-						g.popScope()
-						return err
-					}
-				}
-				g.popScope()
-				return nil
-			})
+			g.pushScope()
+			stmts, err := g.buildStmts(br.Stmts)
 			if err != nil {
+				g.popScope()
 				return "", err
 			}
-			branches[br.Index] = branchCode{code: code, isExpr: false}
+			g.popScope()
+			branches[br.Index] = branchInfo{stmts: stmts, isExpr: false}
 		}
 	}
 
-	// Build goroutine nodes for each parallel branch
-	var goroutines []goNode
-	for i, bc := range branches {
-		var bodyNode goNode
-		if bc.isExpr {
-			bodyNode = goRaw{Code: fmt.Sprintf("_results[%d] = %s", i, bc.code)}
-		} else {
-			bodyNode = goUserCode{Code: bc.code}
-		}
-		goroutines = append(goroutines, goGoroutine{Body: []goNode{
-			goRaw{Code: "defer _wg.Done()"},
-			goDefer{Body: []goNode{
-				goIf{Cond: "e := recover(); e != nil", Body: []goNode{
-					goRaw{Code: `_parOnce.Do(func() { _parErr = fmt.Sprint(e) })`},
+	// Build goroutine nodes
+	var goroutines []GoStmt
+	for _, bc := range branches {
+		goroutineBody := []GoStmt{
+			GoRawStmt{Code: "defer _wg.Done()"},
+			GoDeferStmt{Body: []GoStmt{
+				GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: []GoStmt{
+					GoRawStmt{Code: `_parOnce.Do(func() { _parErr = fmt.Sprint(e) })`},
 				}},
 			}},
-			bodyNode,
-		}})
+		}
+		goroutineBody = append(goroutineBody, bc.stmts...)
+		goroutines = append(goroutines, GoGoStmt{Body: goroutineBody})
 	}
 
-	// Build the IIFE using Go IR
-	body := []goNode{
-		goRaw{Code: fmt.Sprintf("_results := make([]interface{}, %d)", n)},
-		goRaw{Code: "var _wg sync.WaitGroup"},
-		goRaw{Code: "var _parErr string"},
-		goRaw{Code: "var _parOnce sync.Once"},
-		goRaw{Code: fmt.Sprintf("_wg.Add(%d)", n)},
+	body := []GoStmt{
+		GoRawStmt{Code: fmt.Sprintf("_results := make([]interface{}, %d)", n)},
+		GoRawStmt{Code: "var _wg sync.WaitGroup"},
+		GoRawStmt{Code: "var _parErr string"},
+		GoRawStmt{Code: "var _parOnce sync.Once"},
+		GoRawStmt{Code: fmt.Sprintf("_wg.Add(%d)", n)},
 	}
 	body = append(body, goroutines...)
 	body = append(body,
-		goRaw{Code: "_wg.Wait()"},
-		goIf{Cond: `_parErr != ""`, Body: []goNode{
-			goRaw{Code: "panic(_parErr)"},
+		GoRawStmt{Code: "_wg.Wait()"},
+		GoIfStmt{Cond: GoRawExpr{Code: `_parErr != ""`}, Body: []GoStmt{
+			GoRawStmt{Code: "panic(_parErr)"},
 		}},
-		goRaw{Code: "out := make([]interface{}, len(_results))"},
-		goRaw{Code: "copy(out, _results)"},
+		GoRawStmt{Code: "out := make([]interface{}, len(_results))"},
+		GoRawStmt{Code: "copy(out, _results)"},
 	)
 
-	ir := goIIFE{
+	ir := GoIIFEExpr{
 		Body:   body,
-		Return: "interface{}(out)",
+		Result: GoRawExpr{Code: "interface{}(out)"},
 	}
 
-	return g.emitGoIR(ir), nil
+	return g.goExprStr(ir), nil
 }
