@@ -17,8 +17,8 @@ func (g *codeGen) buildStmt(s ast.Statement) ([]GoStmt, error) {
 	if src := s.StmtSource(); src != "" && src != g.sourceFile {
 		saved := g.sourceFile
 		g.sourceFile = src
-		g.w.source = src
-		defer func() { g.sourceFile = saved; g.w.source = saved }()
+		
+		defer func() { g.sourceFile = saved }()
 	}
 
 	var stmts []GoStmt
@@ -467,8 +467,8 @@ func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
 	if f.SourceFile != "" {
 		saved := g.sourceFile
 		g.sourceFile = f.SourceFile
-		g.w.source = f.SourceFile
-		defer func() { g.sourceFile = saved; g.w.source = saved }()
+		
+		defer func() { g.sourceFile = saved }()
 	}
 
 	hasDefaults := ast.HasDefaults(f.Params)

@@ -28,7 +28,6 @@ type funcArity struct {
 
 // codeGen generates Go source code from a typed AST.
 type codeGen struct {
-	w               goWriter
 	declared        map[string]bool // track declared variables per scope
 	scopes          []map[string]bool
 	constScopes     []map[string]int // track constant bindings: name → line of first assignment
@@ -51,6 +50,7 @@ type codeGen struct {
 	lambdaDepth     int                  // nesting depth of lambda bodies (>0 means inside fn)
 	lambdaScopeBase []int                // scope index at each lambda entry (stack)
 	lambdaOuterFunc []*ast.FuncDef       // enclosing function at each lambda entry (stack)
+	indent          int                  // current indent level for nested expression rendering
 	sandbox         *SandboxConfig       // Landlock sandbox config (nil = no sandbox)
 }
 
@@ -80,7 +80,7 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 		typeInfo:    ti,
 		sandbox:     sandbox,
 	}
-	g.w.source = sourceFile
+	
 	return g.generate(prog)
 }
 
@@ -278,12 +278,8 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	file.Decls = append(file.Decls, GoRawDecl{Code: strings.Join(suppressors, "\n") + "\n"})
 	file.Decls = append(file.Decls, GoBlankLine{})
 
-	// Runtime helpers (capture via old writer)
-	runtimeCode, _ := g.w.Capture(func() error {
-		g.writeRuntime()
-		return nil
-	})
-	file.Decls = append(file.Decls, GoRawDecl{Code: runtimeCode})
+	// Runtime helpers
+	file.Decls = append(file.Decls, GoRawDecl{Code: g.buildRuntimeCode()})
 
 	// Package-level variables from require'd files
 	for _, nv := range nsVars {
@@ -323,39 +319,27 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		file.Decls = append(file.Decls, decl)
 	}
 
-	// Dispatch maps (capture via old writer)
+	// Dispatch maps
 	dispatchHandlers := collectDispatchHandlers(prog.Statements, g.imports)
-	dispatchCode, _ := g.w.Capture(func() error {
-		g.writeDispatchMaps(funcs, dispatchHandlers)
-		return nil
-	})
-	if dispatchCode != "" {
-		file.Decls = append(file.Decls, GoRawDecl{Code: dispatchCode})
-	}
+	file.Decls = append(file.Decls, g.buildDispatchMaps(funcs, dispatchHandlers)...)
 
-	// Test harness (returns entire file via old writer — capture and append)
+	// Test harness
 	if len(tests) > 0 {
-		harnessCode, herr := g.w.Capture(func() error {
-			_, err := g.generateTestHarness(tests, topStmts, setupFunc, teardownFunc, setupFileFunc, teardownFileFunc)
-			return err
-		})
+		harnessDecls, herr := g.buildTestHarness(tests, topStmts, setupFunc, teardownFunc, setupFileFunc, teardownFileFunc)
 		if herr != nil {
 			return "", herr
 		}
-		file.Decls = append(file.Decls, GoRawDecl{Code: harnessCode})
+		file.Decls = append(file.Decls, harnessDecls...)
 		return PrintGoFile(file), nil
 	}
 
 	// Bench harness
 	if len(benches) > 0 {
-		harnessCode, herr := g.w.Capture(func() error {
-			_, err := g.generateBenchHarness(benches, topStmts)
-			return err
-		})
+		harnessDecls, herr := g.buildBenchHarness(benches, topStmts)
 		if herr != nil {
 			return "", herr
 		}
-		file.Decls = append(file.Decls, GoRawDecl{Code: harnessCode})
+		file.Decls = append(file.Decls, harnessDecls...)
 		return PrintGoFile(file), nil
 	}
 
@@ -363,11 +347,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	var mainBody []GoStmt
 	mainBody = append(mainBody, g.buildPanicHandler())
 	if g.sandbox != nil {
-		sandboxCode, _ := g.w.Capture(func() error {
-			g.writeSandboxApply()
-			return nil
-		})
-		mainBody = append(mainBody, GoRawStmt{Code: sandboxCode})
+		mainBody = append(mainBody, g.buildSandboxApply()...)
 	}
 	g.pushScope()
 	mainStmts, merr := g.buildStmts(topStmts)

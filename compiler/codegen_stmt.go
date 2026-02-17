@@ -6,106 +6,6 @@ import (
 	"strings"
 )
 
-func (g *codeGen) writeStmt(s ast.Statement) error {
-	nodes, err := g.buildStmt(s)
-	if err != nil {
-		return err
-	}
-	g.emitGoStmts(nodes)
-	return nil
-}
-
-// emitGoStmts writes Go output AST nodes through the old goWriter.
-// This is the bridge between the new buildStmt and the old write system.
-func (g *codeGen) emitGoStmts(nodes []GoStmt) {
-	for _, n := range nodes {
-		g.emitGoStmt(n)
-	}
-}
-
-func (g *codeGen) emitGoStmt(s GoStmt) {
-	switch st := s.(type) {
-	case GoExprStmt:
-		g.writef("%s\n", g.goExprStr(st.Expr))
-	case GoAssignStmt:
-		g.writef("%s %s %s\n", st.Target, st.Op, g.goExprStr(st.Value))
-	case GoMultiAssignStmt:
-		g.writef("%s %s %s\n", strings.Join(st.Targets, ", "), st.Op, g.goExprStr(st.Value))
-	case GoReturnStmt:
-		if st.Value != nil {
-			g.writef("return %s\n", g.goExprStr(st.Value))
-		} else {
-			g.writeln("return")
-		}
-	case GoIfStmt:
-		g.writef("if %s {\n", g.goExprStr(st.Cond))
-		g.w.Indent()
-		g.emitGoStmts(st.Body)
-		g.w.Dedent()
-		for _, ei := range st.ElseIf {
-			g.writef("} else if %s {\n", g.goExprStr(ei.Cond))
-			g.w.Indent()
-			g.emitGoStmts(ei.Body)
-			g.w.Dedent()
-		}
-		if len(st.Else) > 0 {
-			g.writeln("} else {")
-			g.w.Indent()
-			g.emitGoStmts(st.Else)
-			g.w.Dedent()
-		}
-		g.writeln("}")
-	case GoForStmt:
-		if st.Init != "" {
-			g.writef("for %s; %s; %s {\n", st.Init, st.Cond, st.Post)
-		} else if st.Cond != "" {
-			g.writef("for %s {\n", st.Cond)
-		} else {
-			g.writeln("for {")
-		}
-		g.w.Indent()
-		g.emitGoStmts(st.Body)
-		g.w.Dedent()
-		g.writeln("}")
-	case GoForRangeStmt:
-		if st.Value != "" {
-			g.writef("for %s, %s := range %s {\n", st.Key, st.Value, g.goExprStr(st.Collection))
-		} else {
-			g.writef("for %s := range %s {\n", st.Key, g.goExprStr(st.Collection))
-		}
-		g.w.Indent()
-		g.emitGoStmts(st.Body)
-		g.w.Dedent()
-		g.writeln("}")
-	case GoDeferStmt:
-		g.writeln("defer func() {")
-		g.w.Indent()
-		g.emitGoStmts(st.Body)
-		g.w.Dedent()
-		g.writeln("}()")
-	case GoGoStmt:
-		g.writeln("go func() {")
-		g.w.Indent()
-		g.emitGoStmts(st.Body)
-		g.w.Dedent()
-		g.writeln("}()")
-	case GoBreakStmt:
-		g.writeln("break")
-	case GoContinueStmt:
-		g.writeln("continue")
-	case GoBlankLine:
-		g.writeln("")
-	case GoLineDirective:
-		if st.Line > 0 && st.File != "" {
-			g.w.sb.WriteString(fmt.Sprintf("//line %s:%d\n", st.File, st.Line))
-		}
-	case GoComment:
-		g.writef("// %s\n", st.Text)
-	case GoRawStmt:
-		g.writef("%s\n", st.Code)
-	}
-}
-
 func (g *codeGen) goExprStr(e GoExpr) string {
 	switch ex := e.(type) {
 	case GoRawExpr:
@@ -119,7 +19,7 @@ func (g *codeGen) goExprStr(e GoExpr) string {
 
 // renderIIFE renders a GoIIFEExpr to a string at the current indent level.
 func (g *codeGen) renderIIFE(e GoIIFEExpr) string {
-	p := &goPrinter{indent: g.w.indent + 1}
+	p := &goPrinter{indent: g.indent + 1}
 	retType := e.ReturnType
 	if retType == "" {
 		retType = "interface{}"
@@ -131,12 +31,12 @@ func (g *codeGen) renderIIFE(e GoIIFEExpr) string {
 	}
 	sb.WriteString(p.sb.String())
 	if e.Result != nil {
-		for range g.w.indent + 1 {
+		for range g.indent + 1 {
 			sb.WriteByte('\t')
 		}
 		fmt.Fprintf(&sb, "return %s\n", g.goExprStr(e.Result))
 	}
-	for range g.w.indent {
+	for range g.indent {
 		sb.WriteByte('\t')
 	}
 	sb.WriteString("}()")

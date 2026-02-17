@@ -9,40 +9,35 @@ import (
 	"github.com/rubiojr/rugo/modules"
 )
 
-func (g *codeGen) writeRuntime() {
-	g.w.Raw(runtimeCorePre)
+func (g *codeGen) buildRuntimeCode() string {
+	var sb strings.Builder
+	sb.WriteString(runtimeCorePre)
 
-	// Module runtimes (only for use'd modules)
 	for _, name := range importedModuleNames(g.imports) {
 		if m, ok := modules.Get(name); ok {
-			g.w.Raw(m.FullRuntime())
+			sb.WriteString(m.FullRuntime())
 		}
 	}
 
-	g.w.Raw(runtimeCorePost)
+	sb.WriteString(runtimeCorePost)
 
 	if g.hasSpawn || g.usesTaskMethods {
-		g.writeSpawnRuntime()
+		sb.WriteString(runtimeSpawn)
 	}
 
-	// Sandbox runtime (Landlock self-sandboxing)
 	if g.sandbox != nil {
-		g.writeSandboxRuntime()
+		sb.WriteString(g.sandboxRuntimeCode())
 	}
 
-	// Go bridge helpers (only if any Go packages are imported)
 	if len(g.goImports) > 0 {
-		g.writeGoBridgeRuntime()
+		sb.WriteString(g.goBridgeRuntimeCode())
 	}
+	return sb.String()
 }
 
-func (g *codeGen) writeSpawnRuntime() {
-	g.w.Raw(runtimeSpawn)
-}
-
-// writeSandboxRuntime emits helper functions for Landlock-based sandboxing.
-func (g *codeGen) writeSandboxRuntime() {
-	g.w.Raw(`
+// sandboxRuntimeCode returns helper functions for Landlock-based sandboxing.
+func (g *codeGen) sandboxRuntimeCode() string {
+	return `
 func rugo_sandbox_fs_ro(dir bool) landlock.AccessFSSet {
 	rights := landlock.AccessFSSet(llsyscall.AccessFSReadFile)
 	if dir { rights |= landlock.AccessFSSet(llsyscall.AccessFSReadDir) }
@@ -86,112 +81,106 @@ func rugo_sandbox_is_dir(path string) bool {
 	fi, err := os.Stat(path)
 	return err == nil && fi.IsDir()
 }
-`)
+`
 }
 
-// writeSandboxApply emits the sandbox enforcement call inside main().
-func (g *codeGen) writeSandboxApply() {
-	// Environment variable filtering (works on all platforms, runs before Landlock).
-	// Only active when env: was explicitly specified in the sandbox directive or CLI.
+// buildSandboxApply returns GoStmt nodes for sandbox enforcement inside main().
+func (g *codeGen) buildSandboxApply() []GoStmt {
 	cfg := g.sandbox
+	var stmts []GoStmt
+
+	// Environment variable filtering
 	if cfg.EnvSet {
 		if len(cfg.Env) > 0 {
-			// Save allowed env vars, clear all, restore allowed
 			for i, name := range cfg.Env {
-				g.writef("rugo_sandbox_env_%d := os.Getenv(%q)\n", i, name)
+				stmts = append(stmts, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_env_%d := os.Getenv(%q)", i, name)})
 			}
-			g.writeln("os.Clearenv()")
+			stmts = append(stmts, GoRawStmt{Code: "os.Clearenv()"})
 			for i, name := range cfg.Env {
-				g.writef("if rugo_sandbox_env_%d != \"\" {\n", i)
-				g.w.Indent()
-				g.writef("os.Setenv(%q, rugo_sandbox_env_%d)\n", name, i)
-				g.w.Dedent()
-				g.writeln("}")
+				stmts = append(stmts, GoIfStmt{
+					Cond: GoRawExpr{Code: fmt.Sprintf(`rugo_sandbox_env_%d != ""`, i)},
+					Body: []GoStmt{GoRawStmt{Code: fmt.Sprintf("os.Setenv(%q, rugo_sandbox_env_%d)", name, i)}},
+				})
 			}
 		} else {
-			// env: [] — clear all environment variables
-			g.writeln("os.Clearenv()")
+			stmts = append(stmts, GoRawStmt{Code: "os.Clearenv()"})
 		}
 	}
 
-	g.writeln(`if runtime.GOOS != "linux" {`)
-	g.w.Indent()
-	g.writeln(`fmt.Fprintln(os.Stderr, "rugo: warning: sandbox requires Linux with Landlock support, running unrestricted")`)
-	g.w.Dedent()
-	g.writeln("} else {")
-	g.w.Indent()
-	g.writeln("rugo_sandbox_cfg := landlock.V5.BestEffort()")
-
+	// Platform check + Landlock setup
 	hasFS := len(cfg.RO) > 0 || len(cfg.RW) > 0 || len(cfg.ROX) > 0 || len(cfg.RWX) > 0
 	hasNet := len(cfg.Connect) > 0 || len(cfg.Bind) > 0
 
+	var landlockBody []GoStmt
+	landlockBody = append(landlockBody, GoRawStmt{Code: "rugo_sandbox_cfg := landlock.V5.BestEffort()"})
+
 	if hasFS {
-		g.writeln("var rugo_sandbox_fs []landlock.Rule")
+		landlockBody = append(landlockBody, GoRawStmt{Code: "var rugo_sandbox_fs []landlock.Rule"})
 		for _, p := range cfg.RO {
-			g.writef("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_ro(rugo_sandbox_is_dir(%q)), %q))\n", p, p)
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_ro(rugo_sandbox_is_dir(%q)), %q))", p, p)})
 		}
 		for _, p := range cfg.RW {
-			g.writef("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rw(rugo_sandbox_is_dir(%q)), %q))\n", p, p)
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rw(rugo_sandbox_is_dir(%q)), %q))", p, p)})
 		}
 		for _, p := range cfg.ROX {
-			g.writef("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rox(rugo_sandbox_is_dir(%q)), %q))\n", p, p)
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rox(rugo_sandbox_is_dir(%q)), %q))", p, p)})
 		}
 		for _, p := range cfg.RWX {
-			g.writef("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rwx(rugo_sandbox_is_dir(%q)), %q))\n", p, p)
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rwx(rugo_sandbox_is_dir(%q)), %q))", p, p)})
 		}
 	}
 
 	if hasNet {
-		g.writeln("var rugo_sandbox_net []landlock.Rule")
+		landlockBody = append(landlockBody, GoRawStmt{Code: "var rugo_sandbox_net []landlock.Rule"})
 		for _, port := range cfg.Connect {
-			g.writef("rugo_sandbox_net = append(rugo_sandbox_net, landlock.ConnectTCP(uint16(%d)))\n", port)
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_net = append(rugo_sandbox_net, landlock.ConnectTCP(uint16(%d)))", port)})
 		}
 		for _, port := range cfg.Bind {
-			g.writef("rugo_sandbox_net = append(rugo_sandbox_net, landlock.BindTCP(uint16(%d)))\n", port)
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_net = append(rugo_sandbox_net, landlock.BindTCP(uint16(%d)))", port)})
 		}
 	}
 
-	// Apply restrictions
+	errHandler := func(msg string) GoIfStmt {
+		return GoIfStmt{
+			Cond: GoRawExpr{Code: fmt.Sprintf("err := %s; err != nil", msg)},
+			Body: []GoStmt{GoRawStmt{Code: fmt.Sprintf(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox: %%v\n", err)`)}},
+		}
+	}
+
 	if !hasFS && !hasNet {
-		// Bare sandbox: maximum restriction
-		g.writeln(`if err := rugo_sandbox_cfg.Restrict(); err != nil {`)
-		g.w.Indent()
-		g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox: %v\n", err)`)
-		g.w.Dedent()
-		g.writeln("}")
+		landlockBody = append(landlockBody, errHandler("rugo_sandbox_cfg.Restrict()"))
 	} else {
 		if hasFS {
-			g.writeln("if err := rugo_sandbox_cfg.RestrictPaths(rugo_sandbox_fs...); err != nil {")
-			g.w.Indent()
-			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`)
-			g.w.Dedent()
-			g.writeln("}")
+			landlockBody = append(landlockBody, GoIfStmt{
+				Cond: GoRawExpr{Code: "err := rugo_sandbox_cfg.RestrictPaths(rugo_sandbox_fs...); err != nil"},
+				Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`}},
+			})
 		} else {
-			// No FS rules but has net rules — still restrict FS (deny all)
-			g.writeln("if err := rugo_sandbox_cfg.RestrictPaths(); err != nil {")
-			g.w.Indent()
-			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`)
-			g.w.Dedent()
-			g.writeln("}")
+			landlockBody = append(landlockBody, GoIfStmt{
+				Cond: GoRawExpr{Code: "err := rugo_sandbox_cfg.RestrictPaths(); err != nil"},
+				Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "rugo: warning: sandbox filesystem: %v\n", err)`}},
+			})
 		}
 		if hasNet {
-			g.writeln("if err := rugo_sandbox_cfg.RestrictNet(rugo_sandbox_net...); err != nil {")
-			g.w.Indent()
-			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`)
-			g.w.Dedent()
-			g.writeln("}")
+			landlockBody = append(landlockBody, GoIfStmt{
+				Cond: GoRawExpr{Code: "err := rugo_sandbox_cfg.RestrictNet(rugo_sandbox_net...); err != nil"},
+				Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`}},
+			})
 		} else {
-			// No net rules but has FS rules — still restrict net (deny all)
-			g.writeln("if err := rugo_sandbox_cfg.RestrictNet(); err != nil {")
-			g.w.Indent()
-			g.writeln(`fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`)
-			g.w.Dedent()
-			g.writeln("}")
+			landlockBody = append(landlockBody, GoIfStmt{
+				Cond: GoRawExpr{Code: "err := rugo_sandbox_cfg.RestrictNet(); err != nil"},
+				Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintf(os.Stderr, "rugo: warning: sandbox network: %v\n", err)`}},
+			})
 		}
 	}
 
-	g.w.Dedent()
-	g.writeln("}")
+	stmts = append(stmts, GoIfStmt{
+		Cond: GoRawExpr{Code: `runtime.GOOS != "linux"`},
+		Body: []GoStmt{GoRawStmt{Code: `fmt.Fprintln(os.Stderr, "rugo: warning: sandbox requires Linux with Landlock support, running unrestricted")`}},
+		Else: landlockBody,
+	})
+
+	return stmts
 }
 
 // writeDispatchMaps generates typed dispatch maps for modules that declare DispatchEntry.
@@ -373,31 +362,30 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 // writeGoBridgeRuntime emits helper functions needed by Go bridge calls.
 // Helpers are declared by bridge files via RuntimeHelpers on GoFuncSig,
 // deduplicated by key, and emitted once.
-func (g *codeGen) writeGoBridgeRuntime() {
-	g.w.Raw("\n// --- Go Bridge Helpers ---\n\n")
+func (g *codeGen) goBridgeRuntimeCode() string {
+	var sb strings.Builder
+	sb.WriteString("\n// --- Go Bridge Helpers ---\n\n")
 
-	// Always emit rugo_to_byte_slice — it's used by TypeConvToGo for GoByteSlice
-	// params in bridge calls, struct wrapper methods, and external type wrappers.
-	g.w.Raw(gobridge.ByteSliceHelper.Code)
+	sb.WriteString(gobridge.ByteSliceHelper.Code)
 
 	emitted := map[string]bool{gobridge.ByteSliceHelper.Key: true}
 	for pkg := range g.goImports {
 		for _, h := range gobridge.AllRuntimeHelpers(pkg) {
 			if !emitted[h.Key] {
 				emitted[h.Key] = true
-				g.w.Raw(h.Code)
+				sb.WriteString(h.Code)
 			}
 		}
-		// Auto-emit helpers for GoType-based conversions
 		if !emitted[gobridge.RuneHelper.Key] && gobridge.PackageNeedsRuneHelper(pkg) {
 			emitted[gobridge.RuneHelper.Key] = true
-			g.w.Raw(gobridge.RuneHelper.Code)
+			sb.WriteString(gobridge.RuneHelper.Code)
 		}
 		if !emitted[gobridge.StringSliceHelper.Key] && gobridge.PackageNeedsHelper(pkg, gobridge.GoStringSlice) {
 			emitted[gobridge.StringSliceHelper.Key] = true
-			g.w.Raw(gobridge.StringSliceHelper.Code)
+			sb.WriteString(gobridge.StringSliceHelper.Code)
 		}
 	}
+	return sb.String()
 }
 
 // arityCountError produces a human-friendly argument count error for range arity.

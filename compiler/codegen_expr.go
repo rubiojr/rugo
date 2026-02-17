@@ -817,14 +817,14 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 	// We need a different rendering for lambdas.
 
 	// Use a custom rendering since lambda shape differs from IIFE
-	p := &goPrinter{indent: g.w.indent + 1}
+	p := &goPrinter{indent: g.indent + 1}
 	var sb strings.Builder
 	sb.WriteString("interface{}(func(_args ...interface{}) interface{} {\n")
 	for _, s := range fullBody {
 		p.printStmt(s)
 	}
 	sb.WriteString(p.sb.String())
-	for range g.w.indent {
+	for range g.indent {
 		sb.WriteByte('\t')
 	}
 	sb.WriteString("})")

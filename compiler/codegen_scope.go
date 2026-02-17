@@ -230,15 +230,6 @@ func (g *codeGen) constantLine(name string) (int, bool) {
 	return 0, false
 }
 
-// Output helpers — delegate to the goWriter.
-func (g *codeGen) writeln(s string) {
-	g.w.Linef("%s", s)
-}
-
-func (g *codeGen) writef(format string, args ...interface{}) {
-	g.w.Line(format, args...)
-}
-
 // importedModuleNames returns sorted module names from the imports map.
 func importedModuleNames(imports map[string]bool) []string {
 	var names []string
