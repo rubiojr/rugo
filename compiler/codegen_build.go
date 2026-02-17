@@ -567,3 +567,36 @@ func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
 		Body:   body,
 	}, nil
 }
+
+// buildPanicHandler returns the defer/recover block used in main functions.
+func (g *codeGen) buildPanicHandler() GoDeferStmt {
+	return GoDeferStmt{Body: []GoStmt{
+		GoIfStmt{
+			Cond: GoRawExpr{Code: "e := recover(); e != nil"},
+			Body: []GoStmt{
+				GoIfStmt{
+					Cond: GoRawExpr{Code: "shellErr, ok := e.(rugoShellError); ok"},
+					Body: []GoStmt{GoRawStmt{Code: "os.Exit(shellErr.code)"}},
+				},
+				GoRawStmt{Code: "rugo_panic_handler(e)"},
+			},
+		},
+	}}
+}
+
+// buildMainFunc builds the main() function declaration.
+func (g *codeGen) buildMainFunc(topStmts []ast.Statement) (GoFuncDecl, error) {
+	var body []GoStmt
+	body = append(body, g.buildPanicHandler())
+
+	g.pushScope()
+	stmts, err := g.buildStmts(topStmts)
+	if err != nil {
+		g.popScope()
+		return GoFuncDecl{}, err
+	}
+	body = append(body, stmts...)
+	g.popScope()
+
+	return GoFuncDecl{Name: "main", Body: body}, nil
+}

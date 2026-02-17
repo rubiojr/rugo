@@ -435,11 +435,11 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		g.writeSandboxApply()
 	}
 	g.pushScope()
-	for _, s := range topStmts {
-		if err := g.writeStmt(s); err != nil {
-			return "", err
-		}
+	mainStmts, merr := g.buildStmts(topStmts)
+	if merr != nil {
+		return "", merr
 	}
+	g.emitGoStmts(mainStmts)
 	g.popScope()
 	g.w.Dedent()
 	g.writeln("}")

@@ -154,7 +154,8 @@ func (p *goPrinter) printStmt(s GoStmt) {
 	case GoBlankLine:
 		p.blank()
 	case GoLineDirective:
-		p.line("//line %s:%d", st.File, st.Line)
+		// //line directives must start at column 1 (no indentation)
+		fmt.Fprintf(&p.sb, "//line %s:%d\n", st.File, st.Line)
 	case GoComment:
 		p.line("// %s", st.Text)
 	case GoRawStmt:
