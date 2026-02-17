@@ -31,3 +31,9 @@ rats "shell fallback with try"
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "continued")
 end
+
+rats "return inside try/or handler sets handler result"
+  result = test.run("rugo run rats/core/fixtures/bug_try_or_return_type.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "1")
+end

@@ -1,0 +1,17 @@
+def find_stuff(query)
+  return [1, 2, 3]
+end
+
+def resolve(input)
+  matches = try find_stuff(input) or err
+    return nil
+  end
+
+  if len(matches) == 0
+    return nil
+  end
+
+  return matches[0]
+end
+
+puts resolve("test")

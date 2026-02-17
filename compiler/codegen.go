@@ -52,6 +52,7 @@ type codeGen struct {
 	currentFunc     *ast.FuncDef         // current function being generated (for type lookups)
 	varTypeScope    string               // override scope key for varType lookups (test/bench blocks)
 	inSpawn         int                  // nesting depth of spawn blocks (>0 means inside spawn)
+	inTryHandler    int                  // nesting depth of try/or handler defers (>0 means inside handler)
 	lambdaDepth     int                  // nesting depth of lambda bodies (>0 means inside fn)
 	lambdaScopeBase []int                // scope index at each lambda entry (stack)
 	lambdaOuterFunc []*ast.FuncDef       // enclosing function at each lambda entry (stack)
@@ -978,16 +979,14 @@ func (g *codeGen) writeFunc(f *ast.FuncDef) error {
 	g.inFunc = true
 	hasImplicitReturn := false
 	for i, s := range f.Body {
-		// Implicit return: last expression in function body becomes the return value.
+		// Implicit return: last expression or if/else in function body becomes the return value.
 		if i == len(f.Body)-1 {
-			if es, ok := s.(*ast.ExprStmt); ok {
-				g.emitLineDirective(es.SourceLine)
-				expr, err := g.exprString(es.Expression)
-				if err != nil {
-					return err
-				}
-				g.writef("return %s\n", expr)
-				hasImplicitReturn = true
+			handled, allCovered, err := g.writeLastStmtAs(s, "return %s\n")
+			if err != nil {
+				return err
+			}
+			if handled {
+				hasImplicitReturn = allCovered
 				continue
 			}
 		}
@@ -1220,23 +1219,7 @@ func (g *codeGen) writeExprStmt(e *ast.ExprStmt) error {
 func (g *codeGen) writeIf(i *ast.IfStmt) error {
 	// Pre-declare variables assigned in any branch so they're visible
 	// after the if block (Ruby-like scoping: if/else doesn't create a new scope).
-	var allBranches []ast.Statement
-	allBranches = append(allBranches, i.Body...)
-	for _, ec := range i.ElsifClauses {
-		allBranches = append(allBranches, ec.Body...)
-	}
-	allBranches = append(allBranches, i.ElseBody...)
-	for _, name := range collectAssignTargets(allBranches) {
-		if !g.isDeclared(name) {
-			varType := g.varType(name)
-			if varType.IsTyped() {
-				g.writef("var %s %s\n", name, varType.GoType())
-			} else {
-				g.writef("var %s interface{}\n", name)
-			}
-			g.declareVar(name)
-		}
-	}
+	g.predeclareIfVars(i)
 
 	cond, err := g.exprString(i.Condition)
 	if err != nil {
@@ -1275,6 +1258,114 @@ func (g *codeGen) writeIf(i *ast.IfStmt) error {
 		g.indent--
 	}
 	g.writeln("}")
+	return nil
+}
+
+// predeclareIfVars pre-declares variables assigned in any branch of an if/else
+// so they're visible after the if block (Ruby-like scoping).
+func (g *codeGen) predeclareIfVars(i *ast.IfStmt) {
+	var allBranches []ast.Statement
+	allBranches = append(allBranches, i.Body...)
+	for _, ec := range i.ElsifClauses {
+		allBranches = append(allBranches, ec.Body...)
+	}
+	allBranches = append(allBranches, i.ElseBody...)
+	for _, name := range collectAssignTargets(allBranches) {
+		if !g.isDeclared(name) {
+			varType := g.varType(name)
+			if varType.IsTyped() {
+				g.writef("var %s %s\n", name, varType.GoType())
+			} else {
+				g.writef("var %s interface{}\n", name)
+			}
+			g.declareVar(name)
+		}
+	}
+}
+
+// writeLastStmtAs tries to write a statement as an implicit return or assignment.
+// format is the format string for the last expression (e.g. "return %s\n" or "r = %s\n").
+// Returns handled=true if the statement was written, allCovered=true if all code paths
+// produce a value (e.g. if/elsif/else with all branches handled).
+func (g *codeGen) writeLastStmtAs(s ast.Statement, format string) (handled bool, allCovered bool, err error) {
+	switch st := s.(type) {
+	case *ast.ExprStmt:
+		g.emitLineDirective(st.StmtLine())
+		expr, err := g.exprString(st.Expression)
+		if err != nil {
+			return false, false, err
+		}
+		g.writef(format, expr)
+		return true, true, nil
+	case *ast.IfStmt:
+		allCovered, err := g.writeIfWithLastAction(st, format)
+		if err != nil {
+			return false, false, err
+		}
+		return true, allCovered, nil
+	default:
+		return false, false, nil
+	}
+}
+
+// writeIfWithLastAction writes an if/elsif/else block where the last expression
+// in each branch is formatted with the given format string (for implicit returns).
+func (g *codeGen) writeIfWithLastAction(i *ast.IfStmt, format string) (bool, error) {
+	g.predeclareIfVars(i)
+
+	cond, err := g.exprString(i.Condition)
+	if err != nil {
+		return false, err
+	}
+	g.writef("if %s {\n", g.condExpr(cond, i.Condition))
+	g.indent++
+	if err := g.writeBodyWithLastAction(i.Body, format); err != nil {
+		return false, err
+	}
+	g.indent--
+	for _, ec := range i.ElsifClauses {
+		cond, err := g.exprString(ec.Condition)
+		if err != nil {
+			return false, err
+		}
+		g.writef("} else if %s {\n", g.condExpr(cond, ec.Condition))
+		g.indent++
+		if err := g.writeBodyWithLastAction(ec.Body, format); err != nil {
+			return false, err
+		}
+		g.indent--
+	}
+	allCovered := false
+	if len(i.ElseBody) > 0 {
+		g.writeln("} else {")
+		g.indent++
+		if err := g.writeBodyWithLastAction(i.ElseBody, format); err != nil {
+			return false, err
+		}
+		g.indent--
+		allCovered = true
+	}
+	g.writeln("}")
+	return allCovered, nil
+}
+
+// writeBodyWithLastAction writes a list of statements, converting the last
+// expression into the given format (e.g. "return %s\n").
+func (g *codeGen) writeBodyWithLastAction(body []ast.Statement, format string) error {
+	for i, s := range body {
+		if i == len(body)-1 {
+			handled, _, err := g.writeLastStmtAs(s, format)
+			if err != nil {
+				return err
+			}
+			if handled {
+				continue
+			}
+		}
+		if err := g.writeStmt(s); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -1476,6 +1567,18 @@ func (g *codeGen) rangeIntExpr(e ast.Expr) string {
 }
 
 func (g *codeGen) writeReturn(r *ast.ReturnStmt) error {
+	// Inside a try/or handler defer, return sets the handler result (r).
+	if g.inTryHandler > 0 {
+		if r.Value != nil {
+			expr, err := g.exprString(r.Value)
+			if err != nil {
+				return err
+			}
+			g.writef("r = %s\n", expr)
+		}
+		g.writeln("return")
+		return nil
+	}
 	// Inside a spawn block, return EXPR must assign to t.result and
 	// use a bare return (the goroutine closure has no return value).
 	if g.inSpawn > 0 {
@@ -2145,27 +2248,30 @@ func (g *codeGen) tryExpr(e *ast.TryExpr) (string, error) {
 	handlerCode, cerr := g.captureOutput(func() error {
 		g.pushScope()
 		g.declareVar(e.ErrVar)
+		g.inTryHandler++
 
 		for i, s := range e.Handler {
 			isLast := i == len(e.Handler)-1
 			if isLast {
-				// Last statement: if it's a bare expression, assign to r (return value)
-				if es, ok := s.(*ast.ExprStmt); ok {
-					val, verr := g.exprString(es.Expression)
-					if verr != nil {
-						g.popScope()
-						return verr
-					}
-					g.writef("r = %s\n", val)
+				// Last statement: if it's a bare expression or if/else, assign to r (return value)
+				handled, _, herr := g.writeLastStmtAs(s, "r = %s\n")
+				if herr != nil {
+					g.inTryHandler--
+					g.popScope()
+					return herr
+				}
+				if handled {
 					continue
 				}
 			}
 			if werr := g.writeStmt(s); werr != nil {
+				g.inTryHandler--
 				g.popScope()
 				return werr
 			}
 		}
 
+		g.inTryHandler--
 		g.popScope()
 		return nil
 	})
@@ -2274,15 +2380,13 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 		for i, s := range e.Body {
 			isLast := i == len(e.Body)-1
 			if isLast {
-				// Last statement: if it's a bare expression, make it the return value
-				if es, ok := s.(*ast.ExprStmt); ok {
-					g.emitLineDirective(es.StmtLine())
-					val, verr := g.exprString(es.Expression)
-					if verr != nil {
-						restoreLambda()
-						return verr
-					}
-					g.writef("return %s\n", val)
+				// Last statement: if it's a bare expression or if/else, make it the return value
+				handled, _, herr := g.writeLastStmtAs(s, "return %s\n")
+				if herr != nil {
+					restoreLambda()
+					return herr
+				}
+				if handled {
 					continue
 				}
 			}

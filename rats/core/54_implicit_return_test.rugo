@@ -81,3 +81,37 @@ rats "explicit return still works"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "small\nbig")
 end
+
+rats "implicit return from if/else in function"
+  source = <<~RUGO
+    def classify(x)
+      if x > 10
+        "big"
+      else
+        "small"
+      end
+    end
+    puts(classify(20))
+    puts(classify(5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "big\nsmall")
+end
+
+rats "implicit return from if/else in lambda"
+  source = <<~RUGO
+    arr = [1, 2, 3, nil]
+    result = arr.map(fn(x)
+      if x != nil
+        x * 2
+      else
+        nil
+      end
+    end)
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "[2 4 6 <nil>]")
+end
