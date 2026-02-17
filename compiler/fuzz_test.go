@@ -6,14 +6,28 @@ import (
 	"strings"
 	"testing"
 
+	_ "github.com/rubiojr/rugo/modules/ast"
+	_ "github.com/rubiojr/rugo/modules/base64"
 	_ "github.com/rubiojr/rugo/modules/bench"
+	_ "github.com/rubiojr/rugo/modules/cli"
+	_ "github.com/rubiojr/rugo/modules/color"
 	_ "github.com/rubiojr/rugo/modules/conv"
+	_ "github.com/rubiojr/rugo/modules/crypto"
+	_ "github.com/rubiojr/rugo/modules/filepath"
 	_ "github.com/rubiojr/rugo/modules/fmt"
+	_ "github.com/rubiojr/rugo/modules/hex"
 	_ "github.com/rubiojr/rugo/modules/http"
+	_ "github.com/rubiojr/rugo/modules/json"
+	_ "github.com/rubiojr/rugo/modules/math"
 	_ "github.com/rubiojr/rugo/modules/os"
+	_ "github.com/rubiojr/rugo/modules/queue"
+	_ "github.com/rubiojr/rugo/modules/rand"
 	_ "github.com/rubiojr/rugo/modules/re"
+	_ "github.com/rubiojr/rugo/modules/sqlite"
 	_ "github.com/rubiojr/rugo/modules/str"
 	_ "github.com/rubiojr/rugo/modules/test"
+	_ "github.com/rubiojr/rugo/modules/time"
+	_ "github.com/rubiojr/rugo/modules/web"
 )
 
 // seedCorpus loads all .rugo files from examples/ and rats/fixtures/ as seed
@@ -133,6 +147,68 @@ func seedCorpus(f *testing.F) {
 		// Lambda edge cases
 		"f = fn() nil end\nf.call()",
 		"f = fn(a, b, c) a + b + c end\nf.call(1, 2, 3)",
+		// Default parameter values
+		"def greet(name, greeting = \"Hello\")\n  \"#{greeting}, #{name}!\"\nend\ngreet(\"world\")",
+		"def add(a, b = 0, c = 0)\n  a + b + c\nend\nadd(1)\nadd(1, 2)\nadd(1, 2, 3)",
+		"f = fn(x, y = 10) x + y end\nf.call(5)",
+		// do...end trailing block syntax
+		"def run(block)\n  block.call()\nend\nrun() do\n  42\nend",
+		"def with_val(val, block)\n  block.call()\nend\nwith_val(\"hi\") do\n  puts(1)\nend",
+		"result = fn(b) b.call() end.call(fn() 99 end)",
+		// Implicit return from if/else
+		"def classify(x)\n  if x > 10\n    \"big\"\n  else\n    \"small\"\n  end\nend\nclassify(20)",
+		"def maybe(x)\n  if x\n    x\n  end\nend\nmaybe(nil)",
+		"f = fn(x)\n  if x > 0\n    \"pos\"\n  else\n    \"neg\"\n  end\nend\nf.call(1)",
+		// Return inside try/or
+		"def safe_div(a, b)\n  try a / b or err\n    return 0\n  end\nend\nsafe_div(1, 0)",
+		// Heredocs in return statements
+		"def greeting(name)\n  return <<~TEXT\n    Hello #{name}\n  TEXT\nend\ngreeting(\"world\")",
+		// Native dot methods on arrays
+		"[1, 2, 3].each(fn(x) x end)",
+		"[3, 1, 2].sort_by(fn(x) x end)",
+		"[1, 2, 3].any?(fn(x) x > 2 end)",
+		"[1, 2, 3].all?(fn(x) x > 0 end)",
+		"[1, 2, 3].count()",
+		"[1, 2, 3].reverse()",
+		"[1, 2, 3].min()",
+		"[1, 2, 3].max()",
+		"[1, 2, 3].sum()",
+		"[1, 2, 3].zip([4, 5, 6])",
+		"[1, 2, 3].include?(2)",
+		"[1, 2, 3].reject(fn(x) x == 2 end)",
+		"[1, 2, 3].flat_map(fn(x) [x, x] end)",
+		"[1, 2, 3].take(2)",
+		"[1, 2, 3].drop(1)",
+		"[1, 2, 3].each_with_index(fn(x, i) x end)",
+		// Native dot methods on hashes
+		"{a: 1, b: 2}.each(fn(k, v) k end)",
+		"{a: 1, b: 2}.map(fn(k, v) v end)",
+		"{a: 1, b: 2}.filter(fn(k, v) v > 1 end)",
+		"{a: 1, b: 2}.count()",
+		"{a: 1, b: 2}.any?(fn(k, v) v > 1 end)",
+		// Go bridge imports
+		"import \"strings\"\nstrings.contains(\"hello\", \"ell\")",
+		"import \"strconv\"\nstrconv.itoa(42)",
+		// Import aliasing
+		"import \"os\" as go_os",
+		// Additional use statements for modules
+		`use "json"`,
+		`use "math"`,
+		`use "base64"`,
+		`use "hex"`,
+		`use "crypto"`,
+		`use "filepath"`,
+		`use "rand"`,
+		`use "time"`,
+		`use "color"`,
+		`use "cli"`,
+		`use "queue"`,
+		// type_of with more types
+		"puts(type_of(1.5))",
+		"puts(type_of({a: 1}))",
+		"puts(type_of(\"hi\"))",
+		"puts(type_of(nil))",
+		"puts(type_of(true))",
 		// Empty/minimal
 		"",
 		"puts(1)",
@@ -140,6 +216,36 @@ func seedCorpus(f *testing.F) {
 	}
 	for _, s := range seeds {
 		f.Add(s)
+	}
+}
+
+// goLeakPatterns are strings that indicate Go internals leaking into
+// user-facing error messages. Each entry is checked case-insensitively
+// against error strings from the parser and codegen.
+var goLeakPatterns = []struct {
+	pattern string // matched case-insensitively
+	label   string // human-readable description for test output
+}{
+	{"interface{}", "Go type name in error"},
+	{"interface {}", "Go type name in error"},
+	{"[]interface", "Go slice type in error"},
+	{"map[interface", "Go map type in error"},
+	{"*main.", "Go struct name in error"},
+	{"goroutine ", "raw Go stack trace in error"},
+	{"exit status", "raw Go build error leaked"},
+	{"panic:", "raw Go panic in error"},
+}
+
+// checkGoLeaks reports a test failure if the error string contains Go
+// internals that should not be visible to Rugo users.
+func checkGoLeaks(t *testing.T, src, context, errStr string) {
+	t.Helper()
+	lower := strings.ToLower(errStr)
+	for _, p := range goLeakPatterns {
+		if strings.Contains(lower, strings.ToLower(p.pattern)) {
+			t.Errorf("%s: %s on input:\n%s\nerror: %s", context, p.label, src, errStr)
+			return
+		}
 	}
 }
 
@@ -170,6 +276,7 @@ func FuzzParseSource(f *testing.F) {
 			if strings.Contains(strings.ToLower(errStr), "index out of range") {
 				t.Errorf("index out of range surfaced as error on input:\n%s\nerror: %s", src, errStr)
 			}
+			checkGoLeaks(t, src, "parser", errStr)
 		}
 	})
 }
@@ -213,6 +320,7 @@ func FuzzCodegen(f *testing.F) {
 				if strings.Contains(lower, "nil pointer") {
 					t.Errorf("codegen nil pointer on input:\n%s\nerror: %s", src, errStr)
 				}
+				checkGoLeaks(t, src, "codegen", errStr)
 			}
 		}()
 		if goSrc == "" {
