@@ -269,6 +269,74 @@ func (p *goPrinter) exprStr(e GoExpr) string {
 		return ex.Code
 	case GoIIFEExpr:
 		return p.printIIFE(ex)
+	case GoIdentExpr:
+		return ex.Name
+	case GoIntLit:
+		return ex.Value
+	case GoFloatLit:
+		return ex.Value
+	case GoStringLit:
+		return fmt.Sprintf(`"%s"`, ex.Value)
+	case GoBoolLit:
+		if ex.Value {
+			return "true"
+		}
+		return "false"
+	case GoNilExpr:
+		return "nil"
+	case GoBinaryExpr:
+		return fmt.Sprintf("%s %s %s", p.exprStr(ex.Left), ex.Op, p.exprStr(ex.Right))
+	case GoUnaryExpr:
+		return fmt.Sprintf("%s%s", ex.Op, p.exprStr(ex.Operand))
+	case GoCastExpr:
+		return fmt.Sprintf("%s(%s)", ex.Type, p.exprStr(ex.Value))
+	case GoTypeAssert:
+		return fmt.Sprintf("%s.(%s)", p.exprStr(ex.Value), ex.Type)
+	case GoCallExpr:
+		args := make([]string, len(ex.Args))
+		for i, a := range ex.Args {
+			args[i] = p.exprStr(a)
+		}
+		return fmt.Sprintf("%s(%s)", ex.Func, strings.Join(args, ", "))
+	case GoMethodCallExpr:
+		args := make([]string, len(ex.Args))
+		for i, a := range ex.Args {
+			args[i] = p.exprStr(a)
+		}
+		return fmt.Sprintf("%s.%s(%s)", p.exprStr(ex.Object), ex.Method, strings.Join(args, ", "))
+	case GoDotExpr:
+		return fmt.Sprintf("%s.%s", p.exprStr(ex.Object), ex.Field)
+	case GoSliceLit:
+		elems := make([]string, len(ex.Elements))
+		for i, el := range ex.Elements {
+			elems[i] = p.exprStr(el)
+		}
+		return fmt.Sprintf("%s{%s}", ex.Type, strings.Join(elems, ", "))
+	case GoMapLit:
+		pairs := make([]string, len(ex.Pairs))
+		for i, pair := range ex.Pairs {
+			pairs[i] = fmt.Sprintf("%s: %s", p.exprStr(pair.Key), p.exprStr(pair.Value))
+		}
+		return fmt.Sprintf("map[%s]%s{%s}", ex.KeyType, ex.ValType, strings.Join(pairs, ", "))
+	case GoFmtSprintf:
+		args := make([]string, len(ex.Args))
+		for i, a := range ex.Args {
+			args[i] = p.exprStr(a)
+		}
+		if len(args) > 0 {
+			return fmt.Sprintf(`fmt.Sprintf("%s", %s)`, ex.Format, strings.Join(args, ", "))
+		}
+		return fmt.Sprintf(`fmt.Sprintf("%s")`, ex.Format)
+	case GoStringConcat:
+		parts := make([]string, len(ex.Parts))
+		for i, part := range ex.Parts {
+			parts[i] = p.exprStr(part)
+		}
+		return strings.Join(parts, " + ")
+	case GoIndexExpr:
+		return fmt.Sprintf("%s[%s]", p.exprStr(ex.Object), p.exprStr(ex.Index))
+	case GoParenExpr:
+		return fmt.Sprintf("(%s)", p.exprStr(ex.Inner))
 	default:
 		return "<unknown expr>"
 	}

@@ -283,14 +283,14 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 
 	// Package-level variables from require'd files
 	for _, nv := range nsVars {
-		expr, err := g.exprString(nv.Value)
+		expr, err := g.buildExpr(nv.Value)
 		if err != nil {
 			return "", err
 		}
 		file.Decls = append(file.Decls, GoVarDecl{
 			Name:  fmt.Sprintf("rugons_%s_%s", nv.Namespace, nv.Target),
 			Type:  "interface{}",
-			Value: GoRawExpr{Code: expr},
+			Value: expr,
 		})
 	}
 	if len(nsVars) > 0 {

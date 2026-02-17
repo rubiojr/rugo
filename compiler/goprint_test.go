@@ -341,3 +341,145 @@ func TestPrintGoFile_BareReturn(t *testing.T) {
 	got := PrintGoFile(f)
 	assert.Contains(t, got, "\treturn\n")
 }
+
+// --- Structured GoExpr printer tests ---
+
+func TestPrinter_GoIdentExpr(t *testing.T) {
+	got := testExprPrint(GoIdentExpr{Name: "myVar"})
+	assert.Equal(t, "myVar", got)
+}
+
+func TestPrinter_GoIntLit(t *testing.T) {
+	got := testExprPrint(GoIntLit{Value: "42"})
+	assert.Equal(t, "42", got)
+}
+
+func TestPrinter_GoFloatLit(t *testing.T) {
+	got := testExprPrint(GoFloatLit{Value: "3.14"})
+	assert.Equal(t, "3.14", got)
+}
+
+func TestPrinter_GoStringLit(t *testing.T) {
+	got := testExprPrint(GoStringLit{Value: `hello\nworld`})
+	assert.Equal(t, `"hello\nworld"`, got)
+}
+
+func TestPrinter_GoBoolLit(t *testing.T) {
+	assert.Equal(t, "true", testExprPrint(GoBoolLit{Value: true}))
+	assert.Equal(t, "false", testExprPrint(GoBoolLit{Value: false}))
+}
+
+func TestPrinter_GoNilExpr(t *testing.T) {
+	got := testExprPrint(GoNilExpr{})
+	assert.Equal(t, "nil", got)
+}
+
+func TestPrinter_GoBinaryExpr(t *testing.T) {
+	got := testExprPrint(GoBinaryExpr{
+		Left:  GoIdentExpr{Name: "a"},
+		Op:    "+",
+		Right: GoIntLit{Value: "1"},
+	})
+	assert.Equal(t, "a + 1", got)
+}
+
+func TestPrinter_GoUnaryExpr(t *testing.T) {
+	got := testExprPrint(GoUnaryExpr{Op: "-", Operand: GoIdentExpr{Name: "x"}})
+	assert.Equal(t, "-x", got)
+}
+
+func TestPrinter_GoCastExpr(t *testing.T) {
+	got := testExprPrint(GoCastExpr{Type: "interface{}", Value: GoIntLit{Value: "42"}})
+	assert.Equal(t, "interface{}(42)", got)
+}
+
+func TestPrinter_GoTypeAssert(t *testing.T) {
+	got := testExprPrint(GoTypeAssert{Value: GoIdentExpr{Name: "x"}, Type: "int"})
+	assert.Equal(t, "x.(int)", got)
+}
+
+func TestPrinter_GoCallExpr(t *testing.T) {
+	got := testExprPrint(GoCallExpr{
+		Func: "rugo_add",
+		Args: []GoExpr{GoIdentExpr{Name: "a"}, GoIdentExpr{Name: "b"}},
+	})
+	assert.Equal(t, "rugo_add(a, b)", got)
+}
+
+func TestPrinter_GoCallExpr_NoArgs(t *testing.T) {
+	got := testExprPrint(GoCallExpr{Func: "noop"})
+	assert.Equal(t, "noop()", got)
+}
+
+func TestPrinter_GoMethodCallExpr(t *testing.T) {
+	got := testExprPrint(GoMethodCallExpr{
+		Object: GoIdentExpr{Name: "obj"},
+		Method: "Get",
+		Args:   []GoExpr{GoStringLit{Value: "key"}},
+	})
+	assert.Equal(t, `obj.Get("key")`, got)
+}
+
+func TestPrinter_GoDotExpr(t *testing.T) {
+	got := testExprPrint(GoDotExpr{Object: GoIdentExpr{Name: "t"}, Field: "result"})
+	assert.Equal(t, "t.result", got)
+}
+
+func TestPrinter_GoSliceLit(t *testing.T) {
+	got := testExprPrint(GoSliceLit{
+		Type:     "[]interface{}",
+		Elements: []GoExpr{GoIntLit{Value: "1"}, GoIntLit{Value: "2"}},
+	})
+	assert.Equal(t, "[]interface{}{1, 2}", got)
+}
+
+func TestPrinter_GoMapLit(t *testing.T) {
+	got := testExprPrint(GoMapLit{
+		KeyType: "string",
+		ValType: "int",
+		Pairs: []GoMapPair{
+			{Key: GoStringLit{Value: "a"}, Value: GoIntLit{Value: "1"}},
+		},
+	})
+	assert.Equal(t, `map[string]int{"a": 1}`, got)
+}
+
+func TestPrinter_GoFmtSprintf(t *testing.T) {
+	got := testExprPrint(GoFmtSprintf{
+		Format: "%s is %d",
+		Args:   []GoExpr{GoIdentExpr{Name: "name"}, GoIdentExpr{Name: "age"}},
+	})
+	assert.Equal(t, `fmt.Sprintf("%s is %d", name, age)`, got)
+}
+
+func TestPrinter_GoStringConcat(t *testing.T) {
+	got := testExprPrint(GoStringConcat{
+		Parts: []GoExpr{GoStringLit{Value: "hello "}, GoIdentExpr{Name: "name"}},
+	})
+	assert.Equal(t, `"hello " + name`, got)
+}
+
+func TestPrinter_GoIndexExpr(t *testing.T) {
+	got := testExprPrint(GoIndexExpr{
+		Object: GoIdentExpr{Name: "arr"},
+		Index:  GoIntLit{Value: "0"},
+	})
+	assert.Equal(t, "arr[0]", got)
+}
+
+func TestPrinter_GoParenExpr(t *testing.T) {
+	got := testExprPrint(GoParenExpr{
+		Inner: GoBinaryExpr{
+			Left:  GoIdentExpr{Name: "a"},
+			Op:    "+",
+			Right: GoIdentExpr{Name: "b"},
+		},
+	})
+	assert.Equal(t, "(a + b)", got)
+}
+
+// testExprPrint is a helper that prints a GoExpr using the printer.
+func testExprPrint(e GoExpr) string {
+	p := &goPrinter{}
+	return p.exprStr(e)
+}

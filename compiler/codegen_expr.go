@@ -10,6 +10,32 @@ import (
 	"github.com/rubiojr/rugo/parser"
 )
 
+// buildExpr converts a Rugo AST expression into a Go output AST expression.
+// This is the bridge between the Rugo AST and the Go output AST.
+// Currently delegates to exprString(); later phases will replace this
+// with direct structured GoExpr construction.
+func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
+	s, err := g.exprString(e)
+	if err != nil {
+		return nil, err
+	}
+	return GoRawExpr{Code: s}, nil
+}
+
+// buildCondExpr builds a condition expression for use in if/while.
+// If the condition is typed bool, returns it directly; otherwise wraps with rugo_to_bool.
+func (g *codeGen) buildCondExpr(e ast.Expr) (GoExpr, error) {
+	expr, err := g.buildExpr(e)
+	if err != nil {
+		return nil, err
+	}
+	if g.exprType(e) == TypeBool {
+		return expr, nil
+	}
+	s := (&goPrinter{}).exprStr(expr)
+	return GoRawExpr{Code: fmt.Sprintf("rugo_to_bool(%s)", g.boxed(s, g.exprType(e)))}, nil
+}
+
 func (g *codeGen) exprString(e ast.Expr) (string, error) {
 	switch ex := e.(type) {
 	case *ast.IntLiteral:
@@ -655,12 +681,12 @@ func (g *codeGen) loweredTryExpr(e *ast.LoweredTryExpr) (string, error) {
 			return "", berr
 		}
 		handlerBody = append(handlerBody, stmts...)
-		val, verr := g.exprString(e.ResultExpr)
+		val, verr := g.buildExpr(e.ResultExpr)
 		if verr != nil {
 			g.popScope()
 			return "", verr
 		}
-		handlerBody = append(handlerBody, GoAssignStmt{Target: "r", Op: "=", Value: GoRawExpr{Code: val}})
+		handlerBody = append(handlerBody, GoAssignStmt{Target: "r", Op: "=", Value: val})
 	} else {
 		stmts, berr := g.buildStmts(e.Handler)
 		if berr != nil {
@@ -699,12 +725,12 @@ func (g *codeGen) loweredSpawnExpr(e *ast.LoweredSpawnExpr) (string, error) {
 		return "", err
 	}
 	if e.ResultExpr != nil {
-		val, verr := g.exprString(e.ResultExpr)
+		val, verr := g.buildExpr(e.ResultExpr)
 		if verr != nil {
 			g.popScope()
 			return "", verr
 		}
-		bodyStmts = append(bodyStmts, GoAssignStmt{Target: "t.result", Op: "=", Value: GoRawExpr{Code: val}})
+		bodyStmts = append(bodyStmts, GoAssignStmt{Target: "t.result", Op: "=", Value: val})
 	}
 	g.popScope()
 
@@ -785,12 +811,13 @@ func (g *codeGen) fnExpr(e *ast.FnExpr) (string, error) {
 
 	for i, p := range e.Params {
 		if p.Default != nil {
-			defaultExpr, derr := g.exprString(p.Default)
+			defaultExpr, derr := g.buildExpr(p.Default)
 			if derr != nil {
 				return "", derr
 			}
+			pr := &goPrinter{}
 			preamble = append(preamble, GoVarStmt{Name: p.Name, Type: "interface{}"})
-			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] } else { %s = %s }", i, p.Name, i, p.Name, defaultExpr)})
+			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] } else { %s = %s }", i, p.Name, i, p.Name, pr.exprStr(defaultExpr))})
 		} else {
 			preamble = append(preamble, GoVarStmt{Name: p.Name, Type: "interface{}"})
 			preamble = append(preamble, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] }", i, p.Name, i)})
@@ -848,12 +875,13 @@ func (g *codeGen) loweredParallelExpr(e *ast.LoweredParallelExpr) (string, error
 	branches := make([]branchInfo, n)
 	for _, br := range e.Branches {
 		if br.Expr != nil {
-			code, err := g.exprString(br.Expr)
+			code, err := g.buildExpr(br.Expr)
 			if err != nil {
 				return "", err
 			}
+			p := &goPrinter{}
 			branches[br.Index] = branchInfo{
-				stmts:  []GoStmt{GoRawStmt{Code: fmt.Sprintf("_results[%d] = %s", br.Index, code)}},
+				stmts:  []GoStmt{GoRawStmt{Code: fmt.Sprintf("_results[%d] = %s", br.Index, p.exprStr(code))}},
 				isExpr: true,
 			}
 		} else {

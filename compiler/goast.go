@@ -229,3 +229,156 @@ type GoIIFEExpr struct {
 }
 
 func (GoIIFEExpr) goExpr() {}
+
+// --- Structured expression types ---
+
+// GoIdentExpr represents a Go identifier reference.
+type GoIdentExpr struct {
+	Name string
+}
+
+func (GoIdentExpr) goExpr() {}
+
+// GoIntLit represents an integer literal.
+type GoIntLit struct {
+	Value string
+}
+
+func (GoIntLit) goExpr() {}
+
+// GoFloatLit represents a float literal.
+type GoFloatLit struct {
+	Value string
+}
+
+func (GoFloatLit) goExpr() {}
+
+// GoStringLit represents a Go string literal (with quotes).
+type GoStringLit struct {
+	Value string // Go-escaped content WITHOUT quotes
+}
+
+func (GoStringLit) goExpr() {}
+
+// GoBoolLit represents a boolean literal.
+type GoBoolLit struct {
+	Value bool
+}
+
+func (GoBoolLit) goExpr() {}
+
+// GoNilExpr represents the nil value.
+type GoNilExpr struct{}
+
+func (GoNilExpr) goExpr() {}
+
+// GoBinaryExpr represents: left op right
+type GoBinaryExpr struct {
+	Left  GoExpr
+	Op    string
+	Right GoExpr
+}
+
+func (GoBinaryExpr) goExpr() {}
+
+// GoUnaryExpr represents: op operand
+type GoUnaryExpr struct {
+	Op      string
+	Operand GoExpr
+}
+
+func (GoUnaryExpr) goExpr() {}
+
+// GoCastExpr represents a type conversion: type(value)
+type GoCastExpr struct {
+	Type  string
+	Value GoExpr
+}
+
+func (GoCastExpr) goExpr() {}
+
+// GoTypeAssert represents a type assertion: value.(type)
+type GoTypeAssert struct {
+	Value GoExpr
+	Type  string
+}
+
+func (GoTypeAssert) goExpr() {}
+
+// GoCallExpr represents a function call: func(args...)
+type GoCallExpr struct {
+	Func string
+	Args []GoExpr
+}
+
+func (GoCallExpr) goExpr() {}
+
+// GoMethodCallExpr represents a method call: obj.Method(args...)
+type GoMethodCallExpr struct {
+	Object GoExpr
+	Method string
+	Args   []GoExpr
+}
+
+func (GoMethodCallExpr) goExpr() {}
+
+// GoDotExpr represents field access: obj.Field
+type GoDotExpr struct {
+	Object GoExpr
+	Field  string
+}
+
+func (GoDotExpr) goExpr() {}
+
+// GoSliceLit represents a slice literal: []T{a, b, c}
+type GoSliceLit struct {
+	Type     string
+	Elements []GoExpr
+}
+
+func (GoSliceLit) goExpr() {}
+
+// GoMapLit represents a map literal: map[K]V{k: v, ...}
+type GoMapLit struct {
+	KeyType string
+	ValType string
+	Pairs   []GoMapPair
+}
+
+func (GoMapLit) goExpr() {}
+
+// GoMapPair represents a key-value pair in a map literal.
+type GoMapPair struct {
+	Key   GoExpr
+	Value GoExpr
+}
+
+// GoFmtSprintf represents: fmt.Sprintf(format, args...)
+type GoFmtSprintf struct {
+	Format string
+	Args   []GoExpr
+}
+
+func (GoFmtSprintf) goExpr() {}
+
+// GoStringConcat represents string concatenation: a + b + c
+type GoStringConcat struct {
+	Parts []GoExpr
+}
+
+func (GoStringConcat) goExpr() {}
+
+// GoIndexExpr represents indexing: obj[idx]
+type GoIndexExpr struct {
+	Object GoExpr
+	Index  GoExpr
+}
+
+func (GoIndexExpr) goExpr() {}
+
+// GoParenExpr represents a parenthesized expression: (expr)
+type GoParenExpr struct {
+	Inner GoExpr
+}
+
+func (GoParenExpr) goExpr() {}

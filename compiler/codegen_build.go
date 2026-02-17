@@ -108,23 +108,25 @@ func (g *codeGen) buildAssign(a *ast.AssignStmt) ([]GoStmt, error) {
 		varType = g.capturedVarType(a.Target)
 	}
 
-	expr, err := g.exprString(a.Value)
+	valExpr, err := g.buildExpr(a.Value)
 	if err != nil {
 		return nil, err
 	}
 	if !varType.IsTyped() && exprType.IsTyped() {
-		expr = fmt.Sprintf("interface{}(%s)", expr)
+		valExpr = GoCastExpr{Type: "interface{}", Value: valExpr}
 	}
 	if isCaptured && varType.IsTyped() && !exprType.IsTyped() {
+		p := &goPrinter{}
+		s := p.exprStr(valExpr)
 		switch varType {
 		case TypeInt:
-			expr = fmt.Sprintf("rugo_to_int(%s)", expr)
+			valExpr = GoRawExpr{Code: fmt.Sprintf("rugo_to_int(%s)", s)}
 		case TypeFloat:
-			expr = fmt.Sprintf("rugo_to_float(%s)", expr)
+			valExpr = GoRawExpr{Code: fmt.Sprintf("rugo_to_float(%s)", s)}
 		case TypeString:
-			expr = fmt.Sprintf("rugo_to_string(%s)", expr)
+			valExpr = GoRawExpr{Code: fmt.Sprintf("rugo_to_string(%s)", s)}
 		case TypeBool:
-			expr = fmt.Sprintf("rugo_to_bool(%s)", expr)
+			valExpr = GoRawExpr{Code: fmt.Sprintf("rugo_to_bool(%s)", s)}
 		}
 	}
 
@@ -144,48 +146,50 @@ func (g *codeGen) buildAssign(a *ast.AssignStmt) ([]GoStmt, error) {
 			g.declareConst(a.Target, a.SourceLine)
 		}
 	}
-	stmts = append(stmts, GoAssignStmt{Target: a.Target, Op: op, Value: GoRawExpr{Code: expr}})
+	stmts = append(stmts, GoAssignStmt{Target: a.Target, Op: op, Value: valExpr})
 	stmts = append(stmts, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", a.Target)}})
 	return stmts, nil
 }
 
 func (g *codeGen) buildIndexAssign(ia *ast.IndexAssignStmt) ([]GoStmt, error) {
-	obj, err := g.exprString(ia.Object)
+	obj, err := g.buildExpr(ia.Object)
 	if err != nil {
 		return nil, err
 	}
-	idx, err := g.exprString(ia.Index)
+	idx, err := g.buildExpr(ia.Index)
 	if err != nil {
 		return nil, err
 	}
-	val, err := g.exprString(ia.Value)
+	val, err := g.buildExpr(ia.Value)
 	if err != nil {
 		return nil, err
 	}
-	return []GoStmt{GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("rugo_index_set(%s, %s, %s)", obj, idx, val)}}}, nil
+	return []GoStmt{GoExprStmt{Expr: GoCallExpr{Func: "rugo_index_set", Args: []GoExpr{obj, idx, val}}}}, nil
 }
 
 func (g *codeGen) buildDotAssign(da *ast.DotAssignStmt) ([]GoStmt, error) {
 	if da.Field == "__type__" {
 		return nil, fmt.Errorf("cannot assign to .__type__ — use type_of() for type introspection")
 	}
-	obj, err := g.exprString(da.Object)
+	obj, err := g.buildExpr(da.Object)
 	if err != nil {
 		return nil, err
 	}
-	val, err := g.exprString(da.Value)
+	val, err := g.buildExpr(da.Value)
 	if err != nil {
 		return nil, err
 	}
-	return []GoStmt{GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("rugo_dot_set(%s, %q, %s)", obj, da.Field, val)}}}, nil
+	p := &goPrinter{}
+	return []GoStmt{GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("rugo_dot_set(%s, %q, %s)", p.exprStr(obj), da.Field, p.exprStr(val))}}}, nil
 }
 
 func (g *codeGen) buildExprStmt(e *ast.ExprStmt) ([]GoStmt, error) {
-	expr, err := g.exprString(e.Expression)
+	expr, err := g.buildExpr(e.Expression)
 	if err != nil {
 		return nil, err
 	}
-	return []GoStmt{GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", expr)}}}, nil
+	p := &goPrinter{}
+	return []GoStmt{GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", p.exprStr(expr))}}}, nil
 }
 
 func (g *codeGen) buildReturn(r *ast.ReturnStmt) ([]GoStmt, error) {
@@ -196,37 +200,37 @@ func (g *codeGen) buildReturn(r *ast.ReturnStmt) ([]GoStmt, error) {
 		}
 		return []GoStmt{GoReturnStmt{Value: GoRawExpr{Code: "nil"}}}, nil
 	}
-	expr, err := g.exprString(r.Value)
+	expr, err := g.buildExpr(r.Value)
 	if err != nil {
 		return nil, err
 	}
-	return []GoStmt{GoReturnStmt{Value: GoRawExpr{Code: expr}}}, nil
+	return []GoStmt{GoReturnStmt{Value: expr}}, nil
 }
 
 func (g *codeGen) buildImplicitReturn(r *ast.ImplicitReturnStmt) ([]GoStmt, error) {
-	expr, err := g.exprString(r.Value)
+	expr, err := g.buildExpr(r.Value)
 	if err != nil {
 		return nil, err
 	}
-	return []GoStmt{GoReturnStmt{Value: GoRawExpr{Code: expr}}}, nil
+	return []GoStmt{GoReturnStmt{Value: expr}}, nil
 }
 
 func (g *codeGen) buildTryResult(r *ast.TryResultStmt) ([]GoStmt, error) {
-	expr, err := g.exprString(r.Value)
+	expr, err := g.buildExpr(r.Value)
 	if err != nil {
 		return nil, err
 	}
-	return []GoStmt{GoAssignStmt{Target: "r", Op: "=", Value: GoRawExpr{Code: expr}}}, nil
+	return []GoStmt{GoAssignStmt{Target: "r", Op: "=", Value: expr}}, nil
 }
 
 func (g *codeGen) buildSpawnReturn(r *ast.SpawnReturnStmt) ([]GoStmt, error) {
 	var stmts []GoStmt
 	if r.Value != nil {
-		expr, err := g.exprString(r.Value)
+		expr, err := g.buildExpr(r.Value)
 		if err != nil {
 			return nil, err
 		}
-		stmts = append(stmts, GoAssignStmt{Target: "t.result", Op: "=", Value: GoRawExpr{Code: expr}})
+		stmts = append(stmts, GoAssignStmt{Target: "t.result", Op: "=", Value: expr})
 	}
 	stmts = append(stmts, GoReturnStmt{})
 	return stmts, nil
@@ -235,11 +239,11 @@ func (g *codeGen) buildSpawnReturn(r *ast.SpawnReturnStmt) ([]GoStmt, error) {
 func (g *codeGen) buildTryHandlerReturn(r *ast.TryHandlerReturnStmt) ([]GoStmt, error) {
 	var stmts []GoStmt
 	if r.Value != nil {
-		expr, err := g.exprString(r.Value)
+		expr, err := g.buildExpr(r.Value)
 		if err != nil {
 			return nil, err
 		}
-		stmts = append(stmts, GoAssignStmt{Target: "r", Op: "=", Value: GoRawExpr{Code: expr}})
+		stmts = append(stmts, GoAssignStmt{Target: "r", Op: "=", Value: expr})
 	}
 	stmts = append(stmts, GoReturnStmt{})
 	return stmts, nil
@@ -268,7 +272,7 @@ func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 		}
 	}
 
-	cond, err := g.exprString(i.Condition)
+	cond, err := g.buildCondExpr(i.Condition)
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +284,7 @@ func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 
 	var elseIfs []GoElseIf
 	for _, ec := range i.ElsifClauses {
-		ecCond, err := g.exprString(ec.Condition)
+		ecCond, err := g.buildCondExpr(ec.Condition)
 		if err != nil {
 			return nil, err
 		}
@@ -289,7 +293,7 @@ func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 			return nil, err
 		}
 		elseIfs = append(elseIfs, GoElseIf{
-			Cond: GoRawExpr{Code: g.condExpr(ecCond, ec.Condition)},
+			Cond: ecCond,
 			Body: ecBody,
 		})
 	}
@@ -303,7 +307,7 @@ func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 	}
 
 	ifStmt := GoIfStmt{
-		Cond:   GoRawExpr{Code: g.condExpr(cond, i.Condition)},
+		Cond:   cond,
 		Body:   body,
 		ElseIf: elseIfs,
 		Else:   elseBody,
@@ -314,7 +318,7 @@ func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 }
 
 func (g *codeGen) buildWhile(w *ast.WhileStmt) ([]GoStmt, error) {
-	cond, err := g.exprString(w.Condition)
+	cond, err := g.buildCondExpr(w.Condition)
 	if err != nil {
 		return nil, err
 	}
@@ -326,8 +330,9 @@ func (g *codeGen) buildWhile(w *ast.WhileStmt) ([]GoStmt, error) {
 	}
 	g.popScope()
 
+	p := &goPrinter{}
 	return []GoStmt{GoForStmt{
-		Cond: g.condExpr(cond, w.Condition),
+		Cond: p.exprStr(cond),
 		Body: body,
 	}}, nil
 }
@@ -339,7 +344,7 @@ func (g *codeGen) buildFor(f *ast.ForStmt) ([]GoStmt, error) {
 		return g.buildForRange(f, startExpr, endExpr)
 	}
 
-	coll, err := g.exprString(f.Collection)
+	coll, err := g.buildExpr(f.Collection)
 	if err != nil {
 		return nil, err
 	}
@@ -349,6 +354,9 @@ func (g *codeGen) buildFor(f *ast.ForStmt) ([]GoStmt, error) {
 
 	g.pushScope()
 	var preamble []GoStmt
+
+	p := &goPrinter{}
+	collStr := p.exprStr(coll)
 
 	if idxVar != "" {
 		// Two-variable form: for key, val in hash / for idx, val in arr
@@ -376,7 +384,7 @@ func (g *codeGen) buildFor(f *ast.ForStmt) ([]GoStmt, error) {
 		return []GoStmt{GoForRangeStmt{
 			Key:        "_",
 			Value:      "rugo_for_kv",
-			Collection: GoRawExpr{Code: fmt.Sprintf("rugo_iterable(%s)", coll)},
+			Collection: GoRawExpr{Code: fmt.Sprintf("rugo_iterable(%s)", collStr)},
 			Body:       append(preamble, body...),
 		}}, nil
 	}
@@ -395,7 +403,7 @@ func (g *codeGen) buildFor(f *ast.ForStmt) ([]GoStmt, error) {
 	return []GoStmt{GoForRangeStmt{
 		Key:        "_",
 		Value:      "rugo_for_item",
-		Collection: GoRawExpr{Code: fmt.Sprintf("rugo_iterable_default(%s)", coll)},
+		Collection: GoRawExpr{Code: fmt.Sprintf("rugo_iterable_default(%s)", collStr)},
 		Body:       append(preamble, body...),
 	}}, nil
 }
@@ -527,12 +535,13 @@ func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
 			if p.Default == nil {
 				body = append(body, GoVarStmt{Name: p.Name, Type: "interface{}", Value: GoRawExpr{Code: fmt.Sprintf("_args[%d]", i)}})
 			} else {
-				defaultExpr, err := g.exprString(p.Default)
+				defaultExpr, err := g.buildExpr(p.Default)
 				if err != nil {
 					return GoFuncDecl{}, err
 				}
+				pr := &goPrinter{}
 				body = append(body, GoVarStmt{Name: p.Name, Type: "interface{}"})
-				body = append(body, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] } else { %s = %s }", i, p.Name, i, p.Name, defaultExpr)})
+				body = append(body, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] } else { %s = %s }", i, p.Name, i, p.Name, pr.exprStr(defaultExpr))})
 			}
 			body = append(body, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", p.Name)}})
 		}
