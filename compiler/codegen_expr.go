@@ -86,6 +86,31 @@ func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
 	case *ast.HashLiteral:
 		return g.buildHashLiteral(ex)
 
+	case *ast.DotExpr:
+		s, err := g.dotExpr(ex)
+		if err != nil {
+			return nil, err
+		}
+		return GoRawExpr{Code: s}, nil
+	case *ast.CallExpr:
+		s, err := g.callExpr(ex)
+		if err != nil {
+			return nil, err
+		}
+		return GoRawExpr{Code: s}, nil
+	case *ast.LoweredTryExpr:
+		return g.buildLoweredTryExpr(ex)
+	case *ast.LoweredSpawnExpr:
+		return g.buildLoweredSpawnExpr(ex)
+	case *ast.LoweredParallelExpr:
+		return g.buildLoweredParallelExpr(ex)
+	case *ast.FnExpr:
+		s, err := g.fnExpr(ex)
+		if err != nil {
+			return nil, err
+		}
+		return GoRawExpr{Code: s}, nil
+
 	default:
 		// Complex expressions delegate to exprString
 		s, err := g.exprString(e)
@@ -375,6 +400,163 @@ func (g *codeGen) buildStringConcatExpr(escapedFmt string, args []string) GoExpr
 		return parts[0]
 	}
 	return GoStringConcat{Parts: parts}
+}
+
+func (g *codeGen) buildLoweredTryExpr(e *ast.LoweredTryExpr) (GoExpr, error) {
+	triedExpr, err := g.buildExpr(e.Expr)
+	if err != nil {
+		return nil, err
+	}
+
+	g.pushScope()
+	g.declareVar(e.ErrVar)
+	var handlerBody []GoStmt
+	if e.ResultExpr != nil {
+		stmts, berr := g.buildStmts(e.Handler)
+		if berr != nil {
+			g.popScope()
+			return nil, berr
+		}
+		handlerBody = append(handlerBody, stmts...)
+		val, verr := g.buildExpr(e.ResultExpr)
+		if verr != nil {
+			g.popScope()
+			return nil, verr
+		}
+		handlerBody = append(handlerBody, GoAssignStmt{Target: "r", Op: "=", Value: val})
+	} else {
+		stmts, berr := g.buildStmts(e.Handler)
+		if berr != nil {
+			g.popScope()
+			return nil, berr
+		}
+		handlerBody = append(handlerBody, stmts...)
+	}
+	g.popScope()
+
+	return GoIIFEExpr{
+		ReturnType: "(r interface{})",
+		Body: []GoStmt{
+			GoDeferStmt{Body: []GoStmt{
+				GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: append(
+					[]GoStmt{
+						GoAssignStmt{Target: e.ErrVar, Op: ":=", Value: GoRawExpr{Code: "fmt.Sprint(e)"}},
+						GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", e.ErrVar)}},
+					},
+					handlerBody...,
+				)},
+			}},
+		},
+		Result: triedExpr,
+	}, nil
+}
+
+func (g *codeGen) buildLoweredSpawnExpr(e *ast.LoweredSpawnExpr) (GoExpr, error) {
+	g.pushScope()
+	bodyStmts, err := g.buildStmts(e.Body)
+	if err != nil {
+		g.popScope()
+		return nil, err
+	}
+	if e.ResultExpr != nil {
+		val, verr := g.buildExpr(e.ResultExpr)
+		if verr != nil {
+			g.popScope()
+			return nil, verr
+		}
+		bodyStmts = append(bodyStmts, GoAssignStmt{Target: "t.result", Op: "=", Value: val})
+	}
+	g.popScope()
+
+	goroutineBody := []GoStmt{
+		GoDeferStmt{Body: []GoStmt{
+			GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: []GoStmt{
+				GoRawStmt{Code: "t.err = fmt.Sprint(e)"},
+			}},
+			GoRawStmt{Code: "close(t.done)"},
+		}},
+	}
+	goroutineBody = append(goroutineBody, bodyStmts...)
+
+	return GoIIFEExpr{
+		Body: []GoStmt{
+			GoRawStmt{Code: "t := &rugoTask{done: make(chan struct{})}"},
+			GoGoStmt{Body: goroutineBody},
+		},
+		Result: GoRawExpr{Code: "interface{}(t)"},
+	}, nil
+}
+
+func (g *codeGen) buildLoweredParallelExpr(e *ast.LoweredParallelExpr) (GoExpr, error) {
+	n := len(e.Branches)
+
+	if n == 0 {
+		return GoRawExpr{Code: "interface{}([]interface{}{})"}, nil
+	}
+
+	type branchInfo struct {
+		stmts  []GoStmt
+		isExpr bool
+	}
+	branches := make([]branchInfo, n)
+	for _, br := range e.Branches {
+		if br.Expr != nil {
+			code, err := g.buildExpr(br.Expr)
+			if err != nil {
+				return nil, err
+			}
+			p := &goPrinter{}
+			branches[br.Index] = branchInfo{
+				stmts:  []GoStmt{GoRawStmt{Code: fmt.Sprintf("_results[%d] = %s", br.Index, p.exprStr(code))}},
+				isExpr: true,
+			}
+		} else {
+			g.pushScope()
+			stmts, err := g.buildStmts(br.Stmts)
+			if err != nil {
+				g.popScope()
+				return nil, err
+			}
+			g.popScope()
+			branches[br.Index] = branchInfo{stmts: stmts, isExpr: false}
+		}
+	}
+
+	var goroutines []GoStmt
+	for _, bc := range branches {
+		goroutineBody := []GoStmt{
+			GoRawStmt{Code: "defer _wg.Done()"},
+			GoDeferStmt{Body: []GoStmt{
+				GoIfStmt{Cond: GoRawExpr{Code: "e := recover(); e != nil"}, Body: []GoStmt{
+					GoRawStmt{Code: `_parOnce.Do(func() { _parErr = fmt.Sprint(e) })`},
+				}},
+			}},
+		}
+		goroutineBody = append(goroutineBody, bc.stmts...)
+		goroutines = append(goroutines, GoGoStmt{Body: goroutineBody})
+	}
+
+	body := []GoStmt{
+		GoRawStmt{Code: fmt.Sprintf("_results := make([]interface{}, %d)", n)},
+		GoRawStmt{Code: "var _wg sync.WaitGroup"},
+		GoRawStmt{Code: "var _parErr string"},
+		GoRawStmt{Code: "var _parOnce sync.Once"},
+		GoRawStmt{Code: fmt.Sprintf("_wg.Add(%d)", n)},
+	}
+	body = append(body, goroutines...)
+	body = append(body,
+		GoRawStmt{Code: "_wg.Wait()"},
+		GoIfStmt{Cond: GoRawExpr{Code: `_parErr != ""`}, Body: []GoStmt{
+			GoRawStmt{Code: "panic(_parErr)"},
+		}},
+		GoRawStmt{Code: "out := make([]interface{}, len(_results))"},
+		GoRawStmt{Code: "copy(out, _results)"},
+	)
+
+	return GoIIFEExpr{
+		Body:   body,
+		Result: GoRawExpr{Code: "interface{}(out)"},
+	}, nil
 }
 
 // buildCondExpr builds a condition expression for use in if/while.
