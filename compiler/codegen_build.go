@@ -455,3 +455,115 @@ func (g *codeGen) buildForRange(f *ast.ForStmt, startExpr, endExpr string) ([]Go
 
 	return []GoStmt{forStmt}, nil
 }
+
+// --- Function builder ---
+
+// buildFunc converts a Rugo FuncDef into a GoFuncDecl.
+func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
+	if f.SourceFile != "" {
+		saved := g.sourceFile
+		g.sourceFile = f.SourceFile
+		g.w.source = f.SourceFile
+		defer func() { g.sourceFile = saved; g.w.source = saved }()
+	}
+
+	hasDefaults := ast.HasDefaults(f.Params)
+	fti := g.funcTypeInfo(f)
+
+	// Determine Go function name
+	var goName string
+	if f.Namespace != "" {
+		goName = fmt.Sprintf("rugons_%s_%s", f.Namespace, f.Name)
+	} else {
+		goName = fmt.Sprintf("rugofn_%s", f.Name)
+	}
+
+	retType := "interface{}"
+	if fti != nil && fti.ReturnType.IsTyped() {
+		retType = fti.ReturnType.GoType()
+	}
+
+	// Build params
+	var params []GoParam
+	if hasDefaults {
+		params = []GoParam{{Name: "_args", Type: "...interface{}"}}
+	} else {
+		params = make([]GoParam, len(f.Params))
+		for i, p := range f.Params {
+			if fti != nil && fti.ParamTypes[i].IsTyped() {
+				params[i] = GoParam{Name: p.Name, Type: fti.ParamTypes[i].GoType()}
+			} else {
+				params[i] = GoParam{Name: p.Name, Type: "interface{}"}
+			}
+		}
+	}
+
+	// Build body
+	g.pushScope()
+	var body []GoStmt
+
+	// Recursion depth guard
+	body = append(body, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("rugo_check_depth(%q)", f.Name)}})
+	body = append(body, GoRawStmt{Code: "defer func() { rugo_call_depth-- }()"})
+
+	if hasDefaults {
+		// Arity range check
+		minArity := ast.MinArity(f.Params)
+		maxArity := len(f.Params)
+		body = append(body, GoRawStmt{Code: fmt.Sprintf(
+			"if len(_args) < %d { panic(fmt.Sprintf(\"%s() takes %d to %d arguments but %%d were given\", len(_args))) }",
+			minArity, f.Name, minArity, maxArity)})
+		body = append(body, GoRawStmt{Code: fmt.Sprintf(
+			"if len(_args) > %d { panic(fmt.Sprintf(\"%s() takes %d to %d arguments but %%d were given\", len(_args))) }",
+			maxArity, f.Name, minArity, maxArity)})
+
+		// Unpack params
+		for i, p := range f.Params {
+			g.declareVar(p.Name)
+			if p.Default == nil {
+				body = append(body, GoRawStmt{Code: fmt.Sprintf("var %s interface{} = _args[%d]", p.Name, i)})
+			} else {
+				defaultExpr, err := g.exprString(p.Default)
+				if err != nil {
+					return GoFuncDecl{}, err
+				}
+				body = append(body, GoRawStmt{Code: fmt.Sprintf("var %s interface{}", p.Name)})
+				body = append(body, GoRawStmt{Code: fmt.Sprintf("if len(_args) > %d { %s = _args[%d] } else { %s = %s }", i, p.Name, i, p.Name, defaultExpr)})
+			}
+			body = append(body, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", p.Name)}})
+		}
+	} else {
+		for _, p := range f.Params {
+			g.declareVar(p.Name)
+		}
+	}
+
+	g.currentFunc = f
+	g.inFunc = true
+	bodyStmts, err := g.buildStmts(f.Body)
+	if err != nil {
+		g.inFunc = false
+		g.currentFunc = nil
+		g.popScope()
+		return GoFuncDecl{}, err
+	}
+	body = append(body, bodyStmts...)
+
+	if !g.bodyHasImplicitReturn(f.Body) {
+		if fti != nil && fti.ReturnType.IsTyped() {
+			body = append(body, GoReturnStmt{Value: GoRawExpr{Code: typedZero(fti.ReturnType)}})
+		} else {
+			body = append(body, GoReturnStmt{Value: GoRawExpr{Code: "nil"}})
+		}
+	}
+	g.inFunc = false
+	g.currentFunc = nil
+	g.popScope()
+
+	return GoFuncDecl{
+		Name:   goName,
+		Params: params,
+		Return: retType,
+		Body:   body,
+	}, nil
+}

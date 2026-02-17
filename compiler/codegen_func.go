@@ -269,109 +269,44 @@ func collectDispatchHandlersFromExpr(e ast.Expr, dispatchModules map[string]bool
 }
 
 func (g *codeGen) writeFunc(f *ast.FuncDef) error {
-	// Use the function's original source file for //line directives if available.
-	if f.SourceFile != "" {
-		saved := g.sourceFile
-		g.sourceFile = f.SourceFile
-		g.w.source = f.SourceFile
-		defer func() { g.sourceFile = saved; g.w.source = saved }()
+	decl, err := g.buildFunc(f)
+	if err != nil {
+		return err
 	}
-
-	hasDefaults := ast.HasDefaults(f.Params)
-
-	// Check if this function has typed inference info.
-	fti := g.funcTypeInfo(f)
-
-	// Determine function name: namespaced or local
-	var goName string
-	if f.Namespace != "" {
-		goName = fmt.Sprintf("rugons_%s_%s", f.Namespace, f.Name)
-	} else {
-		goName = fmt.Sprintf("rugofn_%s", f.Name)
-	}
-
-	retType := "interface{}"
-	if fti != nil && fti.ReturnType.IsTyped() {
-		retType = fti.ReturnType.GoType()
-	}
-
-	if hasDefaults {
-		// Functions with default params use variadic signature
-		g.writef("func %s(_args ...interface{}) %s {\n", goName, retType)
-	} else {
-		// Functions without defaults keep typed params
-		params := make([]string, len(f.Params))
-		for i, p := range f.Params {
-			if fti != nil && fti.ParamTypes[i].IsTyped() {
-				params[i] = p.Name + " " + fti.ParamTypes[i].GoType()
-			} else {
-				params[i] = p.Name + " interface{}"
-			}
-		}
-		g.writef("func %s(%s) %s {\n", goName, strings.Join(params, ", "), retType)
-	}
-	g.w.Indent()
-	g.pushScope()
-	// Recursion depth guard
-	g.writef("rugo_check_depth(%q)\n", f.Name)
-	g.writef("defer func() { rugo_call_depth-- }()\n")
-
-	if hasDefaults {
-		// Emit arity range check
-		minArity := ast.MinArity(f.Params)
-		maxArity := len(f.Params)
-		if minArity == 1 {
-			g.writef("if len(_args) < %d { panic(fmt.Sprintf(\"%s() takes %d to %d arguments but %%d were given\", len(_args))) }\n", minArity, f.Name, minArity, maxArity)
-		} else {
-			g.writef("if len(_args) < %d { panic(fmt.Sprintf(\"%s() takes %d to %d arguments but %%d were given\", len(_args))) }\n", minArity, f.Name, minArity, maxArity)
-		}
-		g.writef("if len(_args) > %d { panic(fmt.Sprintf(\"%s() takes %d to %d arguments but %%d were given\", len(_args))) }\n", maxArity, f.Name, minArity, maxArity)
-
-		// Unpack required params and declare optional ones with defaults
-		for i, p := range f.Params {
-			g.declareVar(p.Name)
-			if p.Default == nil {
-				// Required param — unpack from _args
-				g.writef("var %s interface{} = _args[%d]\n", p.Name, i)
-			} else {
-				// Optional param — use default if not provided
-				defaultExpr, err := g.exprString(p.Default)
-				if err != nil {
-					return err
-				}
-				g.writef("var %s interface{}\n", p.Name)
-				g.writef("if len(_args) > %d { %s = _args[%d] } else { %s = %s }\n", i, p.Name, i, p.Name, defaultExpr)
-			}
-			g.writef("_ = %s\n", p.Name)
-		}
-	} else {
-		// Mark params as declared
-		for _, p := range f.Params {
-			g.declareVar(p.Name)
-		}
-	}
-
-	g.currentFunc = f
-	g.inFunc = true
-	for _, s := range f.Body {
-		if err := g.writeStmt(s); err != nil {
-			return err
-		}
-	}
-	if !g.bodyHasImplicitReturn(f.Body) {
-		// Default return: typed zero value or nil.
-		if fti != nil && fti.ReturnType.IsTyped() {
-			g.writef("return %s\n", typedZero(fti.ReturnType))
-		} else {
-			g.writeln("return nil")
-		}
-	}
-	g.inFunc = false
-	g.currentFunc = nil
-	g.popScope()
-	g.w.Dedent()
-	g.writeln("}")
+	g.emitGoDecl(decl)
 	return nil
+}
+
+// emitGoDecl writes a Go declaration through the old goWriter.
+func (g *codeGen) emitGoDecl(d GoDecl) {
+	switch dt := d.(type) {
+	case GoFuncDecl:
+		var params []string
+		for _, p := range dt.Params {
+			params = append(params, p.Name+" "+p.Type)
+		}
+		sig := fmt.Sprintf("func %s(%s)", dt.Name, strings.Join(params, ", "))
+		if dt.Return != "" {
+			sig += " " + dt.Return
+		}
+		g.writef("%s {\n", sig)
+		g.w.Indent()
+		g.emitGoStmts(dt.Body)
+		g.w.Dedent()
+		g.writeln("}")
+	case GoVarDecl:
+		if dt.Value != nil {
+			g.writef("var %s %s = %s\n", dt.Name, dt.Type, g.goExprStr(dt.Value))
+		} else {
+			g.writef("var %s %s\n", dt.Name, dt.Type)
+		}
+	case GoRawDecl:
+		g.w.sb.WriteString(dt.Code)
+	case GoBlankLine:
+		g.writeln("")
+	case GoComment:
+		g.writef("// %s\n", dt.Text)
+	}
 }
 
 // funcTypeInfo returns the inferred type info for a function, or nil.
