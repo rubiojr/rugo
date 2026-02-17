@@ -1,12 +1,12 @@
 package compiler
 
 import (
-"fmt"
-"strings"
-"sort"
+	"fmt"
+	"sort"
+	"strings"
 
-"github.com/rubiojr/rugo/gobridge"
-"github.com/rubiojr/rugo/modules"
+	"github.com/rubiojr/rugo/gobridge"
+	"github.com/rubiojr/rugo/modules"
 )
 
 func (g *codeGen) writeRuntime() {

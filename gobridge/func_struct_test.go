@@ -132,7 +132,7 @@ func TestClassifyFuncType_ValueAndPointerMixed(t *testing.T) {
 	dateNamed := types.NewNamed(types.NewTypeName(0, pkg, "Date", nil), st, nil)
 	itemNamed := types.NewNamed(types.NewTypeName(0, pkg, "Item", nil), st, nil)
 	params := types.NewTuple(
-		types.NewVar(0, nil, "d", dateNamed),         // value type
+		types.NewVar(0, nil, "d", dateNamed),                      // value type
 		types.NewVar(0, nil, "item", types.NewPointer(itemNamed)), // pointer type
 	)
 	sig := types.NewSignatureType(nil, nil, nil, params, nil, false)
