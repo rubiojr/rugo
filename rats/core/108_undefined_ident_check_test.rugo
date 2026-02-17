@@ -1,0 +1,173 @@
+# RATS: Undefined identifier check
+use "test"
+
+rats "undefined variable at top level"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/test.rugo", "puts(xyz)\n")
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "undefined variable 'xyz'")
+end
+
+rats "undefined variable in function body"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    def greet()
+      puts(missing_var)
+    end
+    greet()
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "undefined variable 'missing_var'")
+end
+
+rats "forward reference to top-level variable works"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    def show()
+      puts(x)
+    end
+    x = 42
+    show()
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "variable assigned in if body is visible"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    x = 10
+    if x > 5
+      msg = "big"
+      puts(msg)
+    end
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "big")
+end
+
+rats "for loop variable is scoped"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    items = [1, 2, 3]
+    for item in items
+      puts(item)
+    end
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1")
+end
+
+rats "lambda parameter is in scope"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    f = fn(x) x + 1 end
+    puts(f(41))
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "module function access works"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    use "str"
+    puts(str.upper("hello"))
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO")
+end
+
+rats "undefined variable error includes line number"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    x = 1
+    y = 2
+    puts(z)
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], ":3:")
+  test.assert_contains(result["output"], "undefined variable 'z'")
+end
+
+rats "try/or error variable is in scope"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    result = try raise("oops") or err
+      puts(err)
+      "recovered"
+    end
+    puts(result)
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "recovered")
+end
+
+rats "undefined function in require namespace"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/helper.rugo", "def foo()\n  return 42\nend\n")
+  code = <<~CODE
+    require "helper"
+    puts(helper.nonexistent())
+  CODE
+  test.write_file("#{tmpdir}/main.rugo", code)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "undefined function helper.nonexistent")
+end
+
+rats "valid function in require namespace works"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/helper.rugo", "def greet(name)\n  return \"hi \" + name\nend\n")
+  code = <<~CODE
+    require "helper"
+    puts(helper.greet("world"))
+  CODE
+  test.write_file("#{tmpdir}/main.rugo", code)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hi world")
+end
+
+rats "unknown function in stdlib module"
+  tmpdir = test.tmpdir()
+  code = <<~CODE
+    use "str"
+    puts(str.nonexistent("hello"))
+  CODE
+  test.write_file("#{tmpdir}/test.rugo", code)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unknown function str.nonexistent")
+end
+
+rats "variable shadows namespace for dot calls"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/helper.rugo", "def make()\n  return {\"foo\" => \"bar\"}\nend\n")
+  code = <<~CODE
+    require "helper"
+    helper = helper.make()
+    puts(helper.foo)
+  CODE
+  test.write_file("#{tmpdir}/main.rugo", code)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "bar")
+end

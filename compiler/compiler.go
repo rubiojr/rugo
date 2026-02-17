@@ -148,6 +148,14 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 		return nil, err
 	}
 
+	// Run semantic checks before code generation
+	checks := ast.CheckChain{
+		UndefinedIdentCheck(filename),
+	}
+	if err := checks.Run(resolved); err != nil {
+		return nil, err
+	}
+
 	// Generate Go source
 	goSrc, err := generate(resolved, filename, c.TestMode, c.Sandbox)
 	if err != nil {
@@ -1578,20 +1586,8 @@ func translateBuildError(stderr, sourceFile string) error {
 		}
 		// Translate lines referencing generated Go files into Rugo-friendly messages
 		if strings.Contains(line, "main.go:") && strings.HasPrefix(strings.TrimSpace(line), "./") {
-			// Translate "undefined: rugons_X_Y" to "undefined function X.Y"
-			if strings.Contains(line, "undefined: rugons_") {
-				if idx := strings.Index(line, "undefined: rugons_"); idx >= 0 {
-					goIdent := line[idx+len("undefined: rugons_"):]
-					// rugons_<ns>_<func> → ns.func
-					if us := strings.Index(goIdent, "_"); us >= 0 {
-						ns := goIdent[:us]
-						fn := goIdent[us+1:]
-						line = fmt.Sprintf("%s: undefined function %s.%s (check that the function exists in the required module)", sourceFile, ns, fn)
-					}
-				}
-			} else {
-				continue
-			}
+			// Internal Go compiler error about generated code — skip
+			continue
 		}
 		// Translate Go terms to Rugo terms
 		line = strings.ReplaceAll(line, "continue is not in a loop", "next is not in a loop")

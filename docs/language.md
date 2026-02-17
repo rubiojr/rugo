@@ -25,6 +25,10 @@ Walk (flat AST → typed AST nodes)
 Resolve (imports & requires)
    │
    ▼
+Semantic checks (validate before codegen)
+ └─ UndefinedIdentCheck — catch undefined variables and functions
+   │
+   ▼
 Transform chain (immutable AST rewrites)
  ├─ ConcurrencyLowering  — desugar spawn/parallel/try into lowered nodes
  └─ ImplicitReturnLowering — convert last-expr-as-return into explicit nodes
@@ -41,9 +45,15 @@ go build → native binary
 
 The compiler is orchestrated by `compiler.Compiler`, which chains these stages together. The `run`, `build`, and `emit` CLI subcommands each exercise different parts of this pipeline.
 
+### Semantic Checks
+
+After resolving imports and requires, the AST passes through a chain of semantic checks (`ast/check.go`). Checks implement the `Check` interface and are composed via `CheckChain`, which runs them in order and stops at the first error. Unlike transforms, checks validate the AST without modifying it.
+
+**UndefinedIdentCheck** (`compiler/check_idents.go`): Catches undefined variable and function references before code generation. It uses a two-pass approach: first collecting all globally visible names (top-level assignments, function definitions, `use`/`import`/`require` namespaces, builtins), then walking the AST with a scope stack to verify that every `IdentExpr` resolves to a known binding. For namespaced calls (`ns.func()`), it validates that the function exists in the require namespace, stdlib module, or Go bridge package. Local variables shadow namespaces, matching codegen behavior.
+
 ### Transform Chain
 
-After resolving imports and requires, the AST passes through a chain of immutable transforms (`ast/transform.go`). Transforms implement the `Transform` interface and are composed via `Chain()`, which runs them left-to-right. Each transform receives the output of the previous one and must not mutate its input — a copy-on-write helper (`mapSlice`) only allocates new slices when children actually change.
+After semantic checks, the AST passes through a chain of immutable transforms (`ast/transform.go`). Transforms implement the `Transform` interface and are composed via `Chain()`, which runs them left-to-right. Each transform receives the output of the previous one and must not mutate its input — a copy-on-write helper (`mapSlice`) only allocates new slices when children actually change.
 
 **ConcurrencyLowering** (`ast/lower.go`): Replaces high-level concurrency constructs (`SpawnExpr`, `ParallelExpr`, `TryExpr`) with lowered equivalents (`LoweredSpawnExpr`, `LoweredParallelExpr`, `LoweredTryExpr`) that carry pre-processed information — for example, extracting the last expression in a spawn body into a dedicated `ResultExpr` field, or pre-categorizing parallel branches as expression vs. statement. This pass also rewrites `return` statements inside spawn blocks and try handlers into `SpawnReturnStmt` and `TryHandlerReturnStmt` respectively.
 
@@ -722,11 +732,12 @@ The walker (`ast/walker.go`) transforms the parser's flat `[]int32` encoding int
 
 The code generator (`compiler/codegen.go`) traverses the typed AST and produces Go source via a two-stage process: first building a Go AST (`compiler/goast.go`), then serializing it to source (`compiler/goprint.go`).
 
-Before codegen begins, the `generate()` function runs the transform chain (ConcurrencyLowering + ImplicitReturnLowering) and type inference. The codegen is split across several files:
+Before codegen begins, the `Compile()` function runs semantic checks (UndefinedIdentCheck), and the `generate()` function runs the transform chain (ConcurrencyLowering + ImplicitReturnLowering) and type inference. The codegen is split across several files:
 
 | File | Responsibility |
 |------|---------------|
 | `codegen.go` | Orchestration, `codeGen` struct, `generate()` entry point |
+| `check_idents.go` | Semantic check: undefined variable and function detection |
 | `codegen_expr.go` | Expression compilation: `exprString()` converts Rugo expressions to Go source strings |
 | `codegen_stmt.go` | Statement compilation: `buildStmt()` converts statements to `GoStmt` nodes |
 | `codegen_func.go` | Function and lambda codegen, including closure variable capture |
