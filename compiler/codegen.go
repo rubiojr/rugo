@@ -79,7 +79,7 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 		typeInfo:    ti,
 		sandbox:     sandbox,
 	}
-	
+
 	return g.generate(prog)
 }
 

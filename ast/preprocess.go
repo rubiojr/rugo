@@ -2,6 +2,7 @@ package ast
 
 import (
 	"fmt"
+	"github.com/rubiojr/rugo/scanner"
 	"math"
 	"strings"
 	"unicode"
@@ -506,23 +507,13 @@ func closestKeywordOrBuiltin(s string) string {
 //
 //	try timeout 30 ping host or "fallback"
 func hasOrphanOr(line string) bool {
-	inDouble := false
-	inSingle := false
-	for i := 0; i < len(line); i++ {
-		if line[i] == '"' && !inSingle {
-			inDouble = !inDouble
+	sc := scanner.New(line)
+	for ch, ok := sc.Next(); ok; ch, ok = sc.Next() {
+		if sc.InString() {
 			continue
 		}
-		if line[i] == '\'' && !inDouble {
-			inSingle = !inSingle
-			continue
-		}
-		if inDouble || inSingle {
-			continue
-		}
-		// Match " or " or " or" at end of line, as a word boundary
-		if line[i] == ' ' && i+3 <= len(line) && line[i+1:i+3] == "or" {
-			after := i + 3
+		if ch == ' ' && sc.Pos()+3 <= len(line) && line[sc.Pos()+1:sc.Pos()+3] == "or" {
+			after := sc.Pos() + 3
 			if after == len(line) || line[after] == ' ' || line[after] == '\t' {
 				return true
 			}
@@ -1760,69 +1751,22 @@ func isAlphaNum(ch byte) bool {
 
 // isInsideString reports whether position pos in line falls inside a string literal.
 func isInsideString(line string, pos int) bool {
-	inDouble := false
-	inSingle := false
-	escaped := false
-	for i := 0; i < pos && i < len(line); i++ {
-		ch := line[i]
-		if escaped {
-			escaped = false
-			continue
-		}
-		if ch == '\\' && (inDouble || inSingle) {
-			escaped = true
-			continue
-		}
-		if ch == '"' && !inSingle {
-			inDouble = !inDouble
-			continue
-		}
-		if ch == '\'' && !inDouble {
-			inSingle = !inSingle
-			continue
-		}
-	}
-	return inDouble || inSingle
+	return scanner.IsInsideString(line, pos)
 }
 
 // findTopLevelOr finds " or " at the top level (not inside parens, brackets, or strings).
 // Returns the index of the start of " or " in s, or -1 if not found.
 func findTopLevelOr(s string) int {
-	depth := 0
-	inDouble := false
-	inSingle := false
-	escaped := false
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		if escaped {
-			escaped = false
-			continue
+	pos := scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+		if ch != ' ' {
+			return false
 		}
-		if ch == '\\' && (inDouble || inSingle) {
-			escaped = true
-			continue
-		}
-		if ch == '"' && !inSingle {
-			inDouble = !inDouble
-			continue
-		}
-		if ch == '\'' && !inDouble {
-			inSingle = !inSingle
-			continue
-		}
-		if inDouble || inSingle {
-			continue
-		}
-		if ch == '(' || ch == '[' || ch == '{' {
-			depth++
-		} else if ch == ')' || ch == ']' || ch == '}' {
-			depth--
-		}
-		if depth == 0 && i+3 < len(s) && s[i:i+4] == " or " {
-			return i + 1 // return index of 'o' in "or"
-		}
+		return pos+4 <= len(src) && src[pos:pos+4] == " or "
+	})
+	if pos < 0 {
+		return -1
 	}
-	return -1
+	return pos + 1 // return index of 'o' in "or"
 }
 
 // expandDestructuring desugars array destructuring assignments.
@@ -1903,52 +1847,18 @@ func expandDestructuring(src string) string {
 // in a line, skipping content inside strings, parens, and brackets.
 // Returns the index of `=` or -1.
 func findDestructAssign(s string) int {
-	inDouble := false
-	inSingle := false
-	escaped := false
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		if escaped {
-			escaped = false
-			continue
+	return scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+		if ch != '=' {
+			return false
 		}
-		if ch == '\\' && (inDouble || inSingle) {
-			escaped = true
-			continue
+		if pos+1 < len(src) && (src[pos+1] == '=' || src[pos+1] == '>') {
+			return false
 		}
-		if ch == '"' && !inSingle {
-			inDouble = !inDouble
-			continue
+		if pos > 0 && (src[pos-1] == '!' || src[pos-1] == '<' || src[pos-1] == '>') {
+			return false
 		}
-		if ch == '\'' && !inDouble {
-			inSingle = !inSingle
-			continue
-		}
-		if inDouble || inSingle {
-			continue
-		}
-		if ch == '(' || ch == '[' || ch == '{' {
-			depth++
-		} else if ch == ')' || ch == ']' || ch == '}' {
-			depth--
-		}
-		if depth > 0 {
-			continue
-		}
-		if ch == '=' {
-			// Skip ==, !=, <=, >=, =>
-			if i+1 < len(s) && (s[i+1] == '=' || s[i+1] == '>') {
-				i++
-				continue
-			}
-			if i > 0 && (s[i-1] == '!' || s[i-1] == '<' || s[i-1] == '>') {
-				continue
-			}
-			return i
-		}
-	}
-	return -1
+		return true
+	})
 }
 
 // expandCompoundAssign desugars compound assignment operators.
@@ -1992,43 +1902,9 @@ func ExpandCompoundAssign(src string) string {
 // findCompoundOp finds a compound operator (e.g. "+=") at the top level of a line,
 // not inside strings, parens, or brackets. Returns the index or -1.
 func findCompoundOp(s string, op string) int {
-	inDouble := false
-	inSingle := false
-	escaped := false
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		if escaped {
-			escaped = false
-			continue
-		}
-		if ch == '\\' && (inDouble || inSingle) {
-			escaped = true
-			continue
-		}
-		if ch == '"' && !inSingle {
-			inDouble = !inDouble
-			continue
-		}
-		if ch == '\'' && !inDouble {
-			inSingle = !inSingle
-			continue
-		}
-		if inDouble || inSingle {
-			continue
-		}
-		if ch == '(' || ch == '[' || ch == '{' {
-			depth++
-		} else if ch == ')' || ch == ']' || ch == '}' {
-			depth--
-		}
-		if depth == 0 && i+len(op) <= len(s) && s[i:i+len(op)] == op {
-			// Make sure it's not inside a comparison like "!=" by checking
-			// the operator is preceded by a space or bracket/ident char.
-			return i
-		}
-	}
-	return -1
+	return scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+		return pos+len(op) <= len(src) && src[pos:pos+len(op)] == op
+	})
 }
 
 // expandBareAppend desugars bare append statements.
@@ -2063,45 +1939,13 @@ func ExpandBareAppend(src string) string {
 // list, respecting balanced parens, brackets, braces, and string boundaries.
 // Returns "" if no comma separator is found.
 func extractFirstArg(s string) string {
-	inDouble := false
-	inSingle := false
-	escaped := false
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		if escaped {
-			escaped = false
-			continue
-		}
-		if ch == '\\' && (inDouble || inSingle) {
-			escaped = true
-			continue
-		}
-		if ch == '"' && !inSingle {
-			inDouble = !inDouble
-			continue
-		}
-		if ch == '\'' && !inDouble {
-			inSingle = !inSingle
-			continue
-		}
-		if inDouble || inSingle {
-			continue
-		}
-		if ch == '(' || ch == '[' || ch == '{' {
-			depth++
-		} else if ch == ')' || ch == ']' || ch == '}' {
-			if depth == 0 {
-				// Closing paren of append() with no comma — single arg, skip
-				return ""
-			}
-			depth--
-		}
-		if depth == 0 && ch == ',' {
-			return strings.TrimSpace(s[:i])
-		}
+	pos := scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+		return ch == ','
+	})
+	if pos < 0 {
+		return ""
 	}
-	return ""
+	return strings.TrimSpace(s[:pos])
 }
 
 // expandBackticks converts `cmd` expressions to __capture__("cmd") calls.
@@ -2248,50 +2092,18 @@ func extractPipeAssignPrefix(trimmed string) (string, string) {
 // findTopLevelPipes finds positions of | characters that are pipe operators
 // (not part of ||, not inside strings, parens, or brackets).
 func findTopLevelPipes(s string) []int {
-	var positions []int
-	depth := 0
-	inDouble := false
-	inSingle := false
-	escaped := false
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		if escaped {
-			escaped = false
-			continue
+	return scanner.FindAllTopLevel(s, func(ch byte, pos int, src string) bool {
+		if ch != '|' {
+			return false
 		}
-		if ch == '\\' && (inDouble || inSingle) {
-			escaped = true
-			continue
+		if pos+1 < len(src) && src[pos+1] == '|' {
+			return false
 		}
-		if ch == '"' && !inSingle {
-			inDouble = !inDouble
-			continue
+		if pos > 0 && src[pos-1] == '|' {
+			return false
 		}
-		if ch == '\'' && !inDouble {
-			inSingle = !inSingle
-			continue
-		}
-		if inDouble || inSingle {
-			continue
-		}
-		if ch == '(' || ch == '[' || ch == '{' {
-			depth++
-			continue
-		}
-		if ch == ')' || ch == ']' || ch == '}' {
-			depth--
-			continue
-		}
-		if depth == 0 && ch == '|' {
-			// Skip || (logical OR)
-			if i+1 < len(s) && s[i+1] == '|' {
-				i++
-				continue
-			}
-			positions = append(positions, i)
-		}
-	}
-	return positions
+		return true
+	})
 }
 
 // splitAtPositions splits a string at the given positions, excluding the
@@ -2825,49 +2637,16 @@ func rewriteDoPrefix(prefix, indent string) string {
 // findDoAssignment finds a top-level `=` (not `==`, `!=`, `<=`, `>=`, `=>`)
 // suitable for splitting assignment from a do-block call prefix.
 func findDoAssignment(s string) int {
-	inDouble := false
-	inSingle := false
-	escaped := false
-	depth := 0
-	for i := 0; i < len(s); i++ {
-		ch := s[i]
-		if escaped {
-			escaped = false
-			continue
+	return scanner.FindTopLevel(s, func(ch byte, pos int, src string) bool {
+		if ch != '=' {
+			return false
 		}
-		if ch == '\\' && (inDouble || inSingle) {
-			escaped = true
-			continue
+		if pos+1 < len(src) && (src[pos+1] == '=' || src[pos+1] == '>') {
+			return false
 		}
-		if ch == '"' && !inSingle {
-			inDouble = !inDouble
-			continue
+		if pos > 0 && (src[pos-1] == '!' || src[pos-1] == '<' || src[pos-1] == '>') {
+			return false
 		}
-		if ch == '\'' && !inDouble {
-			inSingle = !inSingle
-			continue
-		}
-		if inDouble || inSingle {
-			continue
-		}
-		if ch == '(' || ch == '[' || ch == '{' {
-			depth++
-		} else if ch == ')' || ch == ']' || ch == '}' {
-			depth--
-		}
-		if depth > 0 {
-			continue
-		}
-		if ch == '=' {
-			if i+1 < len(s) && (s[i+1] == '=' || s[i+1] == '>') {
-				i++
-				continue
-			}
-			if i > 0 && (s[i-1] == '!' || s[i-1] == '<' || s[i-1] == '>') {
-				continue
-			}
-			return i
-		}
-	}
-	return -1
+		return true
+	})
 }

@@ -928,4 +928,3 @@ func (g *codeGen) buildFnExpr(e *ast.FnExpr) (GoExpr, error) {
 
 	return GoLambdaExpr{Body: fullBody}, nil
 }
-

@@ -53,10 +53,10 @@ func (ic *identCheck) Check(prog *ast.Program) error {
 	// First pass: collect top-level names (functions, variables, modules, namespaces).
 	var funcs []*ast.FuncDef
 	namespaces := make(map[string]bool)
-	imports := make(map[string]bool)       // Rugo stdlib modules
-	goImports := make(map[string]string)   // Go bridge: path → alias
-	nsVarNames := make(map[string]bool)    // "ns.var" qualified names
-	funcDefs := make(map[string]bool)      // function names (including namespaced)
+	imports := make(map[string]bool)        // Rugo stdlib modules
+	goImports := make(map[string]string)    // Go bridge: path → alias
+	nsVarNames := make(map[string]bool)     // "ns.var" qualified names
+	funcDefs := make(map[string]bool)       // function names (including namespaced)
 	withNamespaces := make(map[string]bool) // namespaces from "with" requires
 
 	for _, s := range prog.Statements {
@@ -482,7 +482,6 @@ func (w *identWalker) checkExpr(e ast.Expr, line int, localScope map[string]bool
 	return nil
 }
 
-
 func (w *identWalker) undefinedError(name string, line int) error {
 	src := w.sourceFile
 	if src == "" {
@@ -583,5 +582,3 @@ func requireNamespace(path string) string {
 	base = strings.TrimSuffix(base, ".rg")
 	return base
 }
-
-

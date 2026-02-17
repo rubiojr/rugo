@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/rubiojr/rugo/parser"
+	"github.com/rubiojr/rugo/scanner"
 )
 
 //go:embed check.go nodes.go walker.go preprocess.go parse.go lower.go transform.go factory.go implicit_return.go
@@ -73,6 +74,25 @@ func EnsureCache() (string, error) {
 		return "", fmt.Errorf("writing parser.go: %w", err)
 	}
 
+	// Write scanner/ sources.
+	scannerDir := filepath.Join(cacheDir, "scanner")
+	if err := os.MkdirAll(scannerDir, 0755); err != nil {
+		return "", fmt.Errorf("creating scanner cache dir: %w", err)
+	}
+	scannerEntries, err := fs.ReadDir(scanner.Sources, ".")
+	if err != nil {
+		return "", fmt.Errorf("reading embedded scanner sources: %w", err)
+	}
+	for _, e := range scannerEntries {
+		data, err := fs.ReadFile(scanner.Sources, e.Name())
+		if err != nil {
+			return "", fmt.Errorf("reading embedded %s: %w", e.Name(), err)
+		}
+		if err := os.WriteFile(filepath.Join(scannerDir, e.Name()), data, 0644); err != nil {
+			return "", fmt.Errorf("writing %s: %w", e.Name(), err)
+		}
+	}
+
 	// Write go.mod.
 	if err := os.WriteFile(filepath.Join(cacheDir, "go.mod"), []byte(goModTemplate), 0644); err != nil {
 		return "", fmt.Errorf("writing go.mod: %w", err)
@@ -95,5 +115,10 @@ func cacheHash() string {
 		h.Write(data)
 	}
 	h.Write(parser.Source)
+	scannerEntries, _ := fs.ReadDir(scanner.Sources, ".")
+	for _, e := range scannerEntries {
+		data, _ := fs.ReadFile(scanner.Sources, e.Name())
+		h.Write(data)
+	}
 	return fmt.Sprintf("%x", h.Sum(nil))[:16]
 }
