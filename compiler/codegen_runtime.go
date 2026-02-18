@@ -270,8 +270,15 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			if sig.Params[i] == gobridge.GoFunc && sig.FuncTypes != nil {
 				if ft, ok := sig.FuncTypes[i]; ok {
 					conv := gobridge.FuncAdapterConv(arg, ft)
+					funcType := gobridge.FuncTypeName(ft)
+					if sig.TypeCasts != nil {
+						if cast, ok := sig.TypeCasts[i]; ok {
+							funcType = cast
+							conv = fmt.Sprintf("%s(%s)", cast, conv)
+						}
+					}
 					if sig.FuncParamPointer != nil && sig.FuncParamPointer[i] {
-						conv = fmt.Sprintf("func() *%s { _f := %s; return &_f }()", gobridge.FuncTypeName(ft), conv)
+						conv = fmt.Sprintf("func() *%s { _f := %s; return &_f }()", funcType, conv)
 					}
 					convertedArgs = append(convertedArgs, conv)
 					continue

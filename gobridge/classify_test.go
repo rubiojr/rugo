@@ -20,6 +20,7 @@ func TestClassifyGoType_Basic(t *testing.T) {
 		{types.Int64, GoInt64, TierCastable},
 		{types.Float32, GoFloat32, TierCastable},
 		{types.Uint, GoUint, TierCastable},
+		{types.Uintptr, GoUintptr, TierCastable},
 		{types.Uint32, GoUint32, TierCastable},
 		{types.Uint64, GoUint64, TierCastable},
 	}
@@ -84,6 +85,31 @@ func TestClassifyGoType_Slice(t *testing.T) {
 	_, tier, _ = ClassifyGoType(intSlice, true)
 	if tier != TierBlocked {
 		t.Errorf("[]int: got tier %s, want blocked", tier)
+	}
+}
+
+func TestClassifyGoType_NamedFuncPointer(t *testing.T) {
+	pkg := types.NewPackage("example.com/gtk", "gtk")
+	cbParams := types.NewTuple(
+		types.NewVar(0, nil, "handle", types.Typ[types.Uintptr]),
+	)
+	cbSig := types.NewSignatureType(nil, nil, nil, cbParams, nil, false)
+	cbNamed := types.NewNamed(types.NewTypeName(0, pkg, "DestroyNotify", nil), cbSig, nil)
+	cbPtr := types.NewPointer(cbNamed)
+
+	gt, tier, _ := ClassifyGoType(cbPtr, true)
+	if gt != GoFunc || tier != TierFunc {
+		t.Fatalf("*gtk.DestroyNotify should classify as GoFunc/TierFunc, got %v/%s", gt, tier)
+	}
+
+	sig, isPtr := extractFuncParamSignature(cbPtr)
+	if sig == nil || !isPtr {
+		t.Fatalf("extractFuncParamSignature(*named-func) = %v, %v; want non-nil, true", sig, isPtr)
+	}
+
+	cast := namedFuncTypeCast(cbPtr)
+	if cast != "gtk.DestroyNotify" {
+		t.Fatalf("namedFuncTypeCast(*named-func) = %q, want %q", cast, "gtk.DestroyNotify")
 	}
 }
 
@@ -184,6 +210,7 @@ func TestGoTypeConst(t *testing.T) {
 		{GoInt, "GoInt"},
 		{GoFloat64, "GoFloat64"},
 		{GoBool, "GoBool"},
+		{GoUintptr, "GoUintptr"},
 		{GoError, "GoError"},
 		{GoFunc, "GoFunc"},
 	}

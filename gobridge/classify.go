@@ -75,7 +75,7 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 		}
 		if tier == TierFunc {
 			if funcSig == nil {
-				funcSig, _ = types.Unalias(t).(*types.Signature)
+				funcSig = signatureType(t)
 			}
 			if funcSig == nil {
 				bf.Tier = TierFunc
@@ -97,6 +97,12 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 					bf.FuncParamPointer = map[int]bool{}
 				}
 				bf.FuncParamPointer[i] = true
+			}
+			if cast := namedFuncTypeCast(t); cast != "" {
+				if bf.TypeCasts == nil {
+					bf.TypeCasts = map[int]string{}
+				}
+				bf.TypeCasts[i] = cast
 			}
 			hasCast = true
 			bf.Params = append(bf.Params, gt)
@@ -146,18 +152,57 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 	return bf
 }
 
+func signatureType(t types.Type) *types.Signature {
+	t = types.Unalias(t)
+	if sig, ok := t.(*types.Signature); ok {
+		return sig
+	}
+	named, ok := t.(*types.Named)
+	if !ok {
+		return nil
+	}
+	sig, _ := types.Unalias(named.Underlying()).(*types.Signature)
+	return sig
+}
+
+func namedFuncTypeCast(t types.Type) string {
+	base := t
+	if ptr, ok := types.Unalias(base).(*types.Pointer); ok {
+		base = ptr.Elem()
+	}
+
+	if alias, ok := base.(*types.Alias); ok {
+		if signatureType(alias) == nil {
+			return ""
+		}
+		obj := alias.Obj()
+		if pkg := obj.Pkg(); pkg != nil {
+			return pkg.Name() + "." + obj.Name()
+		}
+		return obj.Name()
+	}
+
+	named, ok := base.(*types.Named)
+	if !ok || signatureType(named) == nil {
+		return ""
+	}
+	if pkg := named.Obj().Pkg(); pkg != nil {
+		return pkg.Name() + "." + named.Obj().Name()
+	}
+	return named.Obj().Name()
+}
+
 // extractFuncParamSignature returns a Go function signature for function-valued
 // params, including pointer-to-function forms (e.g., *func(int)).
 func extractFuncParamSignature(t types.Type) (*types.Signature, bool) {
-	t = types.Unalias(t)
-	if sig, ok := t.(*types.Signature); ok {
+	if sig := signatureType(t); sig != nil {
 		return sig, false
 	}
-	ptr, ok := t.(*types.Pointer)
+	ptr, ok := types.Unalias(t).(*types.Pointer)
 	if !ok {
 		return nil, false
 	}
-	sig, _ := types.Unalias(ptr.Elem()).(*types.Signature)
+	sig := signatureType(ptr.Elem())
 	if sig == nil {
 		return nil, false
 	}
@@ -182,7 +227,7 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 		}
 		if tier == TierFunc {
 			if funcSig == nil {
-				funcSig, _ = types.Unalias(t).(*types.Signature)
+				funcSig = signatureType(t)
 			}
 			if funcSig == nil {
 				return nil
@@ -201,6 +246,12 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 					ft.FuncParamPointer = make(map[int]bool)
 				}
 				ft.FuncParamPointer[i] = true
+			}
+			if cast := namedFuncTypeCast(t); cast != "" {
+				if ft.TypeCasts == nil {
+					ft.TypeCasts = make(map[int]string)
+				}
+				ft.TypeCasts[i] = cast
 			}
 			continue
 		}
@@ -314,6 +365,8 @@ func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
 			return GoInt, TierCastable, ""
 		case types.Uint:
 			return GoUint, TierCastable, ""
+		case types.Uintptr:
+			return GoUintptr, TierCastable, ""
 		case types.Uint32:
 			return GoUint32, TierCastable, ""
 		case types.Uint64:
@@ -341,7 +394,7 @@ func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
 		return 0, TierBlocked, "interface type"
 	case *types.Pointer:
 		if isParam {
-			if _, ok := types.Unalias(u.Elem()).(*types.Signature); ok {
+			if signatureType(u.Elem()) != nil {
 				return GoFunc, TierFunc, ""
 			}
 		}
@@ -427,6 +480,8 @@ func GoTypeConst(t GoType) string {
 		return "GoUint64"
 	case GoUint:
 		return "GoUint"
+	case GoUintptr:
+		return "GoUintptr"
 	case GoFloat32:
 		return "GoFloat32"
 	case GoRune:

@@ -28,6 +28,7 @@ const (
 	GoUint32      // uint32 — bridged as int in Rugo
 	GoUint64      // uint64 — bridged as int in Rugo
 	GoUint        // uint — bridged as int in Rugo
+	GoUintptr     // uintptr — bridged as int in Rugo
 	GoFloat32     // float32 — bridged as float in Rugo
 	GoRune        // rune — bridged as first char of string in Rugo
 	GoFunc        // func param — Rugo lambda adapted to typed Go func
@@ -389,6 +390,8 @@ func TypeConvToGo(argExpr string, t GoType) string {
 		return "uint64(rugo_to_int(" + argExpr + "))"
 	case GoUint:
 		return "uint(rugo_to_int(" + argExpr + "))"
+	case GoUintptr:
+		return "uintptr(rugo_to_int(" + argExpr + "))"
 	case GoFloat32:
 		return "float32(rugo_to_float(" + argExpr + "))"
 	case GoRune:
@@ -427,6 +430,8 @@ func GoTypeGoName(t GoType) string {
 		return "uint64"
 	case GoUint:
 		return "uint"
+	case GoUintptr:
+		return "uintptr"
 	case GoFloat32:
 		return "float32"
 	case GoRune:
@@ -484,10 +489,18 @@ func funcTypeName(ft *GoFuncType) string {
 			}
 		}
 		if t == GoFunc {
-			typeName := "func(...interface{}) interface{}"
-			if ft.FuncTypes != nil {
-				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
-					typeName = funcTypeName(nested)
+			typeName := ""
+			if ft.TypeCasts != nil {
+				if cast, ok := ft.TypeCasts[i]; ok {
+					typeName = cast
+				}
+			}
+			if typeName == "" {
+				typeName = "func(...interface{}) interface{}"
+				if ft.FuncTypes != nil {
+					if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
+						typeName = funcTypeName(nested)
+					}
 				}
 			}
 			if ft.FuncParamPointer != nil && ft.FuncParamPointer[i] {
@@ -642,10 +655,18 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 			}
 		}
 		if t == GoFunc {
-			typeName := "func(...interface{}) interface{}"
-			if ft.FuncTypes != nil {
-				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
-					typeName = funcTypeName(nested)
+			typeName := ""
+			if ft.TypeCasts != nil {
+				if cast, ok := ft.TypeCasts[i]; ok {
+					typeName = cast
+				}
+			}
+			if typeName == "" {
+				typeName = "func(...interface{}) interface{}"
+				if ft.FuncTypes != nil {
+					if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
+						typeName = funcTypeName(nested)
+					}
 				}
 			}
 			if ft.FuncParamPointer != nil && ft.FuncParamPointer[i] {
@@ -775,6 +796,8 @@ func TypeWrapReturn(expr string, t GoType) string {
 		return "interface{}(int(" + expr + "))"
 	case GoUint:
 		return "interface{}(int(" + expr + "))"
+	case GoUintptr:
+		return "interface{}(int(" + expr + "))"
 	case GoFloat32:
 		return "interface{}(float64(" + expr + "))"
 	case GoRune:
@@ -813,6 +836,8 @@ func GoTypeName(t GoType) string {
 		return "uint64"
 	case GoUint:
 		return "uint"
+	case GoUintptr:
+		return "uintptr"
 	case GoFloat32:
 		return "float32"
 	case GoRune:

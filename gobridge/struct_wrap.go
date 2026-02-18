@@ -251,8 +251,15 @@ func writeMethodCase(sb *strings.Builder, m GoStructMethodInfo, ns string) {
 		if p == GoFunc && m.FuncTypes != nil {
 			if ft, ok := m.FuncTypes[i]; ok {
 				conv := FuncAdapterConv(argExpr, ft)
+				funcType := funcTypeName(ft)
+				if m.TypeCasts != nil {
+					if cast, ok := m.TypeCasts[i]; ok {
+						funcType = cast
+						conv = fmt.Sprintf("%s(%s)", cast, conv)
+					}
+				}
 				if m.FuncParamPointer != nil && m.FuncParamPointer[i] {
-					conv = fmt.Sprintf("func() *%s { _f := %s; return &_f }()", funcTypeName(ft), conv)
+					conv = fmt.Sprintf("func() *%s { _f := %s; return &_f }()", funcType, conv)
 				}
 				convArgs = append(convArgs, conv)
 				continue

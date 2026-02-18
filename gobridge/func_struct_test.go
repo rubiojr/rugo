@@ -466,6 +466,24 @@ func TestFuncStructCallbacks_Integration(t *testing.T) {
 		require.Contains(t, m.FuncTypes[0].FuncTypes, 0)
 	})
 
+	// OnNamedPointerCallback — *NamedPointerCallback should stay typed.
+	t.Run("OnNamedPointerCallback_named_func_pointer", func(t *testing.T) {
+		m := findMethod("OnNamedPointerCallback")
+		require.NotNil(t, m, "OnNamedPointerCallback should be bridged")
+		require.Equal(t, GoFunc, m.Params[0])
+		require.Contains(t, m.FuncTypes, 0)
+		require.Contains(t, m.FuncParamPointer, 0)
+		require.True(t, m.FuncParamPointer[0], "callback param should be pointer-to-func")
+		require.Contains(t, m.TypeCasts, 0)
+		assert.Equal(t, "funcstruct.NamedPointerCallback", m.TypeCasts[0])
+
+		ft := m.FuncTypes[0]
+		require.NotNil(t, ft)
+		assert.Equal(t, GoUintptr, ft.Params[0], "uintptr callback arg should be bridged")
+		assert.Contains(t, ft.StructCasts, 1)
+		assert.Equal(t, "funcstruct.Item", ft.StructGoTypes[1])
+	})
+
 	// SetName — regular method, should still work
 	t.Run("SetName_regular", func(t *testing.T) {
 		m := findMethod("SetName")

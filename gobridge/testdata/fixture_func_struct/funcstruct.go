@@ -28,6 +28,9 @@ type Nested__Type struct {
 	Value string
 }
 
+// NamedPointerCallback mirrors APIs that expose pointer-to-named-func callbacks.
+type NamedPointerCallback func(handle uintptr, item *Item)
+
 // --- Widget with signal-like methods taking func callbacks ---
 
 // Widget is the main struct with callback-taking methods.
@@ -81,6 +84,15 @@ func (w *Widget) OnPrimitiveOnly(slot func(row int)) {
 // OnNoArgs takes a callback with no params (baseline).
 func (w *Widget) OnNoArgs(slot func()) {
 	slot()
+}
+
+// OnNamedPointerCallback uses a pointer to a named callback type.
+func (w *Widget) OnNamedPointerCallback(slot *NamedPointerCallback) {
+	if slot == nil {
+		return
+	}
+	cb := *slot
+	cb(123, NewItem("named-ptr"))
 }
 
 // --- Functions with callback edge cases ---

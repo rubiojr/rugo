@@ -930,6 +930,12 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 				}
 				sig.FuncParamPointer[i] = true
 			}
+			if cast := namedFuncTypeCast(t); cast != "" {
+				if sig.TypeCasts == nil {
+					sig.TypeCasts = make(map[int]string)
+				}
+				sig.TypeCasts[i] = cast
+			}
 		} else {
 			sig.Params = append(sig.Params, gt)
 			// Detect named types that need explicit casts (e.g., qt6.StandardKey).
@@ -1221,6 +1227,12 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 					mi.FuncParamPointer = make(map[int]bool)
 				}
 				mi.FuncParamPointer[i] = true
+			}
+			if cast := namedFuncTypeCast(t); cast != "" {
+				if mi.TypeCasts == nil {
+					mi.TypeCasts = make(map[int]string)
+				}
+				mi.TypeCasts[i] = cast
 			}
 		} else {
 			mi.Params = append(mi.Params, gt)
