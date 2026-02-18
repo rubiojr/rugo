@@ -1,4 +1,5 @@
 use "test"
+use "str"
 
 rats "rugo eval with inline argument"
   result = test.run("rugo eval 'puts 1 + 1'")
@@ -52,4 +53,39 @@ end
 rats "rugo eval compilation error"
   result = test.run("rugo eval 'def'")
   test.assert_neq(result["status"], 0)
+end
+
+rats "rugo eval error shows eval not temp path"
+  result = test.run("rugo eval 'def'")
+  test.assert_contains(result["output"], "eval:")
+  test.assert_false(str.contains(result["output"], "/tmp/"))
+  test.assert_false(str.contains(result["output"], "rugo-eval"))
+end
+
+rats "rugo eval unknown package error shows eval not temp path"
+  result = test.run("rugo eval 'import \"nonexistent\"'")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "eval:")
+  test.assert_false(str.contains(result["output"], "/tmp/"))
+end
+
+rats "rugo eval semicolon error shows eval not temp path"
+  result = test.run("rugo eval 'x = 1; y = 2'")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "eval:")
+  test.assert_false(str.contains(result["output"], "/tmp/"))
+end
+
+rats "rugo eval parse error shows eval not temp path"
+  result = test.run("rugo eval 'if true'")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "eval:")
+  test.assert_false(str.contains(result["output"], "/tmp/"))
+end
+
+rats "rugo eval unknown module error shows eval not temp path"
+  result = test.run("rugo eval 'use \"nonexistent\"'")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "eval:")
+  test.assert_false(str.contains(result["output"], "/tmp/"))
 end

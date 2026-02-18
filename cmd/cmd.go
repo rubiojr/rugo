@@ -370,7 +370,15 @@ func evalAction(ctx context.Context, cmd *cli.Command) error {
 
 	comp := &compiler.Compiler{BaseDir: tmpDir}
 	if err := comp.Run(srcFile); err != nil {
-		return fmt.Errorf("%s", strings.ReplaceAll(err.Error(), srcFile, "eval"))
+		msg := err.Error()
+		// Replace the display path form (relative from CWD, used in error messages).
+		if wd, err2 := os.Getwd(); err2 == nil {
+			if rel, err2 := filepath.Rel(wd, srcFile); err2 == nil {
+				msg = strings.ReplaceAll(msg, rel, "eval")
+			}
+		}
+		msg = strings.ReplaceAll(msg, srcFile, "eval")
+		return fmt.Errorf("%s", msg)
 	}
 	return nil
 }
