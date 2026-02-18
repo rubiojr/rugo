@@ -40,7 +40,7 @@ func (*Eval) Run(source string) interface{} {
 	c := &compiler.Compiler{BaseDir: tmpDir}
 	result, err := c.RunCapture(srcFile)
 	if err != nil {
-		panic(fmt.Sprintf("eval.run: %v", err))
+		return errorToHash(err)
 	}
 
 	return capturedToHash(result)
@@ -57,15 +57,10 @@ func (*Eval) File(path string, extra ...interface{}) interface{} {
 		args[i] = fmt.Sprintf("%v", v)
 	}
 
-	absPath, err := filepath.Abs(path)
+	c := &compiler.Compiler{}
+	result, err := c.RunCapture(path, args...)
 	if err != nil {
-		panic(fmt.Sprintf("eval.file: resolving path: %v", err))
-	}
-
-	c := &compiler.Compiler{BaseDir: filepath.Dir(absPath)}
-	result, err := c.RunCapture(absPath, args...)
-	if err != nil {
-		panic(fmt.Sprintf("eval.file: %v", err))
+		return errorToHash(err)
 	}
 
 	return capturedToHash(result)
@@ -84,6 +79,21 @@ func capturedToHash(result *compiler.CapturedOutput) map[interface{}]interface{}
 	return map[interface{}]interface{}{
 		"status": result.ExitCode,
 		"output": result.Output,
+		"lines":  lines,
+	}
+}
+
+// errorToHash converts a compile/build error to the standard result hash,
+// matching what "rugo run" outputs on failure (exit 1 + "error: " prefix).
+func errorToHash(err error) map[interface{}]interface{} {
+	msg := strings.TrimRight("error: "+err.Error(), "\n")
+	var lines []interface{}
+	for _, line := range strings.Split(msg, "\n") {
+		lines = append(lines, interface{}(line))
+	}
+	return map[interface{}]interface{}{
+		"status": 1,
+		"output": msg,
 		"lines":  lines,
 	}
 }

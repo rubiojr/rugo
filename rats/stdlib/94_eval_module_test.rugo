@@ -57,14 +57,16 @@ RUGO
   test.assert_eq(result["output"], "hello world")
 end
 
-rats "try/or catches eval compile errors"
-  result = try eval.run("def") or nil
-  test.assert_nil(result)
+rats "eval.run returns hash on compile errors"
+  result = eval.run("def")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "error:")
 end
 
-rats "try/or catches eval.file errors"
-  result = try eval.file("nonexistent.rugo") or nil
-  test.assert_nil(result)
+rats "eval.file returns hash on missing file"
+  result = eval.file("nonexistent.rugo")
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "error:")
 end
 
 rats "try/or passes through successful eval"
