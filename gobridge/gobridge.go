@@ -40,10 +40,11 @@ const (
 type GoFuncType struct {
 	Params           []GoType
 	Returns          []GoType
-	TypeCasts        map[int]string // param index → named type cast (e.g., "qt6.ApplicationState")
-	StructCasts      map[int]string // param index → struct wrapper type (e.g., "rugo_struct_qt6_QListWidgetItem")
-	StructParamValue map[int]bool   // param index → true if value type (not pointer), needs dereference
-	StructGoTypes    map[int]string // param index → Go type string (e.g., "qt6.QDate", "qt6.QListWidgetItem")
+	TypeCasts        map[int]string      // param index → named type cast (e.g., "qt6.ApplicationState")
+	StructCasts      map[int]string      // param index → struct wrapper type (e.g., "rugo_struct_qt6_QListWidgetItem")
+	StructParamValue map[int]bool        // param index → true if value type (not pointer), needs dereference
+	StructGoTypes    map[int]string      // param index → Go type string (e.g., "qt6.QDate", "qt6.QListWidgetItem")
+	FuncTypes        map[int]*GoFuncType // param index → nested function signature (for func-in-func params)
 }
 
 // GoStructField describes a single field to extract from a Go struct return.
@@ -454,6 +455,143 @@ func SliceElemType(t GoType) (GoType, bool) {
 // FuncAdapterConv generates a Go adapter that wraps a Rugo lambda into a typed Go function.
 // argExpr is the Go expression for the Rugo lambda (interface{}).
 // ft describes the target Go function signature.
+func funcTypeName(ft *GoFuncType) string {
+	// Build param types.
+	var params []string
+	for i, t := range ft.Params {
+		// Struct-casted param: use the stored Go type name.
+		if ft.StructCasts != nil {
+			if _, ok := ft.StructCasts[i]; ok {
+				goType := ""
+				if ft.StructGoTypes != nil {
+					goType = ft.StructGoTypes[i]
+				}
+				if goType == "" {
+					goType = "interface{}"
+				}
+				// Value type: use as-is; pointer type: prepend *
+				if ft.StructParamValue == nil || !ft.StructParamValue[i] {
+					goType = "*" + goType
+				}
+				params = append(params, goType)
+				continue
+			}
+		}
+		if t == GoFunc {
+			if ft.FuncTypes != nil {
+				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
+					params = append(params, funcTypeName(nested))
+					continue
+				}
+			}
+			params = append(params, "func(...interface{}) interface{}")
+			continue
+		}
+		typeName := GoTypeGoName(t)
+		// Use named type if a cast is needed (e.g., qt6.ApplicationState instead of int).
+		if ft.TypeCasts != nil {
+			if cast, ok := ft.TypeCasts[i]; ok {
+				typeName = cast
+			}
+		}
+		params = append(params, typeName)
+	}
+
+	// Build return type.
+	retType := ""
+	if len(ft.Returns) == 1 {
+		retType = " " + GoTypeGoName(ft.Returns[0])
+		// Use named return type if a cast is needed.
+		if ft.TypeCasts != nil {
+			if cast, ok := ft.TypeCasts[-1]; ok {
+				retType = " " + cast
+			}
+		}
+	} else if len(ft.Returns) > 1 {
+		var rets []string
+		for i, t := range ft.Returns {
+			typeName := GoTypeGoName(t)
+			if ft.TypeCasts != nil {
+				if cast, ok := ft.TypeCasts[-(i + 1)]; ok {
+					typeName = cast
+				}
+			}
+			rets = append(rets, typeName)
+		}
+		retType = " (" + strings.Join(rets, ", ") + ")"
+	}
+
+	return fmt.Sprintf("func(%s)%s", strings.Join(params, ", "), retType)
+}
+
+// FuncToLambdaConv wraps a typed Go function into a Rugo lambda-compatible callback.
+// argExpr is the Go expression for the typed function value.
+// ft describes the typed function signature.
+func FuncToLambdaConv(argExpr string, ft *GoFuncType) string {
+	// Build converted args for calling the typed Go function.
+	var convArgs []string
+	for i, p := range ft.Params {
+		argExpr := fmt.Sprintf("_a[%d]", i)
+		if ft.StructCasts != nil {
+			if wrapType, ok := ft.StructCasts[i]; ok {
+				expr := fmt.Sprintf("rugo_upcast_%s(%s).v", wrapType, argExpr)
+				// Value-type struct params need dereference (*wrapper.v).
+				if ft.StructParamValue != nil && ft.StructParamValue[i] {
+					expr = fmt.Sprintf("*rugo_upcast_%s(%s).v", wrapType, argExpr)
+				}
+				convArgs = append(convArgs, expr)
+				continue
+			}
+		}
+		if p == GoFunc {
+			if ft.FuncTypes != nil {
+				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
+					convArgs = append(convArgs, FuncAdapterConv(argExpr, nested))
+					continue
+				}
+			}
+			convArgs = append(convArgs, fmt.Sprintf("%s.(func(...interface{}) interface{})", argExpr))
+			continue
+		}
+		conv := TypeConvToGo(argExpr, p)
+		// Apply named type cast if needed (e.g., qt6.GestureType(rugo_to_int(arg))).
+		if ft.TypeCasts != nil {
+			if cast, ok := ft.TypeCasts[i]; ok {
+				if strings.HasPrefix(cast, "*") {
+					conv = fmt.Sprintf("*%s(%s)", cast[1:], conv)
+				} else {
+					conv = fmt.Sprintf("%s(%s)", cast, conv)
+				}
+			}
+		}
+		convArgs = append(convArgs, conv)
+	}
+	call := fmt.Sprintf("_f(%s)", strings.Join(convArgs, ", "))
+
+	if len(ft.Returns) == 0 {
+		return fmt.Sprintf("func(_a ...interface{}) interface{} { _f := %s; %s; return nil }", argExpr, call)
+	}
+	if len(ft.Returns) == 1 {
+		return fmt.Sprintf("func(_a ...interface{}) interface{} { _f := %s; return %s }", argExpr, TypeWrapReturn(call, ft.Returns[0]))
+	}
+
+	// Multi-return: collect into []interface{}.
+	var vars []string
+	var elems []string
+	for i, t := range ft.Returns {
+		v := fmt.Sprintf("_v%d", i)
+		vars = append(vars, v)
+		elems = append(elems, TypeWrapReturn(v, t))
+	}
+	return fmt.Sprintf(
+		"func(_a ...interface{}) interface{} { _f := %s; %s := %s; return []interface{}{%s} }",
+		argExpr,
+		strings.Join(vars, ", "),
+		call,
+		strings.Join(elems, ", "),
+	)
+}
+
 func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 	// Build param list: _p0 type0, _p1 type1, ...
 	var params []string
@@ -475,6 +613,16 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 				params = append(params, fmt.Sprintf("_p%d %s", i, goType))
 				continue
 			}
+		}
+		if t == GoFunc {
+			typeName := "func(...interface{}) interface{}"
+			if ft.FuncTypes != nil {
+				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
+					typeName = funcTypeName(nested)
+				}
+			}
+			params = append(params, fmt.Sprintf("_p%d %s", i, typeName))
+			continue
 		}
 		typeName := GoTypeGoName(t)
 		// Use named type if a cast is needed (e.g., qt6.ApplicationState instead of int).
@@ -513,6 +661,16 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 				callArgs = append(callArgs, fmt.Sprintf("interface{}(&%s{v: %s})", wrapType, ref))
 				continue
 			}
+		}
+		if t == GoFunc {
+			if ft.FuncTypes != nil {
+				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
+					callArgs = append(callArgs, "interface{}("+FuncToLambdaConv(pName, nested)+")")
+					continue
+				}
+			}
+			callArgs = append(callArgs, "interface{}("+pName+")")
+			continue
 		}
 		switch t {
 		case GoRune:

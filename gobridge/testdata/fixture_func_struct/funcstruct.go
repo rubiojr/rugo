@@ -83,14 +83,14 @@ func (w *Widget) OnNoArgs(slot func()) {
 	slot()
 }
 
-// --- Functions blocked by unbridgeable callback params ---
+// --- Functions with callback edge cases ---
 
 // OnChanCallback takes a callback with a chan param — should remain blocked.
 func (w *Widget) OnChanCallback(slot func(ch chan int)) {
 	slot(make(chan int))
 }
 
-// OnFuncCallback takes a callback with a func param — should remain blocked.
+// OnFuncCallback takes a callback with a nested func param.
 func (w *Widget) OnFuncCallback(slot func(fn func())) {
 	slot(func() {})
 }

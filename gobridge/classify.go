@@ -144,7 +144,20 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 		t := params.At(i).Type()
 		gt, tier, _ := ClassifyGoType(t, true)
 		if tier == TierFunc {
-			return nil
+			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
+			if !ok {
+				return nil
+			}
+			nested := ClassifyFuncType(funcSig, structWrappers, knownStructs)
+			if nested == nil {
+				return nil
+			}
+			ft.Params = append(ft.Params, GoFunc)
+			if ft.FuncTypes == nil {
+				ft.FuncTypes = make(map[int]*GoFuncType)
+			}
+			ft.FuncTypes[i] = nested
+			continue
 		}
 		if tier == TierBlocked {
 			// Try struct wrapper fallback for callback params.

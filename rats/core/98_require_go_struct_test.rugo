@@ -379,3 +379,32 @@ rats "struct build produces working binary"
   test.assert_eq(lines[0], "10")
   test.assert_eq(lines[1], "prod config")
 end
+
+rats "nested callback params in Go methods are bridged"
+  tmpdir = test.tmpdir()
+  root = test.run("git rev-parse --show-toplevel")["output"]
+  copy_result = test.run("cp -r #{root}/gobridge/testdata/fixture_func_struct #{tmpdir}/funcstruct")
+  test.assert_eq(copy_result["status"], 0)
+  script = <<~SCRIPT
+    require "funcstruct"
+    w = funcstruct.new_widget()
+    called = false
+    nested_called = false
+    w.on_func_callback(fn(super_fn)
+      called = true
+      super_fn()
+      nested_called = true
+    end)
+    puts(called)
+    puts(nested_called)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("#{root}/bin/rugo run #{tmpdir}/main.rugo")
+  if result["status"] != 0
+    puts(result["output"])
+  end
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "true")
+  test.assert_eq(lines[1], "true")
+end

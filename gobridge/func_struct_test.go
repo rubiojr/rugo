@@ -177,14 +177,18 @@ func TestClassifyFuncType_ChanParamStillBlocked(t *testing.T) {
 	assert.Nil(t, ft, "chan param should remain blocked")
 }
 
-func TestClassifyFuncType_NestedFuncParamStillBlocked(t *testing.T) {
-	// func(fn func()) — func-in-func is blocked.
+func TestClassifyFuncType_NestedFuncParam(t *testing.T) {
+	// func(fn func()) — func-in-func should be bridgeable.
 	innerSig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
 	params := types.NewTuple(types.NewVar(0, nil, "fn", innerSig))
 	sig := types.NewSignatureType(nil, nil, nil, params, nil, false)
 
 	ft := ClassifyFuncType(sig, map[string]string{}, map[string]bool{})
-	assert.Nil(t, ft, "nested func param should remain blocked")
+	require.NotNil(t, ft, "nested func param should be bridgeable")
+	assert.Equal(t, []GoType{GoFunc}, ft.Params)
+	require.Contains(t, ft.FuncTypes, 0)
+	assert.Empty(t, ft.FuncTypes[0].Params)
+	assert.Empty(t, ft.FuncTypes[0].Returns)
 }
 
 // --- FuncAdapterConv tests ---
@@ -259,6 +263,26 @@ func TestFuncAdapterConv_WithReturn(t *testing.T) {
 	result := FuncAdapterConv("_arg", ft)
 	assert.Contains(t, result, "return ")
 	assert.Contains(t, result, " bool")
+}
+
+func TestFuncAdapterConv_NestedFuncParamWithStruct(t *testing.T) {
+	ft := &GoFuncType{
+		Params: []GoType{GoFunc, GoString}, // second param is struct placeholder
+		FuncTypes: map[int]*GoFuncType{
+			0: &GoFuncType{
+				Params:        []GoType{GoString},
+				StructCasts:   map[int]string{0: "rugo_struct_qt6_QPaintEvent"},
+				StructGoTypes: map[int]string{0: "qt6.QPaintEvent"},
+			},
+		},
+		StructCasts:   map[int]string{1: "rugo_struct_qt6_QPaintEvent"},
+		StructGoTypes: map[int]string{1: "qt6.QPaintEvent"},
+	}
+	result := FuncAdapterConv("_arg", ft)
+	assert.Contains(t, result, "_p0 func(*qt6.QPaintEvent)")
+	assert.Contains(t, result, "_p1 *qt6.QPaintEvent")
+	assert.Contains(t, result, "interface{}(func(_a ...interface{}) interface{} { _f := _p0; _f(rugo_upcast_rugo_struct_qt6_QPaintEvent(_a[0]).v); return nil })")
+	assert.Contains(t, result, "interface{}(&rugo_struct_qt6_QPaintEvent{v: _p1})")
 }
 
 // --- qualifiedGoTypeName tests ---
@@ -406,10 +430,14 @@ func TestFuncStructCallbacks_Integration(t *testing.T) {
 		assert.Nil(t, m, "OnChanCallback should be blocked (chan in callback)")
 	})
 
-	// OnFuncCallback — func(fn func()): must remain blocked
-	t.Run("OnFuncCallback_blocked", func(t *testing.T) {
+	// OnFuncCallback — func(fn func()): should be bridged as nested callback.
+	t.Run("OnFuncCallback_nested", func(t *testing.T) {
 		m := findMethod("OnFuncCallback")
-		assert.Nil(t, m, "OnFuncCallback should be blocked (func-in-func)")
+		require.NotNil(t, m, "OnFuncCallback should be bridged (func-in-func)")
+		require.Equal(t, GoFunc, m.Params[0])
+		require.Contains(t, m.FuncTypes, 0)
+		assert.Equal(t, []GoType{GoFunc}, m.FuncTypes[0].Params)
+		require.Contains(t, m.FuncTypes[0].FuncTypes, 0)
 	})
 
 	// SetName — regular method, should still work
