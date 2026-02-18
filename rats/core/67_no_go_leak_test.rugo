@@ -1,16 +1,15 @@
 # RATS: Go internals must not leak into user-facing errors
 # Compiler errors should never expose rugons_, interface{}, or raw Go identifiers
 use "test"
+use "eval"
 use "str"
 
 rats "undefined variable error does not leak Go symbols"
-  tmpdir = test.tmpdir()
-  script = <<~SCRIPT
+  source = <<~RUGO
     x = nothing.foo()
     puts(x)
-  SCRIPT
-  test.write_file("#{tmpdir}/test.rugo", script)
-  result = test.run("rugo run #{tmpdir}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   # Must not contain internal Go identifiers
   test.assert_eq(str.contains(result["output"], "rugons_"), false)

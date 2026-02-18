@@ -104,7 +104,6 @@ rats "bare function name with wrong arity errors"
     end
     puts greet
   RUGO
-  test.write_file("#{test.tmpdir()}/test.rugo", source)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
 end

@@ -1,35 +1,33 @@
 # RATS: Module system hardening — edge cases and error messages
 use "test"
+use "eval"
 use "str"
 
 # --- Empty paths ---
 
 rats "empty require path gives clear error"
-  script = <<~SCRIPT
+  source = <<~RUGO
     require ""
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/empty_require.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/empty_require.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "empty path in require statement")
 end
 
 rats "empty use gives clear error"
-  script = <<~SCRIPT
+  source = <<~RUGO
     use ""
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/empty_use.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/empty_use.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "empty module name")
 end
 
 rats "empty import gives clear error"
-  script = <<~SCRIPT
+  source = <<~RUGO
     import ""
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/empty_import.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/empty_import.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "empty package name")
 end
@@ -162,11 +160,10 @@ end
 # --- Missing file ---
 
 rats "require nonexistent file gives clear error"
-  script = <<~SCRIPT
+  source = <<~RUGO
     require "does_not_exist"
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/missing.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/missing.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot find required file")
   test.assert_contains(result["output"], "does_not_exist")
@@ -221,22 +218,20 @@ end
 # --- Unknown module suggestions ---
 
 rats "typo in use module suggests correct name"
-  script = <<~SCRIPT
+  source = <<~RUGO
     use "htp"
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/typo_use.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/typo_use.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "did you mean")
   test.assert_contains(result["output"], "http")
 end
 
 rats "typo in import package suggests correct name"
-  script = <<~SCRIPT
+  source = <<~RUGO
     import "mathh"
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/typo_import.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/typo_import.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "did you mean")
   test.assert_contains(result["output"], "math")
@@ -245,12 +240,11 @@ end
 # --- Unknown function on stdlib module ---
 
 rats "unknown function on stdlib module gives clear error"
-  script = <<~SCRIPT
+  source = <<~RUGO
     use "str"
     str.nonexistent("hello")
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/unknown_func.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/unknown_func.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unknown function str.nonexistent")
 end

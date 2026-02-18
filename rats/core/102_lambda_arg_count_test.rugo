@@ -1,38 +1,36 @@
 # RATS: Lambda argument count validation
 # Bug: 23dcd84 — Lambdas silently ignore extra arguments
 use "test"
+use "eval"
 
 rats "lambda with too many args errors"
-  script = <<~SCRIPT
+  source = <<~RUGO
     f = fn(x) x * 2 end
     f(1, 2, 3)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "1 argument")
   test.assert_contains(result["output"], "3 were given")
 end
 
 rats "lambda with too few args errors"
-  script = <<~SCRIPT
+  source = <<~RUGO
     f = fn(x, y) x + y end
     f(1)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "2 arguments")
   test.assert_contains(result["output"], "1 was given")
 end
 
 rats "lambda with zero args rejects args"
-  script = <<~SCRIPT
+  source = <<~RUGO
     f = fn() 42 end
     f(1)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "0 arguments")
   test.assert_contains(result["output"], "1 was given")

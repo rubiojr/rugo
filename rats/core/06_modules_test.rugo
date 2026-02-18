@@ -1,27 +1,26 @@
 # RATS: Test stdlib modules (os, conv, str)
 use "test"
+use "eval"
 use "conv"
 use "str"
 
 rats "os.exec runs commands"
-  script = <<~SCRIPT
+  source = <<~RUGO
     use "os"
     result = os.exec("echo hello")
     puts(result)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello")
 end
 
 rats "os.exit sets exit code"
-  script = <<~SCRIPT
+  source = <<~RUGO
     use "os"
     os.exit(0)
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
 end
 
@@ -64,10 +63,9 @@ rats "str.join works"
 end
 
 rats "unknown module import fails"
-  script = <<~SCRIPT
+  source = <<~RUGO
     use "nonexistent"
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
 end

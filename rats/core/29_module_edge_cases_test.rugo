@@ -1,5 +1,6 @@
 # RATS: Module import/require edge cases
 use "test"
+use "eval"
 use "str"
 
 # Bug 186d619: require alias matching stdlib name without import should use user module
@@ -62,13 +63,12 @@ end
 
 # Bug 51ab700: import inside function body should error
 rats "import inside function body errors"
-  script = <<~SCRIPT
+  source = <<~RUGO
     def foo()
       use "conv"
     end
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/nested_import.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/nested_import.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "top level")
 end
@@ -121,13 +121,12 @@ end
 
 # Bug 6ee382f: duplicate import is silently deduplicated
 rats "duplicate import is deduplicated"
-  script = <<~SCRIPT
+  source = <<~RUGO
     use "conv"
     use "conv"
     puts(conv.to_s(42))
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/dup_import.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/dup_import.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end

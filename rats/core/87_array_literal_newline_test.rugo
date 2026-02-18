@@ -2,6 +2,7 @@
 # Tests that [array] at the start of a new line is parsed as a new statement,
 # not as an index Suffix on the previous expression.
 use "test"
+use "eval"
 
 # ============================================================
 # A. Array literal after assignment on previous line
@@ -80,11 +81,10 @@ end
 # ============================================================
 
 rats "user semicolons produce clear error"
-  script = <<~SCRIPT
+  source = <<~RUGO
     x = 1; y = 2
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "semicolons are not supported")
 end
@@ -133,34 +133,31 @@ end
 # ============================================================
 
 rats "trailing comma in array is rejected"
-  script = <<~SCRIPT
+  source = <<~RUGO
     x = [1, 2, 3,]
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
 
 rats "trailing comma in hash is rejected"
-  script = <<~SCRIPT
+  source = <<~RUGO
     h = {"a" => 1,}
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
 
 rats "trailing comma in multi-line array is rejected"
-  script = <<~SCRIPT
+  source = <<~RUGO
     x = [
       1,
       2,
     ]
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
@@ -308,24 +305,22 @@ end
 # ============================================================
 
 rats "trailing comma in nested inner array is rejected"
-  script = <<~SCRIPT
+  source = <<~RUGO
     x = [[1,], [2]]
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
 
 rats "trailing comma in multi-line hash is rejected"
-  script = <<~SCRIPT
+  source = <<~RUGO
     h = {
       "a" => 1,
       "b" => 2,
     }
-  SCRIPT
-  test.write_file("#{test.tmpdir()}/test.rugo", script)
-  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "trailing commas are not allowed")
 end
