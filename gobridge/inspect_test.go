@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func fixtureDir(name string) string {
@@ -189,4 +190,21 @@ func TestStringViewParamClassifiedAsString(t *testing.T) {
 		t.Fatal("SetTooltip should have TypeCasts[0] for PtrStringView constructor")
 	}
 	assert.Equal(t, "*stringview.NewPtrStringView", setTooltip.TypeCasts[0])
+}
+
+func TestInspectCompiledPackage_TimeStructSupport(t *testing.T) {
+	pkg, err := InspectCompiledPackage("time")
+	require.NoError(t, err)
+	require.NotNil(t, pkg)
+
+	now, ok := pkg.Funcs["now"]
+	require.True(t, ok, "time.now should be bridged")
+	require.Contains(t, now.StructReturnWraps, 0, "time.now should wrap time.Time return")
+	assert.True(t, now.StructReturnValue[0], "time.now returns value type time.Time")
+	assert.NotEmpty(t, now.RuntimeHelpers, "time.now should carry wrapper helpers")
+
+	since, ok := pkg.Funcs["since"]
+	require.True(t, ok, "time.since should be bridged")
+	require.Contains(t, since.StructCasts, 0, "time.since should unwrap time.Time param")
+	assert.True(t, since.StructParamValue[0], "time.since takes value type time.Time")
 }

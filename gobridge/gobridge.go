@@ -102,6 +102,7 @@ type GoStructFieldInfo struct {
 	GoName   string // PascalCase field name (e.g., "Name")
 	RugoName string // snake_case field name (e.g., "name")
 	Type     GoType // field type for conversion
+	TypeCast string // optional explicit cast for DotSet (e.g., "uint16", "os.FileMode")
 	WrapType string // if set, field is an opaque struct handle — wrap with this type
 }
 
@@ -170,9 +171,15 @@ type GoFuncSig struct {
 	// StructCasts maps param indices to wrapper type names for struct handle unwrapping.
 	// Codegen emits: arg.(*WrapperType).v
 	StructCasts map[int]string
+	// StructParamValue marks struct params that are value types (not pointers).
+	// Codegen dereferences wrapper values for these params: *arg.(*WrapperType).v
+	StructParamValue map[int]bool
 	// StructReturnWraps maps return indices to wrapper type names for struct handle wrapping.
 	// Codegen emits: &WrapperType{v: returnVal}
 	StructReturnWraps map[int]string
+	// StructReturnValue marks struct returns that are value types (not pointers).
+	// Codegen wraps these by taking an address of a local copy before storing in wrapper.
+	StructReturnValue map[int]bool
 }
 
 // Package holds the registry of bridgeable functions for a Go package.
@@ -381,6 +388,8 @@ func TypeConvToGo(argExpr string, t GoType) string {
 		return "rugo_first_rune(rugo_to_string(" + argExpr + "))"
 	case GoDuration:
 		return "time.Duration(rugo_to_int(" + argExpr + ")) * time.Millisecond"
+	case GoError:
+		return "func() error { _i := interface{}(" + argExpr + "); if _i == nil { return nil }; return _i.(error) }()"
 	case GoAny:
 		return "rugo_to_go(" + argExpr + ")"
 	default:
@@ -421,6 +430,8 @@ func GoTypeGoName(t GoType) string {
 		return "[]byte"
 	case GoDuration:
 		return "time.Duration"
+	case GoError:
+		return "error"
 	default:
 		return "interface{}"
 	}

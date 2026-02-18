@@ -291,6 +291,9 @@ func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
 		return 0, TierBlocked, "channel type"
 	case *types.Array:
 		if b, ok := u.Elem().Underlying().(*types.Basic); ok && b.Kind() == types.Byte {
+			if isParam {
+				return 0, TierBlocked, fmt.Sprintf("array param type [%d]%s", u.Len(), u.Elem())
+			}
 			return GoByteSlice, TierCastable, ""
 		}
 		return 0, TierBlocked, fmt.Sprintf("array type [%d]%s", u.Len(), u.Elem())

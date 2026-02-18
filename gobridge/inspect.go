@@ -544,16 +544,65 @@ func InspectCompiledPackage(pkgPath string) (*Package, error) {
 		return nil, fmt.Errorf("importing %s: %w", pkgPath, err)
 	}
 
-	cr := classifyScope(pkg.Scope(), false)
+	// Discover structs for wrapper generation and reclassify blocked functions
+	// that use in-package struct params/returns.
+	cr := classifyScope(pkg.Scope(), true)
+
+	if len(cr.Structs) > 0 {
+		ns := DefaultNS(pkgPath)
+		pkgAlias := ns
+
+		structWrappers := make(map[string]string)
+		for _, si := range cr.Structs {
+			structWrappers[si.GoName] = StructWrapperTypeName(ns, si.GoName)
+		}
+
+		// Discover methods and embedded upcast fields on each struct wrapper.
+		for i := range cr.Structs {
+			si := &cr.Structs[i]
+			named, ok := cr.NamedTypes[si.GoName]
+			if !ok {
+				continue
+			}
+			si.Methods = discoverMethods(named, structWrappers, cr.KnownStructs)
+			embedded := discoverEmbeddedFields(named, structWrappers, cr.KnownStructs)
+			si.Fields = append(si.Fields, embedded...)
+		}
+
+		// Emit all in-package struct wrappers and upcast helpers once (deduped in codegen).
+		var allStructHelpers []RuntimeHelper
+		for _, si := range cr.Structs {
+			wrapType := structWrappers[si.GoName]
+			allStructHelpers = append(allStructHelpers, GenerateStructWrapper(ns, pkgAlias, si))
+			allStructHelpers = append(allStructHelpers, GenerateUpcastHelper(wrapType))
+		}
+
+		var stillSkipped []ClassifiedFunc
+		for _, f := range cr.Skipped {
+			if f.Tier != TierBlocked {
+				stillSkipped = append(stillSkipped, f)
+				continue
+			}
+			sig := reclassifyWithStructs(f, structWrappers, pkgAlias, cr.KnownStructs)
+			if sig == nil {
+				stillSkipped = append(stillSkipped, f)
+				continue
+			}
+			sig.RuntimeHelpers = append(sig.RuntimeHelpers, allStructHelpers...)
+			cr.Funcs[f.RugoName] = *sig
+		}
+		cr.Skipped = stillSkipped
+	}
 
 	if len(cr.Funcs) == 0 {
 		return nil, fmt.Errorf("no bridgeable functions in %s", pkgPath)
 	}
 
 	return &Package{
-		Path:  pkgPath,
-		Funcs: cr.Funcs,
-		Doc:   fmt.Sprintf("Functions from Go's %s package.", pkgPath),
+		Path:    pkgPath,
+		Funcs:   cr.Funcs,
+		Doc:     fmt.Sprintf("Functions from Go's %s package.", pkgPath),
+		Structs: cr.Structs,
 	}, nil
 }
 
@@ -575,6 +624,7 @@ func classifyStructFields(goName string, st *types.Struct) *GoStructInfo {
 			GoName:   f.Name(),
 			RugoName: ToSnakeCase(f.Name()),
 			Type:     gt,
+			TypeCast: namedTypeCast(f.Type()),
 		})
 	}
 	return &GoStructInfo{
@@ -779,6 +829,13 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 				sig.StructCasts = make(map[int]string)
 			}
 			sig.StructCasts[i] = wrapType
+			// Value-type struct params need dereference from wrapper pointer.
+			if _, isPtr := t.(*types.Pointer); !isPtr {
+				if sig.StructParamValue == nil {
+					sig.StructParamValue = make(map[int]bool)
+				}
+				sig.StructParamValue[i] = true
+			}
 		} else if tier == TierFunc {
 			// Classify the function parameter for GoFunc adapter.
 			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
@@ -825,6 +882,13 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 				sig.StructReturnWraps = make(map[int]string)
 			}
 			sig.StructReturnWraps[i] = wrapType
+			// Value-type struct returns need address-of when wrapping.
+			if _, isPtr := t.(*types.Pointer); !isPtr {
+				if sig.StructReturnValue == nil {
+					sig.StructReturnValue = make(map[int]bool)
+				}
+				sig.StructReturnValue[i] = true
+			}
 		} else {
 			sig.Returns = append(sig.Returns, gt)
 		}
@@ -996,6 +1060,12 @@ func discoverMethods(named *types.Named, structWrappers map[string]string, known
 // classifyMethod classifies a single method's params and returns (excluding receiver).
 // Returns nil if any param/return is unbridgeable.
 func classifyMethod(goName string, sig *types.Signature, structWrappers map[string]string, knownStructs map[string]bool) *GoStructMethodInfo {
+	// Variadic struct methods require argument-spreading adapters in DotCall.
+	// Skip for now to avoid generating invalid wrappers.
+	if sig.Variadic() {
+		return nil
+	}
+
 	mi := &GoStructMethodInfo{
 		GoName:   goName,
 		RugoName: ToSnakeCase(goName),
@@ -1188,6 +1258,23 @@ func containsString(ss []string, s string) bool {
 // that needs an explicit cast (e.g., "qt6.GestureType"). Returns empty
 // string if the type is a basic type or doesn't need casting.
 func namedTypeCast(t types.Type) string {
+	if alias, ok := t.(*types.Alias); ok {
+		obj := alias.Obj()
+		if obj.Pkg() == nil {
+			return ""
+		}
+		target := types.Unalias(t)
+		if named, ok := target.(*types.Named); ok {
+			if _, isBasic := named.Underlying().(*types.Basic); isBasic {
+				return obj.Pkg().Name() + "." + obj.Name()
+			}
+		}
+		if _, isBasic := target.(*types.Basic); isBasic {
+			return obj.Pkg().Name() + "." + obj.Name()
+		}
+		return ""
+	}
+
 	named, ok := t.(*types.Named)
 	if !ok {
 		return basicTypeCast(t)

@@ -259,7 +259,11 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			// Struct handle unwrapping: extract the inner Go struct from the wrapper.
 			if sig.StructCasts != nil {
 				if wrapType, ok := sig.StructCasts[i]; ok {
-					convertedArgs = append(convertedArgs, fmt.Sprintf("rugo_upcast_%s(%s).v", wrapType, arg))
+					conv := fmt.Sprintf("rugo_upcast_%s(%s).v", wrapType, arg)
+					if sig.StructParamValue != nil && sig.StructParamValue[i] {
+						conv = "*" + conv
+					}
+					convertedArgs = append(convertedArgs, conv)
 					continue
 				}
 			}
@@ -301,6 +305,9 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 		// Struct return wrapping: wrap Go struct pointer into opaque wrapper.
 		if sig.StructReturnWraps != nil {
 			if wrapType, ok := sig.StructReturnWraps[retIdx]; ok {
+				if sig.StructReturnValue != nil && sig.StructReturnValue[retIdx] {
+					return fmt.Sprintf("func() interface{} { _sv := %s; return interface{}(&%s{v: &_sv}) }()", expr, wrapType)
+				}
 				return fmt.Sprintf("interface{}(&%s{v: %s})", wrapType, expr)
 			}
 		}

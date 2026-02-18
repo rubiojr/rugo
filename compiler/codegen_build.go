@@ -612,8 +612,12 @@ func (g *codeGen) buildImports(needsSync, needsTime bool) []GoImport {
 	}
 
 	emitted := make(map[string]bool)
+	unaliased := make(map[string]bool)
 	for _, imp := range imports {
 		emitted[imp.Path] = true
+		if imp.Alias == "" {
+			unaliased[imp.Path] = true
+		}
 	}
 
 	// Module imports (use)
@@ -633,6 +637,9 @@ func (g *codeGen) buildImports(needsSync, needsTime bool) []GoImport {
 					continue
 				}
 				emitted[barePath] = true
+				if alias == "" {
+					unaliased[barePath] = true
+				}
 				imports = append(imports, GoImport{Path: barePath, Alias: alias})
 			}
 		}
@@ -651,13 +658,23 @@ func (g *codeGen) buildImports(needsSync, needsTime bool) []GoImport {
 			continue
 		}
 		alias := g.goImports[pkg]
-		if alias == "" && emitted[pkg] {
-			continue
-		}
 		if !emitted[pkg] {
 			emitted[pkg] = true
 		}
-		imports = append(imports, GoImport{Path: pkg, Alias: alias})
+		if alias == "" {
+			if unaliased[pkg] {
+				continue
+			}
+			imports = append(imports, GoImport{Path: pkg})
+			unaliased[pkg] = true
+		} else {
+			imports = append(imports, GoImport{Path: pkg, Alias: alias})
+			// Keep the default package name available for generated struct wrappers.
+			if bp != nil && !bp.External && len(bp.Structs) > 0 && !unaliased[pkg] {
+				imports = append(imports, GoImport{Path: pkg})
+				unaliased[pkg] = true
+			}
+		}
 		if bp != nil {
 			for _, extra := range bp.ExtraImports {
 				if !emitted[extra] {

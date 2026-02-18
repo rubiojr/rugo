@@ -164,8 +164,16 @@ func GenerateStructWrapper(ns, pkgAlias string, si GoStructInfo) RuntimeHelper {
 		if f.WrapType != "" {
 			continue // embedded struct fields are read-only
 		}
+		conv := TypeConvToGo("val", f.Type)
+		if f.TypeCast != "" {
+			if strings.HasPrefix(f.TypeCast, "*") {
+				conv = fmt.Sprintf("*%s(%s)", f.TypeCast[1:], conv)
+			} else {
+				conv = fmt.Sprintf("%s(%s)", f.TypeCast, conv)
+			}
+		}
 		sb.WriteString(fmt.Sprintf("\tcase %q:\n", f.RugoName))
-		sb.WriteString(fmt.Sprintf("\t\tw.v.%s = %s\n", f.GoName, TypeConvToGo("val", f.Type)))
+		sb.WriteString(fmt.Sprintf("\t\tw.v.%s = %s\n", f.GoName, conv))
 		sb.WriteString("\t\treturn true\n")
 	}
 	sb.WriteString("\t}\n")
