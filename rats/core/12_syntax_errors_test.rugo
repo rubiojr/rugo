@@ -3,47 +3,71 @@
 
 use "test"
 use "str"
+use "eval"
 
 # --- Runtime type errors ---
 
 rats "cannot index-assign to scalar"
-  result = test.run("rugo run rats/fixtures/err_index_assign_scalar.rugo")
+  source = <<~RUGO
+    x = 42
+    x[0] = 5
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot index-assign int")
 end
 
 rats "cannot index scalar"
-  result = test.run("rugo run rats/fixtures/err_index_scalar.rugo")
+  source = <<~RUGO
+    x = 42
+    puts x[0]
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot index int")
 end
 
 rats "cannot subtract strings"
-  result = test.run("rugo run rats/fixtures/err_string_subtract.rugo")
+  source = <<~RUGO
+    x = "hello" - "world"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot subtract string and string")
 end
 
 rats "cannot multiply string by int"
-  result = test.run("rugo run rats/fixtures/err_string_multiply.rugo")
+  source = <<~RUGO
+    x = "hello" * 3
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot multiply string and int")
 end
 
 rats "cannot add nil and int"
-  result = test.run("rugo run rats/fixtures/err_nil_add.rugo")
+  source = <<~RUGO
+    x = nil + 5
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot add")
 end
 
 rats "integer divide by zero"
-  result = test.run("rugo run rats/fixtures/err_divide_by_zero.rugo")
+  source = <<~RUGO
+    x = 5 / 0
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "division by zero")
 end
 
 rats "integer modulo by zero"
-  result = test.run("rugo run rats/fixtures/err_modulo_zero.rugo")
+  source = <<~RUGO
+    x = 5 % 0
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "division by zero")
 end
@@ -51,19 +75,28 @@ end
 # --- Builtin function errors ---
 
 rats "len with no arguments"
-  result = test.run("rugo run rats/fixtures/err_len_no_args.rugo")
+  source = <<~RUGO
+    puts len()
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "len requires one argument")
 end
 
 rats "len on non-indexable type"
-  result = test.run("rugo run rats/fixtures/err_len_scalar.rugo")
+  source = <<~RUGO
+    puts len(42)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot get length of int")
 end
 
 rats "append on non-array"
-  result = test.run("rugo run rats/fixtures/err_append_non_array.rugo")
+  source = <<~RUGO
+    append(42, 5)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "first argument to append must be an array")
 end
@@ -71,19 +104,29 @@ end
 # --- Compile-time errors ---
 
 rats "unknown stdlib module"
-  result = test.run("rugo run rats/fixtures/err_unknown_module.rugo")
+  source = <<~RUGO
+    use "nonexistent"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unknown module")
 end
 
 rats "missing end keyword"
-  result = test.run("rugo run rats/fixtures/err_missing_end.rugo")
+  source = <<~RUGO
+    if true
+      puts "hello"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error:")
 end
 
 rats "mismatched bracket"
-  result = test.run("rugo run rats/fixtures/err_mismatched_bracket.rugo")
+  source = <<~RUGO
+    x = [1, 2)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "error:")
 end
@@ -91,20 +134,29 @@ end
 # --- Orphan or detection ---
 
 rats "orphan or without try produces error"
-  result = test.run("rugo run rats/fixtures/err_orphan_or.rugo")
+  source = <<~'RUGO'
+    somecommand arg1 or "fallback"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "or")
   test.assert_contains(result["output"], "try")
 end
 
 rats "or inside string literal is not flagged"
-  result = test.run("rugo run rats/fixtures/ok_or_in_string.rugo")
+  source = <<~RUGO
+    echo "hello or world"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello or world")
 end
 
 rats "or as part of a word is not flagged"
-  result = test.run("rugo run rats/fixtures/ok_or_in_word.rugo")
+  source = <<~RUGO
+    echo ordering
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "ordering")
 end
@@ -112,7 +164,10 @@ end
 # --- Error output format ---
 
 rats "runtime errors have no Go stacktrace"
-  result = test.run("rugo run rats/fixtures/err_divide_by_zero.rugo")
+  source = <<~RUGO
+    x = 5 / 0
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   lines = result["lines"]
   for line in lines
@@ -122,20 +177,31 @@ rats "runtime errors have no Go stacktrace"
 end
 
 rats "runtime errors show .rugo filename and line"
-  result = test.run("rugo run rats/fixtures/err_divide_by_zero.rugo")
-  test.assert_contains(result["output"], "err_divide_by_zero.rugo:1")
+  source = <<~RUGO
+    x = 5 / 0
+  RUGO
+  result = eval.run(source)
+  test.assert_contains(result["output"], "eval.rugo:1")
 end
 
 # --- Unterminated literals ---
 
 rats "unclosed backtick produces clear error"
-  result = test.run("rugo run rats/fixtures/err_unclosed_backtick.rugo")
+  source = <<~'RUGO'
+    x = `echo hello
+    puts x
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unterminated backtick")
 end
 
 rats "unclosed string produces clear error"
-  result = test.run("rugo run rats/fixtures/err_unclosed_string.rugo")
+  source = <<~'RUGO'
+    x = "hello
+    puts x
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unterminated string")
 end
