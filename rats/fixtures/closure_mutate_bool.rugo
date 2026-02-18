@@ -1,7 +1,0 @@
-# Closure mutating a boolean variable
-done = false
-finish = fn()
-  done = true
-end
-finish()
-puts done

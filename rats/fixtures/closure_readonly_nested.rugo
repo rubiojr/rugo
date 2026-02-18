@@ -1,9 +1,0 @@
-# Nested read-only closure
-def make_greeting(prefix)
-  return fn(name) prefix + ", " + name + "!" end
-end
-
-hello = make_greeting("Hello")
-hi = make_greeting("Hi")
-puts hello("World")
-puts hi("Rugo")

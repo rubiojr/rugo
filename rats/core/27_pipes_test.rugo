@@ -1,83 +1,141 @@
 use "test"
+use "eval"
 
 # --- Happy path tests ---
 
 rats "pipe: shell to function"
-  result = test.run("rugo run rats/fixtures/pipe_shell_to_func.rugo")
+  source = <<~RUGO
+    echo "hello from pipe" | puts
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello from pipe")
 end
 
 rats "pipe: shell output prepended as first arg"
-  result = test.run("rugo run rats/fixtures/pipe_prepend_arg.rugo")
+  source = <<~RUGO
+    echo "world" | puts "hello"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "world hello")
 end
 
 rats "pipe: chain shell → module → builtin"
-  result = test.run("rugo run rats/fixtures/pipe_chain.rugo")
+  source = <<~RUGO
+    use "str"
+    echo "hello world" | str.upper | puts
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "HELLO WORLD")
 end
 
 rats "pipe: assignment with pipe"
-  result = test.run("rugo run rats/fixtures/pipe_assign.rugo")
+  source = <<~RUGO
+    use "str"
+    x = echo "hello" | str.upper
+    puts x
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "HELLO")
 end
 
 rats "pipe: expression to function"
-  result = test.run("rugo run rats/fixtures/pipe_expr_to_func.rugo")
+  source = <<~RUGO
+    len("hello") | puts
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "5")
 end
 
 rats "pipe: value piped to shell stdin"
-  result = test.run("rugo run rats/fixtures/pipe_func_to_shell.rugo")
+  source = <<~RUGO
+    "hello world" | tr a-z A-Z | puts
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "HELLO WORLD")
 end
 
 rats "pipe: user-defined function in chain"
-  result = test.run("rugo run rats/fixtures/pipe_user_func.rugo")
+  source = <<~RUGO
+    def double(x)
+      return x + " " + x
+    end
+
+    echo "hello" | double | puts
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello hello")
 end
 
 rats "pipe: shell-to-shell backward compat"
-  result = test.run("rugo run rats/fixtures/pipe_shell_to_shell.rugo")
+  source = <<~RUGO
+    echo "hello world" | tr a-z A-Z
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "HELLO WORLD")
 end
 
 rats "pipe: || (logical OR) not confused with |"
-  result = test.run("rugo run rats/fixtures/pipe_or_preserved.rugo")
+  source = <<~RUGO
+    x = true || false
+    puts x
+    y = false || true
+    puts y
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "true")
 end
 
 rats "pipe: try/or with piped expression"
-  result = test.run("rugo run rats/fixtures/pipe_try_or.rugo")
+  source = <<~RUGO
+    x = try nonexistent_cmd_xyz | puts or "caught"
+    puts x
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "caught")
 end
 
 rats "pipe: inside function body"
-  result = test.run("rugo run rats/fixtures/pipe_in_func.rugo")
+  source = <<~RUGO
+    def process()
+      echo "from function" | puts
+    end
+
+    process()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "from function")
 end
 
 rats "pipe: | inside strings not treated as pipe"
-  result = test.run("rugo run rats/fixtures/pipe_in_string.rugo")
+  source = <<~RUGO
+    puts "a | b"
+    puts "one|two|three"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "a | b")
   test.assert_contains(result["output"], "one|two|three")
 end
 
 rats "pipe: native binary with pipes"
+  source = <<~RUGO
+    echo "hello binary" | puts
+  RUGO
+  script = test.tmpdir() + "/pipe_binary.rugo"
   bin = test.tmpdir() + "/rugo_pipe_binary"
-  result = test.run("rugo build rats/fixtures/pipe_binary.rugo -o " + bin)
+  test.write_file(script, source)
+  result = test.run("rugo build " + script + " -o " + bin)
   test.assert_eq(result["status"], 0)
   result = test.run(bin)
   test.assert_eq(result["status"], 0)
@@ -85,7 +143,10 @@ rats "pipe: native binary with pipes"
 end
 
 rats "pipe: puts/print in mid-chain is compile error"
-  result = test.run("rugo run rats/fixtures/pipe_void_mid_chain.rugo")
+  source = <<~RUGO
+    ls -la | puts | head -n1
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "puts")
   test.assert_contains(result["output"], "returns nil")

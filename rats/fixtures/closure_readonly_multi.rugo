@@ -1,6 +1,0 @@
-# Multiple read-only closures over the same variable
-x = 10
-double = fn() x * 2 end
-triple = fn() x * 3 end
-puts double()
-puts triple()

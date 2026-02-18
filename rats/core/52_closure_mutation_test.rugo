@@ -1,4 +1,5 @@
 use "test"
+use "eval"
 
 # ===========================================================
 # Closure mutation regression tests (bug cd112f0)
@@ -12,27 +13,60 @@ use "test"
 # --- Read-only closures ---
 
 rats "closure: read-only capture from outer scope"
-  result = test.run("rugo run rats/fixtures/closure_readonly_multi.rugo")
+  source = <<~RUGO
+    # Multiple read-only closures over the same variable
+    x = 10
+    double = fn() x * 2 end
+    triple = fn() x * 3 end
+    puts double()
+    puts triple()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "20")
   test.assert_eq(result["lines"][1], "30")
 end
 
 rats "closure: read-only capture from function param (factory)"
-  result = test.run("rugo run rats/fixtures/closure_readonly_nested.rugo")
+  source = <<~RUGO
+    # Nested read-only closure
+    def make_greeting(prefix)
+      return fn(name) prefix + ", " + name + "!" end
+    end
+    
+    hello = make_greeting("Hello")
+    hi = make_greeting("Hi")
+    puts hello("World")
+    puts hi("Rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "Hello, World!")
   test.assert_eq(result["lines"][1], "Hi, Rugo!")
 end
 
 rats "closure: read-only make_adder pattern"
-  result = test.run("rugo run rats/fixtures/fn_closure.rugo")
+  source = <<~RUGO
+    def make_adder(n)
+      return fn(x) x + n end
+    end
+    
+    add5 = make_adder(5)
+    puts add5(10)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "15")
 end
 
 rats "closure: capture ref reads latest value"
-  result = test.run("rugo run rats/fixtures/fn_capture_ref.rugo")
+  source = <<~RUGO
+    x = 10
+    f = fn() x end
+    x = 20
+    puts f()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "20")
 end
@@ -40,13 +74,43 @@ end
 # --- Hash field mutation (idiomatic factory pattern) ---
 
 rats "closure: hash field mutation via factory pattern"
-  result = test.run("rugo run rats/fixtures/closure_hash_mutate.rugo")
+  source = <<~RUGO
+    # Hash field mutation in closure (factory pattern)
+    def make_counter()
+      c = {value: 0}
+      c["increment"] = fn()
+        c.value += 1
+      end
+      c["get"] = fn()
+        return c.value
+      end
+      return c
+    end
+    
+    counter = make_counter()
+    counter.increment()
+    counter.increment()
+    counter.increment()
+    puts counter.get()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "3")
 end
 
 rats "closure: setting new hash fields from closure"
-  result = test.run("rugo run rats/fixtures/closure_hash_field_set.rugo")
+  source = <<~RUGO
+    # Setting new hash fields from a closure
+    state = {count: 0}
+    track = fn(key, val)
+      state[key] = val
+    end
+    track("name", "Alice")
+    track("age", 30)
+    puts state.name
+    puts state.age
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "Alice")
   test.assert_eq(result["lines"][1], "30")
@@ -55,7 +119,21 @@ end
 # --- Array mutation via hash ---
 
 rats "closure: array append via hash in closure"
-  result = test.run("rugo run rats/fixtures/closure_array_append.rugo")
+  source = <<~RUGO
+    # Appending to captured array inside closure
+    items = []
+    add = fn(x)
+      items = append(items, x)
+    end
+    
+    add("a")
+    add("b")
+    add("c")
+    puts len(items)
+    puts items[0]
+    puts items[2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "3")
   test.assert_eq(result["lines"][1], "a")
@@ -65,37 +143,111 @@ end
 # --- Direct variable mutation in closures (bug cd112f0) ---
 
 rats "closure: mutate int counter works"
-  result = test.run("rugo run rats/fixtures/closure_mutate_counter.rugo")
+  source = <<~RUGO
+    # Bug cd112f0: direct variable mutation in closure
+    def make_counter()
+      count = 0
+      inc = fn()
+        count = count + 1
+        return count
+      end
+      return inc
+    end
+    
+    counter = make_counter()
+    puts counter()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "1")
 end
 
 rats "closure: mutate int with compound assignment works"
-  result = test.run("rugo run rats/fixtures/closure_mutate_compound.rugo")
+  source = <<~RUGO
+    # Bug cd112f0: compound assignment mutation in closure
+    def make_counter()
+      count = 0
+      inc = fn()
+        count += 1
+        return count
+      end
+      return inc
+    end
+    
+    counter = make_counter()
+    puts counter()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "1")
 end
 
 rats "closure: mutate string reassignment works"
-  result = test.run("rugo run rats/fixtures/closure_mutate_reassign_str.rugo")
+  source = <<~RUGO
+    # Closure mutating a string variable
+    name = "before"
+    change = fn()
+      name = "after"
+    end
+    change()
+    puts name
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "after")
 end
 
 rats "closure: mutate bool reassignment works"
-  result = test.run("rugo run rats/fixtures/closure_mutate_bool.rugo")
+  source = <<~RUGO
+    # Closure mutating a boolean variable
+    done = false
+    finish = fn()
+      done = true
+    end
+    finish()
+    puts done
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "true")
 end
 
 rats "closure: mutate var in loop works"
-  result = test.run("rugo run rats/fixtures/closure_mutate_loop.rugo")
+  source = <<~RUGO
+    # Closure mutating captured var inside a loop
+    total = 0
+    adder = fn(x)
+      total = total + x
+    end
+    
+    for n in [1, 2, 3]
+      adder(n)
+    end
+    puts total
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "6")
 end
 
 rats "closure: nested lambda mutation works"
-  result = test.run("rugo run rats/fixtures/closure_mutate_nested.rugo")
+  source = <<~RUGO
+    # Nested closure mutation: inner lambda mutates outer scope var
+    def wrapper()
+      val = 0
+      outer = fn()
+        inner = fn()
+          val = val + 1
+        end
+        inner()
+      end
+      outer()
+      return val
+    end
+    
+    puts wrapper()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "1")
 end
