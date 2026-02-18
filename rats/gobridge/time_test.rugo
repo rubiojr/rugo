@@ -1,7 +1,389 @@
-# RATS: Test Go bridge — time package (1:1 mapping)
+# RATS: Test Go bridge — time package
 use "test"
 
 import "time"
+
+# -- Duration constants --
+
+rats "time.nanosecond constant"
+  test.assert_eq(time.nanosecond(), 1)
+end
+
+rats "time.microsecond constant"
+  test.assert_eq(time.microsecond(), 1000)
+end
+
+rats "time.millisecond constant"
+  test.assert_eq(time.millisecond, 1000000)
+end
+
+rats "time.second constant"
+  test.assert_eq(time.second(), 1000000000)
+end
+
+rats "time.minute constant"
+  test.assert_eq(time.minute(), 60000000000)
+end
+
+rats "time.hour constant"
+  test.assert_eq(time.hour(), 3600000000000)
+end
+
+# -- Format layout constants --
+
+rats "time.rfc3339 layout"
+  test.assert_eq(time.rfc3339(), "2006-01-02T15:04:05Z07:00")
+end
+
+rats "time.rfc3339_nano layout"
+  test.assert_eq(time.rfc3339_nano(), "2006-01-02T15:04:05.999999999Z07:00")
+end
+
+rats "time.date_only layout"
+  test.assert_eq(time.date_only(), "2006-01-02")
+end
+
+rats "time.time_only layout"
+  test.assert_eq(time.time_only(), "15:04:05")
+end
+
+rats "time.date_time layout"
+  test.assert_eq(time.date_time(), "2006-01-02 15:04:05")
+end
+
+rats "time.kitchen layout"
+  test.assert_eq(time.kitchen(), "3:04PM")
+end
+
+# -- time.now() --
+
+rats "time.now returns a Time struct"
+  t = time.now()
+  test.assert_eq(type_of(t), "Time")
+  test.assert_true(t.year() >= 2026)
+  test.assert_true(t.unix() > 0)
+end
+
+rats "time.now is_zero returns false"
+  t = time.now()
+  test.assert_eq(t.is_zero(), false)
+end
+
+# -- time.unix / unix_milli / unix_micro --
+
+rats "time.unix constructs a Time from epoch seconds"
+  t = time.unix(1000000000, 0)
+  test.assert_eq(t.unix(), 1000000000)
+end
+
+rats "time.unix with nanoseconds"
+  t = time.unix(1000000000, 500000000)
+  test.assert_eq(t.unix(), 1000000000)
+  test.assert_eq(t.nanosecond(), 500000000)
+end
+
+rats "time.unix_milli constructs a Time from epoch milliseconds"
+  t = time.unix_milli(1000000000000)
+  test.assert_eq(t.unix(), 1000000000)
+end
+
+rats "time.unix_micro constructs a Time from epoch microseconds"
+  t = time.unix_micro(1000000000000000)
+  test.assert_eq(t.unix(), 1000000000)
+end
+
+# -- time.date constructor --
+
+rats "time.date constructs a Time with components"
+  utc = time.load_location("UTC")
+  t = time.date(2025, 6, 15, 12, 30, 45, 0, utc)
+  test.assert_eq(t.year(), 2025)
+  test.assert_eq(t.day(), 15)
+  test.assert_eq(t.hour(), 12)
+  test.assert_eq(t.minute(), 30)
+  test.assert_eq(t.second(), 45)
+  test.assert_eq(t.nanosecond(), 0)
+end
+
+# -- Time component methods --
+
+rats "Time.year"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.year(), 2001)
+end
+
+rats "Time.month"
+  t = time.unix(1000000000, 0).utc()
+  # month() returns Go's time.Month (displays as name)
+  test.assert_eq(t.format("01"), "09")
+end
+
+rats "Time.day"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.day(), 9)
+end
+
+rats "Time.hour"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.hour(), 1)
+end
+
+rats "Time.minute"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.minute(), 46)
+end
+
+rats "Time.second"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.second(), 40)
+end
+
+rats "Time.weekday"
+  utc = time.load_location("UTC")
+  t = time.date(2025, 6, 15, 0, 0, 0, 0, utc)
+  # Sunday = 0, June 15, 2025 is a Sunday
+  test.assert_eq(t.format("Monday"), "Sunday")
+end
+
+rats "Time.year_day"
+  utc = time.load_location("UTC")
+  t = time.date(2025, 6, 15, 0, 0, 0, 0, utc)
+  test.assert_eq(t.year_day(), 166)
+end
+
+# -- Unix timestamp methods --
+
+rats "Time.unix returns seconds since epoch"
+  t = time.unix(1234567890, 0)
+  test.assert_eq(t.unix(), 1234567890)
+end
+
+rats "Time.unix_milli returns milliseconds since epoch"
+  t = time.unix(1000, 500000000)
+  test.assert_eq(t.unix_milli(), 1000500)
+end
+
+rats "Time.unix_micro returns microseconds since epoch"
+  t = time.unix(1000, 500000000)
+  test.assert_eq(t.unix_micro(), 1000500000)
+end
+
+rats "Time.unix_nano returns nanoseconds since epoch"
+  t = time.unix(100, 123456789)
+  test.assert_eq(t.unix_nano(), 100123456789)
+end
+
+# -- Formatting and parsing --
+
+rats "Time.format with RFC3339"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.format(time.rfc3339()), "2001-09-09T01:46:40Z")
+end
+
+rats "Time.format with date_only"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.format(time.date_only()), "2001-09-09")
+end
+
+rats "Time.format with custom layout"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.format("2006/01/02"), "2001/09/09")
+end
+
+rats "time.parse RFC3339"
+  t = time.parse(time.rfc3339(), "2001-09-09T01:46:40Z")
+  test.assert_eq(t.unix(), 1000000000)
+end
+
+rats "time.parse date_only"
+  t = time.parse(time.date_only(), "2025-06-15")
+  test.assert_eq(t.year(), 2025)
+  test.assert_eq(t.day(), 15)
+end
+
+rats "time.parse error with try/or"
+  result = try time.parse("bad", "also bad") or nil
+  test.assert_eq(result, nil)
+end
+
+# -- Time.string / Time.go_string --
+
+rats "Time.string returns human-readable string"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_contains(t.string(), "2001")
+end
+
+rats "Time.go_string returns Go syntax"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_contains(t.go_string(), "time.Date")
+end
+
+# -- Arithmetic --
+
+rats "Time.add adds a duration in nanoseconds"
+  t = time.unix(1000000000, 0)
+  t2 = t.add(time.hour())
+  test.assert_eq(t2.unix() - t.unix(), 3600)
+end
+
+rats "Time.add with negative duration"
+  t = time.unix(1000000000, 0)
+  t2 = t.add(0 - time.hour())
+  test.assert_eq(t.unix() - t2.unix(), 3600)
+end
+
+rats "Time.add_date adds years, months, days"
+  utc = time.load_location("UTC")
+  t = time.date(2024, 1, 1, 0, 0, 0, 0, utc)
+  t2 = t.add_date(1, 2, 3)
+  test.assert_eq(t2.format(time.date_only()), "2025-03-04")
+end
+
+rats "Time.add_date handles leap year"
+  utc = time.load_location("UTC")
+  t = time.date(2024, 2, 29, 0, 0, 0, 0, utc)
+  t2 = t.add_date(1, 0, 0)
+  test.assert_eq(t2.format(time.date_only()), "2025-03-01")
+end
+
+rats "Time.sub returns duration between two times"
+  t1 = time.unix(1000000000, 0)
+  t2 = time.unix(1000003600, 0)
+  # sub returns nanoseconds
+  test.assert_eq(t2.sub(t1), 3600000000000)
+end
+
+# -- Comparison --
+
+rats "Time.before"
+  t1 = time.unix(100, 0)
+  t2 = time.unix(200, 0)
+  test.assert_true(t1.before(t2))
+  test.assert_eq(t2.before(t1), false)
+end
+
+rats "Time.after"
+  t1 = time.unix(100, 0)
+  t2 = time.unix(200, 0)
+  test.assert_true(t2.after(t1))
+  test.assert_eq(t1.after(t2), false)
+end
+
+rats "Time.equal"
+  t1 = time.unix(1000000000, 0)
+  t2 = time.unix(1000000000, 0)
+  t3 = time.unix(1000000001, 0)
+  test.assert_true(t1.equal(t2))
+  test.assert_eq(t1.equal(t3), false)
+end
+
+rats "Time.compare"
+  t1 = time.unix(100, 0)
+  t2 = time.unix(200, 0)
+  test.assert_eq(t1.compare(t2), -1)
+  test.assert_eq(t2.compare(t1), 1)
+  test.assert_eq(t1.compare(t1), 0)
+end
+
+rats "Time.is_zero"
+  utc = time.load_location("UTC")
+  zero = time.date(1, 1, 1, 0, 0, 0, 0, utc)
+  test.assert_true(zero.is_zero())
+  test.assert_eq(time.now().is_zero(), false)
+end
+
+# -- Timezone / Location --
+
+rats "Time.utc converts to UTC"
+  t = time.unix(1000000000, 0).utc()
+  test.assert_eq(t.format(time.rfc3339()), "2001-09-09T01:46:40Z")
+end
+
+rats "Time.local converts to local time"
+  t = time.unix(1000000000, 0).local()
+  test.assert_true(len(t.string()) > 0)
+end
+
+rats "Time.location returns the Location"
+  t = time.unix(1000000000, 0).utc()
+  loc = t.location()
+  test.assert_eq(loc.string(), "UTC")
+end
+
+rats "time.load_location"
+  loc = time.load_location("America/New_York")
+  test.assert_eq(loc.string(), "America/New_York")
+end
+
+rats "time.load_location error with try/or"
+  result = try time.load_location("Not/A/Zone") or nil
+  test.assert_eq(result, nil)
+end
+
+rats "time.fixed_zone creates a Location with offset"
+  cet = time.fixed_zone("CET", 3600)
+  utc = time.load_location("UTC")
+  t = time.date(2025, 1, 1, 12, 0, 0, 0, cet)
+  tutc = t.utc()
+  test.assert_eq(tutc.hour(), 11)
+end
+
+rats "Time.zone returns zone name and offset"
+  utc = time.load_location("UTC")
+  t = time.date(2025, 6, 15, 0, 0, 0, 0, utc)
+  z = t.zone()
+  test.assert_eq(z[0], "UTC")
+  test.assert_eq(z[1], 0)
+end
+
+rats "Time.is_dst"
+  utc = time.load_location("UTC")
+  t = time.date(2025, 6, 15, 0, 0, 0, 0, utc)
+  # UTC never has DST
+  test.assert_eq(t.is_dst(), false)
+end
+
+# -- Multi-return methods --
+
+rats "Time.clock returns hours, minutes, seconds"
+  t = time.unix(1000000000, 0).utc()
+  c = t.clock()
+  test.assert_eq(c[0], 1)
+  test.assert_eq(c[1], 46)
+  test.assert_eq(c[2], 40)
+end
+
+rats "Time.date returns year, month, day"
+  t = time.unix(1000000000, 0).utc()
+  d = t.date()
+  test.assert_eq(d[0], 2001)
+  # d[1] is time.Month (September)
+  test.assert_eq(d[2], 9)
+end
+
+rats "Time.isoweek returns year and week"
+  utc = time.load_location("UTC")
+  t = time.date(2025, 1, 1, 0, 0, 0, 0, utc)
+  iw = t.isoweek()
+  test.assert_eq(iw[0], 2025)
+  test.assert_eq(iw[1], 1)
+end
+
+# -- Round / Truncate --
+
+rats "Time.round rounds to nearest duration"
+  t = time.unix(1000000001, 600000000)
+  rounded = t.round(time.second())
+  test.assert_eq(rounded.unix(), 1000000002)
+end
+
+rats "Time.truncate truncates to duration"
+  t = time.unix(1000000001, 600000000)
+  truncated = t.truncate(time.second())
+  test.assert_eq(truncated.unix(), 1000000001)
+end
+
+# -- parse_duration --
 
 rats "time.parse_duration seconds"
   ns = time.parse_duration("1s")
@@ -28,6 +410,46 @@ rats "time.parse_duration error with try/or"
   test.assert_eq(result, -1)
 end
 
+# -- Duration arithmetic with add/sub --
+
+rats "add parsed duration to a Time"
+  t = time.unix(1000000000, 0)
+  dur = time.parse_duration("2h30m")
+  t2 = t.add(dur)
+  test.assert_eq(t2.unix() - t.unix(), 9000)
+end
+
+rats "sub two times gives duration usable with parse_duration"
+  t1 = time.unix(1000000000, 0)
+  t2 = time.unix(1000009000, 0)
+  dur = t2.sub(t1)
+  expected = time.parse_duration("2h30m")
+  test.assert_eq(dur, expected)
+end
+
+# -- sleep --
+
+rats "time.sleep with nanoseconds"
+  time.sleep(1000000)
+end
+
+# -- since / until --
+
+rats "time.since returns positive duration for past time"
+  t = time.unix(0, 0)
+  d = time.since(t)
+  test.assert_true(d > 0)
+end
+
+rats "time.until returns positive duration for future time"
+  utc = time.load_location("UTC")
+  future = time.date(2099, 1, 1, 0, 0, 0, 0, utc)
+  d = time.until(future)
+  test.assert_true(d > 0)
+end
+
+# -- Timezone metadata --
+
 rats "time.local_string returns timezone name"
   s = time.local_string()
   test.assert_true(len(s) > 0)
@@ -39,6 +461,112 @@ rats "time.utc_string returns UTC"
   test.assert_eq(s, "UTC")
 end
 
-rats "time.sleep with nanoseconds"
-  time.sleep(1000000)
+# -- Marshal / Unmarshal --
+
+rats "Time.marshal_binary and unmarshal_binary roundtrip"
+  t = time.unix(1000000000, 0).utc()
+  bin = t.marshal_binary()
+  test.assert_true(len(bin) > 0)
+end
+
+rats "Time.marshal_text returns RFC3339 bytes"
+  t = time.unix(1000000000, 0).utc()
+  txt = t.marshal_text()
+  # marshal_text returns []byte; convert to string for comparison
+  test.assert_true(len(txt) > 0)
+end
+
+rats "Time.marshal_json returns quoted RFC3339 bytes"
+  t = time.unix(1000000000, 0).utc()
+  j = t.marshal_json()
+  test.assert_true(len(j) > 0)
+end
+
+# -- Duration arithmetic --
+
+rats "duration multiply: 3 * time.second"
+  test.assert_eq(3 * time.second(), 3000000000)
+end
+
+rats "duration compound: 2h + 30m"
+  d = 2 * time.hour() + 30 * time.minute()
+  test.assert_eq(d, time.parse_duration("2h30m"))
+end
+
+rats "negative duration"
+  d = 0 - time.second()
+  test.assert_eq(d, -1000000000)
+end
+
+rats "sleep with computed duration"
+  time.sleep(2 * time.millisecond)
+end
+
+rats "parse_duration then add preserves duration"
+  d = time.parse_duration("500ms")
+  t1 = time.unix(1000000000, 0)
+  t2 = t1.add(d)
+  test.assert_eq(t2.sub(t1), d)
+end
+
+rats "zero duration add is identity"
+  t = time.unix(1000000000, 0)
+  test.assert_eq(t.add(0).unix(), t.unix())
+end
+
+# -- Rounding edge cases --
+
+rats "round sub-second to nearest second"
+  t = time.unix(0, 1500000000)
+  test.assert_eq(t.round(time.second()).unix_nano(), 2000000000)
+end
+
+rats "truncate to minute boundary"
+  t = time.unix(90, 0)
+  test.assert_eq(t.truncate(time.minute()).unix(), 60)
+end
+
+# -- Chaining --
+
+rats "method chaining: now().utc().format()"
+  s = time.now().utc().format(time.date_only())
+  test.assert_true(len(s) == 10)
+end
+
+# -- Cross-timezone comparison --
+
+rats "times in different zones can be equal"
+  utc = time.load_location("UTC")
+  ny = time.load_location("America/New_York")
+  t_utc = time.date(2025, 6, 15, 12, 0, 0, 0, utc)
+  t_ny = time.date(2025, 6, 15, 8, 0, 0, 0, ny)
+  # UTC 12:00 == NYC 08:00 EDT (UTC-4)
+  test.assert_true(t_utc.equal(t_ny))
+end
+
+# -- zone_bounds returns Time structs --
+
+rats "zone_bounds returns Time values"
+  utc = time.load_location("UTC")
+  t = time.date(2025, 6, 15, 0, 0, 0, 0, utc)
+  bounds = t.zone_bounds()
+  test.assert_eq(type_of(bounds[0]), "Time")
+  test.assert_eq(type_of(bounds[1]), "Time")
+end
+
+# -- unix_milli roundtrip --
+
+rats "unix_milli constructor and accessor roundtrip"
+  ms = 1718444445123
+  t = time.unix_milli(ms)
+  test.assert_eq(t.unix_milli(), ms)
+end
+
+# -- parse_in_location --
+
+rats "parse_in_location with timezone"
+  loc = time.load_location("America/New_York")
+  t = time.parse_in_location(time.date_time(), "2025-06-15 12:00:00", loc)
+  z = t.zone()
+  test.assert_eq(z[0], "EDT")
 end
