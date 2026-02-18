@@ -26,7 +26,7 @@ end
 rats "eval.run with use json module"
   source = <<~RUGO
     use "json"
-    puts(json.encode({"a": 1}))
+    puts(json.encode({"a" => 1}))
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
@@ -46,7 +46,7 @@ end
 rats "eval.run with use re module"
   source = <<~RUGO
     use "re"
-    puts(re.match("hello123", "[0-9]+"))
+    puts(re.find("[0-9]+", "hello123"))
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
@@ -117,7 +117,7 @@ end
 rats "eval.run with use rand module"
   source = <<~RUGO
     use "rand"
-    x = rand.intn(100)
+    x = rand.int(0, 100)
     puts(x >= 0)
   RUGO
   result = eval.run(source)
