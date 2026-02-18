@@ -1,6 +1,7 @@
 # RATS: Hash expression keys and iteration
 # Tests for hash features that use non-string-literal keys
 use "test"
+use "eval"
 
 # ============================================================
 # A. Numeric Keys
@@ -23,13 +24,23 @@ end
 # ============================================================
 
 rats "hash with variable as key"
-  result = test.run("rugo run rats/fixtures/hash_variable_key.rugo")
+  source = <<~RUGO
+    key = "name"
+    h = {key => "Alice"}
+    puts(h["name"])
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Alice")
 end
 
 rats "hash with string interpolation key"
-  result = test.run("rugo run rats/fixtures/hash_interpolation_key.rugo")
+  source = <<~'RUGO'
+    prefix = "user"
+    h = {"#{prefix}_name" => "Alice"}
+    puts(h["user_name"])
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Alice")
 end
