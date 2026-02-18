@@ -1,3 +1,0 @@
-# Slice error — int
-x = 42
-y = x[0, 5]

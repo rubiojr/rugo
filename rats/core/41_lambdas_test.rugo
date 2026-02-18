@@ -1,32 +1,66 @@
 use "test"
 use "str"
+use "eval"
 
 rats "fn: basic lambda assign and call"
-  result = test.run("rugo run rats/fixtures/fn_basic.rugo")
+  source = <<~RUGO
+    double = fn(x) x * 2 end
+    puts double(5)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "10")
 end
 
 rats "fn: multi-param lambda"
-  result = test.run("rugo run rats/fixtures/fn_multi_param.rugo")
+  source = <<~RUGO
+    add = fn(a, b) a + b end
+    puts add(3, 4)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "7")
 end
 
 rats "fn: zero-arg lambda"
-  result = test.run("rugo run rats/fixtures/fn_zero_arg.rugo")
+  source = <<~RUGO
+    greet = fn() "hello" end
+    puts greet()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "hello")
 end
 
 rats "fn: multi-line lambda"
-  result = test.run("rugo run rats/fixtures/fn_multiline.rugo")
+  source = <<~RUGO
+    transform = fn(x)
+      result = x * 2
+      return result
+    end
+    puts transform(21)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "42")
 end
 
 rats "fn: pass lambda to function"
-  result = test.run("rugo run rats/fixtures/fn_pass_to_func.rugo")
+  source = <<~RUGO
+    def my_map(f, arr)
+      result = []
+      for item in arr
+        result = append(result, f(item))
+      end
+      return result
+    end
+    
+    nums = my_map(fn(x) x * 2 end, [1, 2, 3])
+    puts nums[0]
+    puts nums[1]
+    puts nums[2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "2")
   test.assert_eq(result["lines"][1], "4")
@@ -34,59 +68,125 @@ rats "fn: pass lambda to function"
 end
 
 rats "fn: return lambda from function (closure)"
-  result = test.run("rugo run rats/fixtures/fn_closure.rugo")
+  source = <<~RUGO
+    def make_adder(n)
+      return fn(x) x + n end
+    end
+    
+    add5 = make_adder(5)
+    puts add5(10)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "15")
 end
 
 rats "fn: lambda in hash"
-  result = test.run("rugo run rats/fixtures/fn_in_hash.rugo")
+  source = <<~RUGO
+    ops = {
+      "add" => fn(a, b) a + b end,
+      "mul" => fn(a, b) a * b end
+    }
+    puts ops["add"](2, 3)
+    puts ops["mul"](4, 5)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "5")
   test.assert_eq(result["lines"][1], "20")
 end
 
 rats "fn: lambda in array"
-  result = test.run("rugo run rats/fixtures/fn_in_array.rugo")
+  source = <<~RUGO
+    fns = [fn(x) x + 1 end, fn(x) x * 2 end]
+    puts fns[0](10)
+    puts fns[1](10)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "11")
   test.assert_eq(result["lines"][1], "20")
 end
 
 rats "fn: closure captures by reference"
-  result = test.run("rugo run rats/fixtures/fn_capture_ref.rugo")
+  source = <<~RUGO
+    x = 10
+    f = fn() x end
+    x = 20
+    puts f()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "20")
 end
 
 rats "fn: nested lambdas (compose)"
-  result = test.run("rugo run rats/fixtures/fn_nested.rugo")
+  source = <<~RUGO
+    compose = fn(f, g)
+      return fn(x) f(g(x)) end
+    end
+    
+    double = fn(x) x * 2 end
+    inc = fn(x) x + 1 end
+    double_then_inc = compose(inc, double)
+    puts double_then_inc(5)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "11")
 end
 
 rats "fn: lambda with explicit return"
-  result = test.run("rugo run rats/fixtures/fn_explicit_return.rugo")
+  source = <<~RUGO
+    classify = fn(x)
+      if x > 0
+        return "positive"
+      end
+      return "non-positive"
+    end
+    puts classify(1)
+    puts classify(-1)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "positive")
   test.assert_eq(result["lines"][1], "non-positive")
 end
 
 rats "fn: lambda with string interpolation"
-  result = test.run("rugo run rats/fixtures/fn_interpolation.rugo")
+  source = <<~'RUGO'
+    greet = fn(name) "hello #{name}" end
+    puts greet("world")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "hello world")
 end
 
 rats "fn: lambda compiles to native binary"
   tdir = test.tmpdir()
-  result = test.run("rugo build rats/fixtures/fn_basic.rugo -o #{tdir}/fn_bin && #{tdir}/fn_bin")
+  script = tdir + "/fn_basic.rugo"
+  source = <<~RUGO
+    # Simple lambda assigned to a variable
+    add = fn(a, b) a + b end
+    puts add(3, 7)
+  RUGO
+  test.write_file(script, source)
+  result = test.run("rugo build " + script + " -o #{tdir}/fn_bin && #{tdir}/fn_bin")
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "10")
 end
 
 rats "fn: emit produces valid Go with lambda"
-  result = test.run("rugo emit rats/fixtures/fn_basic.rugo")
+  tdir = test.tmpdir()
+  script = tdir + "/fn_basic_emit.rugo"
+  source = <<~RUGO
+    # Simple lambda assigned to a variable
+    add = fn(a, b) a + b end
+    puts add(3, 7)
+  RUGO
+  test.write_file(script, source)
+  result = test.run("rugo emit " + script)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "func(_args ...interface{}) interface{}")
 end
@@ -94,37 +194,67 @@ end
 # --- Negative tests ---
 
 rats "fn: missing end is a parse error"
-  result = test.run("rugo run rats/fixtures/err_fn_missing_end.rugo")
+  source = <<~RUGO
+    # fn missing end keyword
+    f = fn(x) x * 2
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "expected \"end\"")
-  test.assert_contains(result["output"], "err_fn_missing_end.rugo")
+  test.assert_contains(result["output"], "eval.rugo")
 end
 
 rats "fn: missing ( is a parse error"
-  result = test.run("rugo run rats/fixtures/err_fn_missing_paren.rugo")
+  source = <<~RUGO
+    # fn missing opening paren
+    f = fn x * 2 end
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "expected \"(\"")
-  test.assert_contains(result["output"], "err_fn_missing_paren.rugo")
+  test.assert_contains(result["output"], "eval.rugo")
 end
 
 rats "fn: calling non-function variable is a compile error"
-  result = test.run("rugo run rats/fixtures/err_fn_call_non_func.rugo")
+  source = <<~RUGO
+    # calling a non-function variable as a lambda
+    x = 42
+    x(1)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "not a function")
   test.assert_false(str.contains(result["output"], "interface"))
 end
 
 rats "fn: runtime error in lambda shows correct line"
-  result = test.run("rugo run rats/fixtures/err_fn_runtime_panic.rugo")
+  source = <<~RUGO
+    # runtime error inside lambda body
+    f = fn(x)
+      y = x + 1
+      z = y / x
+      return z
+    end
+    f(0)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "integer divide by zero")
-  test.assert_contains(result["output"], "err_fn_runtime_panic.rugo:4")
+  test.assert_contains(result["output"], "eval.rugo:4")
 end
 
 rats "fn: error output has no Go stacktrace"
-  result = test.run("rugo run rats/fixtures/err_fn_runtime_panic.rugo")
+  source = <<~RUGO
+    # runtime error inside lambda body
+    f = fn(x)
+      y = x + 1
+      z = y / x
+      return z
+    end
+    f(0)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_false(str.contains(result["output"], "goroutine"))
   test.assert_false(str.contains(result["output"], "panic("))
 end
-

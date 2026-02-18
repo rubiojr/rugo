@@ -1,3 +1,0 @@
-# String slice — full string via len()
-text = "hello world"
-puts text[0, len(text)]

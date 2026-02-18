@@ -1,3 +1,0 @@
-# Slice error — float
-x = 3.14
-y = x[0, 5]

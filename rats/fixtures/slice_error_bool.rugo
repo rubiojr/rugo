@@ -1,3 +1,0 @@
-# Slice error — bool
-x = true
-y = x[0, 5]

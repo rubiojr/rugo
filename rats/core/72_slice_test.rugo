@@ -1,64 +1,117 @@
 # RATS: Comprehensive slice tests — string slicing, array slicing, and error messages
 use "test"
 use "str"
+use "eval"
 
 # --- String slicing (positive cases) ---
 
 rats "string slice basic substring"
-  result = test.run("rugo run rats/fixtures/slice_string_basic.rugo")
+  source = <<~RUGO
+    # String slice — basic substring
+    text = "hello world"
+    puts text[0, 5]
+    puts text[6, 5]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "hello")
   test.assert_eq(result["lines"][1], "world")
 end
 
 rats "string slice full string with len()"
-  result = test.run("rugo run rats/fixtures/slice_string_full.rugo")
+  source = <<~RUGO
+    # String slice — full string via len()
+    text = "hello world"
+    puts text[0, len(text)]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "hello world")
 end
 
 rats "string slice single character"
-  result = test.run("rugo run rats/fixtures/slice_string_single_char.rugo")
+  source = <<~RUGO
+    # String slice — single character
+    text = "hello"
+    puts text[0, 1]
+    puts text[4, 1]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "h")
   test.assert_eq(result["lines"][1], "o")
 end
 
 rats "string slice middle extraction"
-  result = test.run("rugo run rats/fixtures/slice_string_middle.rugo")
+  source = <<~RUGO
+    # String slice — middle extraction
+    text = "the quick brown fox"
+    puts text[4, 5]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "quick")
 end
 
 rats "string slice length clamped to string end"
-  result = test.run("rugo run rats/fixtures/slice_string_clamp.rugo")
+  source = <<~RUGO
+    # String slice — length beyond bounds (clamped)
+    text = "hello"
+    puts text[3, 100]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "lo")
 end
 
 rats "string slice start beyond bounds returns empty"
-  result = test.run("rugo run rats/fixtures/slice_string_start_oob.rugo")
+  source = <<~RUGO
+    # String slice — start beyond bounds (empty string)
+    text = "hello"
+    puts text[100, 5]
+    puts "done"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "")
   test.assert_eq(result["lines"][1], "done")
 end
 
 rats "string slice zero length returns empty"
-  result = test.run("rugo run rats/fixtures/slice_string_zero_len.rugo")
+  source = <<~RUGO
+    # String slice — zero length (empty string)
+    text = "hello"
+    puts text[3, 0]
+    puts "done"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "")
   test.assert_eq(result["lines"][1], "done")
 end
 
 rats "string slice on empty string returns empty"
-  result = test.run("rugo run rats/fixtures/slice_string_empty.rugo")
+  source = <<~RUGO
+    # String slice — empty string source
+    text = ""
+    puts text[0, 5]
+    puts "done"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "")
   test.assert_eq(result["lines"][1], "done")
 end
 
 rats "string slice result works with len()"
-  result = test.run("rugo run rats/fixtures/slice_string_len.rugo")
+  source = <<~RUGO
+    # String slice — chained with other operations
+    text = "hello world"
+    sub = text[0, 5]
+    puts len(sub)
+    puts sub
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "5")
   test.assert_eq(result["lines"][1], "hello")
@@ -67,7 +120,29 @@ end
 # --- Array slicing (verify no regression) ---
 
 rats "array slice still works after string slice support"
-  result = test.run("rugo run rats/fixtures/slice_basic.rugo")
+  source = <<~RUGO
+    arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    
+    # First 3 elements
+    first = arr[0, 3]
+    puts(len(first))
+    puts(first[0])
+    puts(first[2])
+    
+    # Middle slice
+    mid = arr[3, 4]
+    puts(len(mid))
+    puts(mid[0])
+    
+    # Slice beyond bounds (clamp)
+    big = arr[8, 10]
+    puts(len(big))
+    
+    # Start beyond bounds (empty)
+    empty = arr[100, 5]
+    puts(len(empty))
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "3")
@@ -83,28 +158,48 @@ end
 # All errors should use Rugo-friendly type names and include a hint.
 
 rats "slice error on int shows friendly message"
-  result = test.run("rugo run rats/fixtures/slice_error_int.rugo")
+  source = <<~RUGO
+    # Slice error — int
+    x = 42
+    y = x[0, 5]
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot slice int")
   test.assert_contains(result["output"], "expected string or array")
 end
 
 rats "slice error on bool shows friendly message"
-  result = test.run("rugo run rats/fixtures/slice_error_bool.rugo")
+  source = <<~RUGO
+    # Slice error — bool
+    x = true
+    y = x[0, 5]
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot slice bool")
   test.assert_contains(result["output"], "expected string or array")
 end
 
 rats "slice error on float shows friendly message"
-  result = test.run("rugo run rats/fixtures/slice_error_float.rugo")
+  source = <<~RUGO
+    # Slice error — float
+    x = 3.14
+    y = x[0, 5]
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot slice float")
   test.assert_contains(result["output"], "expected string or array")
 end
 
 rats "slice error on nil shows friendly message"
-  result = test.run("rugo run rats/fixtures/slice_error_nil.rugo")
+  source = <<~RUGO
+    # Slice error — nil
+    x = nil
+    y = x[0, 5]
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot slice nil")
   test.assert_contains(result["output"], "expected string or array")
@@ -114,31 +209,52 @@ end
 # Docs say "out-of-bounds slices are clamped silently" so negative length → empty result
 
 rats "array slice with negative length returns empty array"
-  result = test.run("rugo run rats/fixtures/slice_negative_len_array.rugo")
+  source = <<~RUGO
+    arr = [1, 2, 3, 4, 5]
+    puts arr[0, -1]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "[]")
 end
 
 rats "array slice with negative length at offset returns empty array"
-  result = test.run("rugo run rats/fixtures/slice_negative_len_array_mid.rugo")
+  source = <<~RUGO
+    arr = [1, 2, 3, 4, 5]
+    puts arr[2, -3]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "[]")
 end
 
 rats "string slice with negative length returns empty string"
-  result = test.run("rugo run rats/fixtures/slice_negative_len_string.rugo")
+  source = <<~RUGO
+    s = "hello world"
+    puts s[0, -1]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "")
 end
 
 rats "string slice with negative length at offset returns empty string"
-  result = test.run("rugo run rats/fixtures/slice_negative_len_string_mid.rugo")
+  source = <<~RUGO
+    s = "hello world"
+    puts s[5, -2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "")
 end
 
 rats "slice error on hash shows friendly message"
-  result = test.run("rugo run rats/fixtures/slice_error_hash.rugo")
+  source = <<~RUGO
+    # Slice error — hash
+    x = {a: 1, b: 2}
+    y = x[0, 5]
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot slice hash")
   test.assert_contains(result["output"], "expected string or array")

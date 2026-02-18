@@ -1,4 +1,0 @@
-# String slice — start beyond bounds (empty string)
-text = "hello"
-puts text[100, 5]
-puts "done"

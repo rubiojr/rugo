@@ -1,4 +1,0 @@
-# String slice — zero length (empty string)
-text = "hello"
-puts text[3, 0]
-puts "done"
