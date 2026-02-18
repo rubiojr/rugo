@@ -269,7 +269,11 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			}
 			if sig.Params[i] == gobridge.GoFunc && sig.FuncTypes != nil {
 				if ft, ok := sig.FuncTypes[i]; ok {
-					convertedArgs = append(convertedArgs, gobridge.FuncAdapterConv(arg, ft))
+					conv := gobridge.FuncAdapterConv(arg, ft)
+					if sig.FuncParamPointer != nil && sig.FuncParamPointer[i] {
+						conv = fmt.Sprintf("func() *%s { _f := %s; return &_f }()", gobridge.FuncTypeName(ft), conv)
+					}
+					convertedArgs = append(convertedArgs, conv)
 					continue
 				}
 			}

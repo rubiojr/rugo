@@ -34,18 +34,19 @@ func (t Tier) String() string {
 
 // ClassifiedFunc holds classification results for a Go function.
 type ClassifiedFunc struct {
-	GoName     string
-	RugoName   string
-	Sig        *types.Signature
-	Tier       Tier
-	Reason     string // why it was blocked
-	Params     []GoType
-	Returns    []GoType
-	FuncTypes  map[int]*GoFuncType  // GoFunc param signatures
-	ArrayTypes map[int]*GoArrayType // fixed-size array return metadata
-	TypeCasts  map[int]string       // param index → named type cast (e.g., "os.FileMode")
-	Variadic   bool
-	Doc        string
+	GoName           string
+	RugoName         string
+	Sig              *types.Signature
+	Tier             Tier
+	Reason           string // why it was blocked
+	Params           []GoType
+	Returns          []GoType
+	FuncTypes        map[int]*GoFuncType  // GoFunc param signatures
+	FuncParamPointer map[int]bool         // GoFunc param index → true when param is *func(...)
+	ArrayTypes       map[int]*GoArrayType // fixed-size array return metadata
+	TypeCasts        map[int]string       // param index → named type cast (e.g., "os.FileMode")
+	Variadic         bool
+	Doc              string
 }
 
 // ClassifyFunc determines how a Go function can be bridged.
@@ -61,15 +62,22 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 	hasCast := false
 	for i := 0; i < params.Len(); i++ {
 		t := params.At(i).Type()
+		funcSig, funcPtr := extractFuncParamSignature(t)
 		gt, tier, reason := ClassifyGoType(t, true)
+		if funcSig != nil {
+			gt = GoFunc
+			tier = TierFunc
+		}
 		if tier == TierBlocked {
 			bf.Tier = TierBlocked
 			bf.Reason = fmt.Sprintf("param %d: %s", i, reason)
 			return bf
 		}
 		if tier == TierFunc {
-			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
-			if !ok {
+			if funcSig == nil {
+				funcSig, _ = types.Unalias(t).(*types.Signature)
+			}
+			if funcSig == nil {
 				bf.Tier = TierFunc
 				bf.Reason = fmt.Sprintf("param %d: func type (not a signature)", i)
 				return bf
@@ -84,6 +92,12 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 				bf.FuncTypes = map[int]*GoFuncType{}
 			}
 			bf.FuncTypes[i] = ft
+			if funcPtr {
+				if bf.FuncParamPointer == nil {
+					bf.FuncParamPointer = map[int]bool{}
+				}
+				bf.FuncParamPointer[i] = true
+			}
 			hasCast = true
 			bf.Params = append(bf.Params, gt)
 			continue
@@ -132,6 +146,24 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 	return bf
 }
 
+// extractFuncParamSignature returns a Go function signature for function-valued
+// params, including pointer-to-function forms (e.g., *func(int)).
+func extractFuncParamSignature(t types.Type) (*types.Signature, bool) {
+	t = types.Unalias(t)
+	if sig, ok := t.(*types.Signature); ok {
+		return sig, false
+	}
+	ptr, ok := t.(*types.Pointer)
+	if !ok {
+		return nil, false
+	}
+	sig, _ := types.Unalias(ptr.Elem()).(*types.Signature)
+	if sig == nil {
+		return nil, false
+	}
+	return sig, true
+}
+
 // ClassifyFuncType builds a GoFuncType from a Go function signature.
 // Returns nil if any param/return type is unbridgeable.
 // structWrappers and knownStructs are optional — when provided, struct-typed
@@ -142,10 +174,17 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 	params := sig.Params()
 	for i := 0; i < params.Len(); i++ {
 		t := params.At(i).Type()
+		funcSig, funcPtr := extractFuncParamSignature(t)
 		gt, tier, _ := ClassifyGoType(t, true)
+		if funcSig != nil {
+			gt = GoFunc
+			tier = TierFunc
+		}
 		if tier == TierFunc {
-			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
-			if !ok {
+			if funcSig == nil {
+				funcSig, _ = types.Unalias(t).(*types.Signature)
+			}
+			if funcSig == nil {
 				return nil
 			}
 			nested := ClassifyFuncType(funcSig, structWrappers, knownStructs)
@@ -157,6 +196,12 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 				ft.FuncTypes = make(map[int]*GoFuncType)
 			}
 			ft.FuncTypes[i] = nested
+			if funcPtr {
+				if ft.FuncParamPointer == nil {
+					ft.FuncParamPointer = make(map[int]bool)
+				}
+				ft.FuncParamPointer[i] = true
+			}
 			continue
 		}
 		if tier == TierBlocked {
@@ -295,6 +340,11 @@ func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
 		}
 		return 0, TierBlocked, "interface type"
 	case *types.Pointer:
+		if isParam {
+			if _, ok := types.Unalias(u.Elem()).(*types.Signature); ok {
+				return GoFunc, TierFunc, ""
+			}
+		}
 		return 0, TierBlocked, fmt.Sprintf("pointer to %s", u.Elem())
 	case *types.Struct:
 		return 0, TierBlocked, "struct type"

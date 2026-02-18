@@ -274,6 +274,10 @@ func classifyScope(scope *types.Scope, discoverStructs bool) classifiedScope {
 				si := classifyStructFields(name, st)
 				structInfos = append(structInfos, *si)
 				knownStructs[name] = true
+				if pkg := tn.Pkg(); pkg != nil {
+					knownStructs[ExternalTypeKey(pkg.Path(), name)] = true
+					knownStructs[ExternalTypeKey(pkg.Name(), name)] = true
+				}
 				if isNamed {
 					namedTypes[name] = named
 				}
@@ -331,6 +335,9 @@ func classifyScope(scope *types.Scope, discoverStructs bool) classifiedScope {
 			}
 			if len(f.FuncTypes) > 0 {
 				sig.FuncTypes = f.FuncTypes
+			}
+			if len(f.FuncParamPointer) > 0 {
+				sig.FuncParamPointer = f.FuncParamPointer
 			}
 			if len(f.ArrayTypes) > 0 {
 				sig.ArrayTypes = f.ArrayTypes
@@ -554,7 +561,16 @@ func InspectCompiledPackage(pkgPath string) (*Package, error) {
 
 		structWrappers := make(map[string]string)
 		for _, si := range cr.Structs {
-			structWrappers[si.GoName] = StructWrapperTypeName(ns, si.GoName)
+			wrapType := StructWrapperTypeName(ns, si.GoName)
+			structWrappers[si.GoName] = wrapType
+			structWrappers[ExternalTypeKey(pkgPath, si.GoName)] = wrapType
+			structWrappers[ExternalTypeKey(ns, si.GoName)] = wrapType
+			if named, ok := cr.NamedTypes[si.GoName]; ok {
+				if p := named.Obj().Pkg(); p != nil {
+					structWrappers[ExternalTypeKey(p.Path(), si.GoName)] = wrapType
+					structWrappers[ExternalTypeKey(p.Name(), si.GoName)] = wrapType
+				}
+			}
 		}
 
 		// Discover methods and embedded upcast fields on each struct wrapper.
@@ -645,10 +661,20 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 
 	// Build a lookup from Go struct name to wrapper type name.
 	structWrappers := make(map[string]string) // GoName or qualified key → wrapper type name
+	constructorNames := make(map[string]string)
 
 	if len(pkg.Structs) > 0 {
 		for _, si := range pkg.Structs {
-			structWrappers[si.GoName] = StructWrapperTypeName(ns, si.GoName)
+			wrapType := StructWrapperTypeName(ns, si.GoName)
+			structWrappers[si.GoName] = wrapType
+			structWrappers[ExternalTypeKey(pkg.Path, si.GoName)] = wrapType
+			structWrappers[ExternalTypeKey(ns, si.GoName)] = wrapType
+			if named, ok := result.NamedTypes[si.GoName]; ok {
+				if p := named.Obj().Pkg(); p != nil {
+					structWrappers[ExternalTypeKey(p.Path(), si.GoName)] = wrapType
+					structWrappers[ExternalTypeKey(p.Name(), si.GoName)] = wrapType
+				}
+			}
 		}
 
 		// Discover methods and embedded fields on struct types before generating wrappers.
@@ -664,10 +690,10 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 			si.Fields = append(si.Fields, embedded...)
 		}
 
-		// Generate wrappers and register constructors (after methods are populated).
+		// Register constructors. Wrapper helpers are attached after the final
+		// method-discovery pass so constructor helpers don't carry stale methods.
 		for _, si := range pkg.Structs {
 			wrapType := structWrappers[si.GoName]
-			helper := GenerateStructWrapper(ns, pkgAlias, si)
 
 			// Register zero-value constructor: mymod.config() → &rugo_struct_mymod_Config{v: &pkg.Config{}}
 			constructorName := si.RugoName
@@ -675,6 +701,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 			if _, exists := pkg.Funcs[constructorName]; exists {
 				constructorName = "new_" + constructorName
 			}
+			constructorNames[si.GoName] = constructorName
 			wt := wrapType
 			pa := pkgAlias
 			gn := si.GoName
@@ -685,7 +712,6 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 				Codegen: func(pkgBase string, args []string, rugoName string) string {
 					return fmt.Sprintf("interface{}(&%s{v: &%s.%s{}})", wt, pa, gn)
 				},
-				RuntimeHelpers: []RuntimeHelper{helper},
 			}
 		}
 	}
@@ -693,8 +719,9 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 	// Discover external named types from blocked function signatures.
 	externalTypes := discoverExternalTypes(result, pkg.Path)
 
-	// Recursively discover types embedded in already-known external types.
-	// This handles class hierarchies like QPushButton → *QAbstractButton → *QWidget.
+	// Recursively discover additional external types referenced by already-known
+	// external types. This includes embedded fields and method signatures.
+	// It handles class hierarchies and cross-package method params/returns.
 	for changed := true; changed; {
 		changed = false
 		for _, ext := range externalTypes {
@@ -712,6 +739,19 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 				}
 				collectExternalFromType(f.Type(), pkg.Path, result.KnownStructs, externalTypes)
 			}
+
+			mset := types.NewMethodSet(types.NewPointer(ext.Named))
+			for i := 0; i < mset.Len(); i++ {
+				fn, ok := mset.At(i).Obj().(*types.Func)
+				if !ok || !fn.Exported() {
+					continue
+				}
+				sig, ok := fn.Type().(*types.Signature)
+				if !ok {
+					continue
+				}
+				collectExternalFromSig(sig, pkg.Path, result.KnownStructs, externalTypes)
+			}
 		}
 		// Register any new types found in this pass.
 		for key, ext := range externalTypes {
@@ -727,11 +767,44 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 	for key, ext := range externalTypes {
 		wrapType := ExternalOpaqueWrapperTypeName(ns, ext.PkgName, ext.GoName)
 		structWrappers[key] = wrapType
+		structWrappers[ExternalTypeKey(ext.PkgName, ext.GoName)] = wrapType
 		result.KnownStructs[key] = true
+		result.KnownStructs[ExternalTypeKey(ext.PkgName, ext.GoName)] = true
 		// Track the import path so codegen emits it.
 		if !containsString(pkg.ExtraImports, ext.PkgPath) {
 			pkg.ExtraImports = append(pkg.ExtraImports, ext.PkgPath)
 		}
+	}
+
+	// Re-discover in-package struct methods/embedded fields now that external
+	// wrappers are known, so cross-package params/fields resolve correctly.
+	for i := range pkg.Structs {
+		si := &pkg.Structs[i]
+		named, ok := result.NamedTypes[si.GoName]
+		if !ok {
+			continue
+		}
+		var plainFields []GoStructFieldInfo
+		for _, f := range si.Fields {
+			if f.WrapType == "" {
+				plainFields = append(plainFields, f)
+			}
+		}
+		si.Methods = discoverMethods(named, structWrappers, result.KnownStructs)
+		si.Fields = append(plainFields, discoverEmbeddedFields(named, structWrappers, result.KnownStructs)...)
+	}
+	// Attach refreshed struct helpers to constructors now that final methods are known.
+	for _, si := range pkg.Structs {
+		constructorName, ok := constructorNames[si.GoName]
+		if !ok {
+			continue
+		}
+		sig, ok := pkg.Funcs[constructorName]
+		if !ok {
+			continue
+		}
+		sig.RuntimeHelpers = []RuntimeHelper{GenerateStructWrapper(ns, pkgAlias, si)}
+		pkg.Funcs[constructorName] = sig
 	}
 
 	// Discover methods and embedded fields on external types (after all types are in structWrappers).
@@ -837,9 +910,9 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 				sig.StructParamValue[i] = true
 			}
 		} else if tier == TierFunc {
-			// Classify the function parameter for GoFunc adapter.
-			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
-			if !ok {
+			// Classify function params (func(...) and *func(...)) for GoFunc adapters.
+			funcSig, funcPtr := extractFuncParamSignature(t)
+			if funcSig == nil {
 				return nil
 			}
 			ft := ClassifyFuncType(funcSig, structWrappers, knownStructs)
@@ -851,6 +924,12 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 				sig.FuncTypes = make(map[int]*GoFuncType)
 			}
 			sig.FuncTypes[i] = ft
+			if funcPtr {
+				if sig.FuncParamPointer == nil {
+					sig.FuncParamPointer = make(map[int]bool)
+				}
+				sig.FuncParamPointer[i] = true
+			}
 		} else {
 			sig.Params = append(sig.Params, gt)
 			// Detect named types that need explicit casts (e.g., qt6.StandardKey).
@@ -897,36 +976,46 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 	return sig
 }
 
-// extractStructName checks if a type is a pointer to a known struct and returns
-// the struct name (or qualified key for external types), or empty string if not.
+// extractStructName checks if a type is a pointer/value known struct and returns
+// either an in-package unqualified name or an external qualified key.
+// Qualified keys are preferred to avoid collisions like gtk.Snapshot vs gdk.Snapshot.
 func extractStructName(t types.Type, knownStructs map[string]bool) string {
 	// Handle *Struct (pointer to struct).
 	if ptr, ok := t.(*types.Pointer); ok {
 		if named, ok := ptr.Elem().(*types.Named); ok {
 			name := named.Obj().Name()
-			if knownStructs[name] {
-				return name
-			}
-			// Check qualified key for external types.
+			// Prefer qualified key first for external types to avoid collisions.
 			if pkg := named.Obj().Pkg(); pkg != nil {
 				qualKey := ExternalTypeKey(pkg.Path(), name)
 				if knownStructs[qualKey] {
 					return qualKey
 				}
+				nameKey := ExternalTypeKey(pkg.Name(), name)
+				if knownStructs[nameKey] {
+					return nameKey
+				}
+			}
+			if knownStructs[name] {
+				return name
 			}
 		}
 	}
 	// Handle Struct directly (value type).
 	if named, ok := t.(*types.Named); ok {
 		name := named.Obj().Name()
-		if knownStructs[name] {
-			return name
-		}
+		// Prefer qualified key first for external types to avoid collisions.
 		if pkg := named.Obj().Pkg(); pkg != nil {
 			qualKey := ExternalTypeKey(pkg.Path(), name)
 			if knownStructs[qualKey] {
 				return qualKey
 			}
+			nameKey := ExternalTypeKey(pkg.Name(), name)
+			if knownStructs[nameKey] {
+				return nameKey
+			}
+		}
+		if knownStructs[name] {
+			return name
 		}
 	}
 	return ""
@@ -1002,7 +1091,7 @@ func stringViewConstructor(t types.Type) string {
 	return ""
 }
 
-// discoverEmbeddedFields finds embedded pointer-to-struct fields on a named type
+// discoverEmbeddedFields finds embedded struct fields on a named type
 // that point to known struct types. Returns field info with WrapType set.
 func discoverEmbeddedFields(named *types.Named, structWrappers map[string]string, knownStructs map[string]bool) []GoStructFieldInfo {
 	st, ok := named.Underlying().(*types.Struct)
@@ -1024,10 +1113,12 @@ func discoverEmbeddedFields(named *types.Named, structWrappers map[string]string
 		if !ok {
 			continue
 		}
+		_, isPtr := f.Type().(*types.Pointer)
 		fields = append(fields, GoStructFieldInfo{
-			GoName:   f.Name(),
-			RugoName: ToSnakeCase(f.Name()),
-			WrapType: wrapType,
+			GoName:    f.Name(),
+			RugoName:  ToSnakeCase(f.Name()),
+			WrapType:  wrapType,
+			WrapValue: !isPtr,
 		})
 	}
 	return fields
@@ -1111,9 +1202,9 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 				mi.StructParamValue[i] = true
 			}
 		} else if tier == TierFunc {
-			// Classify the function parameter for GoFunc adapter.
-			funcSig, ok := params.At(i).Type().Underlying().(*types.Signature)
-			if !ok {
+			// Classify function params (func(...) and *func(...)) for GoFunc adapters.
+			funcSig, funcPtr := extractFuncParamSignature(t)
+			if funcSig == nil {
 				return nil
 			}
 			ft := ClassifyFuncType(funcSig, structWrappers, knownStructs)
@@ -1125,6 +1216,12 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 				mi.FuncTypes = make(map[int]*GoFuncType)
 			}
 			mi.FuncTypes[i] = ft
+			if funcPtr {
+				if mi.FuncParamPointer == nil {
+					mi.FuncParamPointer = make(map[int]bool)
+				}
+				mi.FuncParamPointer[i] = true
+			}
 		} else {
 			mi.Params = append(mi.Params, gt)
 			// Detect named types that need explicit casts (e.g., qt6.GestureType).
@@ -1171,8 +1268,9 @@ func classifyMethod(goName string, sig *types.Signature, structWrappers map[stri
 	return mi
 }
 
-// discoverExternalTypes scans blocked function signatures for pointer-to-named
-// types from external packages (types not defined in the inspected module).
+// discoverExternalTypes scans blocked top-level signatures and in-package struct
+// methods/fields for named types from external packages (types not defined in
+// the inspected module).
 // Returns a map keyed by qualified name (pkgPath.TypeName) to ExternalTypeInfo.
 func discoverExternalTypes(result *InspectedPackage, modulePath string) map[string]ExternalTypeInfo {
 	externals := make(map[string]ExternalTypeInfo)
@@ -1182,6 +1280,33 @@ func discoverExternalTypes(result *InspectedPackage, modulePath string) map[stri
 			continue
 		}
 		collectExternalFromSig(f.Sig, modulePath, result.KnownStructs, externals)
+	}
+
+	// Also scan in-package struct fields and methods. External types used only
+	// in methods/embedded fields won't appear in top-level blocked funcs.
+	for _, named := range result.NamedTypes {
+		if st, ok := named.Underlying().(*types.Struct); ok {
+			for i := 0; i < st.NumFields(); i++ {
+				f := st.Field(i)
+				if !f.Exported() {
+					continue
+				}
+				collectExternalFromType(f.Type(), modulePath, result.KnownStructs, externals)
+			}
+		}
+
+		mset := types.NewMethodSet(types.NewPointer(named))
+		for i := 0; i < mset.Len(); i++ {
+			fn, ok := mset.At(i).Obj().(*types.Func)
+			if !ok || !fn.Exported() {
+				continue
+			}
+			sig, ok := fn.Type().(*types.Signature)
+			if !ok {
+				continue
+			}
+			collectExternalFromSig(sig, modulePath, result.KnownStructs, externals)
+		}
 	}
 
 	return externals
@@ -1201,7 +1326,7 @@ func collectExternalFromSig(sig *types.Signature, modulePath string, knownStruct
 
 // collectExternalFromType checks if a type is a pointer (or value) of a named
 // type from an external package and adds it to the externals map.
-func collectExternalFromType(t types.Type, modulePath string, knownStructs map[string]bool, externals map[string]ExternalTypeInfo) {
+func collectExternalFromType(t types.Type, modulePath string, _ map[string]bool, externals map[string]ExternalTypeInfo) {
 	var named *types.Named
 
 	if ptr, ok := t.(*types.Pointer); ok {
@@ -1220,11 +1345,6 @@ func collectExternalFromType(t types.Type, modulePath string, knownStructs map[s
 
 	typeName := named.Obj().Name()
 
-	// Skip types already known as in-package structs.
-	if knownStructs[typeName] {
-		return
-	}
-
 	// Skip types from the module itself — those are handled as in-package structs.
 	// Check both the full module path and the short package name (the type checker
 	// may use either depending on whether dependencies were resolved).
@@ -1233,7 +1353,11 @@ func collectExternalFromType(t types.Type, modulePath string, knownStructs map[s
 	}
 
 	key := ExternalTypeKey(pkg.Path(), typeName)
+	aliasKey := ExternalTypeKey(pkg.Name(), typeName)
 	if _, exists := externals[key]; exists {
+		return
+	}
+	if _, exists := externals[aliasKey]; exists {
 		return
 	}
 

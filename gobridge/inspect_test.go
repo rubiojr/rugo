@@ -1,6 +1,8 @@
 package gobridge
 
 import (
+	"go/types"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -207,4 +209,113 @@ func TestInspectCompiledPackage_TimeStructSupport(t *testing.T) {
 	require.True(t, ok, "time.since should be bridged")
 	require.Contains(t, since.StructCasts, 0, "time.since should unwrap time.Time param")
 	assert.True(t, since.StructParamValue[0], "time.since takes value type time.Time")
+}
+
+func TestExtractStructName_PrefersQualifiedExternalKey(t *testing.T) {
+	pkg := types.NewPackage("example.com/gdk", "gdk")
+	snapshot := types.NewNamed(types.NewTypeName(0, pkg, "Snapshot", nil), types.NewStruct(nil, nil), nil)
+	known := map[string]bool{
+		"Snapshot": true,
+		ExternalTypeKey("example.com/gdk", "Snapshot"): true,
+	}
+
+	gotPtr := extractStructName(types.NewPointer(snapshot), known)
+	gotVal := extractStructName(snapshot, known)
+	want := ExternalTypeKey("example.com/gdk", "Snapshot")
+	assert.Equal(t, want, gotPtr)
+	assert.Equal(t, want, gotVal)
+}
+
+func TestCollectExternalFromType_DoesNotSkipOnNameCollision(t *testing.T) {
+	pkg := types.NewPackage("example.com/gdk", "gdk")
+	snapshot := types.NewNamed(types.NewTypeName(0, pkg, "Snapshot", nil), types.NewStruct(nil, nil), nil)
+	known := map[string]bool{"Snapshot": true} // in-package collision name
+	externals := map[string]ExternalTypeInfo{}
+
+	collectExternalFromType(types.NewPointer(snapshot), "example.com/gtk", known, externals)
+
+	key := ExternalTypeKey("example.com/gdk", "Snapshot")
+	ext, ok := externals[key]
+	require.True(t, ok, "external type should still be discovered despite name collision")
+	assert.Equal(t, "gdk", ext.PkgName)
+	assert.Equal(t, "Snapshot", ext.GoName)
+}
+
+func TestDiscoverEmbeddedFields_MarksValueVsPointer(t *testing.T) {
+	pkg := types.NewPackage("example.com/test", "test")
+	base := types.NewNamed(types.NewTypeName(0, pkg, "Base", nil), types.NewStruct(nil, nil), nil)
+	node := types.NewNamed(types.NewTypeName(0, pkg, "Node", nil), types.NewStruct(nil, nil), nil)
+	childStruct := types.NewStruct([]*types.Var{
+		types.NewField(0, pkg, "Base", base, true),
+		types.NewField(0, pkg, "Node", types.NewPointer(node), true),
+	}, nil)
+	child := types.NewNamed(types.NewTypeName(0, pkg, "Child", nil), childStruct, nil)
+
+	fields := discoverEmbeddedFields(child, map[string]string{
+		"Base": "rugo_struct_test_Base",
+		"Node": "rugo_struct_test_Node",
+	}, map[string]bool{
+		"Base": true,
+		"Node": true,
+	})
+
+	require.Len(t, fields, 2)
+	byName := map[string]GoStructFieldInfo{}
+	for _, f := range fields {
+		byName[f.GoName] = f
+	}
+	require.Contains(t, byName, "Base")
+	require.Contains(t, byName, "Node")
+	assert.True(t, byName["Base"].WrapValue, "value embedded field must be marked WrapValue")
+	assert.False(t, byName["Node"].WrapValue, "pointer embedded field must not be marked WrapValue")
+}
+
+func TestGenerateExternalOpaqueWrapper_UsesAddressForValueEmbedded(t *testing.T) {
+	helper := GenerateExternalOpaqueWrapper("test", ExternalTypeInfo{
+		PkgName: "gtk",
+		GoName:  "Window",
+		EmbeddedFields: []GoStructFieldInfo{
+			{GoName: "Widget", RugoName: "widget", WrapType: "rugo_struct_test_Widget", WrapValue: true},
+			{GoName: "Object", RugoName: "object", WrapType: "rugo_struct_test_Object", WrapValue: false},
+		},
+	})
+
+	assert.Contains(t, helper.Code, "return interface{}(&rugo_struct_test_Widget{v: &w.v.Widget}), true")
+	assert.Contains(t, helper.Code, "return interface{}(&rugo_struct_test_Object{v: w.v.Object}), true")
+}
+
+func TestFinalizeStructs_ConstructorHelperUsesRefreshedMethods(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/late\n\ngo 1.22\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "ext"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "ext", "ext.go"), []byte("package ext\n\ntype Snapshot struct{}\n"), 0o644))
+	require.NoError(t, os.MkdirAll(filepath.Join(root, "local"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(root, "local", "local.go"), []byte(`package local
+
+import "example.com/late/ext"
+
+type Snapshot struct{}
+type Paintable struct{}
+
+func (p *Paintable) Snapshot(s *ext.Snapshot, w, h float64) {}
+`), 0o644))
+
+	result, err := InspectSourcePackage(filepath.Join(root, "local"))
+	require.NoError(t, err)
+	FinalizeStructs(result, "local", "local")
+
+	sig, ok := result.Package.Funcs["paintable"]
+	require.True(t, ok, "paintable constructor should be registered")
+	require.NotEmpty(t, sig.RuntimeHelpers, "constructor should carry struct wrapper helper")
+
+	var helperCode string
+	for _, h := range sig.RuntimeHelpers {
+		if h.Key == "rugo_struct_local_Paintable" {
+			helperCode = h.Code
+			break
+		}
+	}
+	require.NotEmpty(t, helperCode, "paintable constructor must include refreshed wrapper helper")
+	assert.Contains(t, helperCode, "rugo_upcast_rugo_ext_local_ext_Snapshot(args[0]).v")
+	assert.NotContains(t, helperCode, "rugo_upcast_rugo_struct_local_Snapshot(args[0]).v")
 }

@@ -80,7 +80,11 @@ func GenerateExternalOpaqueWrapper(ns string, ext ExternalTypeInfo) RuntimeHelpe
 	for _, f := range ext.EmbeddedFields {
 		sb.WriteString(fmt.Sprintf("\tcase %q:\n", f.RugoName))
 		if f.WrapType != "" {
-			sb.WriteString(fmt.Sprintf("\t\treturn interface{}(&%s{v: w.v.%s}), true\n", f.WrapType, f.GoName))
+			if f.WrapValue {
+				sb.WriteString(fmt.Sprintf("\t\treturn interface{}(&%s{v: &w.v.%s}), true\n", f.WrapType, f.GoName))
+			} else {
+				sb.WriteString(fmt.Sprintf("\t\treturn interface{}(&%s{v: w.v.%s}), true\n", f.WrapType, f.GoName))
+			}
 		} else {
 			sb.WriteString(fmt.Sprintf("\t\treturn %s, true\n", TypeWrapReturn("w.v."+f.GoName, f.Type)))
 		}
@@ -146,7 +150,11 @@ func GenerateStructWrapper(ns, pkgAlias string, si GoStructInfo) RuntimeHelper {
 		sb.WriteString(fmt.Sprintf("\tcase %q:\n", f.RugoName))
 		if f.WrapType != "" {
 			// Opaque struct field — wrap in the appropriate handle type.
-			sb.WriteString(fmt.Sprintf("\t\treturn interface{}(&%s{v: w.v.%s}), true\n", f.WrapType, f.GoName))
+			if f.WrapValue {
+				sb.WriteString(fmt.Sprintf("\t\treturn interface{}(&%s{v: &w.v.%s}), true\n", f.WrapType, f.GoName))
+			} else {
+				sb.WriteString(fmt.Sprintf("\t\treturn interface{}(&%s{v: w.v.%s}), true\n", f.WrapType, f.GoName))
+			}
 		} else {
 			sb.WriteString(fmt.Sprintf("\t\treturn %s, true\n", TypeWrapReturn("w.v."+f.GoName, f.Type)))
 		}
@@ -242,7 +250,11 @@ func writeMethodCase(sb *strings.Builder, m GoStructMethodInfo, ns string) {
 		// GoFunc adapter: wrap Rugo lambda into typed Go func.
 		if p == GoFunc && m.FuncTypes != nil {
 			if ft, ok := m.FuncTypes[i]; ok {
-				convArgs = append(convArgs, FuncAdapterConv(argExpr, ft))
+				conv := FuncAdapterConv(argExpr, ft)
+				if m.FuncParamPointer != nil && m.FuncParamPointer[i] {
+					conv = fmt.Sprintf("func() *%s { _f := %s; return &_f }()", funcTypeName(ft), conv)
+				}
+				convArgs = append(convArgs, conv)
 				continue
 			}
 		}

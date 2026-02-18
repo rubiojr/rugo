@@ -57,6 +57,14 @@ func TestClassifyGoType_Blocked(t *testing.T) {
 	if tier != TierBlocked {
 		t.Errorf("chan type: got tier %s, want blocked", tier)
 	}
+
+	// Function pointer param should be treated as a callback.
+	cbSig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	fnPtr := types.NewPointer(cbSig)
+	gt, tier, _ := ClassifyGoType(fnPtr, true)
+	if tier != TierFunc || gt != GoFunc {
+		t.Errorf("*func() param: got type=%v tier=%s, want GoFunc/func", gt, tier)
+	}
 }
 
 func TestClassifyGoType_Slice(t *testing.T) {
@@ -122,6 +130,29 @@ func TestClassifyFunc_Blocked(t *testing.T) {
 	}
 }
 
+func TestClassifyFunc_FuncPointerParam(t *testing.T) {
+	// Build func(cb *func(int))
+	cbParams := types.NewTuple(types.NewVar(0, nil, "v", types.Typ[types.Int]))
+	cbSig := types.NewSignatureType(nil, nil, nil, cbParams, nil, false)
+	cbPtr := types.NewPointer(cbSig)
+	params := types.NewTuple(types.NewVar(0, nil, "cb", cbPtr))
+	sig := types.NewSignatureType(nil, nil, nil, params, nil, false)
+
+	bf := ClassifyFunc("WithCb", "with_cb", sig)
+	if bf.Tier == TierBlocked {
+		t.Fatalf("func(*func(int)) should be bridgeable, got blocked: %s", bf.Reason)
+	}
+	if len(bf.Params) != 1 || bf.Params[0] != GoFunc {
+		t.Fatalf("params = %v, want [GoFunc]", bf.Params)
+	}
+	if bf.FuncTypes == nil || bf.FuncTypes[0] == nil {
+		t.Fatalf("FuncTypes[0] missing for func pointer param")
+	}
+	if bf.FuncParamPointer == nil || !bf.FuncParamPointer[0] {
+		t.Fatalf("FuncParamPointer[0] should be true for *func param")
+	}
+}
+
 func TestToSnakeCase(t *testing.T) {
 	tests := []struct {
 		input string
@@ -179,5 +210,13 @@ func TestTierString(t *testing.T) {
 		if got := tt.tier.String(); got != tt.want {
 			t.Errorf("Tier(%d).String() = %q, want %q", tt.tier, got, tt.want)
 		}
+	}
+}
+
+func TestTypeWrapReturn_GoIntCastsToInt(t *testing.T) {
+	got := TypeWrapReturn("_v", GoInt)
+	want := "interface{}(int(_v))"
+	if got != want {
+		t.Fatalf("TypeWrapReturn GoInt = %q, want %q", got, want)
 	}
 }

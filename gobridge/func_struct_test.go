@@ -191,6 +191,19 @@ func TestClassifyFuncType_NestedFuncParam(t *testing.T) {
 	assert.Empty(t, ft.FuncTypes[0].Returns)
 }
 
+func TestClassifyFuncType_FuncPointerParam(t *testing.T) {
+	innerSig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+	fnPtr := types.NewPointer(innerSig)
+	params := types.NewTuple(types.NewVar(0, nil, "fn", fnPtr))
+	sig := types.NewSignatureType(nil, nil, nil, params, nil, false)
+
+	ft := ClassifyFuncType(sig, map[string]string{}, map[string]bool{})
+	require.NotNil(t, ft, "pointer-to-func param should be bridgeable")
+	assert.Equal(t, []GoType{GoFunc}, ft.Params)
+	require.Contains(t, ft.FuncTypes, 0)
+	assert.True(t, ft.FuncParamPointer[0], "func pointer param should be marked")
+}
+
 // --- FuncAdapterConv tests ---
 
 func TestFuncAdapterConv_PrimitiveOnly(t *testing.T) {
@@ -283,6 +296,19 @@ func TestFuncAdapterConv_NestedFuncParamWithStruct(t *testing.T) {
 	assert.Contains(t, result, "_p1 *qt6.QPaintEvent")
 	assert.Contains(t, result, "interface{}(func(_a ...interface{}) interface{} { _f := _p0; _f(rugo_upcast_rugo_struct_qt6_QPaintEvent(_a[0]).v); return nil })")
 	assert.Contains(t, result, "interface{}(&rugo_struct_qt6_QPaintEvent{v: _p1})")
+}
+
+func TestFuncAdapterConv_PointerToFuncParam(t *testing.T) {
+	ft := &GoFuncType{
+		Params: []GoType{GoFunc},
+		FuncTypes: map[int]*GoFuncType{
+			0: {Params: []GoType{GoInt}},
+		},
+		FuncParamPointer: map[int]bool{0: true},
+	}
+	result := FuncAdapterConv("_arg", ft)
+	assert.Contains(t, result, "_p0 *func(int)")
+	assert.Contains(t, result, "_f := *_p0")
 }
 
 // --- qualifiedGoTypeName tests ---

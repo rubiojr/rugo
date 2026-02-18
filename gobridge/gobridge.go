@@ -43,6 +43,7 @@ type GoFuncType struct {
 	TypeCasts        map[int]string      // param index → named type cast (e.g., "qt6.ApplicationState")
 	StructCasts      map[int]string      // param index → struct wrapper type (e.g., "rugo_struct_qt6_QListWidgetItem")
 	StructParamValue map[int]bool        // param index → true if value type (not pointer), needs dereference
+	FuncParamPointer map[int]bool        // param index → true if function param is *func(...)
 	StructGoTypes    map[int]string      // param index → Go type string (e.g., "qt6.QDate", "qt6.QListWidgetItem")
 	FuncTypes        map[int]*GoFuncType // param index → nested function signature (for func-in-func params)
 }
@@ -100,11 +101,12 @@ type GoStructInfo struct {
 
 // GoStructFieldInfo describes a single exported field of a Go struct.
 type GoStructFieldInfo struct {
-	GoName   string // PascalCase field name (e.g., "Name")
-	RugoName string // snake_case field name (e.g., "name")
-	Type     GoType // field type for conversion
-	TypeCast string // optional explicit cast for DotSet (e.g., "uint16", "os.FileMode")
-	WrapType string // if set, field is an opaque struct handle — wrap with this type
+	GoName    string // PascalCase field name (e.g., "Name")
+	RugoName  string // snake_case field name (e.g., "name")
+	Type      GoType // field type for conversion
+	TypeCast  string // optional explicit cast for DotSet (e.g., "uint16", "os.FileMode")
+	WrapType  string // if set, field is an opaque struct handle — wrap with this type
+	WrapValue bool   // when WrapType is set, true means source field is a value (wrap as &field)
 }
 
 // GoStructMethodInfo describes a bridgeable method on a Go struct.
@@ -119,6 +121,7 @@ type GoStructMethodInfo struct {
 	StructReturnWraps map[int]string      // return index → wrapper type for struct handles
 	StructReturnValue map[int]bool        // return index → true if value type (not pointer)
 	TypeCasts         map[int]string      // param index → named type cast (e.g., "qt6.GestureType")
+	FuncParamPointer  map[int]bool        // param index → true if function param is *func(...)
 	FuncTypes         map[int]*GoFuncType // param index → Go func signature for lambda adapters
 }
 
@@ -150,6 +153,9 @@ type GoFuncSig struct {
 	// FuncTypes maps param indices to their Go function signatures.
 	// Only used when the corresponding Params[i] is GoFunc.
 	FuncTypes map[int]*GoFuncType
+	// FuncParamPointer marks GoFunc params declared as *func(...).
+	// Codegen wraps adapted lambdas by taking an address of the typed func.
+	FuncParamPointer map[int]bool
 	// StructReturn describes how to decompose a struct return into a Rugo hash.
 	// When set, the generic codegen uses this instead of the normal return handling.
 	StructReturn *GoStructReturn
@@ -478,13 +484,16 @@ func funcTypeName(ft *GoFuncType) string {
 			}
 		}
 		if t == GoFunc {
+			typeName := "func(...interface{}) interface{}"
 			if ft.FuncTypes != nil {
 				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
-					params = append(params, funcTypeName(nested))
-					continue
+					typeName = funcTypeName(nested)
 				}
 			}
-			params = append(params, "func(...interface{}) interface{}")
+			if ft.FuncParamPointer != nil && ft.FuncParamPointer[i] {
+				typeName = "*" + typeName
+			}
+			params = append(params, typeName)
 			continue
 		}
 		typeName := GoTypeGoName(t)
@@ -524,6 +533,11 @@ func funcTypeName(ft *GoFuncType) string {
 	return fmt.Sprintf("func(%s)%s", strings.Join(params, ", "), retType)
 }
 
+// FuncTypeName returns the Go type literal for a classified function signature.
+func FuncTypeName(ft *GoFuncType) string {
+	return funcTypeName(ft)
+}
+
 // FuncToLambdaConv wraps a typed Go function into a Rugo lambda-compatible callback.
 // argExpr is the Go expression for the typed function value.
 // ft describes the typed function signature.
@@ -544,13 +558,26 @@ func FuncToLambdaConv(argExpr string, ft *GoFuncType) string {
 			}
 		}
 		if p == GoFunc {
+			isPtr := ft.FuncParamPointer != nil && ft.FuncParamPointer[i]
+			source := argExpr
+			if isPtr {
+				source = "*" + source
+			}
 			if ft.FuncTypes != nil {
 				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
-					convArgs = append(convArgs, FuncAdapterConv(argExpr, nested))
+					nestedConv := FuncAdapterConv(argExpr, nested)
+					if isPtr {
+						nestedConv = fmt.Sprintf("func() *%s { _f := %s; return &_f }()", funcTypeName(nested), nestedConv)
+					}
+					convArgs = append(convArgs, nestedConv)
 					continue
 				}
 			}
-			convArgs = append(convArgs, fmt.Sprintf("%s.(func(...interface{}) interface{})", argExpr))
+			if isPtr {
+				convArgs = append(convArgs, fmt.Sprintf("func() *func(...interface{}) interface{} { _f := %s.(func(...interface{}) interface{}); return &_f }()", source))
+				continue
+			}
+			convArgs = append(convArgs, fmt.Sprintf("%s.(func(...interface{}) interface{})", source))
 			continue
 		}
 		conv := TypeConvToGo(argExpr, p)
@@ -621,6 +648,9 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 					typeName = funcTypeName(nested)
 				}
 			}
+			if ft.FuncParamPointer != nil && ft.FuncParamPointer[i] {
+				typeName = "*" + typeName
+			}
 			params = append(params, fmt.Sprintf("_p%d %s", i, typeName))
 			continue
 		}
@@ -663,13 +693,17 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 			}
 		}
 		if t == GoFunc {
+			source := pName
+			if ft.FuncParamPointer != nil && ft.FuncParamPointer[i] {
+				source = "*" + source
+			}
 			if ft.FuncTypes != nil {
 				if nested, ok := ft.FuncTypes[i]; ok && nested != nil {
-					callArgs = append(callArgs, "interface{}("+FuncToLambdaConv(pName, nested)+")")
+					callArgs = append(callArgs, "interface{}("+FuncToLambdaConv(source, nested)+")")
 					continue
 				}
 			}
-			callArgs = append(callArgs, "interface{}("+pName+")")
+			callArgs = append(callArgs, "interface{}("+source+")")
 			continue
 		}
 		switch t {
@@ -725,6 +759,8 @@ func StructDecompCode(varName string, sr *GoStructReturn) string {
 // TypeWrapReturn returns the Go expression to wrap a Go return value to interface{}.
 func TypeWrapReturn(expr string, t GoType) string {
 	switch t {
+	case GoInt:
+		return "interface{}(int(" + expr + "))"
 	case GoStringSlice:
 		return "rugo_go_from_string_slice(" + expr + ")"
 	case GoByteSlice:
