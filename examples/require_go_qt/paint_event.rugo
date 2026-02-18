@@ -1,0 +1,78 @@
+# Interactive QWidget paint event example (no Go wrapper needed)
+#
+# Build and run:
+#   cd examples/require_go_qt
+#   rugo build paint_event.rugo -o paint_event && ./paint_event
+#
+# Try this:
+#   - Click "Trigger repaint" to request updates
+#   - Click "Toggle background" to change styles
+#   - Click inside the window area
+#   - Watch paint event logs in the terminal
+
+require "github.com/mappu/miqt/qt6@v0.13.0"
+import "os"
+
+app = qt6.new_qapplication(os.args())
+
+win = qt6.new_qwidget2()
+win.set_window_title("Interactive QWidget paint events")
+win.resize(520, 300)
+
+layout = qt6.new_qvbox_layout(win)
+info = qt6.new_qlabel3("Use the buttons and click the window to trigger paint events.")
+layout.add_widget(info)
+
+repaint_btn = qt6.new_qpush_button3("Trigger repaint")
+layout.add_widget(repaint_btn)
+
+theme_btn = qt6.new_qpush_button3("Toggle background")
+layout.add_widget(theme_btn)
+
+quit_btn = qt6.new_qpush_button3("Quit")
+layout.add_widget(quit_btn)
+
+paint_count = 0
+button_count = 0
+mouse_count = 0
+dark_bg = false
+
+win.on_paint_event(fn(super_paint, event)
+  # Keep default QWidget painting behavior.
+  super_paint(event)
+
+  paint_count += 1
+  if paint_count <= 30
+    puts "paint event ##{paint_count} (button=#{button_count}, mouse=#{mouse_count})"
+  end
+end)
+
+repaint_btn.on_clicked(fn()
+  button_count += 1
+  puts "button click ##{button_count} → win.update()"
+  win.update()
+end)
+
+theme_btn.on_clicked(fn()
+  dark_bg = !dark_bg
+  if dark_bg
+    win.set_style_sheet("QWidget { background-color: #202020; color: #f0f0f0; }")
+  else
+    win.set_style_sheet("")
+  end
+  win.update()
+end)
+
+win.on_mouse_press_event(fn(super_mouse, event)
+  mouse_count += 1
+  puts "mouse press ##{mouse_count} → win.update()"
+  super_mouse(event)
+  win.update()
+end)
+
+quit_btn.on_clicked(fn()
+  qt6.qcore_application_quit()
+end)
+
+win.show()
+qt6.qapplication_exec()

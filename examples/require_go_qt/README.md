@@ -19,6 +19,13 @@ rugo build main.rugo -o hello_qt
 ./hello_qt
 ```
 
+Paint-event variant:
+
+```bash
+rugo build paint_event.rugo -o paint_event
+./paint_event
+```
+
 ## How it works
 
 No Go adapter needed. The Rugo script requires miqt/qt6 directly from the
@@ -39,3 +46,14 @@ win.set_window_title("Hello!")           # method via DotCall
 btn.on_clicked(fn() ... end)             # signal + Rugo lambda
 layout.add_widget(btn)                   # auto-upcast: QPushButton → QWidget
 ```
+
+`paint_event.rugo` is an interactive QWidget virtual-event demo with nested callback params:
+
+```ruby
+win.on_paint_event(fn(super_paint, event)
+  super_paint(event)
+  puts "painted"
+end)
+```
+
+It also binds regular widget interactions (`on_clicked`) and mouse events (`on_mouse_press_event`) so you can trigger repaints on demand and see paint-event logs update in the terminal.
