@@ -1,6 +1,7 @@
 # RATS: Default parameter values for def and fn
 
 use "test"
+use "eval"
 use "str"
 
 # --- def functions with default params ---
@@ -140,13 +141,27 @@ end
 # --- arity errors ---
 
 rats "too few args - compile error"
-  result = test.run("rugo run rats/core/fixtures/default_params_too_few.rugo")
+  source = <<~'RUGO'
+    def greet(name, greeting = "Hello")
+      puts "#{greeting}, #{name}"
+    end
+
+    greet()
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "takes 1 to 2 arguments")
 end
 
 rats "too many args - compile error"
-  result = test.run("rugo run rats/core/fixtures/default_params_too_many.rugo")
+  source = <<~'RUGO'
+    def greet(name, greeting = "Hello")
+      puts "#{greeting}, #{name}"
+    end
+
+    greet("a", "b", "c")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "takes 1 to 2 arguments")
 end
@@ -154,13 +169,23 @@ end
 # --- validation errors ---
 
 rats "required param after default - error"
-  result = test.run("rugo run rats/core/fixtures/default_params_required_after.rugo")
+  source = <<~RUGO
+    def bad(a = 1, b)
+      a + b
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot follow a parameter with a default value")
 end
 
 rats "lambda required after default - error"
-  result = test.run("rugo run rats/core/fixtures/default_params_fn_required_after.rugo")
+  source = <<~RUGO
+    f = fn(a = 1, b)
+      a + b
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot follow a parameter with a default value")
 end

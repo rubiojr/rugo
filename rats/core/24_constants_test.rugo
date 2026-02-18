@@ -1,8 +1,17 @@
 # RATS: Constants (uppercase identifiers are immutable)
 use "test"
+use "eval"
 
 rats "constants basic assignment and use"
-  result = test.run("rugo run rats/fixtures/constants_basic.rugo")
+  source = <<~RUGO
+    MAX = 100
+    PI = 3.14
+    Name = "Rugo"
+    puts(MAX)
+    puts(PI)
+    puts(Name)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "100")
@@ -11,19 +20,45 @@ rats "constants basic assignment and use"
 end
 
 rats "lowercase variables can be reassigned"
-  result = test.run("rugo run rats/fixtures/constants_lowercase_ok.rugo")
+  source = <<~RUGO
+    x = 10
+    x = 20
+    puts(x)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "20")
 end
 
 rats "constants inside functions"
-  result = test.run("rugo run rats/fixtures/constants_in_func.rugo")
+  source = <<~RUGO
+    use "conv"
+
+    def circle_area(r)
+      PI = 3.14159
+      return PI * r * r
+    end
+
+    puts(conv.to_s(circle_area(10)))
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "314.159")
 end
 
 rats "constants are scoped per function"
-  result = test.run("rugo run rats/fixtures/constants_scope.rugo")
+  source = <<~RUGO
+    MAX = 100
+
+    def use_max()
+      MAX = 200
+      return MAX
+    end
+
+    puts(use_max())
+    puts(MAX)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "200")
@@ -31,7 +66,13 @@ rats "constants are scoped per function"
 end
 
 rats "constant hash allows content mutation"
-  result = test.run("rugo run rats/fixtures/constants_hash_mutation.rugo")
+  source = <<~'RUGO'
+    Config = {"host" => "localhost", "port" => 8080}
+    Config["timeout"] = 30
+    puts(Config["host"])
+    puts(Config["timeout"])
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "localhost")
@@ -47,13 +88,28 @@ rats "reassigning constant is a compile error"
 end
 
 rats "reassigning constant in inner scope is a compile error"
-  result = test.run("rugo run rats/fixtures/err_constant_reassign_inner.rugo")
+  source = <<~'RUGO'
+    Name = "hello"
+    if true
+      Name = "world"
+    end
+    puts(Name)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot reassign constant Name")
 end
 
 rats "reassigning constant inside function is a compile error"
-  result = test.run("rugo run rats/fixtures/err_constant_reassign_func.rugo")
+  source = <<~RUGO
+    def foo()
+      Limit = 10
+      Limit = 20
+      puts(Limit)
+    end
+    foo()
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot reassign constant Limit")
 end

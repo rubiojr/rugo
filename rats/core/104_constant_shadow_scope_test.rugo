@@ -249,7 +249,15 @@ end
 # ── Reassignment of local shadow IS an error ───────────────────────────
 
 rats "reassigning shadowed constant inside def is error"
-  result = test.run("rugo run rats/fixtures/err_constant_shadow_reassign.rugo")
+  source = <<~RUGO
+    FLAG = true
+    def bad()
+      FLAG = false
+      FLAG = true
+    end
+    bad()
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot reassign constant FLAG")
 end

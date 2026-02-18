@@ -3,25 +3,49 @@ use "test"
 use "eval"
 
 rats "too many arguments"
-  result = test.run("rugo run rats/fixtures/err_too_many_args.rugo")
+  source = <<~'RUGO'
+    def greet(name)
+      puts "Hello " + name
+    end
+    greet("Alice", "Bob")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "greet() takes 1 argument but 2 were given")
 end
 
 rats "too few arguments"
-  result = test.run("rugo run rats/fixtures/err_too_few_args.rugo")
+  source = <<~RUGO
+    def add(a, b)
+      return a + b
+    end
+    add(1)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "add() takes 2 arguments but 1 was given")
 end
 
 rats "zero arguments when one expected"
-  result = test.run("rugo run rats/fixtures/err_zero_args.rugo")
+  source = <<~'RUGO'
+    def greet(name)
+      puts "Hello " + name
+    end
+    greet()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "greet() takes 1 argument but none were given")
 end
 
 rats "error message does not expose rugofn_ prefix"
-  result = test.run("rugo run rats/fixtures/err_too_many_args.rugo")
+  source = <<~'RUGO'
+    def greet(name)
+      puts "Hello " + name
+    end
+    greet("Alice", "Bob")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "greet()")
 end
