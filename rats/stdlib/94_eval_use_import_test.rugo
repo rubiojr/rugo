@@ -1,0 +1,239 @@
+use "test"
+use "eval"
+
+# --- eval.run with use (stdlib modules) ---
+
+rats "eval.run with use str module"
+  source = <<~RUGO
+    use "str"
+    puts(str.upper("hello"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO")
+end
+
+rats "eval.run with use fmt module"
+  source = <<~RUGO
+    use "fmt"
+    puts(fmt.sprintf("n=%d", 42))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "n=42")
+end
+
+rats "eval.run with use json module"
+  source = <<~RUGO
+    use "json"
+    puts(json.encode({"a": 1}))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "\"a\"")
+end
+
+rats "eval.run with use conv module"
+  source = <<~RUGO
+    use "conv"
+    puts(conv.to_i("42"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "eval.run with use re module"
+  source = <<~RUGO
+    use "re"
+    puts(re.match("hello123", "[0-9]+"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "123")
+end
+
+rats "eval.run with use os module"
+  source = <<~RUGO
+    use "os"
+    result = os.exec("echo hi")
+    puts(result)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hi")
+end
+
+rats "eval.run with use math module"
+  source = <<~RUGO
+    use "math"
+    puts(math.abs(-5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "5")
+end
+
+rats "eval.run with use crypto module"
+  source = <<~RUGO
+    use "crypto"
+    puts(len(crypto.sha256("hello")) > 0)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "eval.run with use hex module"
+  source = <<~RUGO
+    use "hex"
+    puts(hex.encode("AB"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "4142")
+end
+
+rats "eval.run with use base64 module"
+  source = <<~RUGO
+    use "base64"
+    puts(base64.encode("hello"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "aGVsbG8=")
+end
+
+rats "eval.run with use filepath module"
+  source = <<~RUGO
+    use "filepath"
+    puts(filepath.base("/a/b/c.txt"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "c.txt")
+end
+
+rats "eval.run with use rand module"
+  source = <<~RUGO
+    use "rand"
+    x = rand.intn(100)
+    puts(x >= 0)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "eval.run with use time module"
+  source = <<~RUGO
+    use "time"
+    puts(time.now() > 0)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+# --- eval.run with multiple use statements ---
+
+rats "eval.run with multiple use modules"
+  source = <<~RUGO
+    use "str"
+    use "conv"
+    x = conv.to_i("10")
+    puts(str.upper("n=") + conv.to_s(x))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "N=10")
+end
+
+# --- eval.run with import (Go bridge) ---
+
+rats "eval.run with import strings"
+  source = <<~RUGO
+    import "strings"
+    puts(strings.to_upper("hello"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO")
+end
+
+rats "eval.run with import math"
+  source = <<~RUGO
+    import "math"
+    puts(math.sqrt(144.0))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "12")
+end
+
+rats "eval.run with import strconv"
+  source = <<~RUGO
+    import "strconv"
+    puts(strconv.itoa(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+# --- eval.file with use modules ---
+
+rats "eval.file runs fixture with use str"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/use_str.rugo", "use \"str\"\nputs(str.upper(\"world\"))")
+  result = eval.file("#{tmpdir}/use_str.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "WORLD")
+end
+
+rats "eval.file runs fixture with use json"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/use_json.rugo", "use \"json\"\nputs(json.encode([1, 2, 3]))")
+  result = eval.file("#{tmpdir}/use_json.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "[1,2,3]")
+end
+
+rats "eval.file runs fixture with import"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/import_strings.rugo", "import \"strings\"\nputs(strings.to_upper(\"test\"))")
+  result = eval.file("#{tmpdir}/import_strings.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "TEST")
+end
+
+# --- eval output matches test.run output ---
+
+rats "eval.file output matches test.run for simple script"
+  r1 = test.run("rugo run examples/hello.rugo")
+  r2 = eval.file("examples/hello.rugo")
+  test.assert_eq(r1["status"], r2["status"])
+  test.assert_eq(r1["output"], r2["output"])
+  test.assert_eq(r1["lines"], r2["lines"])
+end
+
+rats "eval.file output matches test.run for runtime error"
+  r1 = test.run("rugo run rats/fixtures/err_index_oob.rugo")
+  r2 = eval.file("rats/fixtures/err_index_oob.rugo")
+  test.assert_eq(r1["status"], r2["status"])
+  test.assert_eq(r1["output"], r2["output"])
+end
+
+rats "eval.file output matches test.run for compile error"
+  r1 = test.run("rugo run rats/fixtures/err_missing_end.rugo")
+  r2 = eval.file("rats/fixtures/err_missing_end.rugo")
+  test.assert_eq(r1["status"], r2["status"])
+  test.assert_eq(r1["output"], r2["output"])
+end
+
+rats "eval.file output matches test.run for exit code"
+  r1 = test.run("rugo run rats/fixtures/exit_42.rugo")
+  r2 = eval.file("rats/fixtures/exit_42.rugo")
+  test.assert_eq(r1["status"], r2["status"])
+  test.assert_eq(r1["output"], r2["output"])
+end
