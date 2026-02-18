@@ -39,8 +39,6 @@ Repository: `github.com/rubiojr/rugo`
 | `compiler/` | Compiler pipeline: codegen + orchestration |
 | `compiler/codegen.go` | Go code generation from AST nodes |
 | `compiler/compiler.go` | Orchestrates: file loading, require resolution, compilation |
-| `gobridge/` | Go stdlib bridge: type registry and per-package mapping files |
-| `gobridge/gobridge.go` | Registry types, API, `Codegen` callback, `RuntimeHelpers` |
 | `remote/` | Remote module resolution, lockfile management |
 | `cmd/` | CLI command implementations |
 | `cmd/dev/` | Developer tools: `modgen` module scaffolding |
@@ -51,13 +49,12 @@ Repository: `github.com/rubiojr/rugo`
 | `rats/` | RATS regression tests organized into subdirectories |
 | `rats/core/` | Core language tests (variables, control flow, functions, lambdas, structs, pipes, etc.) |
 | `rats/stdlib/` | Stdlib module tests (cli, color, http, json, web, queue, sqlite, etc.) |
-| `rats/gobridge/` | Go bridge package tests (all 16 bridged packages) |
 | `rats/tools/` | Tool tests (linter, tool command, runmd) |
 | `rats/fixtures/` | Test fixture files |
 | `bench/` | Performance benchmarks (`_bench.rugo` files) |
 | `examples/` | Example `.rugo` scripts |
 | `tools/` | Rugo CLI extensions (linter, fuzz, runmd) |
-| `docs/` | Full documentation (language.md, modules.md, gobridge.md, etc.) |
+| `docs/` | Full documentation (language.md, modules.md, etc.) |
 | `script/test` | Rugo test runner script |
 
 ## Language Features
@@ -266,16 +263,6 @@ puts math.sqrt(144.0)            # 12
 
 Function names use `snake_case` in Rugo, auto-mapped to Go's `PascalCase` via the registry.
 
-### Bridge architecture
-
-- **Registry**: `gobridge/gobridge.go` — types (`GoType`, `GoFuncSig`, `Package`), registry API (`Register`, `IsPackage`, `Lookup`, `PackageNames`)
-- **Mapping files**: `gobridge/{strings,strconv,math,rand,filepath,sort,os,time,json,base64,hex,crypto,url,unicode,slices,maps}.go` — each self-registers via `init()`
-- **Codegen callback**: `GoFuncSig.Codegen` — bridge files can provide custom code generation for special cases
-- **Runtime helpers**: `GoFuncSig.RuntimeHelpers` — declares Go helper functions emitted into generated code, deduplicated by key
-- **Package options**: `Package.NoGoImport` (runtime-only, no Go import), `Package.ExtraImports` (additional Go imports for helpers)
-- **Codegen**: `compiler/codegen.go` `generateGoBridgeCall()` — uses `Codegen` callback if set, falls back to generic handler
-- **Adding a new bridge**: Create `gobridge/newpkg.go` with `init()` calling `Register()` — no other files need editing
-
 ### Whitelisted packages (16)
 
 `strings`, `strconv`, `math`, `math/rand/v2`, `path/filepath`, `sort`, `os`, `time`, `encoding/json`, `encoding/base64`, `encoding/hex`, `crypto/sha256`, `crypto/md5`, `net/url`, `unicode`, `slices`, `maps`
@@ -310,8 +297,6 @@ n = try strconv.atoi("abc") or 0
 ### Aliasing
 
 `import "os" as go_os` when namespace conflicts with `use "os"`.
-
-See `docs/gobridge.md` for the full developer reference.
 
 ## User Modules (`require`) and Remote Modules
 
@@ -413,7 +398,6 @@ go run . emit script.rugo
 2. **Grammar changes**: Edit `rugo.ebnf`, regenerate `parser.go`, then update the walker (`ast/walker.go`) and codegen.
 3. **Preprocessor changes**: Be careful with shell fallback logic — read `preference.md` for the positional resolution design. The preprocessor is in `ast/preprocess.go`.
 4. **New modules**: Follow the pattern in `docs/mods.md`. Always add typed function signatures and `Doc` strings.
-5. **New bridge packages**: Create `gobridge/newpkg.go` with `init()` calling `Register()`. Use `Codegen` callback for special cases, `RuntimeHelpers` for Go helpers.
 6. **After edits**: Run `go test ./... -count=1` and test with relevant examples.
 7. **Format code**: `go fmt ./...`
 
