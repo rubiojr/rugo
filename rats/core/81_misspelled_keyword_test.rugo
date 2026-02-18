@@ -5,32 +5,48 @@
 
 use "test"
 use "str"
+use "eval"
 
 rats "misspelled require suggests correct keyword"
-  result = test.run("rugo run rats/fixtures/misspelled_require.rugo")
+  source = <<~RUGO
+    requiure "github.com/rubiojr/rugh"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "did you mean `require`")
 end
 
 rats "misspelled import suggests correct keyword"
-  result = test.run("rugo run rats/fixtures/misspelled_import.rugo")
+  source = <<~RUGO
+    imoprt "strings"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "did you mean `import`")
 end
 
 rats "misspelled print suggests correct builtin"
-  result = test.run("rugo run rats/fixtures/misspelled_puts.rugo")
+  source = <<~RUGO
+    printt "hello world"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "did you mean `print`")
 end
 
 rats "misspelled keyword error includes the typo"
-  result = test.run("rugo run rats/fixtures/misspelled_require.rugo")
+  source = <<~RUGO
+    requiure "github.com/rubiojr/rugh"
+  RUGO
+  result = eval.run(source)
   test.assert_contains(result["output"], "requiure")
 end
 
 rats "valid shell commands are not affected"
-  result = test.run("rugo run rats/fixtures/valid_shell_command.rugo")
+  source = <<~RUGO
+    echo hello
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello")
 end

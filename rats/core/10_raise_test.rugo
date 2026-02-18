@@ -1,32 +1,58 @@
 # RATS: Test raise builtin
 use "test"
+use "eval"
 
 rats "raise exits with error"
-  result = test.run("rugo run rats/fixtures/raise_basic.rugo")
+  source = <<~RUGO
+    raise("something went wrong")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "something went wrong")
 end
 
 rats "raise caught by try/or handler"
-  result = test.run("rugo run rats/fixtures/raise_try.rugo")
+  source = <<~RUGO
+    result = try raise("oops") or err
+      "caught: " + err
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "caught: oops")
 end
 
 rats "raise caught by try/or default"
-  result = test.run("rugo run rats/fixtures/raise_default.rugo")
+  source = <<~RUGO
+    result = try raise("boom") or "safe"
+    puts result
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "safe")
 end
 
 rats "raise with no arguments"
-  result = test.run("rugo run rats/fixtures/raise_no_args.rugo")
+  source = <<~RUGO
+    result = try raise() or err
+      "caught: " + err
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "caught: runtime error")
 end
 
 rats "raise with paren-free syntax"
-  result = test.run("rugo run rats/fixtures/raise_paren_free.rugo")
+  source = <<~RUGO
+    result = try raise "kaboom" or err
+      "caught: " + err
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "caught: kaboom")
 end
