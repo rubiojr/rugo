@@ -167,11 +167,16 @@ func (ic *identCheck) Check(prog *ast.Program) error {
 				scope[name] = true
 			}
 		}
+		prevSource := w.sourceFile
+		if src := f.StmtSource(); src != "" {
+			w.sourceFile = src
+		}
 		for _, s := range f.Body {
 			if err := w.checkStmt(s, scope); err != nil {
 				return err
 			}
 		}
+		w.sourceFile = prevSource
 	}
 
 	// Check test and bench blocks
@@ -179,18 +184,28 @@ func (ic *identCheck) Check(prog *ast.Program) error {
 		switch st := s.(type) {
 		case *ast.TestDef:
 			scope := make(map[string]bool)
+			prevSource := w.sourceFile
+			if src := st.StmtSource(); src != "" {
+				w.sourceFile = src
+			}
 			for _, bs := range st.Body {
 				if err := w.checkStmt(bs, scope); err != nil {
 					return err
 				}
 			}
+			w.sourceFile = prevSource
 		case *ast.BenchDef:
 			scope := make(map[string]bool)
+			prevSource := w.sourceFile
+			if src := st.StmtSource(); src != "" {
+				w.sourceFile = src
+			}
 			for _, bs := range st.Body {
 				if err := w.checkStmt(bs, scope); err != nil {
 					return err
 				}
 			}
+			w.sourceFile = prevSource
 		}
 	}
 
@@ -220,6 +235,12 @@ func (w *identWalker) isDefined(name string, localScope map[string]bool) bool {
 // checkStmt validates identifier references in a statement.
 // localScope is nil for top-level statements.
 func (w *identWalker) checkStmt(s ast.Statement, localScope map[string]bool) error {
+	prevSource := w.sourceFile
+	if src := s.StmtSource(); src != "" {
+		w.sourceFile = src
+	}
+	defer func() { w.sourceFile = prevSource }()
+
 	switch st := s.(type) {
 	case *ast.AssignStmt:
 		if err := w.checkExpr(st.Value, st.StmtLine(), localScope); err != nil {

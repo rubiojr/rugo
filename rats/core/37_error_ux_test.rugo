@@ -346,3 +346,25 @@ rats "stack overflow shows friendly error"
   test.assert_false(str.contains(result["output"], "fatal error: stack overflow"))
   test.assert_false(str.contains(result["output"], "runtime.throw"))
 end
+
+# --- Bug: require'd Go bridge error points at caller file ---
+
+rats "go bridge unknown function in required file shows required file line"
+  tmpdir = test.tmpdir()
+  helper = <<~SCRIPT
+    import "time"
+
+    time.unix_ms()
+  SCRIPT
+  main = <<~SCRIPT
+    require "foo"
+
+    puts "foo"
+  SCRIPT
+  test.write_file("#{tmpdir}/foo.rugo", helper)
+  test.write_file("#{tmpdir}/test.rugo", main)
+  result = test.run("rugo run #{tmpdir}/test.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unknown function time.unix_ms")
+  test.assert_contains(result["output"], "foo.rugo:3")
+end
