@@ -2,9 +2,15 @@
 # instead of a raw Go panic (slice bounds out of range).
 
 use "test"
+use "eval"
 
 rats "bare def gives friendly error"
-  result = test.run("rugo run rats/fixtures/bare_def.rugo")
+  source = <<~RUGO
+    def
+    puts "should not reach here"
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "`def` requires a function name")
 end

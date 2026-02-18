@@ -2,38 +2,42 @@
 # should produce a user-friendly error, not "internal compiler error".
 
 use "test"
+use "eval"
 use "str"
 
 rats "assigning to integer literal shows user error"
-  result = test.run("rugo run rats/fixtures/err_assign_int.rugo")
+  result = eval.run("1 = 2")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot assign to non-variable")
   test.assert_false(str.contains(result["output"], "internal compiler error"))
 end
 
 rats "assigning to boolean literal shows user error"
-  result = test.run("rugo run rats/fixtures/err_assign_bool.rugo")
+  result = eval.run("true = false")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot assign to non-variable")
   test.assert_false(str.contains(result["output"], "internal compiler error"))
 end
 
 rats "assigning to string literal shows user error"
-  result = test.run("rugo run rats/fixtures/err_assign_string.rugo")
+  source = <<~'RUGO'
+    "hello" = "world"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot assign to non-variable")
   test.assert_false(str.contains(result["output"], "internal compiler error"))
 end
 
 rats "compound assign to literal shows user error"
-  result = test.run("rugo run rats/fixtures/err_assign_compound.rugo")
+  result = eval.run("1 += 1")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot assign to non-variable")
   test.assert_false(str.contains(result["output"], "internal compiler error"))
 end
 
 rats "assigning to array literal shows user error"
-  result = test.run("rugo run rats/fixtures/err_assign_array.rugo")
+  result = eval.run("[] = 1")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot assign to non-variable")
   test.assert_false(str.contains(result["output"], "internal compiler error"))

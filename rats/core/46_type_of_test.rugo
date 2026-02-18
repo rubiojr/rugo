@@ -1,4 +1,5 @@
 use "test"
+use "eval"
 
 # type_of builtin — returns the type name of any value
 
@@ -93,7 +94,11 @@ rats "type_of distinguishes struct from hash"
 end
 
 rats ".__type__ access is a compile error"
-  result = test.run("rugo run rats/fixtures/type_of_blocked.rugo")
+  source = <<~RUGO
+    h = {foo: "bar"}
+    puts h.__type__
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "use type_of() instead")
 end

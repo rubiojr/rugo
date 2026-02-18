@@ -2,17 +2,28 @@
 # suggesting the function-call form, not dump raw parser internals.
 
 use "test"
+use "eval"
 use "str"
 
 rats "bare append in interpolation gives actionable error"
-  result = test.run("rugo run rats/fixtures/err_interp_bare_call.rugo")
+  source = <<~'RUGO'
+    parts = []
+    key = "foo"
+    "#{append parts, key}"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "bare-style call not supported inside interpolation")
   test.assert_contains(result["output"], "use append(parts, key) instead")
 end
 
 rats "bare call error does not expose parser internals"
-  result = test.run("rugo run rats/fixtures/err_interp_bare_call.rugo")
+  source = <<~'RUGO'
+    parts = []
+    key = "foo"
+    "#{append parts, key}"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_false(str.contains(result["output"], "expected ["))
   test.assert_false(str.contains(result["output"], "HashLit"))
@@ -20,7 +31,10 @@ rats "bare call error does not expose parser internals"
 end
 
 rats "generic interpolation parse error is clean"
-  result = test.run("rugo run rats/fixtures/err_interp_bad_expr.rugo")
+  source = <<~'RUGO'
+    puts("#{0!}")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_false(str.contains(result["output"], "expected ["))
   test.assert_contains(result["output"], "syntax error in expression")

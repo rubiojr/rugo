@@ -1,10 +1,14 @@
 # Trailing tokens after an expression on the same line should be a syntax error.
 
 use "test"
+use "eval"
 use "str"
 
 rats "trailing token after string is syntax error"
-  result = test.run("rugo run rats/fixtures/err_trailing_token.rugo")
+  source = <<~'RUGO'
+    foo = "#{'foo'}"0
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "syntax error")
 end
