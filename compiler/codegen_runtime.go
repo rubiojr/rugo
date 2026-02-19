@@ -117,16 +117,16 @@ func (g *codeGen) buildSandboxApply() []GoStmt {
 	if hasFS {
 		landlockBody = append(landlockBody, GoRawStmt{Code: "var rugo_sandbox_fs []landlock.Rule"})
 		for _, p := range cfg.RO {
-			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_ro(rugo_sandbox_is_dir(%q)), %q))", p, p)})
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_ro(rugo_sandbox_is_dir(os.ExpandEnv(%q))), os.ExpandEnv(%q)))", p, p)})
 		}
 		for _, p := range cfg.RW {
-			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rw(rugo_sandbox_is_dir(%q)), %q))", p, p)})
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rw(rugo_sandbox_is_dir(os.ExpandEnv(%q))), os.ExpandEnv(%q)))", p, p)})
 		}
 		for _, p := range cfg.ROX {
-			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rox(rugo_sandbox_is_dir(%q)), %q))", p, p)})
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rox(rugo_sandbox_is_dir(os.ExpandEnv(%q))), os.ExpandEnv(%q)))", p, p)})
 		}
 		for _, p := range cfg.RWX {
-			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rwx(rugo_sandbox_is_dir(%q)), %q))", p, p)})
+			landlockBody = append(landlockBody, GoRawStmt{Code: fmt.Sprintf("rugo_sandbox_fs = append(rugo_sandbox_fs, landlock.PathAccess(rugo_sandbox_fs_rwx(rugo_sandbox_is_dir(os.ExpandEnv(%q))), os.ExpandEnv(%q)))", p, p)})
 		}
 	}
 

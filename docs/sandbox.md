@@ -72,6 +72,20 @@ sandbox ro: ["/etc", "/usr/share"], rw: ["/tmp", "/var/log"]
 sandbox ro: ["/etc"], rw: ["/tmp"], rox: ["/usr/bin"], rwx: ["/var/data"], connect: [80, 443], bind: 8080, env: ["PATH", "HOME"]
 ```
 
+### Environment Variable Expansion
+
+Path strings in sandbox permissions support `$VAR` and `${VAR}` expansion at runtime via Go's `os.ExpandEnv`. This lets you write portable sandbox rules without hardcoding user-specific paths:
+
+```ruby
+# Expands $HOME at runtime
+sandbox ro: ["$HOME/.config"], rw: ["$TMPDIR"], rox: ["/usr", "/lib"]
+
+# ${VAR} syntax also works
+sandbox ro: ["${XDG_CONFIG_HOME}"], rw: ["/tmp"]
+```
+
+Expansion happens just before Landlock rules are applied — after env filtering (if `env:` is specified) but before any user code runs. If a variable is unset, it expands to an empty string.
+
 ### Permission Types
 
 | Keyword | Access | Use Case |

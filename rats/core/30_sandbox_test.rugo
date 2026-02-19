@@ -1,5 +1,6 @@
 # RATS: Sandbox (Landlock) comprehensive tests
 use "test"
+use "eval"
 use "os"
 use "str"
 
@@ -88,52 +89,98 @@ rats "emit: sandbox after use/import/require compiles"
   test.assert_contains(result["output"], "rugo_sandbox_cfg")
 end
 
+rats "emit: sandbox paths use os.ExpandEnv for env var expansion"
+  script = <<~SCRIPT
+    sandbox ro: ["$HOME"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
+    puts("env expand sandbox active")
+  SCRIPT
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo emit #{test.tmpdir()}/test.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], 'os.ExpandEnv("$HOME")')
+end
+
 # ── Placement / compile error tests ─────────────────────────────────
 
 rats "error: duplicate sandbox directive"
-  result = test.run("rugo run rats/core/fixtures/sandbox/duplicate.rugo")
+  source = <<~RUGO
+    sandbox ro: "/etc"
+    sandbox rw: "/tmp"
+    puts("should not reach here")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "duplicate sandbox directive")
 end
 
 rats "error: sandbox in required file"
-  result = test.run("rugo run rats/core/fixtures/sandbox/require_sandbox_lib.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/require_sandbox_lib.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox directive not allowed in required files")
 end
 
 rats "error: sandbox in nested required file"
-  result = test.run("rugo run rats/core/fixtures/sandbox/require_nested_sandbox.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/require_nested_sandbox.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox directive not allowed in required files")
 end
 
 rats "error: sandbox after assignment"
-  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_after_code.rugo")
+  source = <<~RUGO
+    x = 42
+    sandbox ro: ["/etc"]
+    puts(x)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox must appear before any other code")
 end
 
 rats "error: sandbox after def"
-  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_after_def.rugo")
+  source = <<~RUGO
+    def helper()
+      return "ok"
+    end
+    sandbox ro: ["/etc"]
+    puts(helper())
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox must appear before any other code")
 end
 
 rats "error: sandbox inside function"
-  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_in_func.rugo")
+  source = <<~RUGO
+    def foo()
+      sandbox ro: "/etc"
+    end
+    foo()
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox must be a top-level directive")
 end
 
 rats "error: sandbox inside if block"
-  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_in_if.rugo")
+  source = <<~RUGO
+    if true
+      sandbox ro: "/etc"
+    end
+    puts("hi")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox must be a top-level directive")
 end
 
 rats "error: sandbox inside while block"
-  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_in_while.rugo")
+  source = <<~RUGO
+    while false
+      sandbox ro: "/etc"
+    end
+    puts("hi")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox must be a top-level directive")
 end
@@ -142,7 +189,11 @@ end
 
 rats "enforce: bare sandbox runs"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/bare.rugo")
+  source = <<~RUGO
+    sandbox
+    puts("sandbox active")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox active")
 end
@@ -150,7 +201,12 @@ end
 rats "enforce: ro allows reading via shell"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
-  result = test.run("rugo run rats/core/fixtures/sandbox/ro_allowed.rugo")
+  source = <<~RUGO
+    sandbox ro: ["/tmp"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
+    result = `cat /tmp/rugo_sandbox_test_readable`
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "landlock_ok")
 end
@@ -158,58 +214,114 @@ end
 rats "enforce: missing ro path is denied via shell"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
-  result = test.run("rugo run rats/core/fixtures/sandbox/ro_denied.rugo")
+  source = <<~RUGO
+    sandbox rox: ["/usr", "/lib"], rw: ["/dev/null"]
+    result = `cat /tmp/rugo_sandbox_test_readable`
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "Permission denied")
 end
 
 rats "enforce: ro denies write via Go bridge"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/ro_denies_write.rugo")
+  script = <<~RUGO
+    sandbox ro: ["/tmp"]
+    import "os"
+    os.write_file("/tmp/rugo_sandbox_write_denied", "nope", 0644)
+    puts("should not reach here")
+  RUGO
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "permission denied")
 end
 
 rats "enforce: rw allows write and read via Go bridge"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/rw_write.rugo")
+  script = <<~RUGO
+    sandbox rw: ["/tmp"]
+    import "os"
+    os.write_file("/tmp/rugo_sandbox_write_check", "sandbox_write_test", 0644)
+    data = os.read_file("/tmp/rugo_sandbox_write_check")
+    puts(data)
+  RUGO
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox_write_test")
 end
 
 rats "enforce: rwx allows write and read via Go bridge"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/rwx_path.rugo")
+  script = <<~RUGO
+    sandbox rwx: ["/tmp"]
+    import "os"
+    os.write_file("/tmp/rugo_sandbox_rwx_check", "rwx_test", 0644)
+    data = os.read_file("/tmp/rugo_sandbox_rwx_check")
+    puts(data)
+  RUGO
+  test.write_file("#{test.tmpdir()}/test.rugo", script)
+  result = test.run("rugo run #{test.tmpdir()}/test.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "rwx_test")
 end
 
 rats "enforce: sandbox with function definitions"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_with_func.rugo")
+  source = <<~RUGO
+    sandbox ro: ["/etc"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
+    def greet()
+      return "hello from sandboxed function"
+    end
+    puts(greet())
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello from sandboxed function")
 end
 
 rats "enforce: sandbox with require of clean library"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/sandbox_with_require.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/sandbox_with_require.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "3")
 end
 
 rats "enforce: no sandbox runs unrestricted"
   test.write_file("/tmp/rugo_sandbox_test_readable", "landlock_ok")
-  result = test.run("rugo run rats/core/fixtures/sandbox/no_sandbox.rugo")
+  source = <<~RUGO
+    result = `cat /tmp/rugo_sandbox_test_readable`
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "landlock_ok")
+end
+
+rats "enforce: sandbox with $HOME env var expansion"
+  skip_if_no_landlock()
+  source = <<~RUGO
+    sandbox ro: ["$HOME"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
+    puts("env expand sandbox active")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "env expand sandbox active")
 end
 
 # ── Runtime enforcement: shell commands ─────────────────────────────
 
 rats "enforce: shell rw allows write and read"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/shell_rw.rugo")
+  source = <<~RUGO
+    sandbox rw: ["/tmp", "/dev/null"], rox: ["/usr", "/lib"]
+    `echo "shell_write_ok" > /tmp/rugo_sandbox_shell_write`
+    result = `cat /tmp/rugo_sandbox_shell_write`
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "shell_write_ok")
 end
@@ -217,14 +329,24 @@ end
 rats "enforce: shell ro allows reading"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_sandbox_test_readable", "shell_read_ok")
-  result = test.run("rugo run rats/core/fixtures/sandbox/shell_ro_read.rugo")
+  source = <<~RUGO
+    sandbox ro: ["/tmp"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
+    result = `cat /tmp/rugo_sandbox_test_readable`
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "shell_read_ok")
 end
 
 rats "enforce: shell ro denies write"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/shell_ro_denies_write.rugo")
+  source = <<~RUGO
+    sandbox ro: ["/tmp"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
+    `echo "nope" > /tmp/rugo_sandbox_shell_write_denied`
+    puts("should not reach here")
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "Permission denied")
 end
@@ -232,7 +354,12 @@ end
 rats "enforce: shell without /dev/null fails"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_sandbox_test_readable", "data")
-  result = test.run("rugo run rats/core/fixtures/sandbox/shell_no_devnull.rugo")
+  source = <<~RUGO
+    sandbox rox: ["/usr", "/lib"], ro: ["/tmp"]
+    result = `cat /tmp/rugo_sandbox_test_readable`
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "/dev/null")
   test.assert_contains(result["output"], "permission denied")
@@ -241,7 +368,12 @@ end
 rats "enforce: shell without rox /usr cannot execute"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_sandbox_test_readable", "data")
-  result = test.run("rugo run rats/core/fixtures/sandbox/shell_no_exec.rugo")
+  source = <<~RUGO
+    sandbox ro: ["/tmp"], rw: ["/dev/null"]
+    result = `cat /tmp/rugo_sandbox_test_readable`
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "permission denied")
 end
@@ -291,7 +423,7 @@ end
 
 rats "tree: basic require + sandbox"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/tree_basic/main.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/tree_basic/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "5")
   test.assert_contains(result["output"], "20")
@@ -299,6 +431,7 @@ end
 
 rats "tree: nested require (main → lib → helpers) + sandbox"
   skip_if_no_landlock()
+  # Uses import "os" which requires test.run (see git-bug 422b5b7)
   result = test.run("rugo run rats/core/fixtures/sandbox/tree_nested/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello world")
@@ -306,14 +439,14 @@ end
 
 rats "tree: deep require (3 levels) + bare sandbox"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/tree_deep/main.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/tree_deep/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "12")
 end
 
 rats "tree: multiple requires + sandbox"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/tree_multi/main.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/tree_multi/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "HELLO")
   test.assert_contains(result["output"], "49")
@@ -321,7 +454,7 @@ end
 
 rats "tree: require with selective imports + sandbox"
   skip_if_no_landlock()
-  result = test.run("rugo run rats/core/fixtures/sandbox/tree_with/main.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/tree_with/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "13")
   test.assert_contains(result["output"], "7")
@@ -330,7 +463,7 @@ end
 rats "tree: require + sandbox + shell commands"
   skip_if_no_landlock()
   test.write_file("/tmp/rugo_tree_shell_data", "tree_shell_works")
-  result = test.run("rugo run rats/core/fixtures/sandbox/tree_shell/main.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/tree_shell/main.rugo")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], ">> tree_shell_works")
 end
@@ -344,14 +477,14 @@ rats "tree: emit multi-file sandbox has correct source"
 end
 
 rats "tree: error — sandbox in directly required lib"
-  result = test.run("rugo run rats/core/fixtures/sandbox/tree_err_lib_sandbox/main.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/tree_err_lib_sandbox/main.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox directive not allowed in required files")
   test.assert_contains(result["output"], "badlib.rugo")
 end
 
 rats "tree: error — sandbox in deeply nested required lib"
-  result = test.run("rugo run rats/core/fixtures/sandbox/tree_err_deep_sandbox/main.rugo")
+  result = eval.file("rats/core/fixtures/sandbox/tree_err_deep_sandbox/main.rugo")
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "sandbox directive not allowed in required files")
   test.assert_contains(result["output"], "sneaky.rugo")

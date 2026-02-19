@@ -13,6 +13,9 @@ sandbox ro: ["/etc"], rw: ["/tmp"], rox: ["/usr/bin"]
 
 # Allow network
 sandbox connect: [80, 443], bind: 8080
+
+# Paths support $VAR expansion at runtime
+sandbox ro: ["$HOME/.config"], rw: ["$TMPDIR"]
 ```
 
 ## Permission Types

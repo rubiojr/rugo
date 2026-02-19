@@ -1,6 +1,0 @@
-# Sandbox after def — should be a compile error
-def helper()
-  return "ok"
-end
-sandbox ro: ["/etc"]
-puts(helper())

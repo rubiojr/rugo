@@ -1,4 +1,0 @@
-# Sandbox after executable code — should be a compile error
-x = 42
-sandbox ro: ["/etc"]
-puts(x)

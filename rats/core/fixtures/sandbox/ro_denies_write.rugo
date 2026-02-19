@@ -1,5 +1,0 @@
-# Sandbox ro should deny writes via Go bridge
-sandbox ro: ["/tmp"]
-import "os"
-os.write_file("/tmp/rugo_sandbox_write_denied", "nope", 0644)
-puts("should not reach here")

@@ -1,4 +1,0 @@
-# Shell write denied — ro only, shell needs /dev/null too
-sandbox ro: ["/tmp"], rox: ["/usr", "/lib"], rw: ["/dev/null"]
-`echo "nope" > /tmp/rugo_sandbox_shell_write_denied`
-puts("should not reach here")

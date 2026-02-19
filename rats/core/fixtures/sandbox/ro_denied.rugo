@@ -1,4 +1,0 @@
-# Sandbox that denies /tmp read access
-sandbox rox: ["/usr", "/lib"], rw: ["/dev/null"]
-result = `cat /tmp/rugo_sandbox_test_readable`
-puts(result)

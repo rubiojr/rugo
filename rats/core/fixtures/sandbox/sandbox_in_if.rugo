@@ -1,5 +1,0 @@
-# Sandbox inside if block — should be a compile error
-if true
-  sandbox ro: "/etc"
-end
-puts("hi")

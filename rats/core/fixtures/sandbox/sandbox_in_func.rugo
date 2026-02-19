@@ -1,5 +1,0 @@
-# Sandbox inside function body — should be a compile error
-def foo()
-  sandbox ro: "/etc"
-end
-foo()

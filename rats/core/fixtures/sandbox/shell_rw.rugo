@@ -1,5 +1,0 @@
-# Shell write via rw sandbox (needs /dev/null for shell redirection)
-sandbox rw: ["/tmp", "/dev/null"], rox: ["/usr", "/lib"]
-`echo "shell_write_ok" > /tmp/rugo_sandbox_shell_write`
-result = `cat /tmp/rugo_sandbox_shell_write`
-puts(result)
