@@ -1,39 +1,86 @@
 # RATS: Test try/or error handling
 use "test"
+use "eval"
 
 rats "silent recovery returns nil on failure"
-  result = test.run("rugo run rats/fixtures/try_silent.rugo")
+  source = <<~RUGO
+    use "conv"
+    result = try conv.to_i("bad")
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "<nil>")
 end
 
 rats "default value on failure"
-  result = test.run("rugo run rats/fixtures/try_default.rugo")
+  source = <<~RUGO
+    use "conv"
+    result = try conv.to_i("bad") or 99
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "99")
 end
 
 rats "handler block on failure"
-  result = test.run("rugo run rats/fixtures/try_handler.rugo")
+  source = <<~RUGO
+    use "conv"
+    result = try conv.to_i("bad") or err
+      puts("caught: " + err)
+      42
+    end
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "caught:")
   test.assert_contains(result["output"], "42")
 end
 
 rats "passes through on success"
-  result = test.run("rugo run rats/fixtures/try_success.rugo")
+  source = <<~RUGO
+    use "conv"
+    result = try conv.to_i("42") or 0
+    puts(result)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
 rats "shell fallback with try"
-  result = test.run("rugo run rats/fixtures/try_shell.rugo")
+  source = <<~RUGO
+    try rm /tmp/rugo_nonexistent_file_xyz
+    puts("continued")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "continued")
 end
 
 rats "return inside try/or handler sets handler result"
-  result = test.run("rugo run rats/core/fixtures/bug_try_or_return_type.rugo")
+  source = <<~RUGO
+    def find_stuff(query)
+      return [1, 2, 3]
+    end
+
+    def resolve(input)
+      matches = try find_stuff(input) or err
+        return nil
+      end
+
+      if len(matches) == 0
+        return nil
+      end
+
+      return matches[0]
+    end
+
+    puts resolve("test")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "1")
 end

@@ -1,8 +1,0 @@
-def styled(text, block)
-  puts "styled: #{text}"
-  block()
-end
-
-styled "bold" do
-  puts "content"
-end

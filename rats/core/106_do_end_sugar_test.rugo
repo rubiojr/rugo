@@ -2,17 +2,46 @@
 # do...end is preprocessor sugar: `ident do ... end` → `ident(fn() ... end)`
 
 use "test"
+use "eval"
 use "str"
 
 rats "do...end basic block"
-  result = test.run("rugo run rats/core/fixtures/do_basic.rugo")
+  source = <<~'RUGO'
+    def greet(name, block)
+      puts "hello #{name}"
+      block()
+    end
+
+    greet("world") do
+      puts "inside block"
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello world")
   test.assert_contains(result["output"], "inside block")
 end
 
 rats "do...end nested blocks"
-  result = test.run("rugo run rats/core/fixtures/do_nested.rugo")
+  source = <<~'RUGO'
+    def outer(block)
+      puts "outer start"
+      block()
+      puts "outer end"
+    end
+
+    def inner(text, block)
+      puts "inner: #{text}"
+      block()
+    end
+
+    outer do
+      inner("hello") do
+        puts "deep"
+      end
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "outer start")
   test.assert_contains(result["output"], "inner: hello")
@@ -21,27 +50,75 @@ rats "do...end nested blocks"
 end
 
 rats "do...end with assignment"
-  result = test.run("rugo run rats/core/fixtures/do_assign.rugo")
+  source = <<~RUGO
+    def make(block)
+      return block()
+    end
+
+    result = make do
+      42
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "42")
 end
 
 rats "do...end paren-free with args"
-  result = test.run("rugo run rats/core/fixtures/do_paren_free.rugo")
+  source = <<~'RUGO'
+    def styled(text, block)
+      puts "styled: #{text}"
+      block()
+    end
+
+    styled "bold" do
+      puts "content"
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "styled: bold")
   test.assert_contains(result["output"], "content")
 end
 
 rats "do inside string is not treated as block"
-  result = test.run("rugo run rats/core/fixtures/do_string_safe.rugo")
+  source = <<~RUGO
+    # do inside a string should not be treated as a block
+    puts "I do not want to do this"
+
+    # function name ending in do-like suffix
+    def redo_thing()
+      puts "redo works"
+    end
+    redo_thing()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "I do not want to do this")
   test.assert_contains(result["output"], "redo works")
 end
 
 rats "do...end with lambda inside body"
-  result = test.run("rugo run rats/core/fixtures/do_with_lambda.rugo")
+  source = <<~'RUGO'
+    def box(block)
+      puts "box start"
+      block()
+      puts "box end"
+    end
+
+    def item(text)
+      puts "  #{text}"
+    end
+
+    # do block with lambda inside (fn with params)
+    box do
+      item("hello")
+      callback = fn(x) puts "  cb: #{x}" end
+      callback("world")
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "box start")
   test.assert_contains(result["output"], "  hello")
@@ -50,7 +127,15 @@ rats "do...end with lambda inside body"
 end
 
 rats "unterminated do block gives error"
-  result = test.run("rugo run rats/core/fixtures/do_unterminated.rugo")
+  source = <<~RUGO
+    def foo(b)
+      b()
+    end
+
+    foo do
+      puts 1
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unterminated")
 end

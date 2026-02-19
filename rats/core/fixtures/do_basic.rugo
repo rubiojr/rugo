@@ -1,8 +1,0 @@
-def greet(name, block)
-  puts "hello #{name}"
-  block()
-end
-
-greet("world") do
-  puts "inside block"
-end

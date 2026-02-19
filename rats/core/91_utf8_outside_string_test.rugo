@@ -1,11 +1,15 @@
 # RATS: UTF-8 characters outside strings produce friendly errors (not Go panics)
 use "test"
+use "eval"
 use "str"
 
 # --- Bare UTF-8 outside strings must produce a clear error ---
 
 rats "bare UTF-8 box-drawing char produces friendly error"
-  result = test.run("rugo run rats/fixtures/utf8_bare_boxdraw.rugo")
+  source = <<~RUGO
+    puts ╭
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "invalid character")
   test.assert_contains(result["output"], "only allowed inside strings")
@@ -15,7 +19,10 @@ rats "bare UTF-8 box-drawing char produces friendly error"
 end
 
 rats "bare UTF-8 latin char produces friendly error"
-  result = test.run("rugo run rats/fixtures/utf8_bare_latin.rugo")
+  source = <<~RUGO
+    x = ñ + 1
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "invalid character")
   test.assert_contains(result["output"], "only allowed inside strings")
@@ -23,7 +30,10 @@ rats "bare UTF-8 latin char produces friendly error"
 end
 
 rats "bare UTF-8 CJK char produces friendly error"
-  result = test.run("rugo run rats/fixtures/utf8_bare_cjk.rugo")
+  source = <<~RUGO
+    puts 日
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "invalid character")
   test.assert_contains(result["output"], "only allowed inside strings")
@@ -33,20 +43,30 @@ end
 # --- UTF-8 inside strings must work fine ---
 
 rats "UTF-8 inside double-quoted string works"
-  result = test.run("rugo run rats/fixtures/utf8_in_string_ok.rugo")
+  source = <<~RUGO
+    puts "╭── hello ──╮"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "╭──")
   test.assert_contains(result["output"], "──╮")
 end
 
 rats "UTF-8 inside interpolated string works"
-  result = test.run("rugo run rats/fixtures/utf8_in_interpolation_ok.rugo")
+  source = <<~'RUGO'
+    name = "world"
+    puts "╭── #{name} ──╮"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "╭── world ──╮")
 end
 
 rats "UTF-8 inside raw string works"
-  result = test.run("rugo run rats/fixtures/utf8_in_raw_string_ok.rugo")
+  source = <<~RUGO
+    puts '╭── raw ──╮'
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "╭── raw ──╮")
 end

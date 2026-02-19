@@ -2,39 +2,60 @@
 # Ensures unsupported/short escape sequences give friendly errors
 # instead of raw Go runtime panics.
 use "test"
+use "eval"
 
 rats "single octal digit backslash-0 does not crash"
-  result = test.run("rugo run rats/fixtures/escape_null.rugo")
+  source = <<~RUGO
+    puts "\0"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
 end
 
 rats "single octal digit backslash-7 produces 1-byte string"
-  result = test.run("rugo run rats/fixtures/escape_single_octal.rugo")
+  source = <<~RUGO
+    x = "\7"
+    puts len(x)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "1")
 end
 
 rats "two octal digits backslash-77 produces 1-byte string"
-  result = test.run("rugo run rats/fixtures/escape_two_octal.rugo")
+  source = <<~RUGO
+    x = "\77"
+    puts len(x)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "1")
 end
 
 rats "three octal digit escape still works"
-  result = test.run("rugo run rats/fixtures/escape_short_octal.rugo")
+  source = <<~RUGO
+    puts "\110\145\154\154\157"
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello")
 end
 
 rats "unknown escape backslash-q gives friendly error"
-  result = test.run("rugo run rats/fixtures/escape_unknown.rugo")
+  source = <<~RUGO
+    puts "bad: \q"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unsupported escape sequence")
   test.assert_contains(result["output"], '\q')
 end
 
 rats "unsupported unicode escape backslash-u gives friendly error"
-  result = test.run("rugo run rats/fixtures/escape_unicode.rugo")
+  source = <<~RUGO
+    puts "\u0041"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unsupported escape sequence")
   test.assert_contains(result["output"], '\u')
