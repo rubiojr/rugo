@@ -7,4 +7,4 @@ test:
 	@go test ./... -count=1
 
 rats: build
-	@bin/rugo rats --recap --timing rats/
+	@PATH="$(CURDIR)/bin:$(PATH)" bin/rugo rats --recap --timing rats/
