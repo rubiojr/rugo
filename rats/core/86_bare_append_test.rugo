@@ -17,7 +17,20 @@ rats "bare append with explicit parens"
 end
 
 rats "bare append mixed parens and paren-free"
-  result = test.run("rugo run rats/fixtures/bare_append_with_parens.rugo")
+  source = <<~RUGO
+    # Both paren-free and explicit parens should work
+    arr = []
+    append arr, 1
+    append(arr, 2)
+    append arr, 3
+    append(arr, 4)
+
+    puts arr[0]
+    puts arr[1]
+    puts arr[2]
+    puts arr[3]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "1")
@@ -27,7 +40,14 @@ rats "bare append mixed parens and paren-free"
 end
 
 rats "bare append backward compat explicit assign"
-  result = test.run("rugo run rats/fixtures/bare_append_compat.rugo")
+  source = <<~RUGO
+    # Backward compat: explicit assign should still work
+    arr = [1, 2]
+    arr = append(arr, 3)
+    puts len(arr)
+    puts arr[2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "3")
@@ -35,7 +55,21 @@ rats "bare append backward compat explicit assign"
 end
 
 rats "bare append inside def"
-  result = test.run("rugo run rats/fixtures/bare_append_in_def.rugo")
+  source = <<~RUGO
+    def collect(items)
+      result = []
+      for item in items
+        append result, item * 2
+      end
+      return result
+    end
+
+    nums = collect([1, 2, 3])
+    puts nums[0]
+    puts nums[1]
+    puts nums[2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "2")
@@ -44,7 +78,20 @@ rats "bare append inside def"
 end
 
 rats "bare append inside lambda"
-  result = test.run("rugo run rats/fixtures/bare_append_in_lambda.rugo")
+  source = <<~RUGO
+    arr = []
+    adder = fn(x)
+      append arr, x
+    end
+
+    adder(10)
+    adder(20)
+    adder(30)
+    puts arr[0]
+    puts arr[1]
+    puts arr[2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "10")
@@ -63,7 +110,18 @@ rats "bare append inside for loop"
 end
 
 rats "bare append inside while loop"
-  result = test.run("rugo run rats/fixtures/bare_append_in_while.rugo")
+  source = <<~RUGO
+    arr = []
+    i = 0
+    while i < 3
+      append arr, i * 10
+      i += 1
+    end
+    puts arr[0]
+    puts arr[1]
+    puts arr[2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "0")
@@ -72,7 +130,28 @@ rats "bare append inside while loop"
 end
 
 rats "bare append inside if/elsif/else"
-  result = test.run("rugo run rats/fixtures/bare_append_in_if.rugo")
+  source = <<~RUGO
+    arr = []
+    x = 5
+
+    if x > 3
+      append arr, "big"
+    elsif x > 1
+      append arr, "medium"
+    else
+      append arr, "small"
+    end
+
+    if x < 2
+      append arr, "low"
+    else
+      append arr, "high"
+    end
+
+    puts arr[0]
+    puts arr[1]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "big")
@@ -80,7 +159,28 @@ rats "bare append inside if/elsif/else"
 end
 
 rats "bare append with try/or"
-  result = test.run("rugo run rats/fixtures/bare_append_in_try.rugo")
+  source = <<~RUGO
+    arr = []
+
+    result = try
+      "ok"
+    or err
+      "fail"
+    end
+    append arr, result
+
+    result2 = try
+      raise "boom"
+    or err
+      "caught"
+    end
+    append arr, result2
+
+    puts arr[0]
+    puts arr[1]
+    puts len(arr)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "ok")
@@ -89,7 +189,22 @@ rats "bare append with try/or"
 end
 
 rats "bare append inside spawn"
-  result = test.run("rugo run rats/fixtures/bare_append_in_spawn.rugo")
+  source = <<~RUGO
+    use "conv"
+
+    tasks = []
+    for i in [1, 2, 3]
+      t = spawn
+        conv.to_s(i * 10)
+      end
+      append tasks, t
+    end
+
+    for t in tasks
+      puts t.value
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "10")
@@ -98,7 +213,28 @@ rats "bare append inside spawn"
 end
 
 rats "bare append nested for inside def"
-  result = test.run("rugo run rats/fixtures/bare_append_nested.rugo")
+  source = <<~RUGO
+    def build_matrix(rows, cols)
+      matrix = []
+      for r in rows
+        row = []
+        for c in cols
+          append row, r * c
+        end
+        append matrix, row
+      end
+      return matrix
+    end
+
+    m = build_matrix([1, 2, 3], [10, 20])
+    puts m[0][0]
+    puts m[0][1]
+    puts m[1][0]
+    puts m[1][1]
+    puts m[2][0]
+    puts m[2][1]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "10")
@@ -110,7 +246,28 @@ rats "bare append nested for inside def"
 end
 
 rats "bare append to multiple arrays"
-  result = test.run("rugo run rats/fixtures/bare_append_multiple_arrays.rugo")
+  source = <<~RUGO
+    evens = []
+    odds = []
+
+    for i in [1, 2, 3, 4, 5, 6]
+      if i % 2 == 0
+        append evens, i
+      else
+        append odds, i
+      end
+    end
+
+    puts len(evens)
+    puts len(odds)
+    puts evens[0]
+    puts evens[1]
+    puts evens[2]
+    puts odds[0]
+    puts odds[1]
+    puts odds[2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "3")
@@ -124,7 +281,23 @@ rats "bare append to multiple arrays"
 end
 
 rats "bare append with expression values"
-  result = test.run("rugo run rats/fixtures/bare_append_expressions.rugo")
+  source = <<~RUGO
+    arr = []
+
+    # Append with arithmetic expression
+    append arr, 2 + 3
+
+    # Append with string concatenation
+    append arr, "hello" + " world"
+
+    # Append with function call as value
+    append arr, len([1, 2, 3])
+
+    puts arr[0]
+    puts arr[1]
+    puts arr[2]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "5")
@@ -133,7 +306,19 @@ rats "bare append with expression values"
 end
 
 rats "bare append preserves insertion order"
-  result = test.run("rugo run rats/fixtures/bare_append_order.rugo")
+  source = <<~RUGO
+    arr = []
+    append arr, "first"
+    append arr, "second"
+    append arr, "third"
+    append arr, "fourth"
+    append arr, "fifth"
+
+    for item in arr
+      puts item
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "first")
@@ -144,7 +329,25 @@ rats "bare append preserves insertion order"
 end
 
 rats "bare append with struct constructor"
-  result = test.run("rugo run rats/fixtures/bare_append_struct.rugo")
+  source = <<~RUGO
+    struct Item
+      name
+    end
+
+    def build_items(names)
+      items = []
+      for n in names
+        append items, Item(n)
+      end
+      return items
+    end
+
+    result = build_items(["apple", "banana", "cherry"])
+    puts result[0]["name"]
+    puts result[1]["name"]
+    puts result[2]["name"]
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "apple")
@@ -153,7 +356,10 @@ rats "bare append with struct constructor"
 end
 
 rats "bare append non-array still errors"
-  result = test.run("rugo run rats/fixtures/err_append_non_array.rugo")
+  source = <<~RUGO
+    append(42, 5)
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
 end
 

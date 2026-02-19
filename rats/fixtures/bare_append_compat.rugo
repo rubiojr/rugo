@@ -1,5 +1,0 @@
-# Backward compat: explicit assign should still work
-arr = [1, 2]
-arr = append(arr, 3)
-puts len(arr)
-puts arr[2]

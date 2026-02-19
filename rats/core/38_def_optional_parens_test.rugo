@@ -1,34 +1,76 @@
 # Test: optional parentheses for zero-argument function definitions
 use "test"
+use "eval"
 
 # --- Positive tests ---
 
 rats "def without parens - basic"
-  result = test.run("rugo run rats/fixtures/def_no_parens_basic.rugo")
+  source = <<~RUGO
+    def greet
+      puts "hello from greet"
+    end
+    greet()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello from greet")
 end
 
 rats "def with empty parens still works"
-  result = test.run("rugo run rats/fixtures/def_empty_parens.rugo")
+  source = <<~RUGO
+    def greet()
+      puts "hello from parens"
+    end
+    greet()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello from parens")
 end
 
 rats "def with params still works"
-  result = test.run("rugo run rats/fixtures/def_with_params.rugo")
+  source = <<~RUGO
+    def greet(name)
+      puts "hello " + name
+    end
+    greet("Alice")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello Alice")
 end
 
 rats "def no parens with return value"
-  result = test.run("rugo run rats/fixtures/def_no_parens_return.rugo")
+  source = <<~RUGO
+    def answer
+      return 42
+    end
+    puts answer()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "42")
 end
 
 rats "multiple def styles mixed"
-  result = test.run("rugo run rats/fixtures/def_mixed_styles.rugo")
+  source = <<~RUGO
+    def no_parens
+      puts "no-parens"
+    end
+
+    def empty_parens()
+      puts "empty-parens"
+    end
+
+    def with_params(msg)
+      puts "with-params: " + msg
+    end
+
+    no_parens()
+    empty_parens()
+    with_params("hello")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "no-parens")
   test.assert_contains(result["output"], "empty-parens")
@@ -36,7 +78,13 @@ rats "multiple def styles mixed"
 end
 
 rats "def no parens called paren-free"
-  result = test.run("rugo run rats/fixtures/def_no_parens_call.rugo")
+  source = <<~RUGO
+    def say_working
+      puts "working"
+    end
+    say_working
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "working")
 end
@@ -48,7 +96,28 @@ rats "def no parens in require'd file"
 end
 
 rats "def no parens with if/while/for inside"
-  result = test.run("rugo run rats/fixtures/def_no_parens_blocks.rugo")
+  source = <<~RUGO
+    use "conv"
+
+    def check_positive
+      x = 5
+      if x > 0
+        puts "positive"
+      end
+    end
+
+    def count_up
+      i = 0
+      while i < 3
+        i = i + 1
+      end
+      puts "counted to " + conv.to_s(i)
+    end
+
+    check_positive()
+    count_up()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "positive")
   test.assert_contains(result["output"], "counted to 3")
@@ -57,17 +126,31 @@ end
 # --- Negative tests ---
 
 rats "def without end still errors"
-  result = test.run("rugo run rats/fixtures/err_def_no_end.rugo")
+  source = <<~RUGO
+    def greet
+      puts "hello"
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "unclosed")
 end
 
 rats "def with bad param list still errors"
-  result = test.run("rugo run rats/fixtures/err_def_bad_params.rugo")
+  source = <<~RUGO
+    def greet(123)
+      puts "hello"
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
 end
 
 rats "def empty name is an error"
-  result = test.run("rugo run rats/fixtures/err_def_no_name.rugo")
+  source = <<~RUGO
+    def
+      puts "hello"
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_neq(result["status"], 0)
 end
