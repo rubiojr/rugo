@@ -347,13 +347,20 @@ go test ./... -count=1
 
 RATS (Rugo Automated Testing System) tests live in `rats/` organized by category. **Load the `rugo-rats` skill** for full details.
 
+**`make rats` is the canonical way to run the full RATS suite.** Always run it before finalizing any work.
+
+When developing, run specific directories or files first for fast feedback, then finish with a single `make rats` to verify everything passes:
+
 ```bash
-rugo rats rats/                         # run ALL test files
-rugo rats rats/core/                    # run core language tests
-rugo rats rats/stdlib/                  # run stdlib module tests
-rugo rats rats/gobridge/                # run Go bridge tests
-rugo rats rats/tools/                   # run tool tests
-rugo rats rats/core/03_control_flow_test.rugo  # run a specific test file
+# Fast feedback during development — run specific dirs/files first
+bin/rugo rats rats/core/                       # run core language tests
+bin/rugo rats rats/stdlib/                     # run stdlib module tests
+bin/rugo rats rats/gobridge/                   # run Go bridge tests
+bin/rugo rats rats/tools/                      # run tool tests
+bin/rugo rats rats/core/03_control_flow_test.rugo  # run a specific test file
+
+# Then run the full suite before calling it done
+make rats
 ```
 
 ### Benchmarks
