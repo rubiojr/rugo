@@ -2,63 +2,133 @@
 # Regression test for bug 51b3b4c: collection comparison panic
 
 use "test"
+use "eval"
+
+def collection_source()
+  return <<~RUGO
+    # Fixture for array and hash equality comparison tests
+
+    # Array equality
+    a1 = [1, 2, 3]
+    a2 = [1, 2, 3]
+    if a1 == a2
+      puts "array_eq_ok"
+    end
+
+    # Array inequality (different values)
+    a3 = [1, 2, 4]
+    if a1 != a3
+      puts "array_neq_ok"
+    end
+
+    # Empty array equality
+    e1 = []
+    e2 = []
+    if e1 == e2
+      puts "empty_array_eq_ok"
+    end
+
+    # Hash equality
+    h1 = {name: "Alice", age: 30}
+    h2 = {name: "Alice", age: 30}
+    if h1 == h2
+      puts "hash_eq_ok"
+    end
+
+    # Hash inequality (different values)
+    h3 = {name: "Bob", age: 25}
+    if h1 != h3
+      puts "hash_neq_ok"
+    end
+
+    # Empty hash equality
+    eh1 = {}
+    eh2 = {}
+    if eh1 == eh2
+      puts "empty_hash_eq_ok"
+    end
+
+    # Nested array equality
+    n1 = [[1, 2], [3, 4]]
+    n2 = [[1, 2], [3, 4]]
+    if n1 == n2
+      puts "nested_array_eq_ok"
+    end
+
+    # Array not equal to different type
+    if a1 != "hello"
+      puts "array_neq_string_ok"
+    end
+
+    # Hash not equal to different type
+    if h1 != 42
+      puts "hash_neq_int_ok"
+    end
+
+    # Array with different lengths
+    a4 = [1, 2]
+    if a1 != a4
+      puts "array_diff_length_neq_ok"
+    end
+  RUGO
+end
 
 rats "arrays with same elements are equal"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "array_eq_ok")
 end
 
 rats "arrays with different elements are not equal"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "array_neq_ok")
 end
 
 rats "empty arrays are equal"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "empty_array_eq_ok")
 end
 
 rats "hashes with same entries are equal"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hash_eq_ok")
 end
 
 rats "hashes with different entries are not equal"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hash_neq_ok")
 end
 
 rats "empty hashes are equal"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "empty_hash_eq_ok")
 end
 
 rats "nested arrays with same structure are equal"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "nested_array_eq_ok")
 end
 
 rats "array is not equal to a string"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "array_neq_string_ok")
 end
 
 rats "hash is not equal to an integer"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hash_neq_int_ok")
 end
 
 rats "arrays with different lengths are not equal"
-  result = test.run("rugo run rats/fixtures/collection_equality.rugo")
+  result = eval.run(collection_source())
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "array_diff_length_neq_ok")
 end

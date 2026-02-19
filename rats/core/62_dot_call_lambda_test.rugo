@@ -1,35 +1,75 @@
 use "test"
+use "eval"
 use "str"
 
 # --- Positive tests ---
 
 rats "fn dot-call: basic lambda via dot access"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_basic.rugo")
+  source = <<~RUGO
+    h = {name: "test"}
+    h["greet"] = fn() "hello " + h.name end
+    puts h.greet()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "hello test")
 end
 
 rats "fn dot-call: lambda with arguments"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_args.rugo")
+  source = <<~RUGO
+    record = {name: "Alice"}
+    record["rename"] = fn(new_name) record.name = new_name end
+    record.rename("Bob")
+    puts record.name
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "Bob")
 end
 
 rats "fn dot-call: colon syntax hash with lambdas"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_colon.rugo")
+  source = <<~RUGO
+    ops = {
+      add: fn(a, b) a + b end,
+      mul: fn(a, b) a * b end
+    }
+    puts ops.add(2, 3)
+    puts ops.mul(4, 5)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "5")
   test.assert_eq(result["lines"][1], "20")
 end
 
 rats "fn dot-call: zero-arg lambda"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_zero_args.rugo")
+  source = <<~RUGO
+    h = {ping: fn() "pong" end}
+    puts h.ping()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "pong")
 end
 
 rats "fn dot-call: multi-arg lambda"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_multi_args.rugo")
+  source = <<~RUGO
+    math = {
+      clamp: fn(val, lo, hi)
+        if val < lo
+          return lo
+        end
+        if val > hi
+          return hi
+        end
+        return val
+      end
+    }
+    puts math.clamp(5, 0, 10)
+    puts math.clamp(-1, 0, 10)
+    puts math.clamp(99, 0, 10)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "5")
   test.assert_eq(result["lines"][1], "0")
@@ -37,20 +77,48 @@ rats "fn dot-call: multi-arg lambda"
 end
 
 rats "fn dot-call: both index and dot access work"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_both_access.rugo")
+  source = <<~RUGO
+    ops = {
+      add: fn(a, b) a + b end
+    }
+    puts ops["add"](2, 3)
+    puts ops.add(2, 3)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "5")
   test.assert_eq(result["lines"][1], "5")
 end
 
 rats "fn dot-call: factory pattern with closure"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_factory.rugo")
+  source = <<~RUGO
+    def make_record(name)
+      record = {name: name}
+      record["greet"] = fn() "Hello, " + record.name end
+      return record
+    end
+
+    r = make_record("Alice")
+    puts r.greet()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "Hello, Alice")
 end
 
 rats "fn dot-call: lambda mutates hash state"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_mutate.rugo")
+  source = <<~RUGO
+    record = {name: "Alice", saved: false}
+    record["save"] = fn()
+      record.saved = true
+      return "saved " + record.name
+    end
+
+    puts record.saved
+    puts record.save()
+    puts record.saved
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["lines"][0], "false")
   test.assert_eq(result["lines"][1], "saved Alice")
@@ -60,14 +128,22 @@ end
 # --- Negative tests ---
 
 rats "fn dot-call: error on missing key"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_missing.rugo")
+  source = <<~RUGO
+    h = {name: "Alice"}
+    h.missing_method()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "undefined method .missing_method()")
   test.assert_contains(result["output"], "not found in hash")
 end
 
 rats "fn dot-call: error calling non-function value"
-  result = test.run("rugo run rats/fixtures/fn_dot_call_not_fn.rugo")
+  source = <<~RUGO
+    h = {name: "Alice"}
+    h.name()
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "cannot call .name()")
   test.assert_contains(result["output"], "not a function")

@@ -1,35 +1,73 @@
 # RATS: Regression test for bare variable not treated as shell command
 # Covers: def, fn, spawn, for-loop variables, and mid-body bare variable
 use "test"
+use "eval"
 
 # --- Positive: bare variable in various block types ---
 
 rats "bare variable in def is not a shell command"
-  result = test.run("rugo run rats/fixtures/bare_var_def.rugo")
+  source = <<~RUGO
+    def greet(name)
+      msg = "Hello, " + name
+      return msg
+    end
+    puts greet("Rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, Rugo")
 end
 
 rats "bare variable in fn is implicit return"
-  result = test.run("rugo run rats/fixtures/bare_var_fn.rugo")
+  source = <<~RUGO
+    greet = fn(name)
+      msg = "Hello, " + name
+      msg
+    end
+    puts greet("Rugo")
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "Hello, Rugo")
 end
 
 rats "bare variable in spawn is task result"
-  result = test.run("rugo run rats/fixtures/bare_var_spawn.rugo")
+  source = <<~RUGO
+    task = spawn
+      x = "hello"
+      x
+    end
+    puts task.value
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello")
 end
 
 rats "bare variable mid-body in def is not a shell command"
-  result = test.run("rugo run rats/fixtures/bare_var_mid_body.rugo")
+  source = <<~RUGO
+    def double(n)
+      result = n * 2
+      result
+      return result
+    end
+    puts double(21)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
 
 rats "for-loop variable is not a shell command"
-  result = test.run("rugo run rats/fixtures/bare_var_for.rugo")
+  source = <<~RUGO
+    items = [10, 20, 30]
+    total = 0
+    for x in items
+      total += x
+    end
+    puts total
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "60")
 end
@@ -37,7 +75,13 @@ end
 # --- Edge: fn parameter as bare identifier ---
 
 rats "fn parameter as bare implicit return"
-  result = test.run("rugo run rats/fixtures/bare_var_fn_param.rugo")
+  source = <<~RUGO
+    double = fn(x)
+      x * 2
+    end
+    puts double(21)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
@@ -45,7 +89,18 @@ end
 # --- Edge: for k, v in hash tracks both variables ---
 
 rats "for k, v loop variables are not shell commands"
-  result = test.run("rugo run rats/fixtures/bare_var_for_kv.rugo")
+  source = <<~RUGO
+    h = {"a" => 1, "b" => 2}
+    keys = []
+    vals = []
+    for k, v in h
+      keys = append(keys, k)
+      vals = append(vals, v)
+    end
+    puts len(keys)
+    puts len(vals)
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "2")
 end
@@ -53,7 +108,15 @@ end
 # --- Edge: bare variable inside if body ---
 
 rats "bare variable in if body is not a shell command"
-  result = test.run("rugo run rats/fixtures/bare_var_in_if.rugo")
+  source = <<~RUGO
+    x = 42
+    if x > 10
+      msg = "big"
+      msg
+    end
+    puts x
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "42")
 end
@@ -61,7 +124,11 @@ end
 # --- Edge: variable shadows a shell command name ---
 
 rats "variable shadowing shell command is treated as variable"
-  result = test.run("rugo run rats/fixtures/bare_var_shadow_cmd.rugo")
+  source = <<~RUGO
+    ls = "not a directory listing"
+    puts ls
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "not a directory listing")
 end

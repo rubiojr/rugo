@@ -1,2 +1,0 @@
-count = `printf hello | wc -c | tr -d ' '`
-puts count

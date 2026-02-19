@@ -1,33 +1,78 @@
 use "test"
+use "eval"
 use "str"
 
 rats "backtick captures command output"
-  result = test.run("rugo run rats/fixtures/backtick_simple.rugo")
+  source = <<~RUGO
+    name = `whoami`
+    puts name
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   expected = str.trim(`whoami`)
   test.assert_contains(result["output"], expected)
 end
 
 rats "backtick works with pipes"
-  result = test.run("rugo run rats/fixtures/backtick_pipe.rugo")
+  source = <<~RUGO
+    count = `printf hello | wc -c | tr -d ' '`
+    puts count
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "5")
 end
 
 rats "backtick with try/or for error handling"
-  result = test.run("rugo run rats/fixtures/backtick_try.rugo")
+  source = <<~RUGO
+    result = try `cat /nonexistent_file_xyz` or "fallback"
+    puts result
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "fallback")
 end
 
 rats "backtick result in expressions"
-  result = test.run("rugo run rats/fixtures/backtick_expr.rugo")
+  source = <<~RUGO
+    a = `echo hello`
+    b = `echo world`
+    puts a + " " + b
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "hello world")
 end
 
 rats "backtick with string interpolation"
-  result = test.run("rugo run rats/fixtures/backtick_interpolation.rugo")
+  source = <<~'RUGO'
+    name = "world"
+    result = `echo hello #{name}`
+    puts result
+
+    greeting = "hi"
+    who = "rugo"
+    result2 = `echo #{greeting} #{who}`
+    puts result2
+
+    x = 21
+    result3 = `echo #{x * 2}`
+    puts result3
+
+    # Integer variable
+    port = 8080
+    puts `echo #{port}`
+
+    # Interpolation at start of command
+    cmd = "echo"
+    puts `#{cmd} started`
+
+    # Adjacent interpolations
+    a = "foo"
+    b = "bar"
+    puts `echo #{a}#{b}`
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "hello world")
@@ -39,7 +84,29 @@ rats "backtick with string interpolation"
 end
 
 rats "backtick interpolation in different scopes"
-  result = test.run("rugo run rats/fixtures/backtick_interp_scopes.rugo")
+  source = <<~'RUGO'
+    def greet(name)
+      return `echo hello #{name}`
+    end
+    puts greet("rugo")
+
+    prefix = "hi"
+    greeter = fn(name)
+      return `echo #{prefix} #{name}`
+    end
+    puts greeter("world")
+
+    names = ["alice", "bob"]
+    for name in names
+      puts `echo hey #{name}`
+    end
+
+    flag = true
+    if flag
+      puts `echo flag #{flag}`
+    end
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
   test.assert_eq(lines[0], "hello rugo")
@@ -50,13 +117,23 @@ rats "backtick interpolation in different scopes"
 end
 
 rats "backtick interpolation with pipe"
-  result = test.run("rugo run rats/fixtures/backtick_interp_pipe.rugo")
+  source = <<~'RUGO'
+    use "str"
+    name = "world"
+    result = `echo hello #{name}` | str.upper
+    puts result
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "HELLO WORLD")
 end
 
 rats "backtick interpolation with nested quotes gives friendly error"
-  result = test.run("rugo run rats/fixtures/backtick_interp_nested_quotes.rugo")
+  source = <<~'RUGO'
+    person = {"name" => "alice"}
+    puts `echo #{person["name"]}`
+  RUGO
+  result = eval.run(source)
   test.assert_eq(result["status"], 1)
   test.assert_contains(result["output"], "nested double quotes inside backtick interpolation")
 end
