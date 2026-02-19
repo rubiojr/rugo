@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -96,7 +97,9 @@ func ReadLockFile(path string) (*LockFile, error) {
 	return lf, nil
 }
 
-// WriteLockFile writes the lock file to disk.
+// WriteLockFile writes the lock file to disk atomically. The content is
+// written to a temp file first, then renamed over the target path to
+// prevent corruption from concurrent writes.
 func WriteLockFile(path string, lf *LockFile) error {
 	if len(lf.Entries) == 0 {
 		// No entries — remove the lock file if it exists.
@@ -112,7 +115,30 @@ func WriteLockFile(path string, lf *LockFile) error {
 		fmt.Fprintf(&sb, "%s %s %s\n", e.Module, e.Version, e.SHA)
 	}
 
-	if err := os.WriteFile(path, []byte(sb.String()), 0644); err != nil {
+	// Atomic write: write to temp file, then rename over the target.
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("creating lock file directory: %w", err)
+	}
+
+	tmpFile, err := os.CreateTemp(dir, ".rugo-lock-*")
+	if err != nil {
+		return fmt.Errorf("creating temp lock file: %w", err)
+	}
+	tmpPath := tmpFile.Name()
+
+	if _, err := tmpFile.WriteString(sb.String()); err != nil {
+		tmpFile.Close()
+		os.Remove(tmpPath)
+		return fmt.Errorf("writing temp lock file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		os.Remove(tmpPath)
+		return fmt.Errorf("writing temp lock file: %w", err)
+	}
+
+	if err := os.Rename(tmpPath, path); err != nil {
+		os.Remove(tmpPath)
 		return fmt.Errorf("writing lock file: %w", err)
 	}
 	return nil

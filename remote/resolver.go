@@ -170,28 +170,28 @@ func (r *Resolver) UpdateEntry(module string) error {
 			continue
 		}
 
-		// Clone fresh to the version-label dir (not SHA dir).
-		tmpDir, err := moduleCacheDir(r.ModuleDir, rp, "")
+		// Clone to a unique temp dir, get SHA, atomically install.
+		versionDir, err := moduleCacheDir(r.ModuleDir, rp, "")
 		if err != nil {
 			return err
 		}
-		if err := gitClone(rp, tmpDir); err != nil {
+		tmpDir, err := gitCloneToTemp(rp, versionDir)
+		if err != nil {
 			return fmt.Errorf("updating %s@%s: %w", entry.Module, entry.Version, err)
 		}
 		sha, err := gitRevParseSHA(tmpDir)
 		if err != nil {
+			os.RemoveAll(tmpDir)
 			return fmt.Errorf("updating %s@%s: %w", entry.Module, entry.Version, err)
 		}
 
-		// Move to SHA-keyed directory.
 		finalDir, err := moduleCacheDir(r.ModuleDir, rp, sha)
-		if err == nil && finalDir != tmpDir {
-			if _, err := os.Stat(finalDir); err == nil {
-				os.RemoveAll(tmpDir)
-			} else {
-				os.MkdirAll(filepath.Dir(finalDir), 0755)
-				os.Rename(tmpDir, finalDir)
+		if err == nil {
+			if installErr := atomicInstall(tmpDir, finalDir); installErr != nil {
+				return installErr
 			}
+		} else {
+			os.RemoveAll(tmpDir)
 		}
 
 		entry.SHA = sha
@@ -283,37 +283,33 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 		return cacheDir, nil
 	}
 
-	// Mutable version without lock: clone to a temp dir, get SHA, then move to _sha_<sha>/.
-	tmpDir, err := moduleCacheDir(r.ModuleDir, rp, "")
+	// Mutable version without lock: clone to a unique temp dir, get SHA,
+	// then atomically install to _sha_<sha>/.
+	versionDir, err := moduleCacheDir(r.ModuleDir, rp, "")
 	if err != nil {
 		return "", err
 	}
-	if err := gitClone(rp, tmpDir); err != nil {
+	tmpDir, err := gitCloneToTemp(rp, versionDir)
+	if err != nil {
 		return "", err
 	}
 	sha, err := gitRevParseSHA(tmpDir)
 	if err != nil {
-		// Can't get SHA — fall back to the temp dir without lock.
-		return tmpDir, nil
+		// Can't get SHA — install to version-label dir as fallback.
+		if installErr := atomicInstall(tmpDir, versionDir); installErr != nil {
+			return "", installErr
+		}
+		return versionDir, nil
 	}
 
-	// Move to the SHA-keyed directory.
 	finalDir, err := moduleCacheDir(r.ModuleDir, rp, sha)
 	if err != nil {
-		return tmpDir, nil
+		os.RemoveAll(tmpDir)
+		return "", err
 	}
 
-	if finalDir != tmpDir {
-		// If SHA dir already exists, remove the temp clone.
-		if _, err := os.Stat(finalDir); err == nil {
-			os.RemoveAll(tmpDir)
-		} else {
-			os.MkdirAll(filepath.Dir(finalDir), 0755)
-			if err := os.Rename(tmpDir, finalDir); err != nil {
-				// Rename failed (cross-device?), keep tmpDir.
-				return tmpDir, nil
-			}
-		}
+	if err := atomicInstall(tmpDir, finalDir); err != nil {
+		return "", err
 	}
 
 	r.lockFile.Set(moduleKey, versionLabel, sha)

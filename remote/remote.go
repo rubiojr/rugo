@@ -192,44 +192,79 @@ func needsFetch(cacheDir string, r *remotePath) bool {
 	return !r.isImmutable()
 }
 
-// gitClone clones the repository into dest.
-// Tries a shallow clone first; falls back to a full clone if the server
-// doesn't support shallow capabilities (e.g. dumb HTTP).
-func gitClone(r *remotePath, dest string) error {
-	// Remove existing directory for re-fetch (mutable versions)
-	if err := os.RemoveAll(dest); err != nil {
-		return fmt.Errorf("cleaning cache directory: %w", err)
+// gitCloneToTemp clones the repository into a unique temporary directory.
+// The temp dir is created adjacent to dest (same filesystem) so that
+// os.Rename to the final location is atomic. Returns the temp dir path;
+// the caller must rename or remove it.
+func gitCloneToTemp(r *remotePath, dest string) (string, error) {
+	parent := filepath.Dir(dest)
+	if err := os.MkdirAll(parent, 0755); err != nil {
+		return "", fmt.Errorf("creating cache directory: %w", err)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
-		return fmt.Errorf("creating cache directory: %w", err)
+	tmpDir, err := os.MkdirTemp(parent, ".rugo-clone-*")
+	if err != nil {
+		return "", fmt.Errorf("creating temp directory: %w", err)
 	}
+	// git clone requires a non-existent target directory.
+	os.Remove(tmpDir)
 
 	args := []string{"clone", "--depth", "1"}
 	if r.Version != "" {
 		args = append(args, "--branch", r.Version)
 	}
-	args = append(args, r.cloneURL(), dest)
+	args = append(args, r.cloneURL(), tmpDir)
 
 	cmd := exec.Command("git", args...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		// Shallow clone may fail with dumb HTTP servers; retry without --depth
-		os.RemoveAll(dest)
+		os.RemoveAll(tmpDir)
 		args = []string{"clone"}
 		if r.Version != "" {
 			args = append(args, "--branch", r.Version)
 		}
-		args = append(args, r.cloneURL(), dest)
+		args = append(args, r.cloneURL(), tmpDir)
 		cmd = exec.Command("git", args...)
 		cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 		output, err = cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("git clone %s: %s", r.cloneURL(), strings.TrimSpace(string(output)))
+			os.RemoveAll(tmpDir)
+			return "", fmt.Errorf("git clone %s: %s", r.cloneURL(), strings.TrimSpace(string(output)))
 		}
 	}
+
+	return tmpDir, nil
+}
+
+// atomicInstall atomically moves src to dest via os.Rename. If dest was
+// already populated by another process (rename fails but dest exists),
+// src is cleaned up and no error is returned.
+func atomicInstall(src, dest string) error {
+	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+		return fmt.Errorf("creating parent directory: %w", err)
+	}
+	if err := os.Rename(src, dest); err != nil {
+		os.RemoveAll(src)
+		// Another process may have won the race.
+		if _, statErr := os.Stat(dest); statErr == nil {
+			return nil
+		}
+		return fmt.Errorf("installing to cache: %w", err)
+	}
 	return nil
+}
+
+// gitClone clones the repository into dest using atomic installation.
+// The clone is performed in a unique temp directory and atomically renamed
+// to dest, making it safe for concurrent processes.
+func gitClone(r *remotePath, dest string) error {
+	tmpDir, err := gitCloneToTemp(r, dest)
+	if err != nil {
+		return err
+	}
+	return atomicInstall(tmpDir, dest)
 }
 
 // gitRevParseSHA returns the full commit SHA for HEAD in the given git repo directory.
@@ -244,33 +279,37 @@ func gitRevParseSHA(repoDir string) (string, error) {
 }
 
 // gitCloneAtSHA clones a repo and checks out a specific commit SHA.
-// Used when the lock file pins a mutable version to a known SHA.
+// Uses atomic installation for concurrent safety.
 func gitCloneAtSHA(r *remotePath, dest, sha string) error {
-	if err := os.RemoveAll(dest); err != nil {
-		return fmt.Errorf("cleaning cache directory: %w", err)
-	}
-	if err := os.MkdirAll(filepath.Dir(dest), 0755); err != nil {
+	parent := filepath.Dir(dest)
+	if err := os.MkdirAll(parent, 0755); err != nil {
 		return fmt.Errorf("creating cache directory: %w", err)
 	}
 
-	// Clone without branch, then checkout the specific SHA.
-	args := []string{"clone", r.cloneURL(), dest}
+	tmpDir, err := os.MkdirTemp(parent, ".rugo-clone-*")
+	if err != nil {
+		return fmt.Errorf("creating temp directory: %w", err)
+	}
+	os.Remove(tmpDir)
+
+	args := []string{"clone", r.cloneURL(), tmpDir}
 	cmd := exec.Command("git", args...)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		os.RemoveAll(tmpDir)
 		return fmt.Errorf("git clone %s: %s", r.cloneURL(), strings.TrimSpace(string(output)))
 	}
 
-	// Checkout the locked SHA.
-	cmd = exec.Command("git", "-C", dest, "checkout", sha)
+	cmd = exec.Command("git", "-C", tmpDir, "checkout", sha)
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
 	output, err = cmd.CombinedOutput()
 	if err != nil {
-		os.RemoveAll(dest)
+		os.RemoveAll(tmpDir)
 		return fmt.Errorf("git checkout %s: %s", sha, strings.TrimSpace(string(output)))
 	}
-	return nil
+
+	return atomicInstall(tmpDir, dest)
 }
 
 // FindEntryPoint locates the main Rugo file in a cloned module directory.

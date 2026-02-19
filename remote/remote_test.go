@@ -352,3 +352,56 @@ func TestRemotePathModuleKey(t *testing.T) {
 		t.Errorf("moduleKey() = %q, want github.com/user/repo", got)
 	}
 }
+
+func TestAtomicInstall(t *testing.T) {
+	t.Run("moves src to dest", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "src")
+		dest := filepath.Join(dir, "dest")
+		os.MkdirAll(src, 0755)
+		os.WriteFile(filepath.Join(src, "file.txt"), []byte("hello"), 0644)
+
+		if err := atomicInstall(src, dest); err != nil {
+			t.Fatalf("atomicInstall: %v", err)
+		}
+		// dest should exist with content
+		data, err := os.ReadFile(filepath.Join(dest, "file.txt"))
+		if err != nil {
+			t.Fatalf("reading dest: %v", err)
+		}
+		if string(data) != "hello" {
+			t.Errorf("got %q, want %q", data, "hello")
+		}
+		// src should no longer exist
+		if _, err := os.Stat(src); !os.IsNotExist(err) {
+			t.Error("src should not exist after rename")
+		}
+	})
+
+	t.Run("race lost cleans up src", func(t *testing.T) {
+		dir := t.TempDir()
+		src := filepath.Join(dir, "src")
+		dest := filepath.Join(dir, "dest")
+		os.MkdirAll(src, 0755)
+		os.WriteFile(filepath.Join(src, "file.txt"), []byte("loser"), 0644)
+		// Simulate another process winning the race
+		os.MkdirAll(dest, 0755)
+		os.WriteFile(filepath.Join(dest, "file.txt"), []byte("winner"), 0644)
+
+		if err := atomicInstall(src, dest); err != nil {
+			t.Fatalf("atomicInstall should succeed when dest exists: %v", err)
+		}
+		// dest should retain the winner's content
+		data, err := os.ReadFile(filepath.Join(dest, "file.txt"))
+		if err != nil {
+			t.Fatalf("reading dest: %v", err)
+		}
+		if string(data) != "winner" {
+			t.Errorf("got %q, want %q (winner should be preserved)", data, "winner")
+		}
+		// src should be cleaned up
+		if _, err := os.Stat(src); !os.IsNotExist(err) {
+			t.Error("src should be cleaned up after race loss")
+		}
+	})
+}
