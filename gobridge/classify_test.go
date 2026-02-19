@@ -66,6 +66,21 @@ func TestClassifyGoType_Blocked(t *testing.T) {
 	if tier != TierFunc || gt != GoFunc {
 		t.Errorf("*func() param: got type=%v tier=%s, want GoFunc/func", gt, tier)
 	}
+
+	// Non-bridgeable interface type.
+	iface := types.NewInterfaceType([]*types.Func{
+		types.NewFunc(0, nil, "Read", types.NewSignatureType(
+			nil, nil, nil,
+			types.NewTuple(types.NewVar(0, nil, "p", types.NewSlice(types.Typ[types.Byte]))),
+			types.NewTuple(types.NewVar(0, nil, "n", types.Typ[types.Int])),
+			false,
+		)),
+	}, nil)
+	iface.Complete()
+	_, tier, _ = ClassifyGoType(iface, true)
+	if tier != TierBlocked {
+		t.Errorf("non-bridgeable interface: got tier %s, want blocked", tier)
+	}
 }
 
 func TestClassifyGoType_Slice(t *testing.T) {
@@ -176,6 +191,44 @@ func TestClassifyFunc_FuncPointerParam(t *testing.T) {
 	}
 	if bf.FuncParamPointer == nil || !bf.FuncParamPointer[0] {
 		t.Fatalf("FuncParamPointer[0] should be true for *func param")
+	}
+}
+
+func TestClassifyFunc_BridgeableInterfaceParam(t *testing.T) {
+	pkg := types.NewPackage("example.com/gtk", "gtk")
+
+	goPtrSig := types.NewSignatureType(
+		nil, nil, nil,
+		types.NewTuple(),
+		types.NewTuple(types.NewVar(0, nil, "", types.Typ[types.Uintptr])),
+		false,
+	)
+	setPtrSig := types.NewSignatureType(
+		nil, nil, nil,
+		types.NewTuple(types.NewVar(0, nil, "ptr", types.Typ[types.Uintptr])),
+		nil,
+		false,
+	)
+	iface := types.NewInterfaceType([]*types.Func{
+		types.NewFunc(0, pkg, "GoPointer", goPtrSig),
+		types.NewFunc(0, pkg, "SetGoPointer", setPtrSig),
+	}, nil)
+	iface.Complete()
+	namedIface := types.NewNamed(types.NewTypeName(0, pkg, "StyleProvider", nil), iface, nil)
+
+	gt, tier, _ := ClassifyGoType(namedIface, true)
+	if gt != GoAny || tier != TierCastable {
+		t.Fatalf("bridgeable interface: got type=%v tier=%s, want GoAny/castable", gt, tier)
+	}
+
+	params := types.NewTuple(types.NewVar(0, nil, "provider", namedIface))
+	sig := types.NewSignatureType(nil, nil, nil, params, nil, false)
+	bf := ClassifyFunc("AddProvider", "add_provider", sig)
+	if bf.Tier == TierBlocked {
+		t.Fatalf("bridgeable interface param should not be blocked: %s", bf.Reason)
+	}
+	if bf.TypeCasts == nil || bf.TypeCasts[0] != "assert:gtk.StyleProvider" {
+		t.Fatalf("expected interface assertion cast, got %#v", bf.TypeCasts)
 	}
 }
 

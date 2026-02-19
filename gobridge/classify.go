@@ -285,6 +285,13 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 			return nil
 		}
 		ft.Params = append(ft.Params, gt)
+		if cast := interfaceAssertionCastFromRaw(t); cast != "" {
+			if ft.TypeCasts == nil {
+				ft.TypeCasts = make(map[int]string)
+			}
+			ft.TypeCasts[i] = cast
+			continue
+		}
 		// Detect named types that need explicit casts in the adapter.
 		if named, ok := t.(*types.Named); ok {
 			if pkg := named.Obj().Pkg(); pkg != nil {
@@ -390,6 +397,9 @@ func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
 	case *types.Interface:
 		if u.NumMethods() == 0 {
 			return GoAny, TierAuto, ""
+		}
+		if isParam && isBridgeableInterface(u) {
+			return GoAny, TierCastable, ""
 		}
 		return 0, TierBlocked, "interface type"
 	case *types.Pointer:
@@ -505,6 +515,10 @@ func GoTypeConst(t GoType) string {
 // which needs cast: os.FileMode(rugo_to_int(arg)).
 // Returns empty string if no cast is needed.
 func namedTypeCastFromRaw(t types.Type) string {
+	if cast := interfaceAssertionCastFromRaw(t); cast != "" {
+		return cast
+	}
+
 	// Handle type aliases (Go 1.22+): e.g., os.FileMode = fs.FileMode.
 	if alias, ok := t.(*types.Alias); ok {
 		obj := alias.Obj()
@@ -536,6 +550,63 @@ func namedTypeCastFromRaw(t types.Type) string {
 		return ""
 	}
 	return pkg.Name() + "." + named.Obj().Name()
+}
+
+func isBridgeableInterface(iface *types.Interface) bool {
+	if iface == nil {
+		return false
+	}
+	iface.Complete()
+
+	hasGoPointer := false
+	hasSetGoPointer := false
+	for i := 0; i < iface.NumMethods(); i++ {
+		m := iface.Method(i)
+		sig, ok := m.Type().(*types.Signature)
+		if !ok {
+			continue
+		}
+		switch m.Name() {
+		case "GoPointer":
+			if sig.Params().Len() == 0 && sig.Results().Len() == 1 {
+				if b, ok := sig.Results().At(0).Type().Underlying().(*types.Basic); ok && b.Kind() == types.Uintptr {
+					hasGoPointer = true
+				}
+			}
+		case "SetGoPointer":
+			if sig.Params().Len() == 1 && sig.Results().Len() == 0 {
+				if b, ok := sig.Params().At(0).Type().Underlying().(*types.Basic); ok && b.Kind() == types.Uintptr {
+					hasSetGoPointer = true
+				}
+			}
+		}
+	}
+	return hasGoPointer && hasSetGoPointer
+}
+
+func interfaceAssertionCastFromRaw(t types.Type) string {
+	switch v := t.(type) {
+	case *types.Alias:
+		target := types.Unalias(v)
+		if named, ok := target.(*types.Named); ok {
+			target = named.Underlying()
+		}
+		if iface, ok := target.(*types.Interface); ok && isBridgeableInterface(iface) {
+			obj := v.Obj()
+			if pkg := obj.Pkg(); pkg != nil {
+				return "assert:" + pkg.Name() + "." + obj.Name()
+			}
+			return "assert:" + obj.Name()
+		}
+	case *types.Named:
+		if iface, ok := types.Unalias(v).Underlying().(*types.Interface); ok && isBridgeableInterface(iface) {
+			if pkg := v.Obj().Pkg(); pkg != nil {
+				return "assert:" + pkg.Name() + "." + v.Obj().Name()
+			}
+			return "assert:" + v.Obj().Name()
+		}
+	}
+	return ""
 }
 
 // qualifiedGoTypeName returns the package-qualified Go type name for a type,

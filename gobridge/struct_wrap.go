@@ -71,6 +71,19 @@ func GenerateExternalOpaqueWrapper(ns string, ext ExternalTypeInfo) RuntimeHelpe
 
 	// Wrapper struct
 	sb.WriteString(fmt.Sprintf("type %s struct{ v %s }\n\n", wrapType, goType))
+	sb.WriteString(fmt.Sprintf("func (w *%s) GoPointer() uintptr {\n", wrapType))
+	sb.WriteString("\tif w == nil || w.v == nil { return 0 }\n")
+	sb.WriteString("\tif gp, ok := interface{}(w.v).(interface{ GoPointer() uintptr }); ok {\n")
+	sb.WriteString("\t\treturn gp.GoPointer()\n")
+	sb.WriteString("\t}\n")
+	sb.WriteString("\treturn 0\n")
+	sb.WriteString("}\n\n")
+	sb.WriteString(fmt.Sprintf("func (w *%s) SetGoPointer(ptr uintptr) {\n", wrapType))
+	sb.WriteString("\tif w == nil || w.v == nil { return }\n")
+	sb.WriteString("\tif sp, ok := interface{}(w.v).(interface{ SetGoPointer(uintptr) }); ok {\n")
+	sb.WriteString("\t\tsp.SetGoPointer(ptr)\n")
+	sb.WriteString("\t}\n")
+	sb.WriteString("}\n\n")
 
 	// DotGet — __type__ + embedded struct fields
 	sb.WriteString(fmt.Sprintf("func (w *%s) DotGet(field string) (interface{}, bool) {\n", wrapType))
@@ -142,6 +155,19 @@ func GenerateStructWrapper(ns, pkgAlias string, si GoStructInfo) RuntimeHelper {
 
 	// Wrapper struct
 	sb.WriteString(fmt.Sprintf("type %s struct{ v %s }\n\n", wrapType, goType))
+	sb.WriteString(fmt.Sprintf("func (w *%s) GoPointer() uintptr {\n", wrapType))
+	sb.WriteString("\tif w == nil || w.v == nil { return 0 }\n")
+	sb.WriteString("\tif gp, ok := interface{}(w.v).(interface{ GoPointer() uintptr }); ok {\n")
+	sb.WriteString("\t\treturn gp.GoPointer()\n")
+	sb.WriteString("\t}\n")
+	sb.WriteString("\treturn 0\n")
+	sb.WriteString("}\n\n")
+	sb.WriteString(fmt.Sprintf("func (w *%s) SetGoPointer(ptr uintptr) {\n", wrapType))
+	sb.WriteString("\tif w == nil || w.v == nil { return }\n")
+	sb.WriteString("\tif sp, ok := interface{}(w.v).(interface{ SetGoPointer(uintptr) }); ok {\n")
+	sb.WriteString("\t\tsp.SetGoPointer(ptr)\n")
+	sb.WriteString("\t}\n")
+	sb.WriteString("}\n\n")
 
 	// DotGet method
 	sb.WriteString(fmt.Sprintf("func (w *%s) DotGet(field string) (interface{}, bool) {\n", wrapType))
@@ -269,12 +295,7 @@ func writeMethodCase(sb *strings.Builder, m GoStructMethodInfo, ns string) {
 		// Apply named type cast if needed (e.g., qt6.GestureType(rugo_to_int(arg))).
 		if m.TypeCasts != nil {
 			if cast, ok := m.TypeCasts[i]; ok {
-				if strings.HasPrefix(cast, "*") {
-					// Constructor returns pointer, param expects value — dereference.
-					conv = fmt.Sprintf("*%s(%s)", cast[1:], conv)
-				} else {
-					conv = fmt.Sprintf("%s(%s)", cast, conv)
-				}
+				conv = ApplyTypeCast(conv, cast)
 			}
 		}
 		convArgs = append(convArgs, conv)

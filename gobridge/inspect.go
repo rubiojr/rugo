@@ -1394,6 +1394,10 @@ func containsString(ss []string, s string) bool {
 // that needs an explicit cast (e.g., "qt6.GestureType"). Returns empty
 // string if the type is a basic type or doesn't need casting.
 func namedTypeCast(t types.Type) string {
+	if cast := interfaceAssertionCastFromRaw(t); cast != "" {
+		return cast
+	}
+
 	if alias, ok := t.(*types.Alias); ok {
 		obj := alias.Obj()
 		if obj.Pkg() == nil {

@@ -407,6 +407,20 @@ func TypeConvToGo(argExpr string, t GoType) string {
 	}
 }
 
+func TypeCastTarget(cast string) string {
+	return strings.TrimPrefix(cast, "assert:")
+}
+
+func ApplyTypeCast(expr, cast string) string {
+	if strings.HasPrefix(cast, "assert:") {
+		return fmt.Sprintf("%s.(%s)", expr, TypeCastTarget(cast))
+	}
+	if strings.HasPrefix(cast, "*") {
+		return fmt.Sprintf("*%s(%s)", cast[1:], expr)
+	}
+	return fmt.Sprintf("%s(%s)", cast, expr)
+}
+
 // GoTypeGoName returns the raw Go type name for code generation.
 func GoTypeGoName(t GoType) string {
 	switch t {
@@ -492,7 +506,7 @@ func funcTypeName(ft *GoFuncType) string {
 			typeName := ""
 			if ft.TypeCasts != nil {
 				if cast, ok := ft.TypeCasts[i]; ok {
-					typeName = cast
+					typeName = TypeCastTarget(cast)
 				}
 			}
 			if typeName == "" {
@@ -513,7 +527,7 @@ func funcTypeName(ft *GoFuncType) string {
 		// Use named type if a cast is needed (e.g., qt6.ApplicationState instead of int).
 		if ft.TypeCasts != nil {
 			if cast, ok := ft.TypeCasts[i]; ok {
-				typeName = cast
+				typeName = TypeCastTarget(cast)
 			}
 		}
 		params = append(params, typeName)
@@ -526,7 +540,7 @@ func funcTypeName(ft *GoFuncType) string {
 		// Use named return type if a cast is needed.
 		if ft.TypeCasts != nil {
 			if cast, ok := ft.TypeCasts[-1]; ok {
-				retType = " " + cast
+				retType = " " + TypeCastTarget(cast)
 			}
 		}
 	} else if len(ft.Returns) > 1 {
@@ -535,7 +549,7 @@ func funcTypeName(ft *GoFuncType) string {
 			typeName := GoTypeGoName(t)
 			if ft.TypeCasts != nil {
 				if cast, ok := ft.TypeCasts[-(i + 1)]; ok {
-					typeName = cast
+					typeName = TypeCastTarget(cast)
 				}
 			}
 			rets = append(rets, typeName)
@@ -597,11 +611,7 @@ func FuncToLambdaConv(argExpr string, ft *GoFuncType) string {
 		// Apply named type cast if needed (e.g., qt6.GestureType(rugo_to_int(arg))).
 		if ft.TypeCasts != nil {
 			if cast, ok := ft.TypeCasts[i]; ok {
-				if strings.HasPrefix(cast, "*") {
-					conv = fmt.Sprintf("*%s(%s)", cast[1:], conv)
-				} else {
-					conv = fmt.Sprintf("%s(%s)", cast, conv)
-				}
+				conv = ApplyTypeCast(conv, cast)
 			}
 		}
 		convArgs = append(convArgs, conv)
@@ -658,7 +668,7 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 			typeName := ""
 			if ft.TypeCasts != nil {
 				if cast, ok := ft.TypeCasts[i]; ok {
-					typeName = cast
+					typeName = TypeCastTarget(cast)
 				}
 			}
 			if typeName == "" {
@@ -679,7 +689,7 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 		// Use named type if a cast is needed (e.g., qt6.ApplicationState instead of int).
 		if ft.TypeCasts != nil {
 			if cast, ok := ft.TypeCasts[i]; ok {
-				typeName = cast
+				typeName = TypeCastTarget(cast)
 			}
 		}
 		params = append(params, fmt.Sprintf("_p%d %s", i, typeName))
@@ -692,7 +702,7 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 		// Use named return type if a cast is needed.
 		if ft.TypeCasts != nil {
 			if cast, ok := ft.TypeCasts[-1]; ok {
-				retType = " " + cast
+				retType = " " + TypeCastTarget(cast)
 			}
 		}
 	}
@@ -744,7 +754,7 @@ func FuncAdapterConv(argExpr string, ft *GoFuncType) string {
 		// Apply named return type cast if needed.
 		if ft.TypeCasts != nil {
 			if cast, ok := ft.TypeCasts[-1]; ok {
-				retExpr = fmt.Sprintf("%s(%s)", cast, retExpr)
+				retExpr = ApplyTypeCast(retExpr, cast)
 			}
 		}
 	}
