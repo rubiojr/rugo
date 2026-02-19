@@ -549,7 +549,23 @@ func namedTypeCastFromRaw(t types.Type) string {
 	if _, isBasic := named.Underlying().(*types.Basic); !isBasic {
 		return ""
 	}
-	return pkg.Name() + "." + named.Obj().Name()
+	return rewriteStdlibAlias(pkg.Path(), pkg.Name(), named.Obj().Name())
+}
+
+// rewriteStdlibAlias rewrites type casts that reference internal stdlib
+// packages to use the public re-export. For example, io/fs.FileMode is
+// re-exported as os.FileMode; since "os" is always in the base imports
+// we must use "os.FileMode" to avoid referencing the unimported "io/fs".
+// This handles the case where gotypesalias=0 (Go <1.23) causes the
+// go/types package to resolve os.FileMode as fs.FileMode.
+func rewriteStdlibAlias(pkgPath, pkgName, typeName string) string {
+	if pkgPath == "io/fs" {
+		switch typeName {
+		case "FileMode":
+			return "os.FileMode"
+		}
+	}
+	return pkgName + "." + typeName
 }
 
 func isBridgeableInterface(iface *types.Interface) bool {

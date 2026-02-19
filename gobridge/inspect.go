@@ -1427,7 +1427,7 @@ func namedTypeCast(t types.Type) string {
 	if _, isBasic := named.Underlying().(*types.Basic); !isBasic {
 		return ""
 	}
-	return pkg.Name() + "." + named.Obj().Name()
+	return rewriteStdlibAlias(pkg.Path(), pkg.Name(), named.Obj().Name())
 }
 
 // basicTypeCast returns a Go type cast for basic types that need narrowing

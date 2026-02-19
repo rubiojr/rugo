@@ -237,3 +237,27 @@ rats "eval.file output matches test.run for exit code"
   test.assert_eq(r1["status"], r2["status"])
   test.assert_eq(r1["output"], r2["output"])
 end
+
+# Regression: eval.run with import "os" (Go bridge) failed because
+# gotypesalias=0 resolved os.FileMode as fs.FileMode, referencing
+# the unimported io/fs package.
+rats "eval.run with import os gobridge"
+  source = <<~RUGO
+    import "os"
+    puts(os.getenv("HOME"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_true(len(result["output"]) > 0)
+end
+
+rats "eval.run with sandbox and import os gobridge"
+  source = <<~RUGO
+    import "os"
+    sandbox ro: "/tmp"
+    puts(os.getenv("HOME"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_true(len(result["output"]) > 0)
+end
