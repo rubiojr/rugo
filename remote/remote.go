@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -100,6 +102,108 @@ var shaPattern = regexp.MustCompile(`^[0-9a-f]{7,40}$`)
 
 func isSHA(s string) bool {
 	return shaPattern.MatchString(s)
+}
+
+// isLatest returns true if the version is the special "@latest" keyword.
+func isLatest(version string) bool {
+	return version == "latest"
+}
+
+// semver holds parsed semver components for comparison.
+type semver struct {
+	Major      int
+	Minor      int
+	Patch      int
+	Prerelease string
+	Original   string
+}
+
+// semverPattern matches semver tags like v1.2.3 or v1.2.3-beta.1
+var semverPattern = regexp.MustCompile(`^v?(\d+)\.(\d+)\.(\d+)(?:-(.+))?$`)
+
+// parseSemver parses a version string into semver components.
+// Returns nil if the string is not a valid semver.
+func parseSemver(s string) *semver {
+	m := semverPattern.FindStringSubmatch(s)
+	if m == nil {
+		return nil
+	}
+	major, _ := strconv.Atoi(m[1])
+	minor, _ := strconv.Atoi(m[2])
+	patch, _ := strconv.Atoi(m[3])
+	return &semver{
+		Major:      major,
+		Minor:      minor,
+		Patch:      patch,
+		Prerelease: m[4],
+		Original:   s,
+	}
+}
+
+// semverLess returns true if a < b following Go's @latest precedence:
+// stable releases > pre-releases, then by major.minor.patch.
+func semverLess(a, b *semver) bool {
+	// Stable (no prerelease) beats pre-release
+	if a.Prerelease == "" && b.Prerelease != "" {
+		return false
+	}
+	if a.Prerelease != "" && b.Prerelease == "" {
+		return true
+	}
+	if a.Major != b.Major {
+		return a.Major < b.Major
+	}
+	if a.Minor != b.Minor {
+		return a.Minor < b.Minor
+	}
+	if a.Patch != b.Patch {
+		return a.Patch < b.Patch
+	}
+	return a.Prerelease < b.Prerelease
+}
+
+// parseTagsFromLsRemote parses the output of `git ls-remote --tags` and
+// returns the highest semver tag. Returns "" if no semver tags are found.
+func parseTagsFromLsRemote(output string) string {
+	var tags []*semver
+	for _, line := range strings.Split(output, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		fields := strings.Fields(line)
+		if len(fields) < 2 {
+			continue
+		}
+		ref := fields[1]
+		// Skip ^{} dereferenced tag entries
+		if strings.HasSuffix(ref, "^{}") {
+			continue
+		}
+		tag := strings.TrimPrefix(ref, "refs/tags/")
+		if sv := parseSemver(tag); sv != nil {
+			tags = append(tags, sv)
+		}
+	}
+	if len(tags) == 0 {
+		return ""
+	}
+	sort.Slice(tags, func(i, j int) bool {
+		return semverLess(tags[i], tags[j])
+	})
+	return tags[len(tags)-1].Original
+}
+
+// gitLatestTag queries the remote repository for tags and returns the
+// highest semver tag. Returns "" if no semver tags are found.
+func gitLatestTag(cloneURL string) (string, error) {
+	cmd := exec.Command("git", "ls-remote", "--tags", cloneURL)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("git ls-remote --tags %s: %w", cloneURL, err)
+	}
+	return parseTagsFromLsRemote(string(output)), nil
 }
 
 // sanitizeNamespace converts a string into a valid Rugo identifier

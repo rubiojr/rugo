@@ -77,6 +77,10 @@ func TestParseRemotePath(t *testing.T) {
 			"gitlab.com/org/lib",
 			"gitlab.com", "org", "lib", "", "",
 		},
+		{
+			"github.com/user/repo@latest",
+			"github.com", "user", "repo", "latest", "",
+		},
 	}
 
 	for _, tt := range tests {
@@ -166,6 +170,7 @@ func TestRemotePathIsImmutable(t *testing.T) {
 		{"abcdef1234567890abcdef1234567890abcdef12", true},
 		{"main", false},
 		{"dev", false},
+		{"latest", false},
 		{"", false},
 	}
 	for _, tt := range tests {
@@ -402,6 +407,140 @@ func TestAtomicInstall(t *testing.T) {
 		// src should be cleaned up
 		if _, err := os.Stat(src); !os.IsNotExist(err) {
 			t.Error("src should be cleaned up after race loss")
+		}
+	})
+}
+
+func TestIsLatest(t *testing.T) {
+	tests := []struct {
+		version string
+		want    bool
+	}{
+		{"latest", true},
+		{"v1.0.0", false},
+		{"main", false},
+		{"", false},
+		{"LATEST", false},
+	}
+	for _, tt := range tests {
+		if got := isLatest(tt.version); got != tt.want {
+			t.Errorf("isLatest(%q) = %v, want %v", tt.version, got, tt.want)
+		}
+	}
+}
+
+func TestParseSemver(t *testing.T) {
+	tests := []struct {
+		input      string
+		major      int
+		minor      int
+		patch      int
+		prerelease string
+		valid      bool
+	}{
+		{"v1.2.3", 1, 2, 3, "", true},
+		{"v0.1.0", 0, 1, 0, "", true},
+		{"v1.0.0-beta.1", 1, 0, 0, "beta.1", true},
+		{"v2.3.4-rc1", 2, 3, 4, "rc1", true},
+		{"1.2.3", 1, 2, 3, "", true},
+		{"main", 0, 0, 0, "", false},
+		{"v1.2", 0, 0, 0, "", false},
+		{"", 0, 0, 0, "", false},
+		{"v1.2.3.4", 0, 0, 0, "", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			sv := parseSemver(tt.input)
+			if tt.valid {
+				if sv == nil {
+					t.Fatalf("parseSemver(%q) = nil, want valid", tt.input)
+				}
+				if sv.Major != tt.major || sv.Minor != tt.minor || sv.Patch != tt.patch || sv.Prerelease != tt.prerelease {
+					t.Errorf("parseSemver(%q) = %d.%d.%d-%s, want %d.%d.%d-%s",
+						tt.input, sv.Major, sv.Minor, sv.Patch, sv.Prerelease,
+						tt.major, tt.minor, tt.patch, tt.prerelease)
+				}
+			} else if sv != nil {
+				t.Errorf("parseSemver(%q) = non-nil, want nil", tt.input)
+			}
+		})
+	}
+}
+
+func TestSemverLess(t *testing.T) {
+	tests := []struct {
+		a, b string
+		less bool
+	}{
+		{"v1.0.0", "v2.0.0", true},
+		{"v2.0.0", "v1.0.0", false},
+		{"v1.1.0", "v1.2.0", true},
+		{"v1.2.0", "v1.2.1", true},
+		{"v1.0.0", "v1.0.0", false},
+		{"v1.0.0-alpha", "v1.0.0", true},     // pre-release < stable
+		{"v1.0.0", "v1.0.0-alpha", false},     // stable > pre-release
+		{"v1.0.0-alpha", "v1.0.0-beta", true}, // alphabetical pre-release
+		{"v2.0.0-rc1", "v1.0.0", true},        // pre-release < stable even with higher major
+	}
+	for _, tt := range tests {
+		t.Run(tt.a+"_vs_"+tt.b, func(t *testing.T) {
+			a := parseSemver(tt.a)
+			b := parseSemver(tt.b)
+			if a == nil || b == nil {
+				t.Fatalf("failed to parse: a=%v b=%v", a, b)
+			}
+			if got := semverLess(a, b); got != tt.less {
+				t.Errorf("semverLess(%s, %s) = %v, want %v", tt.a, tt.b, got, tt.less)
+			}
+		})
+	}
+}
+
+func TestParseTagsFromLsRemote(t *testing.T) {
+	t.Run("picks highest stable tag", func(t *testing.T) {
+		output := "abc1234\trefs/tags/v0.1.0\ndef5678\trefs/tags/v1.0.0\nghi9012\trefs/tags/v1.0.0^{}\njkl3456\trefs/tags/v0.9.0\nmno7890\trefs/tags/v1.2.0\n"
+		got := parseTagsFromLsRemote(output)
+		if got != "v1.2.0" {
+			t.Errorf("got %q, want v1.2.0", got)
+		}
+	})
+
+	t.Run("stable beats pre-release", func(t *testing.T) {
+		output := "abc1234\trefs/tags/v1.0.0\ndef5678\trefs/tags/v2.0.0-beta.1\n"
+		got := parseTagsFromLsRemote(output)
+		if got != "v1.0.0" {
+			t.Errorf("got %q, want v1.0.0", got)
+		}
+	})
+
+	t.Run("pre-release only", func(t *testing.T) {
+		output := "abc1234\trefs/tags/v1.0.0-alpha\ndef5678\trefs/tags/v1.0.0-beta\n"
+		got := parseTagsFromLsRemote(output)
+		if got != "v1.0.0-beta" {
+			t.Errorf("got %q, want v1.0.0-beta", got)
+		}
+	})
+
+	t.Run("no semver tags", func(t *testing.T) {
+		output := "abc1234\trefs/tags/release-2024\ndef5678\trefs/tags/old\n"
+		got := parseTagsFromLsRemote(output)
+		if got != "" {
+			t.Errorf("got %q, want empty", got)
+		}
+	})
+
+	t.Run("empty output", func(t *testing.T) {
+		got := parseTagsFromLsRemote("")
+		if got != "" {
+			t.Errorf("got %q, want empty", got)
+		}
+	})
+
+	t.Run("skips dereferenced tags", func(t *testing.T) {
+		output := "abc1234\trefs/tags/v1.0.0\ndef5678\trefs/tags/v1.0.0^{}\nghi9012\trefs/tags/v2.0.0\njkl3456\trefs/tags/v2.0.0^{}\n"
+		got := parseTagsFromLsRemote(output)
+		if got != "v2.0.0" {
+			t.Errorf("got %q, want v2.0.0", got)
 		}
 	})
 }

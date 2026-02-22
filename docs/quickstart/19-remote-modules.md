@@ -18,9 +18,13 @@ program. Tagged versions and commit SHAs are cached forever.
 | Syntax | Meaning |
 |--------|---------|
 | `@v1.2.0` | Git tag (cached forever) |
+| `@latest` | Highest semver tag (re-resolved each build) |
 | `@main` | Branch (re-fetched each build) |
 | `@abc1234` | Commit SHA (cached forever) |
 | *(none)* | Default branch (re-fetched) |
+
+`@latest` resolves to the highest stable semver tag (e.g., `v2.1.0` over `v2.2.0-beta`).
+If no semver tags exist, it falls back to the default branch.
 
 Always pin to a tag in production code:
 
@@ -188,7 +192,7 @@ Each line: `<module-path> <version-label> <resolved-sha>`
 
 1. **`rugo mod tidy`**: Scans `.rugo` files in the current directory, resolves all remote modules, writes `rugo.lock`. Also prunes entries no longer required by any file.
 2. **Subsequent builds**: Locked SHAs are used — no network fetch needed
-3. **Mutable versions** (`@main`, no version): Locked to their resolved SHA until explicitly updated
+3. **Mutable versions** (`@main`, `@latest`, no version): Locked to their resolved SHA until explicitly updated
 4. **Immutable versions** (`@v1.0.0`, `@abc1234`): Recorded for completeness and tamper detection
 
 ### Updating Dependencies

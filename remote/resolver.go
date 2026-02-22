@@ -170,6 +170,19 @@ func (r *Resolver) UpdateEntry(module string) error {
 			continue
 		}
 
+		// Resolve @latest to the highest semver tag before cloning.
+		if isLatest(rp.Version) {
+			tag, err := gitLatestTag(rp.cloneURL())
+			if err != nil {
+				return fmt.Errorf("updating %s@%s: %w", entry.Module, entry.Version, err)
+			}
+			if tag != "" {
+				rp.Version = tag
+			} else {
+				rp.Version = ""
+			}
+		}
+
 		// Clone to a unique temp dir, get SHA, atomically install.
 		versionDir, err := moduleCacheDir(r.ModuleDir, rp, "")
 		if err != nil {
@@ -248,6 +261,27 @@ func (r *Resolver) resolveWithLock(rp *remotePath) (string, error) {
 	// No lock entry — resolve normally.
 	if r.Frozen {
 		return "", fmt.Errorf("--frozen: no lock entry for %s@%s", moduleKey, versionLabel)
+	}
+
+	// Resolve @latest: query remote tags, pick highest semver, rewrite
+	// the version so the rest of the flow clones the resolved tag.
+	if isLatest(rp.Version) {
+		tag, err := gitLatestTag(rp.cloneURL())
+		if err != nil {
+			return "", fmt.Errorf("resolving @latest for %s: %w", moduleKey, err)
+		}
+		if tag != "" {
+			rp.Version = tag
+		} else {
+			// No semver tags — fall back to default branch.
+			rp.Version = ""
+		}
+		// Recalculate cache dir with the resolved version, but keep
+		// the lock entry under the "latest" label for future lookups.
+		cacheDir, err = moduleCacheDir(r.ModuleDir, rp, "")
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Hint the user to run rugo mod tidy when a lock file exists but is

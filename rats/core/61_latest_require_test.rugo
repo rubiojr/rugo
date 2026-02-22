@@ -1,0 +1,133 @@
+# RATS: Test @latest remote require resolves to highest semver tag
+use "test"
+use "web"
+use "conv"
+use "str"
+import "os" as go_os
+
+TEST_TMPDIR = `mktemp -d -t rats-latest-XXXXXXXX`
+
+def base_dir()
+  return TEST_TMPDIR
+end
+
+def setup_file()
+  bd = TEST_TMPDIR
+  go_os.mkdir_all("#{bd}/repos/latestuser/latest-mod.git", 0755)
+  go_os.mkdir_all("#{bd}/work", 0755)
+  r = test.run("git init --bare #{bd}/repos/latestuser/latest-mod.git")
+  if r["status"] != 0
+    puts "DEBUG setup git init: " + r["output"]
+  end
+  r = test.run("git clone #{bd}/repos/latestuser/latest-mod.git #{bd}/work")
+  if r["status"] != 0
+    puts "DEBUG setup git clone: " + r["output"]
+  end
+
+  # v1.0.0
+  mod_src = <<~RG
+    def greet(name)
+      return "Hello v1, " + name + "!"
+    end
+  RG
+  test.write_file("#{bd}/work/latest-mod.rugo", mod_src)
+  r = test.run("cd #{bd}/work && git config user.email test@test.com && git config user.name test && git add . && git commit -m v1 && git tag v1.0.0")
+  if r["status"] != 0
+    puts "DEBUG setup v1 commit: " + r["output"]
+  end
+
+  # v2.0.0
+  mod_src2 = <<~RG
+    def greet(name)
+      return "Hello v2, " + name + "!"
+    end
+  RG
+  test.write_file("#{bd}/work/latest-mod.rugo", mod_src2)
+  r = test.run("cd #{bd}/work && git add . && git commit -m v2 && git tag v2.0.0")
+  if r["status"] != 0
+    puts "DEBUG setup v2 commit: " + r["output"]
+  end
+
+  # v3.0.0-beta (pre-release, should NOT be picked over v2.0.0)
+  mod_src3 = <<~RG
+    def greet(name)
+      return "Hello v3beta, " + name + "!"
+    end
+  RG
+  test.write_file("#{bd}/work/latest-mod.rugo", mod_src3)
+  r = test.run("cd #{bd}/work && git add . && git commit -m v3beta && git tag v3.0.0-beta")
+  if r["status"] != 0
+    puts "DEBUG setup v3beta commit: " + r["output"]
+  end
+
+  r = test.run("cd #{bd}/work && git push origin HEAD v1.0.0 v2.0.0 v3.0.0-beta")
+  if r["status"] != 0
+    puts "DEBUG setup push: " + r["output"]
+  end
+
+  r = test.run("cd #{bd}/repos/latestuser/latest-mod.git && git update-server-info")
+  if r["status"] != 0
+    puts "DEBUG setup update-server-info: " + r["output"]
+  end
+
+  web.static("/latestuser/latest-mod.git", "#{bd}/repos/latestuser/latest-mod.git")
+  spawn web.listen(0)
+  p = web.port()
+  test.write_file("#{bd}/port", conv.to_s(p))
+end
+
+def teardown_file()
+  go_os.remove_all(TEST_TMPDIR)
+end
+
+# --- Tests ---
+
+rats "@latest resolves to highest stable semver tag"
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  tmpdir = test.tmpdir()
+
+  consumer = <<~RG
+    require "localhost:PORT/latestuser/latest-mod@latest" as "mod"
+    puts mod.greet("world")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
+
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>/dev/null")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(str.trim(result["output"]), "Hello v2, world!")
+end
+
+rats "@latest falls back to default branch when no tags"
+  port = str.trim(test.run("cat " + base_dir() + "/port")["output"])
+  bd = base_dir()
+
+  # Create a repo with no tags
+  go_os.mkdir_all("#{bd}/repos/latestuser/no-tags.git", 0755)
+  go_os.mkdir_all("#{bd}/work-notags", 0755)
+  test.run("git init --bare #{bd}/repos/latestuser/no-tags.git")
+  test.run("git clone #{bd}/repos/latestuser/no-tags.git #{bd}/work-notags")
+
+  mod_src = <<~RG
+    def greet(name)
+      return "Hello notags, " + name + "!"
+    end
+  RG
+  test.write_file("#{bd}/work-notags/no-tags.rugo", mod_src)
+  test.run("cd #{bd}/work-notags && git config user.email test@test.com && git config user.name test && git add . && git commit -m initial && git push origin HEAD")
+  test.run("cd #{bd}/repos/latestuser/no-tags.git && git update-server-info")
+
+  web.static("/latestuser/no-tags.git", "#{bd}/repos/latestuser/no-tags.git")
+
+  tmpdir = test.tmpdir()
+  consumer = <<~RG
+    require "localhost:PORT/latestuser/no-tags@latest" as "mod"
+    puts mod.greet("world")
+  RG
+  consumer = str.replace(consumer, "PORT", port)
+  test.write_file("#{tmpdir}/app.rugo", consumer)
+
+  result = test.run("RUGO_MODULE_DIR=#{tmpdir}/modules rugo run #{tmpdir}/app.rugo 2>/dev/null")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(str.trim(result["output"]), "Hello notags, world!")
+end
