@@ -227,7 +227,13 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("usage: rugo run [--sandbox flags...] <file.rugo> [args...]")
 	}
 	comp := &compiler.Compiler{Sandbox: sandbox, ShowWarnings: showWarnings}
-	return comp.Run(args[0], args[1:]...)
+	scriptArgs := args[1:]
+	// Strip leading "--" separator so `rugo run script -- args` passes
+	// only the actual args to the script (SkipFlagParsing keeps "--" literal).
+	if len(scriptArgs) > 0 && scriptArgs[0] == "--" {
+		scriptArgs = scriptArgs[1:]
+	}
+	return comp.Run(args[0], scriptArgs...)
 }
 
 func buildAction(ctx context.Context, cmd *cli.Command) error {

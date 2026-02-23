@@ -1,0 +1,19 @@
+# RATS: Test that `rugo run script -- args` strips the -- separator
+use "test"
+use "str"
+
+rats "rugo run with -- passes args without --"
+  result = test.run("rugo run rats/fixtures/args_echo.rugo -- hello world")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello")
+  test.assert_contains(result["output"], "world")
+  # The -- separator must NOT appear in the script's args
+  test.assert_false(str.contains(result["output"], "--"))
+end
+
+rats "rugo run without -- passes args normally"
+  result = test.run("rugo run rats/fixtures/args_echo.rugo hello world")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello")
+  test.assert_contains(result["output"], "world")
+end
