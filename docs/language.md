@@ -113,6 +113,20 @@ name = input || "default"
 config = load_config() || {}
 ```
 
+**Gotcha:** Don't use `&&`/`||` for flow control with void-returning functions like `puts`. Since `puts` returns `nil`, the `||` branch always fires:
+
+```ruby
+# BAD — prints both "yes" AND "no" when x is truthy
+x && puts("yes") || puts("no")
+
+# GOOD — use if/else instead
+if x
+  puts "yes"
+else
+  puts "no"
+end
+```
+
 **Comparison semantics:**
 - **Equality** (`==`, `!=`): Numeric coercion applies — `1 == 1.0` is `true`. Non-numeric types use strict equality.
 - **Ordering** (`<`, `>`, `<=`, `>=`): Supports both numeric and string operands. Strings are compared lexicographically. Comparing incompatible types (e.g., string vs int) panics.
