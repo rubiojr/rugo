@@ -14,6 +14,15 @@ else
 end
 ```
 
+### Postfix `if`
+
+For one-liners, you can put the condition after the statement:
+
+```ruby
+puts "big" if score >= 90
+x = 42 if ready
+```
+
 ## Comparison & Logic
 
 ```ruby
@@ -31,6 +40,15 @@ end
 ```
 
 Operators: `==`, `!=`, `<`, `>`, `<=`, `>=`, `&&`, `||`, `!`
+
+### `||` and `&&` return values
+
+Like Ruby, `||` returns the first truthy value and `&&` returns the last truthy value (or the first falsy one). This makes `||` great for defaults:
+
+```ruby
+name = input || "anonymous"
+config = load_config() || {}
+```
 
 ## While
 
