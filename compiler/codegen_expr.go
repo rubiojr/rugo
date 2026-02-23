@@ -215,20 +215,34 @@ func (g *codeGen) buildBinaryExpr(e *ast.BinaryExpr) (GoExpr, error) {
 		if leftType == TypeBool && rightType == TypeBool {
 			return typedBinOp("&&"), nil
 		}
-		return GoCastExpr{Type: "interface{}", Value: GoParenExpr{Inner: GoBinaryExpr{
-			Left:  GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{boxedLeft}},
-			Op:    "&&",
-			Right: GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{boxedRight}},
-		}}}, nil
+		// Ruby-like: return left if falsy, otherwise right
+		return GoIIFEExpr{
+			ReturnType: "interface{}",
+			Body: []GoStmt{
+				GoAssignStmt{Target: "_left", Op: ":=", Value: boxedLeft},
+				GoIfStmt{
+					Cond: GoUnaryExpr{Op: "!", Operand: GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{GoIdentExpr{Name: "_left"}}}},
+					Body: []GoStmt{GoReturnStmt{Value: GoIdentExpr{Name: "_left"}}},
+				},
+			},
+			Result: boxedRight,
+		}, nil
 	case "||":
 		if leftType == TypeBool && rightType == TypeBool {
 			return typedBinOp("||"), nil
 		}
-		return GoCastExpr{Type: "interface{}", Value: GoParenExpr{Inner: GoBinaryExpr{
-			Left:  GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{boxedLeft}},
-			Op:    "||",
-			Right: GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{boxedRight}},
-		}}}, nil
+		// Ruby-like: return left if truthy, otherwise right
+		return GoIIFEExpr{
+			ReturnType: "interface{}",
+			Body: []GoStmt{
+				GoAssignStmt{Target: "_left", Op: ":=", Value: boxedLeft},
+				GoIfStmt{
+					Cond: GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{GoIdentExpr{Name: "_left"}}},
+					Body: []GoStmt{GoReturnStmt{Value: GoIdentExpr{Name: "_left"}}},
+				},
+			},
+			Result: boxedRight,
+		}, nil
 	default:
 		return nil, fmt.Errorf("unknown operator: %s", e.Op)
 	}

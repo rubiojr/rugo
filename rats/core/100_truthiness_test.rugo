@@ -149,6 +149,86 @@ rats "empty string is truthy in && expression"
   test.assert_eq(result, "truthy")
 end
 
+# --- || returns actual values (Ruby-like) ---
+
+rats "false || string returns the string"
+  test.assert_eq(false || "foo", "foo")
+end
+
+rats "nil || value returns the value"
+  test.assert_eq(nil || 42, 42)
+end
+
+rats "truthy || value returns the left side"
+  test.assert_eq("hello" || "world", "hello")
+end
+
+rats "0 || value returns 0 (0 is truthy)"
+  test.assert_eq(0 || "fallback", 0)
+end
+
+rats "false || nil returns nil"
+  test.assert_eq(false || nil, nil)
+end
+
+rats "false || false returns false"
+  test.assert_eq(false || false, false)
+end
+
+rats "nil || false || string returns the string"
+  test.assert_eq(nil || false || "found", "found")
+end
+
+# --- && returns actual values (Ruby-like) ---
+
+rats "false && string returns false"
+  test.assert_eq(false && "foo", false)
+end
+
+rats "nil && value returns nil"
+  test.assert_eq(nil && 42, nil)
+end
+
+rats "truthy && value returns the right side"
+  test.assert_eq("hello" && "world", "world")
+end
+
+rats "true && string returns the string"
+  test.assert_eq(true && "yes", "yes")
+end
+
+rats "string && string && string returns the last"
+  test.assert_eq("a" && "b" && "c", "c")
+end
+
+# --- || as default value idiom ---
+
+rats "|| provides default for nil variable"
+  x = nil
+  result = x || "default"
+  test.assert_eq(result, "default")
+end
+
+rats "|| preserves non-nil value"
+  x = "actual"
+  result = x || "default"
+  test.assert_eq(result, "actual")
+end
+
+# --- short-circuit: right side not evaluated when unnecessary ---
+
+rats "|| short-circuits on truthy left"
+  # If || didn't short-circuit, this would raise
+  result = "ok" || raise("should not reach")
+  test.assert_eq(result, "ok")
+end
+
+rats "&& short-circuits on falsy left"
+  # If && didn't short-circuit, this would raise
+  result = false && raise("should not reach")
+  test.assert_eq(result, false)
+end
+
 # --- Not operator with truthiness ---
 
 rats "!0 is false (since 0 is truthy)"

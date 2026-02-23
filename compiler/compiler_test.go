@@ -1516,3 +1516,86 @@ func TestRejectSemicolons(t *testing.T) {
 		})
 	}
 }
+
+// --- Logical operators: Ruby-like value semantics ---
+
+func TestLogicalOrCodegen(t *testing.T) {
+	tests := []struct {
+		name   string
+		src    string
+		expect string // substring expected in generated Go
+	}{
+		{
+			"typed bool || uses native op",
+			"a = true\nb = false\nx = a || b",
+			"(a || b)",
+		},
+		{
+			"dynamic || uses IIFE with value semantics",
+			"a = [1]\nx = a[0] || \"fallback\"",
+			"rugo_to_bool(_left)",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			goSrc := compileToGo(t, tt.src)
+			assert.Contains(t, goSrc, tt.expect, "generated Go source")
+		})
+	}
+}
+
+func TestLogicalAndCodegen(t *testing.T) {
+	tests := []struct {
+		name   string
+		src    string
+		expect string
+	}{
+		{
+			"typed bool && uses native op",
+			"a = true\nb = false\nx = a && b",
+			"(a && b)",
+		},
+		{
+			"dynamic && uses IIFE with value semantics",
+			"a = [1]\nx = a[0] && \"yes\"",
+			"rugo_to_bool(_left)",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			goSrc := compileToGo(t, tt.src)
+			assert.Contains(t, goSrc, tt.expect, "generated Go source")
+		})
+	}
+}
+
+func TestLogicalOrIIFEStructure(t *testing.T) {
+	goSrc := compileToGo(t, "x = nil\ny = x || 42")
+	// Should contain IIFE pattern: evaluate left, check truthiness, short-circuit
+	assert.Contains(t, goSrc, "func() interface{}", "should emit IIFE")
+	assert.Contains(t, goSrc, "_left :=", "should store left in temp var")
+	assert.Contains(t, goSrc, "rugo_to_bool(_left)", "should check truthiness of left")
+	assert.Contains(t, goSrc, "return _left", "should return left value when truthy")
+}
+
+func TestLogicalAndIIFEStructure(t *testing.T) {
+	goSrc := compileToGo(t, "x = nil\ny = x && 42")
+	assert.Contains(t, goSrc, "func() interface{}", "should emit IIFE")
+	assert.Contains(t, goSrc, "_left :=", "should store left in temp var")
+	assert.Contains(t, goSrc, "!rugo_to_bool(_left)", "should check falsy left")
+	assert.Contains(t, goSrc, "return _left", "should return left value when falsy")
+}
+
+func TestLogicalOpsInCondition(t *testing.T) {
+	// || and && used inside if conditions should still work
+	goSrc := compileToGo(t, "x = [1]\nif x[0] || false\nputs(\"yes\")\nend")
+	assert.Contains(t, goSrc, "rugo_to_bool(", "should use truthiness check")
+}
+
+func TestLogicalOpsChained(t *testing.T) {
+	// Chained || should produce nested IIFEs
+	goSrc := compileToGo(t, "a = [nil]\nx = a[0] || false || \"found\"")
+	// Should have two IIFE patterns for the two || operators
+	count := strings.Count(goSrc, "rugo_to_bool(_left)")
+	assert.GreaterOrEqual(t, count, 2, "chained || should produce multiple IIFE checks")
+}
