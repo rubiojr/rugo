@@ -29,3 +29,10 @@ rats "hyphenated commands are shell fallback"
   test.assert_contains(result["output"], "caught")
   test.assert_contains(result["output"], "7")
 end
+
+rats "shell assignment captures command output"
+  source = "bar = echo hello\nputs bar"
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hello")
+end

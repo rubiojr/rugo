@@ -410,8 +410,27 @@ func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string
 	// Check what follows the first token
 	restTrimmed := strings.TrimSpace(rest)
 
-	// Assignment: `x = ...` — leave alone
+	// Assignment: `x = ...` — check if RHS is a shell command
 	if len(restTrimmed) > 0 && restTrimmed[0] == '=' && (len(restTrimmed) < 2 || restTrimmed[1] != '=') {
+		rhs := strings.TrimSpace(restTrimmed[1:])
+		rhsTok, rhsRest := scanFirstToken(rhs)
+		if rhsTok != "" && isIdent(rhsTok) && !RugoKeywords[rhsTok] && !rugoBuiltins[rhsTok] && !userFuncs[rhsTok] && !knownVars[rhsTok] {
+			rhsRestTrimmed := strings.TrimSpace(rhsRest)
+			// Unknown ident with flag-like args: `ls -la`, `uname -a`
+			if len(rhsRestTrimmed) > 0 && isOperatorStart(rhsRestTrimmed[0]) {
+				return indent + firstToken + " = " + `__shell__("` + shellEscape(rhs) + `")`
+			}
+			// Unknown ident with non-expression args: `echo hello`
+			if len(rhsRestTrimmed) > 0 && rhsRestTrimmed[0] != '(' && rhsRestTrimmed[0] != '[' && rhsRestTrimmed[0] != '.' {
+				return indent + firstToken + " = " + `__shell__("` + shellEscape(rhs) + `")`
+			}
+		}
+		if rhsTok != "" && isPathCommand(rhsTok) {
+			return indent + firstToken + " = " + `__shell__("` + shellEscape(rhs) + `")`
+		}
+		if rhsTok != "" && isHyphenatedCommand(rhsTok) {
+			return indent + firstToken + " = " + `__shell__("` + shellEscape(rhs) + `")`
+		}
 		return line
 	}
 

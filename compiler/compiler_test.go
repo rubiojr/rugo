@@ -614,6 +614,23 @@ func TestPreprocessShellFallbackSimple(t *testing.T) {
 	}
 }
 
+func TestPreprocessShellAssignment(t *testing.T) {
+	tests := []struct {
+		input  string
+		expect string
+	}{
+		{`bar = ls -la`, `bar = __shell__("ls -la")`},
+		{`out = uname -a`, `out = __shell__("uname -a")`},
+		{`x = echo hello`, `x = __shell__("echo hello")`},
+	}
+	for _, tt := range tests {
+		result, _, _ := preprocess.Preprocess(tt.input, nil)
+		if strings.TrimSpace(result) != tt.expect {
+			t.Errorf("preprocess.Preprocess(%q) = %q, want %q", tt.input, strings.TrimSpace(result), tt.expect)
+		}
+	}
+}
+
 func TestPreprocessLeavesAssignments(t *testing.T) {
 	tests := []string{
 		`x = 42`,
