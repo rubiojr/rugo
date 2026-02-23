@@ -97,10 +97,21 @@ Arithmetic and comparison operators are dispatched dynamically through runtime h
 
 - **Arithmetic**: `+` (`rugo_add`), `-` (`rugo_sub`), `*` (`rugo_mul`), `/` (`rugo_div`), `%` (`rugo_mod`)
 - **Comparison**: `==`, `!=`, `<`, `>`, `<=`, `>=` (all via `rugo_compare`)
-- **Logical**: `&&`, `||` (short-circuit, coerced through `rugo_to_bool`)
+- **Logical**: `&&`, `||` (short-circuit, return values like Ruby — not booleans)
 - **Unary**: `-` (`rugo_negate`), `!` (`rugo_not`)
 
 The `+` operator supports string concatenation: when the left operand is a string, the right operand is automatically coerced to string.
+
+**Logical operator semantics (Ruby-like):**
+- `a || b` — returns `a` if `a` is truthy, otherwise returns `b`
+- `a && b` — returns `a` if `a` is falsy, otherwise returns `b`
+
+This enables the common default-value idiom:
+
+```ruby
+name = input || "default"
+config = load_config() || {}
+```
 
 **Comparison semantics:**
 - **Equality** (`==`, `!=`): Numeric coercion applies — `1 == 1.0` is `true`. Non-numeric types use strict equality.
