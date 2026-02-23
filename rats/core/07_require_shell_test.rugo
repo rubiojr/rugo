@@ -1,5 +1,6 @@
 # RATS: Test require (user modules) with namespaces
 use "test"
+use "eval"
 
 rats "require loads module functions"
   result = test.run("rugo run examples/modules/main.rugo")
@@ -9,6 +10,17 @@ end
 rats "shell fallback runs commands"
   result = test.run("rugo run examples/shell_fallback.rugo")
   test.assert_eq(result["status"], 0)
+end
+
+rats "path commands are shell fallback"
+  result = try `/bin/echo path-ok` or "fallback"
+  test.assert_eq(result, "path-ok")
+
+  result = try /bin/echo foo >/dev/null or "fallback"
+  test.assert_eq(result, 0)
+  
+  result = try /foo/bar 2>/dev/null or "fallback"
+  test.assert_eq(result, "fallback")
 end
 
 rats "hyphenated commands are shell fallback"

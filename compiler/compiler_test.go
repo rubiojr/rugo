@@ -599,6 +599,12 @@ func TestPreprocessShellFallbackSimple(t *testing.T) {
 		{`uname -a`, `__shell__("uname -a")`},
 		{`echo "hello world"`, `__shell__("echo \"hello world\"")`},
 		{`grep -r "TODO" .`, `__shell__("grep -r \"TODO\" .")`},
+		// Path-based commands
+		{`./ls -la`, `__shell__("./ls -la")`},
+		{`./script`, `__shell__("./script")`},
+		{`../bin/foo`, `__shell__("../bin/foo")`},
+		{`/usr/bin/ls -la`, `__shell__("/usr/bin/ls -la")`},
+		{`./ls -la 2>&1`, `__shell__("./ls -la 2>&1")`},
 	}
 	for _, tt := range tests {
 		result, _, _ := preprocess.Preprocess(tt.input, nil)
@@ -968,6 +974,15 @@ func TestTryInCondition(t *testing.T) {
 	if !strings.Contains(src, "defer func()") {
 		t.Error("try in condition should generate defer/recover")
 	}
+}
+
+func TestTryPathCommandOrDefault(t *testing.T) {
+	// try ./cmd -la 2>&1 or true — the ./cmd should become __shell__ and compile
+	src := `try ./ls -la 2>&1 or true`
+	result, _, err := preprocess.Preprocess(src, nil)
+	require.NoError(t, err, "try with path command should not error")
+	assert.Contains(t, result, `__shell__`)
+	assert.Contains(t, result, `./ls -la 2>&1`)
 }
 
 // --- Compound Assignment Tests ---

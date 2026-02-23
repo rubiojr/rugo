@@ -399,6 +399,11 @@ func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string
 		if isHyphenatedCommand(firstToken) {
 			return indent + `__shell__("` + shellEscape(trimmed) + `")`
 		}
+		// Path-based command: `./script`, `../foo`, `/usr/bin/ls`
+		// Paths are invalid in Rugo identifiers, so this is always a shell command.
+		if isPathCommand(firstToken) {
+			return indent + `__shell__("` + shellEscape(trimmed) + `")`
+		}
 		return line
 	}
 
@@ -747,6 +752,12 @@ func isHyphenatedCommand(s string) bool {
 		}
 	}
 	return hasHyphen
+}
+
+// isPathCommand checks for tokens that look like filesystem paths:
+// `./script`, `../foo`, `/usr/bin/ls`. These are always shell commands.
+func isPathCommand(s string) bool {
+	return strings.HasPrefix(s, "./") || strings.HasPrefix(s, "../") || strings.HasPrefix(s, "/")
 }
 
 func isOperatorStart(ch byte) bool {
