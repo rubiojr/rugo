@@ -403,7 +403,7 @@ func rugo_iterable(v interface{}) []rugo_kv {
 		for i := 0; i < c; i++ { r[i] = rugo_kv{interface{}(i), interface{}(i)} }
 		return r
 	}
-	panic(fmt.Sprintf("cannot iterate over %T", v))
+	panic(fmt.Sprintf("cannot iterate over %s", rugo_type_name(v)))
 }
 
 // rugo_iterable_default returns values for arrays and keys for hashes.
@@ -422,7 +422,7 @@ func rugo_iterable_default(v interface{}) []interface{} {
 		for i := 0; i < c; i++ { r[i] = i }
 		return r
 	}
-	panic(fmt.Sprintf("cannot iterate over %T", v))
+	panic(fmt.Sprintf("cannot iterate over %s", rugo_type_name(v)))
 }
 
 // rugo_range returns a slice of integers [start, start+1, ..., end-1].
@@ -501,7 +501,7 @@ func rugo_type_name(v interface{}) string {
 	case map[interface{}]interface{}:
 		return "hash"
 	case func(...interface{}) interface{}:
-		return "lambda"
+		return "a function"
 	default:
 		return fmt.Sprintf("%T", v)
 	}
