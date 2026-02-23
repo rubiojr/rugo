@@ -261,6 +261,18 @@ end
 
 `break` and `next` are supported inside loops, compiling directly to Go `break` and `continue`.
 
+#### Postfix `if`
+
+A statement can be conditionally executed using postfix `if` (Ruby-style statement modifier):
+
+```ruby
+puts "big" if x > 10
+x = 42 if ready
+greet "world" if name != nil
+```
+
+This is preprocessor sugar — `STMT if COND` is rewritten to `if COND\n  STMT\nend`. It only applies when `if` appears mid-line (not at the start), outside strings and brackets.
+
 ### Functions
 
 Functions are defined with `def/end` and always return `interface{}` in the generated Go. The last expression in a function body is implicitly returned (like lambdas). Use explicit `return` for early exits:

@@ -136,6 +136,9 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// a consistent form. "def name(params)" is left unchanged.
 	src = expandDefParens(src)
 
+	// Expand postfix if: "STMT if COND" → "if COND\nSTMT\nend"
+	src = expandPostfixIf(src)
+
 	// Expand backtick expressions before try sugar (backticks may appear inside try).
 	src, err = expandBackticks(src)
 	if err != nil {
@@ -2688,4 +2691,72 @@ type StructInfo struct {
 	Name   string   // struct name (e.g. "Dog")
 	Fields []string // field names
 	Line   int      // 1-based line number of the struct keyword in original source
+}
+
+// blockStartKeywords are tokens that, when they start a line, indicate
+// a block-level statement. Lines starting with these are never postfix-if.
+var blockStartKeywords = map[string]bool{
+	"if": true, "elsif": true, "else": true, "end": true,
+	"while": true, "for": true, "def": true, "return": true,
+	"require": true, "import": true, "use": true,
+	"rats": true, "try": true, "spawn": true, "parallel": true,
+	"bench": true, "fn": true, "struct": true, "sandbox": true,
+	"setup": true, "teardown": true, "setup_file": true, "teardown_file": true,
+}
+
+// expandPostfixIf rewrites "STMT if COND" → "if COND\nSTMT\nend".
+// Only matches when " if " appears at the top level (outside strings and
+// brackets) and the line does not start with a block keyword.
+func expandPostfixIf(src string) string {
+	lines := strings.Split(src, "\n")
+	var result []string
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		indent := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+
+		firstTok, _ := scanFirstToken(trimmed)
+		if blockStartKeywords[firstTok] || trimmed == "" {
+			result = append(result, line)
+			continue
+		}
+
+		// Find the last top-level " if " on the line.
+		ifIdx := findLastTopLevelIf(trimmed)
+		if ifIdx < 0 {
+			result = append(result, line)
+			continue
+		}
+
+		stmt := strings.TrimSpace(trimmed[:ifIdx])
+		cond := strings.TrimSpace(trimmed[ifIdx+4:])
+		if stmt == "" || cond == "" {
+			result = append(result, line)
+			continue
+		}
+
+		result = append(result, indent+"if "+cond)
+		result = append(result, indent+"  "+stmt)
+		result = append(result, indent+"end")
+	}
+	return strings.Join(result, "\n")
+}
+
+// findLastTopLevelIf returns the byte offset of the last " if " token
+// that appears at the top level (outside strings, backticks, and brackets).
+// Returns -1 if none found.
+func findLastTopLevelIf(line string) int {
+	positions := FindAllTopLevel(line, func(ch byte, pos int, src string) bool {
+		if ch != ' ' {
+			return false
+		}
+		// Check for " if " starting at this position
+		if pos+4 > len(src) {
+			return false
+		}
+		return src[pos:pos+4] == " if " || (src[pos:pos+3] == " if" && pos+3 == len(src))
+	})
+	if len(positions) == 0 {
+		return -1
+	}
+	return positions[len(positions)-1]
 }

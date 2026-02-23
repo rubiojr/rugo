@@ -1599,3 +1599,54 @@ func TestLogicalOpsChained(t *testing.T) {
 	count := strings.Count(goSrc, "rugo_to_bool(_left)")
 	assert.GreaterOrEqual(t, count, 2, "chained || should produce multiple IIFE checks")
 }
+
+// --- Postfix if: preprocessor sugar ---
+
+func TestPreprocessPostfixIf(t *testing.T) {
+	tests := []struct {
+		name   string
+		input  string
+		expect string // substring the preprocessed output must contain
+	}{
+		{
+			"basic postfix if with puts",
+			`puts("hello") if true`,
+			"if true\n  puts(\"hello\")\nend",
+		},
+		{
+			"assignment with postfix if",
+			`x = 42 if ready`,
+			"if ready\n  x = 42\nend",
+		},
+		{
+			"postfix if with variable condition",
+			`puts("yes") if flag`,
+			"if flag\n  puts(\"yes\")\nend",
+		},
+		{
+			"postfix if with comparison",
+			`puts("big") if x > 10`,
+			"if x > 10\n  puts(\"big\")\nend",
+		},
+		{
+			"does not affect block if",
+			"if true\nputs(\"hello\")\nend",
+			"if true\nputs(\"hello\")\nend",
+		},
+		{
+			"does not affect if inside string",
+			`puts("do this if you can")`,
+			`puts("do this if you can")`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			allFuncs := preprocess.ScanFuncDefs(tt.input)
+			result, _, err := preprocess.Preprocess(tt.input, allFuncs)
+			require.NoError(t, err)
+			trimmed := strings.TrimSpace(result)
+			assert.Contains(t, trimmed, tt.expect,
+				"preprocessed output for %q", tt.input)
+		})
+	}
+}

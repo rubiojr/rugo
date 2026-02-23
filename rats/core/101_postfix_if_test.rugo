@@ -1,0 +1,127 @@
+# RATS: Postfix if — statement modifier syntax
+use "test"
+
+# --- Basic postfix if ---
+
+rats "postfix if executes when condition is truthy"
+  x = nil
+  x = "yes" if true
+  test.assert_eq(x, "yes")
+end
+
+rats "postfix if skips when condition is falsy"
+  x = "original"
+  x = "changed" if false
+  test.assert_eq(x, "original")
+end
+
+rats "postfix if with variable condition"
+  flag = true
+  result = "no"
+  result = "yes" if flag
+  test.assert_eq(result, "yes")
+end
+
+rats "postfix if with comparison"
+  x = 15
+  label = "small"
+  label = "big" if x > 10
+  test.assert_eq(label, "big")
+end
+
+rats "postfix if with equality"
+  name = "admin"
+  role = "user"
+  role = "superuser" if name == "admin"
+  test.assert_eq(role, "superuser")
+end
+
+rats "postfix if with logical operators"
+  a = true
+  b = false
+  result = "no"
+  result = "yes" if a && !b
+  test.assert_eq(result, "yes")
+end
+
+# --- Postfix if with function calls ---
+
+rats "postfix if with puts does not crash"
+  x = "before"
+  x = "after" if false
+  test.assert_eq(x, "before")
+end
+
+# --- Postfix if with falsy values ---
+
+rats "postfix if with nil condition"
+  x = "original"
+  x = "changed" if nil
+  test.assert_eq(x, "original")
+end
+
+rats "postfix if with 0 (truthy in Rugo)"
+  x = "original"
+  x = "changed" if 0
+  test.assert_eq(x, "changed")
+end
+
+rats "postfix if with empty string (truthy in Rugo)"
+  x = "original"
+  x = "changed" if ""
+  test.assert_eq(x, "changed")
+end
+
+# --- Does not interfere with regular if ---
+
+rats "regular if still works"
+  result = "no"
+  if true
+    result = "yes"
+  end
+  test.assert_eq(result, "yes")
+end
+
+rats "if inside string is not treated as postfix"
+  msg = "do this if you can"
+  test.assert_eq(msg, "do this if you can")
+end
+
+# --- Postfix if with || default idiom ---
+
+rats "postfix if combined with || default"
+  config = nil
+  config = "loaded" if true
+  result = config || "default"
+  test.assert_eq(result, "loaded")
+end
+
+# --- Postfix if with function calls (with and without parens) ---
+
+rats "postfix if calls lambda with parens and returns result"
+  double = fn(x) x * 2 end
+  result = nil
+  result = double(5) if true
+  test.assert_eq(result, 10)
+end
+
+rats "postfix if calls lambda with parens and skips when false"
+  double = fn(x) x * 2 end
+  result = "original"
+  result = double(5) if false
+  test.assert_eq(result, "original")
+end
+
+rats "postfix if with lambda call in assignment"
+  greet = fn(name) "hello " + name end
+  result = nil
+  result = greet("world") if true
+  test.assert_eq(result, "hello world")
+end
+
+def say(msg) msg end
+
+rats "paren-free standalone call with postfix if"
+  say "hello" if true
+  test.assert_true(true)
+end
