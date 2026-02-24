@@ -414,15 +414,54 @@ func (g *codeGen) boxed(s string, t RugoType) string {
 // even if the expression type is inferred as typed, because Go's type system won't
 // allow using raw operators on interface{} values.
 func (g *codeGen) goTyped(e ast.Expr) bool {
-	if ident, ok := e.(*ast.IdentExpr); ok {
+	switch ex := e.(type) {
+	case *ast.IdentExpr:
 		// Handler vars are promoted to package-level as interface{},
 		// so they are never Go-typed even if type inference says they are.
-		if g.handlerVars[ident.Name] && !g.inFunc {
+		if g.handlerVars[ex.Name] && !g.inFunc {
 			return false
 		}
-		return g.varType(ident.Name).IsTyped()
+		return g.varType(ex.Name).IsTyped()
+	case *ast.UnaryExpr:
+		operandType := g.exprType(ex.Operand)
+		switch ex.Op {
+		case "!":
+			return operandType == TypeBool && g.goTyped(ex.Operand)
+		case "-":
+			return operandType.IsNumeric() && g.goTyped(ex.Operand)
+		default:
+			return false
+		}
+	case *ast.BinaryExpr:
+		leftType := g.exprType(ex.Left)
+		rightType := g.exprType(ex.Right)
+		leftGoTyped := g.goTyped(ex.Left)
+		rightGoTyped := g.goTyped(ex.Right)
+		bothGoTyped := leftGoTyped && rightGoTyped
+		bothInts := leftType == TypeInt && rightType == TypeInt && bothGoTyped
+		bothNumeric := leftType.IsNumeric() && rightType.IsNumeric() && leftType.IsTyped() && rightType.IsTyped() && bothGoTyped
+		bothStrings := leftType == TypeString && rightType == TypeString && bothGoTyped
+		sameTyped := leftType == rightType && leftType.IsTyped()
+
+		switch ex.Op {
+		case "+":
+			return bothInts || bothStrings || bothNumeric
+		case "-", "*", "/":
+			return bothInts || bothNumeric
+		case "%":
+			return bothInts
+		case "==", "!=":
+			return sameTyped && bothGoTyped
+		case "<", ">", "<=", ">=":
+			return sameTyped && bothGoTyped && (leftType.IsNumeric() || leftType == TypeString)
+		case "&&", "||":
+			return leftType == TypeBool && rightType == TypeBool && bothGoTyped
+		default:
+			return false
+		}
+	default:
+		return g.exprType(e).IsTyped()
 	}
-	return g.exprType(e).IsTyped()
 }
 
 // ensureFloat wraps int expressions with float64() for mixed numeric ops.

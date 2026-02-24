@@ -115,7 +115,7 @@ func (g *codeGen) buildAssign(a *ast.AssignStmt) ([]GoStmt, error) {
 	if !varType.IsTyped() && exprType.IsTyped() {
 		valExpr = GoCastExpr{Type: "interface{}", Value: valExpr}
 	}
-	if isCaptured && varType.IsTyped() && !exprType.IsTyped() {
+	if varType.IsTyped() && (!exprType.IsTyped() || !g.goTyped(a.Value)) {
 		p := &goPrinter{}
 		s := p.exprStr(valExpr)
 		switch varType {

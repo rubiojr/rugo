@@ -60,6 +60,12 @@ rats "postfix if with nil condition"
   test.assert_eq(x, "original")
 end
 
+rats "postfix if assignment to new var keeps nil when condition is false"
+  y = 20 if false
+  test.assert_nil(y)
+  test.assert_eq(type_of(y), "Nil")
+end
+
 rats "postfix if with 0 (truthy in Rugo)"
   x = "original"
   x = "changed" if 0

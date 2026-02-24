@@ -99,6 +99,86 @@ func (s *typeScope) set(name string, t RugoType) {
 	}
 }
 
+func cloneTypeVars(src map[string]RugoType) map[string]RugoType {
+	dst := make(map[string]RugoType, len(src))
+	for name, t := range src {
+		dst[name] = t
+	}
+	return dst
+}
+
+func inferIfStmt(ti *TypeInfo, scope *typeScope, st *ast.IfStmt) {
+	ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
+
+	baseVars := cloneTypeVars(scope.vars)
+	newBranchScope := func() *typeScope {
+		branchScope := newTypeScope(scope.parent)
+		branchScope.vars = cloneTypeVars(baseVars)
+		return branchScope
+	}
+
+	var branchScopes []*typeScope
+
+	bodyScope := newBranchScope()
+	for _, s := range st.Body {
+		inferStmt(ti, bodyScope, s)
+	}
+	branchScopes = append(branchScopes, bodyScope)
+
+	for _, clause := range st.ElsifClauses {
+		ti.ExprTypes[clause.Condition] = inferExpr(ti, scope, clause.Condition)
+		clauseScope := newBranchScope()
+		for _, s := range clause.Body {
+			inferStmt(ti, clauseScope, s)
+		}
+		branchScopes = append(branchScopes, clauseScope)
+	}
+
+	if len(st.ElseBody) > 0 {
+		elseScope := newBranchScope()
+		for _, s := range st.ElseBody {
+			inferStmt(ti, elseScope, s)
+		}
+		branchScopes = append(branchScopes, elseScope)
+	} else {
+		// No else branch means assignments may be skipped entirely.
+		branchScopes = append(branchScopes, newBranchScope())
+	}
+
+	names := make(map[string]bool)
+	for name := range baseVars {
+		names[name] = true
+	}
+	for _, branchScope := range branchScopes {
+		for name := range branchScope.vars {
+			names[name] = true
+		}
+	}
+
+	for name := range names {
+		baseType, existed := baseVars[name]
+		mergedType := TypeUnknown
+		if existed {
+			mergedType = baseType
+		}
+		assignedInAllPaths := true
+		for _, branchScope := range branchScopes {
+			t, ok := branchScope.vars[name]
+			if !ok {
+				assignedInAllPaths = false
+				continue
+			}
+			mergedType = unifyTypes(mergedType, t)
+		}
+		if !existed && !assignedInAllPaths {
+			mergedType = unifyTypes(mergedType, TypeNil)
+		}
+		if mergedType != TypeUnknown {
+			scope.vars[name] = mergedType
+		}
+	}
+}
+
 // inferFunc infers types for a single function.
 func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 	fti := ti.FuncTypes[funcKey(f)]
@@ -176,21 +256,7 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 		inferExpr(ti, scope, st.Expression)
 
 	case *ast.IfStmt:
-		inferExpr(ti, scope, st.Condition)
-		ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
-		for _, s := range st.Body {
-			inferStmt(ti, scope, s)
-		}
-		for _, clause := range st.ElsifClauses {
-			inferExpr(ti, scope, clause.Condition)
-			ti.ExprTypes[clause.Condition] = inferExpr(ti, scope, clause.Condition)
-			for _, s := range clause.Body {
-				inferStmt(ti, scope, s)
-			}
-		}
-		for _, s := range st.ElseBody {
-			inferStmt(ti, scope, s)
-		}
+		inferIfStmt(ti, scope, st)
 
 	case *ast.WhileStmt:
 		inferExpr(ti, scope, st.Condition)

@@ -182,37 +182,37 @@ func (g *codeGen) buildBinaryExpr(e *ast.BinaryExpr) (GoExpr, error) {
 		}
 		return runtimeCall("rugo_mod"), nil
 	case "==":
-		if sameTyped {
+		if sameTyped && bothGoTyped {
 			return typedBinOp("=="), nil
 		}
 		return runtimeCall("rugo_eq"), nil
 	case "!=":
-		if sameTyped {
+		if sameTyped && bothGoTyped {
 			return typedBinOp("!="), nil
 		}
 		return runtimeCall("rugo_neq"), nil
 	case "<":
-		if sameTyped && (leftType.IsNumeric() || leftType == TypeString) {
+		if sameTyped && bothGoTyped && (leftType.IsNumeric() || leftType == TypeString) {
 			return typedBinOp("<"), nil
 		}
 		return runtimeCall("rugo_lt"), nil
 	case ">":
-		if sameTyped && (leftType.IsNumeric() || leftType == TypeString) {
+		if sameTyped && bothGoTyped && (leftType.IsNumeric() || leftType == TypeString) {
 			return typedBinOp(">"), nil
 		}
 		return runtimeCall("rugo_gt"), nil
 	case "<=":
-		if sameTyped && (leftType.IsNumeric() || leftType == TypeString) {
+		if sameTyped && bothGoTyped && (leftType.IsNumeric() || leftType == TypeString) {
 			return typedBinOp("<="), nil
 		}
 		return runtimeCall("rugo_le"), nil
 	case ">=":
-		if sameTyped && (leftType.IsNumeric() || leftType == TypeString) {
+		if sameTyped && bothGoTyped && (leftType.IsNumeric() || leftType == TypeString) {
 			return typedBinOp(">="), nil
 		}
 		return runtimeCall("rugo_ge"), nil
 	case "&&":
-		if leftType == TypeBool && rightType == TypeBool {
+		if leftType == TypeBool && rightType == TypeBool && bothGoTyped {
 			return typedBinOp("&&"), nil
 		}
 		// Ruby-like: return left if falsy, otherwise right
@@ -228,7 +228,7 @@ func (g *codeGen) buildBinaryExpr(e *ast.BinaryExpr) (GoExpr, error) {
 			Result: boxedRight,
 		}, nil
 	case "||":
-		if leftType == TypeBool && rightType == TypeBool {
+		if leftType == TypeBool && rightType == TypeBool && bothGoTyped {
 			return typedBinOp("||"), nil
 		}
 		// Ruby-like: return left if truthy, otherwise right
@@ -556,15 +556,12 @@ func (g *codeGen) buildLoweredParallelExpr(e *ast.LoweredParallelExpr) (GoExpr, 
 	}, nil
 }
 
-// buildCondExpr builds a condition expression for use in if/while.
-// If the condition is typed bool, returns it directly; otherwise wraps with rugo_to_bool.
+// buildCondExpr builds a condition expression for use in if/while by
+// normalizing through rugo_to_bool().
 func (g *codeGen) buildCondExpr(e ast.Expr) (GoExpr, error) {
 	expr, err := g.buildExpr(e)
 	if err != nil {
 		return nil, err
-	}
-	if g.exprType(e) == TypeBool {
-		return expr, nil
 	}
 	s := (&goPrinter{}).exprStr(expr)
 	return GoRawExpr{Code: fmt.Sprintf("rugo_to_bool(%s)", g.boxed(s, g.exprType(e)))}, nil
