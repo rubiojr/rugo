@@ -1,0 +1,77 @@
+# RATS: Float array index should raise a runtime error, not silently truncate
+use "test"
+use "eval"
+
+rats "arr[1.5] raises error about float index"
+  source = <<~RUGO
+    arr = [10, 20, 30, 40]
+    puts(arr[1.5])
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "array index must be an integer")
+end
+
+rats "arr[-1.5] raises error about float index"
+  source = <<~RUGO
+    arr = [10, 20, 30, 40]
+    puts(arr[-1.5])
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "array index must be an integer")
+end
+
+rats "arr[0.0] works because 0.0 is a whole number"
+  source = <<~RUGO
+    arr = [10, 20, 30, 40]
+    puts(arr[0.0])
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "10")
+end
+
+rats "arr[2.0] works because 2.0 is a whole number"
+  source = <<~RUGO
+    arr = [10, 20, 30, 40]
+    puts(arr[2.0])
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "30")
+end
+
+rats "index assignment arr[1.5] = x raises error"
+  source = <<~RUGO
+    arr = [10, 20, 30, 40]
+    arr[1.5] = 99
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "array index must be an integer")
+end
+
+rats "computed float index raises error"
+  source = <<~'RUGO'
+    arr = [10, 20, 30, 40]
+    x = 3.0
+    puts(arr[x / 2])
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "array index must be an integer")
+end
+
+rats "integer index still works normally"
+  arr = [10, 20, 30, 40]
+  test.assert_eq(arr[0], 10)
+  test.assert_eq(arr[2], 30)
+  test.assert_eq(arr[-1], 40)
+end
+
+rats "hash with float key still works"
+  h = {}
+  h[1.5] = "works"
+  test.assert_eq(h[1.5], "works")
+end

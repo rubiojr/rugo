@@ -45,6 +45,20 @@ func rugo_to_int(v interface{}) int {
 	}
 }
 
+func rugo_to_array_index(v interface{}) int {
+	switch val := v.(type) {
+	case int:
+		return val
+	case float64:
+		if val != float64(int(val)) {
+			panic(fmt.Sprintf("array index must be an integer, got Float (%g)", val))
+		}
+		return int(val)
+	default:
+		panic(fmt.Sprintf("array index must be an integer, got %s", rugo_type_label(v)))
+	}
+}
+
 //go:noinline
 func rugo_float(f float64) float64 { return f }
 
@@ -510,7 +524,7 @@ func rugo_range(args ...interface{}) []interface{} {
 func rugo_index_set(obj, idx, val interface{}) {
 	switch o := obj.(type) {
 	case []interface{}:
-		i := rugo_to_int(idx)
+		i := rugo_to_array_index(idx)
 		if i < 0 {
 			i += len(o)
 		}
@@ -532,9 +546,9 @@ func rugo_array_index(arr []interface{}, idx int) interface{} {
 func rugo_index(obj, idx interface{}) interface{} {
 	switch o := obj.(type) {
 	case []interface{}:
-		return rugo_array_index(o, rugo_to_int(idx))
+		return rugo_array_index(o, rugo_to_array_index(idx))
 	case []byte:
-		i := rugo_to_int(idx)
+		i := rugo_to_array_index(idx)
 		if i < 0 { i += len(o) }
 		return int(o[i])
 	case map[interface{}]interface{}:
