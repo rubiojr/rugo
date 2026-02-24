@@ -356,7 +356,7 @@ func TestPrinter_GoIntLit(t *testing.T) {
 
 func TestPrinter_GoFloatLit(t *testing.T) {
 	got := testExprPrint(GoFloatLit{Value: "3.14"})
-	assert.Equal(t, "3.14", got)
+	assert.Equal(t, "rugo_float(3.14)", got)
 }
 
 func TestPrinter_GoStringLit(t *testing.T) {

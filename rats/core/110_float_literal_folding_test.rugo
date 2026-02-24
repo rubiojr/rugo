@@ -1,0 +1,34 @@
+# RATS: Float literal expressions must match variable expressions (no constant folding)
+# Bug: 1c1bbb0 — literal-only float arithmetic is constant-folded by Go compiler,
+# producing different results than the same expression with variables.
+use "test"
+
+rats "0.1 + 0.2 literal matches variable result"
+  y = 0.1
+  z = 0.2
+  var_result = y + z
+  lit_result = 0.1 + 0.2
+  test.assert_eq(lit_result, var_result)
+end
+
+rats "0.1 + 0.2 is not exactly 0.3 (IEEE 754)"
+  test.assert_neq(0.1 + 0.2, 0.3)
+end
+
+rats "float subtraction literal matches variable"
+  a = 0.3
+  b = 0.1
+  test.assert_eq(0.3 - 0.1, a - b)
+end
+
+rats "float multiplication literal matches variable"
+  a = 0.1
+  b = 3.0
+  test.assert_eq(0.1 * 3.0, a * b)
+end
+
+rats "float division literal matches variable"
+  a = 1.0
+  b = 3.0
+  test.assert_eq(1.0 / 3.0, a / b)
+end

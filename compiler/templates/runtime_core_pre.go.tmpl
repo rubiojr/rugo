@@ -45,6 +45,9 @@ func rugo_to_int(v interface{}) int {
 	}
 }
 
+//go:noinline
+func rugo_float(f float64) float64 { return f }
+
 func rugo_to_float(v interface{}) float64 {
 	switch val := v.(type) {
 	case float64:

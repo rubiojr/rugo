@@ -274,7 +274,7 @@ func (p *goPrinter) exprStr(e GoExpr) string {
 	case GoIntLit:
 		return ex.Value
 	case GoFloatLit:
-		return ex.Value
+		return fmt.Sprintf("rugo_float(%s)", ex.Value)
 	case GoStringLit:
 		return fmt.Sprintf(`"%s"`, ex.Value)
 	case GoBoolLit:
