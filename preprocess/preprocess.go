@@ -1369,9 +1369,10 @@ func ExpandTrySugar(src string) (string, []int) {
 		if orIdx >= 0 {
 			// Check if what follows "or" is just an identifier (error variable) — this
 			// is the block form "try EXPR or ident\n BODY\n end", leave it untouched.
+			// We verify it's truly block form by looking ahead for a body + "end".
 			afterOr := strings.TrimSpace(rest[orIdx+2:])
 			afterOrTok, afterOrRest := scanFirstToken(afterOr)
-			if isIdent(afterOrTok) && !RugoKeywords[afterOrTok] && strings.TrimSpace(afterOrRest) == "" {
+			if isIdent(afterOrTok) && !RugoKeywords[afterOrTok] && strings.TrimSpace(afterOrRest) == "" && tryBlockFollows(lines, i+1) {
 				// Split the expression onto its own line so preprocessLine can
 				// apply shell fallback to bare identifiers inside try.
 				expr := strings.TrimSpace(rest[:orIdx])
@@ -1419,6 +1420,25 @@ func ExpandTrySugar(src string) (string, []int) {
 		}
 	}
 	return strings.Join(result, "\n"), lineMap
+}
+
+// tryBlockFollows checks whether lines[start:] begins with at least one
+// non-empty body line followed by a line whose trimmed content is "end".
+// This disambiguates "try EXPR or ident" (inline fallback) from the
+// multi-line block form "try EXPR or err\n  BODY\nend".
+func tryBlockFollows(lines []string, start int) bool {
+	hasBody := false
+	for j := start; j < len(lines); j++ {
+		trimmed := strings.TrimSpace(lines[j])
+		if trimmed == "" {
+			continue
+		}
+		if trimmed == "end" {
+			return hasBody
+		}
+		hasBody = true
+	}
+	return false
 }
 
 // expandSpawnSugar expands one-liner "spawn EXPR" into block form.

@@ -84,3 +84,39 @@ rats "return inside try/or handler sets handler result"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "1")
 end
+
+# Regression: try EXPR or VARIABLE (bare identifier as inline fallback)
+# git-bug bbf7b30
+rats "try or bare variable as fallback"
+  source = <<~RUGO
+    x = "fallback"
+    wk = try raise("oops") or x
+    puts(wk)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "fallback")
+end
+
+rats "try or bare variable success path"
+  source = <<~RUGO
+    x = "fallback"
+    wk = try "ok" or x
+    puts(wk)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "ok")
+end
+
+rats "try or block form still works"
+  source = <<~RUGO
+    result = try raise("boom") or err
+      "caught: " + err
+    end
+    puts(result)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "caught: boom")
+end
