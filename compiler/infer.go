@@ -138,14 +138,22 @@ func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 
 	// Infer return type from collected returns.
 	retType := TypeUnknown
+	hasUnresolved := false
 	for _, rt := range returnTypes {
 		if rt == TypeUnknown {
+			hasUnresolved = true
 			continue // Skip unresolved returns.
 		}
 		retType = unifyTypes(retType, rt)
 	}
 	// Functions without explicit return → nil (dynamic).
 	if retType == TypeUnknown && len(returnTypes) == 0 {
+		retType = TypeDynamic
+	}
+	// If some returns resolved to a concrete type but others remain
+	// unresolved, the unresolved paths will emit interface{} at codegen.
+	// Widen to TypeDynamic to avoid Go type mismatches.
+	if hasUnresolved && retType.IsTyped() {
 		retType = TypeDynamic
 	}
 

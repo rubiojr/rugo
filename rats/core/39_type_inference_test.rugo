@@ -215,3 +215,34 @@ rats "typed values in string interpolation"
   msg = "value is #{conv.to_s(x)}"
   test.assert_eq(msg, "value is 42")
 end
+
+# Mixed return type inference (git-bug 13ecef9)
+# When return paths mix typed literals with dynamic expressions,
+# the return type must fall back to interface{} to avoid Go type mismatches.
+
+def _mixed_return_int(x, width, count)
+  if x < 0
+    return -1
+  end
+  idx = (x * count) / width
+  return idx
+end
+
+rats "mixed int/dynamic return type"
+  args = [10, 100, 5]
+  test.assert_eq(_mixed_return_int(args[0], args[1], args[2]), 0)
+  test.assert_eq(_mixed_return_int(-1, 100, 5), -1)
+end
+
+def _mixed_return_str(key)
+  if len(key) >= 7
+    return "formatted"
+  end
+  return key
+end
+
+rats "mixed string/dynamic return type"
+  items = ["short", "longerthan7"]
+  test.assert_eq(_mixed_return_str(items[0]), "short")
+  test.assert_eq(_mixed_return_str(items[1]), "formatted")
+end

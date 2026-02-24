@@ -137,6 +137,62 @@ func TestInferExported(t *testing.T) {
 	assert.Equal(t, TypeInt, fti.ReturnType)
 }
 
+func TestInferMixedReturnTypes(t *testing.T) {
+	tests := []struct {
+		name string
+		src  string
+	}{
+		{
+			name: "int literal vs dynamic arithmetic",
+			src: `def hit_test(x, width, count)
+  if x < 0
+    return -1
+  end
+  idx = (x * count) / width
+  return idx
+end
+args = [10, 100, 5]
+hit_test(args[0], args[1], args[2])
+`,
+		},
+		{
+			name: "string literal vs dynamic param",
+			src: `def label(key)
+  if len(key) >= 7
+    return "formatted"
+  end
+  return key
+end
+items = ["short"]
+label(items[0])
+`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Compiler{}
+			prog, err := c.ParseSource(tt.src, "test.rugo")
+			require.NoError(t, err)
+			ti := Infer(prog)
+			funcName := ""
+			for _, s := range prog.Statements {
+				if f, ok := s.(*ast.FuncDef); ok {
+					funcName = f.Name
+					break
+				}
+			}
+			require.NotEmpty(t, funcName)
+			fti, ok := ti.FuncTypes[funcName]
+			require.True(t, ok)
+			// When return paths mix typed literals with dynamic expressions,
+			// the return type must fall back to TypeDynamic (interface{}).
+			assert.Equal(t, TypeDynamic, fti.ReturnType,
+				"mixed typed/dynamic returns should unify to TypeDynamic")
+		})
+	}
+}
+
 func TestWalkStmts(t *testing.T) {
 	c := &Compiler{}
 	src := "def foo()\n  x = 1\nend\ny = 2\n"
