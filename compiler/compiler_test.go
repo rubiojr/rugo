@@ -1650,3 +1650,43 @@ func TestPreprocessPostfixIf(t *testing.T) {
 		})
 	}
 }
+
+// Bug 0d702bf: parser keywords used as identifiers should produce a
+// "reserved keyword" error instead of a cryptic "unexpected ... — expected
+// an identifier" message.
+func TestReservedKeywordErrorMessage(t *testing.T) {
+	tests := []struct {
+		name    string
+		source  string
+		keyword string // the keyword that should appear quoted
+		context string // "parameter name" or "name"
+	}{
+		{"as_func_param", "def foo(as)\n  puts(as)\nend\n", "as", "parameter name"},
+		{"in_func_param", "def check(in)\n  puts(in)\nend\n", "in", "parameter name"},
+		{"end_func_param", "def foo(end)\n  puts(end)\nend\n", "end", "parameter name"},
+		{"as_for_var", "for as in [1,2,3]\n  puts(as)\nend\n", "as", "name"},
+		{"as_var_in_func", "def foo(x)\n  as = x\nend\n", "as", "name"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			mainFile := filepath.Join(tmpDir, "main.rugo")
+			os.WriteFile(mainFile, []byte(tt.source), 0644)
+
+			c := &Compiler{}
+			_, err := c.Compile(mainFile)
+			require.Error(t, err, "using keyword as identifier should fail")
+			msg := err.Error()
+
+			// Must contain the full friendly message
+			assert.Contains(t, msg, "\""+tt.keyword+"\" is a reserved keyword")
+			assert.Contains(t, msg, "cannot be used as a "+tt.context)
+
+			// Must NOT leak parser internals
+			assert.NotContains(t, msg, "Param")
+			assert.NotContains(t, msg, "HashLit")
+			assert.NotContains(t, msg, "AssignOrExpr")
+			assert.NotContains(t, msg, "[ident]")
+		})
+	}
+}

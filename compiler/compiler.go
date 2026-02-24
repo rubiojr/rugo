@@ -1240,6 +1240,16 @@ func formatParseError(e scanner.ErrWithPosition) string {
 			}
 		}
 
+		// Special case: parser keyword used where an identifier is expected
+		// (e.g. `def foo(as)` or `for as in ...`).
+		if kw := extractKeywordToken(beforeExpected); kw != "" && strings.Contains(expectedPart, "ident") {
+			hint := "name"
+			if strings.Contains(expectedPart, "Param") {
+				hint = "parameter name"
+			}
+			return prefix + "\"" + kw + "\" is a reserved keyword — cannot be used as a " + hint
+		}
+
 		// Parse and simplify the expected set
 		friendly := simplifyExpectedSet(expectedPart)
 
@@ -1311,6 +1321,37 @@ func parseTokenDescription(s string) string {
 		}
 		return "token"
 	}
+}
+
+// parserKeywords are literal string tokens in the grammar that the parser
+// recognises as keywords (and therefore cannot be used as identifiers).
+var parserKeywords = map[string]bool{
+	"as": true, "bench": true, "break": true, "def": true, "else": true,
+	"elsif": true, "end": true, "false": true, "fn": true, "for": true,
+	"if": true, "import": true, "in": true, "next": true, "nil": true,
+	"or": true, "parallel": true, "rats": true, "require": true,
+	"return": true, "sandbox": true, "spawn": true, "true": true,
+	"try": true, "use": true, "while": true, "with": true, "do": true,
+}
+
+// extractKeywordToken returns the keyword name if the parser error prefix
+// (e.g. `"as" ["as"]:`) describes a keyword token, otherwise "".
+func extractKeywordToken(beforeExpected string) string {
+	s := strings.TrimSpace(beforeExpected)
+	s = strings.TrimSuffix(s, ":")
+	s = strings.TrimSpace(s)
+	if len(s) < 2 || s[0] != '"' {
+		return ""
+	}
+	end := strings.Index(s[1:], "\"")
+	if end < 0 {
+		return ""
+	}
+	tokenVal := s[1 : end+1]
+	if parserKeywords[tokenVal] {
+		return tokenVal
+	}
+	return ""
 }
 
 // simplifyExpectedSet takes a space-separated list of parser symbols

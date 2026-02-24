@@ -2,6 +2,7 @@
 
 use "test"
 use "str"
+use "eval"
 
 # --- Bug 4152d66: RATS runner "Error:" casing ---
 
@@ -348,6 +349,73 @@ rats "stack overflow shows friendly error"
 end
 
 # --- Bug: require'd Go bridge error points at caller file ---
+
+# --- Bug 0d702bf: Reserved keyword as identifier ---
+
+rats "reserved keyword as function parameter"
+  source = <<~RUGO
+    def foo(as)
+      puts(as)
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  out = result["output"]
+  test.assert_contains(out, "\"as\" is a reserved keyword")
+  test.assert_contains(out, "cannot be used as a parameter name")
+  # source snippet with caret
+  test.assert_contains(out, "def foo(as)")
+  test.assert_contains(out, "^")
+  # no parser internals
+  test.assert_false(str.contains(out, "Param"))
+  test.assert_false(str.contains(out, "HashLit"))
+  test.assert_false(str.contains(out, "[ident]"))
+end
+
+rats "reserved keyword as for-loop variable"
+  source = <<~RUGO
+    for as in [1,2,3]
+      puts(as)
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  out = result["output"]
+  test.assert_contains(out, "\"as\" is a reserved keyword")
+  test.assert_contains(out, "cannot be used as a name")
+  test.assert_false(str.contains(out, "HashLit"))
+  test.assert_false(str.contains(out, "[ident]"))
+end
+
+rats "reserved keyword 'in' as function parameter"
+  source = <<~RUGO
+    def check(in)
+      puts(in)
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  out = result["output"]
+  test.assert_contains(out, "\"in\" is a reserved keyword")
+  test.assert_contains(out, "cannot be used as a parameter name")
+  test.assert_false(str.contains(out, "Param"))
+  test.assert_false(str.contains(out, "[ident]"))
+end
+
+rats "reserved keyword 'end' as function parameter"
+  source = <<~RUGO
+    def foo(end)
+      puts(end)
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  out = result["output"]
+  test.assert_contains(out, "\"end\" is a reserved keyword")
+  test.assert_contains(out, "cannot be used as a parameter name")
+  test.assert_false(str.contains(out, "Param"))
+  test.assert_false(str.contains(out, "[ident]"))
+end
 
 rats "go bridge unknown function in required file shows required file line"
   tmpdir = test.tmpdir()
