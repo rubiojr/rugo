@@ -1,0 +1,73 @@
+# RATS: nil should render as "nil", not Go's "<nil>"
+# Bug: d166930 — nil renders as Go <nil> instead of "nil" everywhere
+use "test"
+use "eval"
+
+rats "puts nil prints nil"
+  source = <<~RUGO
+    puts nil
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "nil")
+end
+
+rats "puts variable holding nil prints nil"
+  source = <<~RUGO
+    x = nil
+    puts x
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "nil")
+end
+
+rats "string interpolation with nil"
+  source = <<~'RUGO'
+    x = nil
+    puts "value: #{x}"
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "value: nil")
+end
+
+rats "string concatenation with nil"
+  source = <<~RUGO
+    puts "value: " + nil
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "value: nil")
+end
+
+rats "hash missing key prints nil"
+  source = <<~RUGO
+    h = {name: "Alice"}
+    puts h["missing"]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "nil")
+end
+
+rats "function with no return value prints nil"
+  source = <<~RUGO
+    def nothing()
+    end
+    puts nothing()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "nil")
+end
+
+rats "nil in array prints nil"
+  source = <<~RUGO
+    arr = [1, nil, 3]
+    puts arr[1]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "nil")
+end

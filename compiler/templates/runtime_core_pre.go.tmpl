@@ -60,6 +60,9 @@ func rugo_to_float(v interface{}) float64 {
 }
 
 func rugo_to_string(v interface{}) string {
+	if v == nil {
+		return "nil"
+	}
 	if b, ok := v.([]byte); ok {
 		return string(b)
 	}

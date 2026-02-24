@@ -10,7 +10,7 @@ rats "silent recovery returns nil on failure"
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "<nil>")
+  test.assert_contains(result["output"], "nil")
 end
 
 rats "default value on failure"

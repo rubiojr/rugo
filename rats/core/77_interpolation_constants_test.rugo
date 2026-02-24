@@ -52,7 +52,7 @@ end
 rats "nil constant in interpolation"
   result = test.run("rugo run rats/fixtures/interp_const_nil.rugo")
   test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "val: <nil>")
+  test.assert_eq(result["output"], "val: nil")
 end
 
 # --- Scope coverage for constant interpolation ---
