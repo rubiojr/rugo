@@ -1,0 +1,104 @@
+# RATS: Defining a function with the same name as a builtin should error
+# Bug: e5b2513 — def with builtin name silently ignored
+use "test"
+use "eval"
+
+rats "def len should error"
+  source = <<~RUGO
+    def len(x)
+      return 999
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot redefine builtin")
+end
+
+rats "def puts should error"
+  source = <<~RUGO
+    def puts(x)
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot redefine builtin")
+end
+
+rats "def print should error"
+  source = <<~RUGO
+    def print(x)
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot redefine builtin")
+end
+
+rats "def append should error"
+  source = <<~RUGO
+    def append(a, b)
+      return a
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot redefine builtin")
+end
+
+rats "def raise should error"
+  source = <<~RUGO
+    def raise(msg)
+      return msg
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot redefine builtin")
+end
+
+rats "def exit should error"
+  source = <<~RUGO
+    def exit(code)
+      return code
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot redefine builtin")
+end
+
+rats "def type_of should error"
+  source = <<~RUGO
+    def type_of(v)
+      return v
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot redefine builtin")
+end
+
+rats "def range should error"
+  source = <<~RUGO
+    def range(n)
+      return n
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot redefine builtin")
+end
+
+rats "def with non-builtin name still works"
+  source = <<~RUGO
+    def my_len(x)
+      return 999
+    end
+    puts my_len("hello")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "999")
+end

@@ -106,6 +106,9 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			if prevLine, exists := funcLines[key]; exists {
 				return "", fmt.Errorf("%s:%d: function %q already defined at line %d", g.sourceFile, st.SourceLine, st.Name, prevLine)
 			}
+			if st.Namespace == "" && builtinFuncs[st.Name] {
+				return "", fmt.Errorf("%s:%d: cannot redefine builtin function %q", g.sourceFile, st.SourceLine, st.Name)
+			}
 			funcLines[key] = st.SourceLine
 
 			if st.Name == "setup" && st.Namespace == "" {
