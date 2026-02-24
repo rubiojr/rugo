@@ -1,0 +1,42 @@
+# RATS: String slicing should operate on characters, not bytes
+# Bug: 991df8e — string slicing uses byte indices, breaking multibyte characters
+use "test"
+use "eval"
+
+rats "slice multibyte string gets correct characters"
+  s = "héllo"
+  test.assert_eq(s[0, 1], "h")
+  test.assert_eq(s[1, 1], "é")
+  test.assert_eq(s[2, 3], "llo")
+end
+
+rats "slice emoji string"
+  s = "🎉🎊🎈"
+  test.assert_eq(s[0, 1], "🎉")
+  test.assert_eq(s[1, 1], "🎊")
+  test.assert_eq(s[2, 1], "🎈")
+  test.assert_eq(s[0, 2], "🎉🎊")
+end
+
+rats "slice mixed ASCII and multibyte"
+  s = "café"
+  test.assert_eq(s[0, 3], "caf")
+  test.assert_eq(s[3, 1], "é")
+  test.assert_eq(s[0, 4], "café")
+end
+
+rats "slice multibyte clamped to string end"
+  s = "café"
+  test.assert_eq(s[2, 100], "fé")
+end
+
+rats "slice multibyte start beyond bounds"
+  s = "café"
+  test.assert_eq(s[100, 5], "")
+end
+
+rats "slice CJK characters"
+  s = "日本語"
+  test.assert_eq(s[0, 1], "日")
+  test.assert_eq(s[1, 2], "本語")
+end
