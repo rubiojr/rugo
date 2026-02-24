@@ -68,7 +68,7 @@ end
 rats "multiple Go bridge packages in one script"
   test.assert_eq(strings.to_upper("hello"), "HELLO")
   test.assert_eq(strconv.itoa(42), "42")
-  test.assert_eq(conv.to_s(math.sqrt(9.0)), "3")
+  test.assert_eq(conv.to_s(math.sqrt(9.0)), "3.0")
 end
 
 rats "Go bridge works with user modules"

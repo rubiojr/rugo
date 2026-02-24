@@ -600,7 +600,7 @@ func (g *codeGen) buildPanicHandler() GoDeferStmt {
 // buildImports constructs the GoImport list for a Rugo program.
 func (g *codeGen) buildImports(needsSync, needsTime bool) []GoImport {
 	var imports []GoImport
-	base := []string{"fmt", "math", "os", "os/exec", "reflect", "runtime/debug", "sort", "strings", "unicode/utf8"}
+	base := []string{"fmt", "math", "os", "os/exec", "reflect", "runtime/debug", "sort", "strconv", "strings", "unicode/utf8"}
 	for _, p := range base {
 		imports = append(imports, GoImport{Path: p})
 	}

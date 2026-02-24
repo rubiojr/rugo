@@ -249,6 +249,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		"var _ = strings.NewReader",
 		"var _ = sort.Slice",
 		"var _ = debug.Stack",
+		"var _ = strconv.Itoa",
 		"var _ = utf8.RuneCountInString",
 	)
 	if needsSyncImport {

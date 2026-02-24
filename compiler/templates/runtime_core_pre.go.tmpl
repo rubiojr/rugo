@@ -66,6 +66,13 @@ func rugo_to_string(v interface{}) string {
 	if b, ok := v.([]byte); ok {
 		return string(b)
 	}
+	if f, ok := v.(float64); ok {
+		s := strconv.FormatFloat(f, 'f', -1, 64)
+		if !strings.Contains(s, ".") {
+			s += ".0"
+		}
+		return s
+	}
 	return fmt.Sprintf("%v", v)
 }
 
