@@ -1,0 +1,115 @@
+# RATS: Runtime error messages use Rugo type names, not Go types
+# Regression: git-bug 9e8f5cf
+use "test"
+use "eval"
+
+# --- Arithmetic operator errors ---
+
+rats "array + array shows Rugo type names"
+  source = <<~RUGO
+    arr = [1, 2, 3]
+    arr + [4, 5]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "cannot add Array and Array")
+end
+
+rats "array - integer shows Rugo type names"
+  source = <<~RUGO
+    [1, 2] - 1
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "cannot subtract Array and Integer")
+end
+
+rats "nil + integer shows Rugo type names"
+  source = <<~RUGO
+    x = nil
+    x + 1
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "cannot add nil and Integer")
+end
+
+rats "bool * string shows Rugo type names"
+  source = <<~RUGO
+    true * "hello"
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "cannot multiply Bool and String")
+end
+
+# --- Dot access errors ---
+
+rats "dot access on array shows Rugo type name"
+  source = <<~RUGO
+    arr = [1, 2, 3]
+    arr.length
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "cannot access .length on Array")
+end
+
+# --- Dot call errors ---
+
+rats "dot call on nil shows nil not <nil>"
+  source = <<~RUGO
+    x = nil
+    x.map(fn(y) y end)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "undefined method .map() on nil")
+end
+
+rats "dot call on string shows Rugo type name"
+  source = <<~RUGO
+    x = "hello"
+    x.fake_method()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "undefined method .fake_method() on String")
+end
+
+# --- Queue .size() method ---
+
+rats "queue .size() works with parens"
+  source = <<~RUGO
+    use "queue"
+    q = queue.new()
+    q.push(1)
+    q.push(2)
+    puts(q.size())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "2")
+end
+
+# --- Index errors ---
+
+rats "index on string shows Rugo type name"
+  source = <<~RUGO
+    x = true
+    x[0]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "cannot index Bool")
+end
+
+rats "negate array shows Rugo type name"
+  source = <<~RUGO
+    x = [1, 2]
+    y = -x
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "cannot negate Array")
+end

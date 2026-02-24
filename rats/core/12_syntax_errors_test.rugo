@@ -14,7 +14,7 @@ rats "cannot index-assign to scalar"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot index-assign int")
+  test.assert_contains(result["output"], "cannot index-assign Integer")
 end
 
 rats "cannot index scalar"
@@ -24,7 +24,7 @@ rats "cannot index scalar"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot index int")
+  test.assert_contains(result["output"], "cannot index Integer")
 end
 
 rats "cannot subtract strings"
@@ -33,7 +33,7 @@ rats "cannot subtract strings"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot subtract string and string")
+  test.assert_contains(result["output"], "cannot subtract String and String")
 end
 
 rats "cannot multiply string by int"
@@ -42,7 +42,7 @@ rats "cannot multiply string by int"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot multiply string and int")
+  test.assert_contains(result["output"], "cannot multiply String and Integer")
 end
 
 rats "cannot add nil and int"
@@ -89,7 +89,7 @@ rats "len on non-indexable type"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot get length of int")
+  test.assert_contains(result["output"], "cannot get length of Integer")
 end
 
 rats "append on non-array"

@@ -116,13 +116,39 @@ func rugo_dot_call(obj interface{}, method string, args ...interface{}) interfac
 		if fn, ok := val.(func(...interface{}) interface{}); ok {
 			return fn(args...)
 		}
-		panic(fmt.Sprintf("cannot call .%s() — value is %T, not a function", method, val))
+		panic(fmt.Sprintf("cannot call .%s() — value is %s, not a function", method, rugo_type_label(val)))
 	}
 	panic(fmt.Sprintf("undefined method .%s() on %s", method, rugo_type_label(obj)))
 }
 
 // rugo_type_label returns a user-friendly type name for error messages.
 func rugo_type_label(obj interface{}) string {
+	switch obj.(type) {
+	case nil:
+		return "nil"
+	case bool:
+		return "Bool"
+	case int:
+		return "Integer"
+	case float64:
+		return "Float"
+	case string:
+		return "String"
+	case []byte:
+		return "Bytes"
+	case []interface{}:
+		return "Array"
+	case map[interface{}]interface{}:
+		m := obj.(map[interface{}]interface{})
+		if t, ok := m["__type__"]; ok {
+			if s, ok := t.(string); ok {
+				return s
+			}
+		}
+		return "Hash"
+	case func(...interface{}) interface{}:
+		return "Lambda"
+	}
 	if dg, ok := obj.(interface{ DotGet(string) (interface{}, bool) }); ok {
 		if t, ok := dg.DotGet("__type__"); ok {
 			if s, ok := t.(string); ok {
@@ -137,7 +163,7 @@ func rugo_type_label(obj interface{}) string {
 func rugo_to_lambda(v interface{}, method string) func(...interface{}) interface{} {
 	fn, ok := v.(func(...interface{}) interface{})
 	if !ok {
-		panic(fmt.Sprintf(".%s() requires a function argument, got %T", method, v))
+		panic(fmt.Sprintf(".%s() requires a function argument, got %s", method, rugo_type_label(v)))
 	}
 	return fn
 }

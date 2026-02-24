@@ -41,7 +41,7 @@ func rugo_to_int(v interface{}) int {
 		if val { return 1 }
 		return 0
 	default:
-		panic(fmt.Sprintf("cannot convert %T to int", v))
+		panic(fmt.Sprintf("cannot convert %s to int", rugo_type_label(v)))
 	}
 }
 
@@ -55,7 +55,7 @@ func rugo_to_float(v interface{}) float64 {
 	case int:
 		return float64(val)
 	default:
-		panic(fmt.Sprintf("cannot convert %T to float", v))
+		panic(fmt.Sprintf("cannot convert %s to float", rugo_type_label(v)))
 	}
 }
 
@@ -159,7 +159,7 @@ func rugo_add(a, b interface{}) interface{} {
 	case string:
 		return av + rugo_to_string(b)
 	}
-	panic(fmt.Sprintf("cannot add %T and %T", a, b))
+	panic(fmt.Sprintf("cannot add %s and %s", rugo_type_label(a), rugo_type_label(b)))
 }
 
 func rugo_sub(a, b interface{}) interface{} {
@@ -171,7 +171,7 @@ func rugo_sub(a, b interface{}) interface{} {
 		if bv, ok := b.(float64); ok { return av - bv }
 		if bv, ok := b.(int); ok { return av - float64(bv) }
 	}
-	panic(fmt.Sprintf("cannot subtract %T and %T", a, b))
+	panic(fmt.Sprintf("cannot subtract %s and %s", rugo_type_label(a), rugo_type_label(b)))
 }
 
 func rugo_mul(a, b interface{}) interface{} {
@@ -183,7 +183,7 @@ func rugo_mul(a, b interface{}) interface{} {
 		if bv, ok := b.(float64); ok { return av * bv }
 		if bv, ok := b.(int); ok { return av * float64(bv) }
 	}
-	panic(fmt.Sprintf("cannot multiply %T and %T", a, b))
+	panic(fmt.Sprintf("cannot multiply %s and %s", rugo_type_label(a), rugo_type_label(b)))
 }
 
 func rugo_div(a, b interface{}) interface{} {
@@ -195,7 +195,7 @@ func rugo_div(a, b interface{}) interface{} {
 		if bv, ok := b.(float64); ok { return av / bv }
 		if bv, ok := b.(int); ok { return av / float64(bv) }
 	}
-	panic(fmt.Sprintf("cannot divide %T and %T", a, b))
+	panic(fmt.Sprintf("cannot divide %s and %s", rugo_type_label(a), rugo_type_label(b)))
 }
 
 func rugo_mod(a, b interface{}) interface{} {
@@ -207,7 +207,7 @@ func rugo_mod(a, b interface{}) interface{} {
 		if bv, ok := b.(float64); ok { return math.Mod(av, bv) }
 		if bv, ok := b.(int); ok { return math.Mod(av, float64(bv)) }
 	}
-	panic(fmt.Sprintf("cannot modulo %T and %T", a, b))
+	panic(fmt.Sprintf("cannot modulo %s and %s", rugo_type_label(a), rugo_type_label(b)))
 }
 
 func rugo_negate(a interface{}) interface{} {
@@ -217,7 +217,7 @@ func rugo_negate(a interface{}) interface{} {
 	case float64:
 		return -av
 	}
-	panic(fmt.Sprintf("cannot negate %T", a))
+	panic(fmt.Sprintf("cannot negate %s", rugo_type_label(a)))
 }
 
 func rugo_not(a interface{}) interface{} {
@@ -400,7 +400,7 @@ func rugo_len(args ...interface{}) interface{} {
 	case map[interface{}]interface{}:
 		return len(v)
 	}
-	panic(fmt.Sprintf("cannot get length of %T", args[0]))
+	panic(fmt.Sprintf("cannot get length of %s", rugo_type_label(args[0])))
 }
 
 func rugo_type_of(args ...interface{}) interface{} {
@@ -518,7 +518,7 @@ func rugo_index_set(obj, idx, val interface{}) {
 	case map[interface{}]interface{}:
 		o[idx] = val
 	default:
-		panic(fmt.Sprintf("cannot index-assign %T", obj))
+		panic(fmt.Sprintf("cannot index-assign %s", rugo_type_label(obj)))
 	}
 }
 
@@ -540,7 +540,7 @@ func rugo_index(obj, idx interface{}) interface{} {
 	case map[interface{}]interface{}:
 		return o[idx]
 	default:
-		panic(fmt.Sprintf("cannot index %T", o))
+		panic(fmt.Sprintf("cannot index %s", rugo_type_label(o)))
 	}
 }
 

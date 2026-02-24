@@ -61,6 +61,8 @@ func (q *rugoQueue) DotCall(method string, args ...interface{}) (interface{}, bo
 			panic("cannot pop from a closed and empty queue")
 		}
 		return item, true
+	case "size":
+		return len(q.ch), true
 	case "close":
 		if !atomic.CompareAndSwapInt32(&q.closed, 0, 1) {
 			panic("queue is already closed")

@@ -457,7 +457,7 @@ rats "dot access on int is a runtime error"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot access .name on int")
+  test.assert_contains(result["output"], "cannot access .name on Integer")
 end
 
 rats "dot access on string is a runtime error"
@@ -467,7 +467,7 @@ rats "dot access on string is a runtime error"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot access .name on string")
+  test.assert_contains(result["output"], "cannot access .name on String")
 end
 
 rats "dot access on array is a runtime error"
@@ -487,7 +487,7 @@ rats "dot access on bool is a runtime error"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot access .name on bool")
+  test.assert_contains(result["output"], "cannot access .name on Bool")
 end
 
 rats "dot access on nil is a runtime error"
@@ -507,7 +507,7 @@ rats "dot set on int is a runtime error"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot set .name on int")
+  test.assert_contains(result["output"], "cannot set .name on Integer")
 end
 
 rats "dot set on nil is a runtime error"
