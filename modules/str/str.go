@@ -40,6 +40,7 @@ func init() {
 			{Name: "last_index", Args: []modules.ArgType{modules.String, modules.String}, Doc: "Return the index of the last occurrence of the substring, or -1."},
 			{Name: "slice", Args: []modules.ArgType{modules.String, modules.Int, modules.Int}, Doc: "Extract a substring by rune start and end indices. Supports negative indices."},
 			{Name: "empty", Args: []modules.ArgType{modules.String}, Doc: "Return true if the string is empty."},
+			{Name: "byte_size", Args: []modules.ArgType{modules.String}, Doc: "Return the byte length of a string (not character count)."},
 		},
 		GoImports: []string{"unicode/utf8"},
 		Runtime:   modules.CleanRuntime(runtime),

@@ -48,7 +48,7 @@ puts resp.body
 
 #### str
 
-String utilities: contains, split, trim, starts_with, ends_with, replace, upper, lower, index, join, rune_count, count, repeat, reverse, chars, fields, trim_prefix, trim_suffix, pad_left, pad_right, each_line, center, last_index, slice, empty.
+String utilities: contains, split, trim, starts_with, ends_with, replace, upper, lower, index, join, rune_count, count, repeat, reverse, chars, fields, trim_prefix, trim_suffix, pad_left, pad_right, each_line, center, last_index, slice, empty, byte_size.
 
 ```ruby
 use "str"

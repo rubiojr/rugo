@@ -17,5 +17,6 @@ end
 rats "str.rune_count vs len"
   s = "café"
   test.assert_eq(str.rune_count(s), 4)
-  test.assert_true(len(s) > str.rune_count(s))
+  test.assert_eq(len(s), str.rune_count(s))
+  test.assert_true(str.byte_size(s) > str.rune_count(s))
 end

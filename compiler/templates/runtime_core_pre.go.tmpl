@@ -333,7 +333,7 @@ func rugo_len(args ...interface{}) interface{} {
 	if len(args) == 0 { panic("len requires one argument") }
 	switch v := args[0].(type) {
 	case string:
-		return len(v)
+		return utf8.RuneCountInString(v)
 	case []byte:
 		return len(v)
 	case []interface{}:

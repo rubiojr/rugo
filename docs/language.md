@@ -982,7 +982,7 @@ These functions are always available without any `use` or `import`:
 |----------|-------------|
 | `puts(args...)` | Print args separated by spaces, followed by newline |
 | `print(args...)` | Print args separated by spaces, no trailing newline |
-| `len(v)` | Length of string, array, or hash |
+| `len(v)` | Length of string (character count), array, or hash |
 | `append(arr, val)` | Append value to array, returns new array. Can be used as a bare statement: `append arr, val` |
 | `raise(msg)` | Raise a runtime error with the given message |
 | `type_of(v)` | Returns the type name of a value as a string |

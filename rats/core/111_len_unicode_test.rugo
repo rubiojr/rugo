@@ -1,0 +1,35 @@
+# RATS: len() should return character count, not byte count for strings
+# Bug: 991df8e — len() returns Go byte length instead of Unicode rune count
+use "test"
+use "str"
+
+rats "len of ASCII string"
+  test.assert_eq(len("hello"), 5)
+end
+
+rats "len of string with 2-byte char"
+  test.assert_eq(len("héllo"), 5)
+end
+
+rats "len of emoji (4-byte char)"
+  test.assert_eq(len("🎉"), 1)
+end
+
+rats "len of multi-emoji string"
+  test.assert_eq(len("🎉🎊🎈"), 3)
+end
+
+rats "len of mixed ASCII and multibyte"
+  test.assert_eq(len("café"), 4)
+end
+
+rats "len of empty string"
+  test.assert_eq(len(""), 0)
+end
+
+rats "str.byte_size returns byte count"
+  test.assert_eq(str.byte_size("hello"), 5)
+  test.assert_eq(str.byte_size("héllo"), 6)
+  test.assert_eq(str.byte_size("🎉"), 4)
+  test.assert_eq(str.byte_size(""), 0)
+end

@@ -208,3 +208,7 @@ func (*Str) Slice(s string, start, end int) interface{} {
 func (*Str) Empty(s string) interface{} {
 	return s == ""
 }
+
+func (*Str) ByteSize(s string) interface{} {
+	return len(s)
+}
