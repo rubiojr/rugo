@@ -397,6 +397,40 @@ func inferExprInner(ti *TypeInfo, scope *typeScope, e ast.Expr) RugoType {
 		}
 		return TypeDynamic
 
+	case *ast.FnExpr:
+		// Walk lambda body using the parent scope so that assignments
+		// to captured variables (e.g. result = result + v) widen
+		// their types in the enclosing scope.
+		childScope := newTypeScope(scope)
+		for _, p := range ex.Params {
+			childScope.set(p.Name, TypeDynamic)
+		}
+		for _, s := range ex.Body {
+			inferStmt(ti, childScope, s)
+		}
+		// Propagate any widened captured variables back to the parent scope.
+		for name, childType := range childScope.vars {
+			if _, isParam := childScope.vars[name]; isParam {
+				// Skip lambda params — check if it's actually a param.
+				isLambdaParam := false
+				for _, p := range ex.Params {
+					if p.Name == name {
+						isLambdaParam = true
+						break
+					}
+				}
+				if isLambdaParam {
+					continue
+				}
+			}
+			// This variable was assigned inside the lambda — if the parent
+			// scope knows about it, widen its type.
+			if parentType := scope.get(name); parentType != TypeDynamic {
+				scope.set(name, unifyTypes(parentType, childType))
+			}
+		}
+		return TypeDynamic
+
 	default:
 		return TypeDynamic
 	}

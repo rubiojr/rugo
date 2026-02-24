@@ -214,6 +214,8 @@ func (g *codeGen) capturedVarType(name string) RugoType {
 	scope := ""
 	if outerFunc != nil {
 		scope = funcKey(outerFunc)
+	} else if g.varTypeScope != "" {
+		scope = g.varTypeScope
 	}
 	return g.typeInfo.VarType(scope, name)
 }

@@ -107,3 +107,17 @@ def my_test_map(f, arr)
   end
   return result
 end
+
+# Regression: .each callback arithmetic on typed variable (git-bug b982cd5)
+rats "fn inline: each callback with arithmetic accumulation"
+  result = 0
+  [10, 20, 30].each(fn(v) result = result + v end)
+  test.assert_eq(result, 60)
+end
+
+# Regression: .each callback arithmetic on typed variable (git-bug b982cd5)
+rats "fn inline: each callback with arithmetic accumulation"
+  result = 0
+  [10, 20, 30].each(fn(v) result = result + v end)
+  test.assert_eq(result, 60)
+end

@@ -137,6 +137,23 @@ func TestInferExported(t *testing.T) {
 	assert.Equal(t, TypeInt, fti.ReturnType)
 }
 
+func TestInferClosureWidensOuterVar(t *testing.T) {
+	// When a lambda/closure reassigns an outer variable with a dynamic
+	// expression, inference must widen that variable to TypeDynamic.
+	c := &Compiler{}
+	src := `result = 0
+[10, 20, 30].each(fn(v) result = result + v end)
+`
+	prog, err := c.ParseSource(src, "test.rugo")
+	require.NoError(t, err)
+	ti := Infer(prog)
+	// "result" in top-level scope should be widened to TypeDynamic
+	// because the lambda param v is interface{} and result + v → interface{}.
+	varType := ti.VarType("", "result")
+	assert.Equal(t, TypeDynamic, varType,
+		"variable reassigned in closure with dynamic expr should be TypeDynamic")
+}
+
 func TestInferMixedReturnTypes(t *testing.T) {
 	tests := []struct {
 		name string
