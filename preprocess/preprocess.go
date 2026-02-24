@@ -353,6 +353,12 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 	// parsed as `expr[1, 2, 3]` (index) instead of two separate statements.
 	joined = InsertArraySeparators(joined)
 
+	// Insert ';' before lines starting with '-' followed by a digit to
+	// disambiguate negative literals from binary subtraction across lines.
+	// Without this, `expr\n-1` would be parsed as `expr - 1` (subtraction)
+	// instead of two separate statements. (git-bug 7f2fe9b)
+	joined = InsertNegativeLiteralSeparators(joined)
+
 	return joined, tryLineMap, nil
 }
 
@@ -2406,6 +2412,21 @@ func InsertArraySeparators(src string) string {
 			}
 		}
 		bracketDepth += countBracketDelta(lines[i])
+	}
+	return strings.Join(lines, "\n")
+}
+
+// InsertNegativeLiteralSeparators inserts ';' before lines that start with '-'
+// followed by a digit, so the parser treats them as negative literals (unary
+// negation) rather than binary subtraction from the previous expression.
+func InsertNegativeLiteralSeparators(src string) string {
+	lines := strings.Split(src, "\n")
+	for i := 1; i < len(lines); i++ {
+		trimmed := strings.TrimSpace(lines[i])
+		if len(trimmed) >= 2 && trimmed[0] == '-' && trimmed[1] >= '0' && trimmed[1] <= '9' {
+			indent := lines[i][:len(lines[i])-len(strings.TrimLeft(lines[i], " \t"))]
+			lines[i] = indent + ";" + strings.TrimLeft(lines[i], " \t")
+		}
 	}
 	return strings.Join(lines, "\n")
 }

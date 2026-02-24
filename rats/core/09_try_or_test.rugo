@@ -120,3 +120,46 @@ rats "try or block form still works"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "caught: boom")
 end
+
+# Regression: negative literal on own line in try/or handler block
+# git-bug 7f2fe9b
+rats "try or handler: negative literal as last expression"
+  source = <<~RUGO
+    use "conv"
+    y = try conv.to_i("xyz") or err
+      puts("caught: " + err)
+      -1
+    end
+    puts(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "caught:")
+  test.assert_contains(result["output"], "-1")
+end
+
+rats "try or handler: negative float literal as last expression"
+  source = <<~RUGO
+    y = try raise("boom") or err
+      puts("err: " + err)
+      -3.14
+    end
+    puts(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "-3.14")
+end
+
+rats "negative literal on own line outside try/or"
+  source = <<~RUGO
+    x = 10
+    y = -1
+    puts(x)
+    puts(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "10")
+  test.assert_contains(result["output"], "-1")
+end
