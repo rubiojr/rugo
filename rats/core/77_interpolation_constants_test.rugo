@@ -98,13 +98,13 @@ end
 rats "array constant in interpolation"
   result = test.run("rugo run rats/fixtures/interp_const_array.rugo")
   test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "colors: [red green blue]")
+  test.assert_eq(result["output"], 'colors: ["red", "green", "blue"]')
 end
 
 rats "hash constant in interpolation"
   result = test.run("rugo run rats/fixtures/interp_const_hash.rugo")
   test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "config: map[host:localhost port:8080]")
+  test.assert_eq(result["output"], 'config: {host: "localhost", port: 8080}')
 end
 
 # --- Expression and pattern coverage ---

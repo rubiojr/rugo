@@ -1,0 +1,367 @@
+# RATS: Arrays and hashes should print in Rugo format, not Go format
+# Bug: 0b1f4c8 — Go's map[...] and [1 two true] format leaks through
+use "test"
+use "eval"
+
+# --- Array display ---
+
+rats "array with mixed types"
+  source = <<~'RUGO'
+    arr = [1, "two", true, nil]
+    puts arr
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], '[1, "two", true, nil]')
+end
+
+rats "nested array"
+  source = <<~RUGO
+    arr = [1, [2, 3], 4]
+    puts arr
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[1, [2, 3], 4]")
+end
+
+rats "deeply nested array"
+  source = <<~RUGO
+    deep = [1, [2, [3, [4]]]]
+    puts deep
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[1, [2, [3, [4]]]]")
+end
+
+rats "empty array"
+  source = <<~RUGO
+    arr = []
+    puts(arr)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[]")
+end
+
+rats "single element array"
+  source = <<~RUGO
+    puts([42])
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[42]")
+end
+
+rats "array with nil element"
+  source = <<~RUGO
+    arr = [1, nil, 3]
+    puts arr
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[1, nil, 3]")
+end
+
+rats "array with float elements"
+  source = <<~RUGO
+    arr = [1.0, 2.5]
+    puts arr
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[1.0, 2.5]")
+end
+
+rats "array with boolean elements"
+  source = <<~RUGO
+    bools = [true, false, nil, true]
+    puts(bools)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[true, false, nil, true]")
+end
+
+rats "array with hash elements"
+  source = <<~'RUGO'
+    arr = [{name: "Alice"}, {name: "Bob"}]
+    puts arr
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], '[{name: "Alice"}, {name: "Bob"}]')
+end
+
+rats "array with empty collections"
+  source = <<~RUGO
+    mixed = [[], {}]
+    puts(mixed)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "[[], {}]")
+end
+
+# --- Hash display ---
+
+rats "hash prints with curly braces"
+  source = <<~'RUGO'
+    h = {name: "Alice"}
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "name:")
+  test.assert_contains(result["output"], '"Alice"')
+  test.assert_contains(result["output"], "{")
+  test.assert_contains(result["output"], "}")
+end
+
+rats "hash with multiple keys"
+  source = <<~RUGO
+    h = {a: 1, b: 2}
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "a: 1")
+  test.assert_contains(result["output"], "b: 2")
+  test.assert_contains(result["output"], ", ")
+end
+
+rats "empty hash"
+  source = <<~RUGO
+    puts({})
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "{}")
+end
+
+rats "hash with nil value"
+  source = <<~RUGO
+    h = {a: 1, b: nil, c: 3}
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "{a: 1, b: nil, c: 3}")
+end
+
+rats "nested hash"
+  source = <<~RUGO
+    h = {outer: {inner: 42}}
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "{outer: {inner: 42}}")
+end
+
+rats "hash with array value"
+  source = <<~RUGO
+    h = {items: [1, 2, 3]}
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "{items: [1, 2, 3]}")
+end
+
+rats "hash in string interpolation"
+  source = <<~'RUGO'
+    h = {name: "Alice"}
+    puts "data: #{h}"
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "data: {")
+  test.assert_contains(result["output"], '"Alice"')
+end
+
+rats "hash with symbol-style string key"
+  source = <<~'RUGO'
+    h = {}
+    h["key"] = "val"
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "key:")
+  test.assert_contains(result["output"], '"val"')
+end
+
+# --- Hash key edge cases ---
+
+rats "hash with integer key"
+  source = <<~'RUGO'
+    h = {}
+    h[1] = "int key"
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], '{1: "int key"}')
+end
+
+rats "hash with boolean key"
+  source = <<~'RUGO'
+    h = {}
+    h[true] = "bool key"
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], '{true: "bool key"}')
+end
+
+rats "hash with float key"
+  source = <<~'RUGO'
+    h = {}
+    h[3.14] = "pi"
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], '{3.14: "pi"}')
+end
+
+rats "hash with float key preserves .0"
+  source = <<~'RUGO'
+    h = {}
+    h[3.0] = "three"
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], '{3.0: "three"}')
+end
+
+rats "hash with empty string key"
+  source = <<~'RUGO'
+    h = {}
+    h[""] = "empty"
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], '{"": "empty"}')
+end
+
+rats "hash with space in key"
+  source = <<~'RUGO'
+    h = {}
+    h["hello world"] = "spaced"
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], '{"hello world": "spaced"}')
+end
+
+rats "string value with quotes is escaped"
+  source = <<~'RUGO'
+    h = {}
+    h["k"] = 'has "quotes"'
+    puts h
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], 'has \"quotes\"')
+end
+
+# --- Expression and function call keys ---
+
+rats "hash with computed expression key"
+  source = <<~'RUGO'
+    h = {}
+    h[1 + 2] = "three"
+    puts h
+    puts h[3]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], '{3: "three"}')
+  test.assert_eq(result["lines"][1], "three")
+end
+
+rats "hash with string concatenation key"
+  source = <<~'RUGO'
+    h = {}
+    h["na" + "me"] = "Alice"
+    puts h
+    puts h["name"]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], '{name: "Alice"}')
+  test.assert_eq(result["lines"][1], "Alice")
+end
+
+rats "hash with variable key"
+  source = <<~'RUGO'
+    k = "color"
+    h = {}
+    h[k] = "red"
+    puts h
+    puts h[k]
+    puts h["color"]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], '{color: "red"}')
+  test.assert_eq(result["lines"][1], "red")
+  test.assert_eq(result["lines"][2], "red")
+end
+
+rats "hash with function call key"
+  source = <<~'RUGO'
+    def make_key(n)
+      return "key_" + n
+    end
+    h = {}
+    h[make_key("a")] = 1
+    h[make_key("b")] = 2
+    puts h
+    puts h[make_key("a")]
+    puts h["key_a"]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "{key_a: 1, key_b: 2}")
+  test.assert_eq(result["lines"][1], "1")
+  test.assert_eq(result["lines"][2], "1")
+end
+
+rats "hash with builtin function call key"
+  source = <<~'RUGO'
+    h = {}
+    h[len("hello")] = "five"
+    h[type_of(42)] = "int"
+    puts h
+    puts h[5]
+    puts h["Integer"]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], '5: "five"')
+  test.assert_contains(result["output"], 'Integer: "int"')
+  test.assert_eq(result["lines"][1], "five")
+  test.assert_eq(result["lines"][2], "int")
+end
+
+rats "hash with int vs float key are distinct"
+  source = <<~'RUGO'
+    h = {}
+    h[3] = "int"
+    h[3.0] = "float"
+    puts h[3]
+    puts h[3.0]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "int")
+  test.assert_eq(result["lines"][1], "float")
+end

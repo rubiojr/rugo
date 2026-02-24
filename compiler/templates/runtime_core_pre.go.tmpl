@@ -73,7 +73,56 @@ func rugo_to_string(v interface{}) string {
 		}
 		return s
 	}
+	if arr, ok := v.([]interface{}); ok {
+		parts := make([]string, len(arr))
+		for i, elem := range arr {
+			parts[i] = rugo_inspect(elem)
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	}
+	if m, ok := v.(map[interface{}]interface{}); ok {
+		if len(m) == 0 {
+			return "{}"
+		}
+		type kv struct {
+			sortKey string
+			key     interface{}
+		}
+		kvs := make([]kv, 0, len(m))
+		for k := range m {
+			kvs = append(kvs, kv{sortKey: rugo_to_string(k), key: k})
+		}
+		sort.Slice(kvs, func(i, j int) bool { return kvs[i].sortKey < kvs[j].sortKey })
+		parts := make([]string, len(kvs))
+		for i, entry := range kvs {
+			parts[i] = rugo_inspect_key(entry.key) + ": " + rugo_inspect(m[entry.key])
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
+	}
 	return fmt.Sprintf("%v", v)
+}
+
+func rugo_inspect(v interface{}) string {
+	if s, ok := v.(string); ok {
+		return "\"" + strings.ReplaceAll(s, "\"", "\\\"") + "\""
+	}
+	return rugo_to_string(v)
+}
+
+func rugo_inspect_key(k interface{}) string {
+	s, ok := k.(string)
+	if !ok {
+		return rugo_to_string(k)
+	}
+	if s == "" {
+		return "\"\""
+	}
+	for _, r := range s {
+		if !((r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '_') {
+			return "\"" + strings.ReplaceAll(s, "\"", "\\\"") + "\""
+		}
+	}
+	return s
 }
 
 // rugo_to_go recursively normalizes a Rugo value for Go consumption.

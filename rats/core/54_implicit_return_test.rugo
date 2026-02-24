@@ -112,5 +112,5 @@ rats "implicit return from if/else in lambda"
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "[2 4 6 <nil>]")
+  test.assert_eq(result["output"], "[2, 4, 6, nil]")
 end
