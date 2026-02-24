@@ -656,6 +656,16 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 				}
 				return nil, fmt.Errorf("%s:%d: unknown module %q (available: %s)", prog.SourceFile, s.StmtLine(), use.Module, strings.Join(modules.Names(), ", "))
 			}
+			// Check for namespace conflicts with Go bridge imports
+			for pkg, alias := range c.goImports {
+				ns := alias
+				if ns == "" {
+					ns = gobridge.DefaultNS(pkg)
+				}
+				if ns == use.Module {
+					return nil, fmt.Errorf("%s:%d: use namespace %q conflicts with an imported Go bridge package; add an alias to the import: import %q as <alias>", prog.SourceFile, s.StmtLine(), use.Module, pkg)
+				}
+			}
 			if !c.imports[use.Module] {
 				c.imports[use.Module] = true
 				resolved = append(resolved, s)

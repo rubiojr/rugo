@@ -259,6 +259,27 @@ rats "namespace conflict errors include file and line"
   test.assert_contains(result["output"], "conflicts")
 end
 
+# --- Bug 9e4b0a7: import-before-use namespace conflict detection ---
+
+rats "namespace conflict detected when import comes before use"
+  source = <<~RUGO
+    import "os"
+    use "os"
+    puts os.cwd()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  out = result["output"]
+  # points at the use line (line 2)
+  test.assert_contains(out, ":2:")
+  # names the conflicting namespace
+  test.assert_contains(out, "\"os\"")
+  # explains the conflict direction
+  test.assert_contains(out, "conflicts with an imported Go bridge package")
+  # gives actionable fix advice
+  test.assert_contains(out, "import \"os\" as <alias>")
+end
+
 # --- Bug 4e3b071: Runtime panic messages translated ---
 
 rats "runtime index out of bounds is friendly"
