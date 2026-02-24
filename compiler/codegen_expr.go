@@ -671,7 +671,11 @@ func (g *codeGen) buildDotExpr(e *ast.DotExpr) (GoExpr, error) {
 		if !g.isDeclared(nsName) {
 			if g.imports[nsName] {
 				if goFunc, ok := modules.LookupFunc(nsName, e.Field); ok {
-					return GoCastExpr{Type: "interface{}", Value: GoRawExpr{Code: goFunc}}, nil
+					// Check arity: 0 required args → auto-call, N args → compile error
+					if fd, ok := modules.LookupFuncDef(nsName, e.Field); ok && len(fd.Args) > 0 {
+						return nil, fmt.Errorf("function %s.%s must be called with arguments", nsName, e.Field)
+					}
+					return GoCallExpr{Func: goFunc, Args: nil}, nil
 				}
 			}
 			// Go bridge function reference (without call)
@@ -684,8 +688,18 @@ func (g *codeGen) buildDotExpr(e *ast.DotExpr) (GoExpr, error) {
 					return nil, fmt.Errorf("go bridge function %s.%s must be called with arguments", nsName, e.Field)
 				}
 			}
-			// Known require namespace — function reference
+			// Known require namespace — auto-call 0-arg, error on N-arg
 			if g.namespaces[nsName] {
+				nsKey := nsName + "." + e.Field
+				if g.nsVarNames[nsKey] {
+					return GoIdentExpr{Name: fmt.Sprintf("rugons_%s_%s", nsName, e.Field)}, nil
+				}
+				if arity, ok := g.funcDefs[nsKey]; ok {
+					if arity.Min > 0 {
+						return nil, fmt.Errorf("function %s.%s must be called with arguments", nsName, e.Field)
+					}
+					return GoCallExpr{Func: fmt.Sprintf("rugons_%s_%s", nsName, e.Field), Args: nil}, nil
+				}
 				return GoCastExpr{Type: "interface{}", Value: GoIdentExpr{Name: fmt.Sprintf("rugons_%s_%s", nsName, e.Field)}}, nil
 			}
 		}

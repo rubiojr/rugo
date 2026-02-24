@@ -6,8 +6,8 @@ use "eval"
 
 rats "for-in over module function gives friendly error"
   source = <<~RUGO
-    use "os"
-    for arg in os.args
+    f = fn(x) x end
+    for arg in f
     end
   RUGO
   result = eval.run(source)

@@ -1,0 +1,298 @@
+# RATS: Paren-free consistency across all namespace types
+#
+# Tests that `ns.func` (no parens) behaves consistently:
+# - 0-arg functions: auto-call (return value, not Lambda)
+# - N-arg functions: compile error (not silent Lambda)
+#
+# Covers: use (stdlib), import (gobridge), require, user-defined,
+#         hash/struct instance methods, and expressions.
+
+use "test"
+use "eval"
+use "math"
+use "os"
+use "time"
+use "conv"
+use "queue"
+
+# ===================================================================
+# USE (stdlib modules) — 0-arg functions should auto-call
+# ===================================================================
+
+rats "paren-free use: 0-arg in assignment RHS"
+  x = math.pi
+  test.assert_eq(x, 3.141592653589793)
+end
+
+rats "paren-free use: 0-arg nested in puts"
+  x = conv.to_s(math.pi)
+  test.assert_eq(x, "3.141592653589793")
+end
+
+rats "paren-free use: 0-arg in if condition"
+  result = "no"
+  if math.pi > 3.0
+    result = "yes"
+  end
+  test.assert_eq(result, "yes")
+end
+
+rats "paren-free use: 0-arg in binary expression"
+  x = math.pi + 1
+  test.assert_true(x > 4)
+end
+
+rats "paren-free use: 0-arg as function argument"
+  x = conv.to_s(math.pi)
+  test.assert_eq(x, "3.141592653589793")
+end
+
+rats "paren-free use: multiple 0-arg modules"
+  cwd = os.cwd
+  t = time.now
+  test.assert_eq(type_of(cwd), "String")
+  test.assert_eq(type_of(t), "Float")
+end
+
+# ===================================================================
+# USE (stdlib modules) — N-arg functions should error without parens
+# ===================================================================
+
+rats "paren-free use: N-arg in assignment RHS is compile error"
+  source = <<~RUGO
+    use "math"
+    x = math.sqrt
+    puts x
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "must be called with arguments")
+end
+
+rats "paren-free use: N-arg nested in puts is compile error"
+  source = <<~RUGO
+    use "str"
+    puts str.upper
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "must be called with arguments")
+end
+
+# ===================================================================
+# IMPORT (go bridge) — already consistent, verify it stays
+# ===================================================================
+
+rats "paren-free import: 0-arg auto-calls"
+  source = <<~RUGO
+    import "os"
+    cwd = os.getwd
+    puts type_of(cwd)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "String")
+end
+
+rats "paren-free import: N-arg is compile error"
+  source = <<~RUGO
+    import "strings"
+    x = strings.to_upper
+    puts x
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "must be called with arguments")
+end
+
+# ===================================================================
+# REQUIRE — 0-arg functions should auto-call
+# ===================================================================
+
+rats "paren-free require: 0-arg in assignment RHS"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/helper.rugo", "def greet()\n  return \"hello\"\nend\n")
+  source = "require \"#{tmpdir}/helper\" as \"h\"\nx = h.greet\nputs x\n"
+  test.write_file("#{tmpdir}/main.rugo", source)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello")
+end
+
+rats "paren-free require: 0-arg nested in puts"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/helper.rugo", "def greet()\n  return \"hello\"\nend\n")
+  source = "require \"#{tmpdir}/helper\" as \"h\"\nputs h.greet\n"
+  test.write_file("#{tmpdir}/main.rugo", source)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello")
+end
+
+rats "paren-free require: 0-arg in if condition"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/helper.rugo", "def ready()\n  return true\nend\n")
+  source = "require \"#{tmpdir}/helper\" as \"h\"\nif h.ready\n  puts \"yes\"\nend\n"
+  test.write_file("#{tmpdir}/main.rugo", source)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "yes")
+end
+
+# ===================================================================
+# REQUIRE — N-arg functions should error without parens
+# ===================================================================
+
+rats "paren-free require: N-arg in assignment RHS is compile error"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/helper.rugo", "def add(a, b)\n  return a + b\nend\n")
+  source = "require \"#{tmpdir}/helper\" as \"h\"\nx = h.add\nputs x\n"
+  test.write_file("#{tmpdir}/main.rugo", source)
+  result = test.run("rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "must be called with arguments")
+end
+
+# ===================================================================
+# USER-DEFINED FUNCTIONS — already work via preprocessor, verify
+# ===================================================================
+
+rats "paren-free user func: 0-arg in assignment RHS"
+  source = <<~RUGO
+    def greet()
+      return "hello"
+    end
+    x = greet
+    puts x
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "hello")
+end
+
+rats "paren-free user func: N-arg with parens"
+  source = <<~RUGO
+    def add(a, b)
+      return a + b
+    end
+    puts add(1, 2)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "3")
+end
+
+# ===================================================================
+# QUEUE (DotGet/DotCall instance)
+# ===================================================================
+
+rats "paren-free queue: size property (DotGet)"
+  q = queue.new()
+  test.assert_eq(q.size, 0)
+end
+
+rats "paren-free queue: size method (DotCall)"
+  q = queue.new()
+  test.assert_eq(q.size(), 0)
+end
+
+rats "paren-free queue: new without parens auto-calls"
+  q = queue.new
+  q.push(1)
+  test.assert_eq(q.size, 1)
+end
+
+# ===================================================================
+# HASH — field access and methods
+# ===================================================================
+
+rats "paren-free hash: keys/values with parens"
+  h = {"a" => 1, "b" => 2}
+  test.assert_eq(len(h.keys()), 2)
+  test.assert_eq(len(h.values()), 2)
+end
+
+rats "paren-free hash: field access is DotGet (hash lookup)"
+  h = {name: "Alice"}
+  test.assert_eq(h.name, "Alice")
+end
+
+# ===================================================================
+# ARRAY — methods with parens
+# ===================================================================
+
+rats "paren-free array: methods with parens"
+  arr = [3, 1, 2]
+  test.assert_eq(arr.first(), 3)
+  test.assert_eq(arr.last(), 2)
+end
+
+# ===================================================================
+# STRUCT — field access
+# ===================================================================
+
+rats "paren-free struct: field access works"
+  source = <<~RUGO
+    struct Dog
+      name
+      age
+    end
+    rex = Dog("Rex", 5)
+    puts rex.name
+    puts rex.age
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "Rex")
+  test.assert_eq(result["lines"][1], "5")
+end
+
+# ===================================================================
+# PIPES — should remain unaffected
+# ===================================================================
+
+rats "paren-free pipes: shell to module func"
+  source = <<~RUGO
+    use "str"
+    echo "hello" | str.upper | puts
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "HELLO")
+end
+
+rats "paren-free pipes: shell to module with assignment"
+  source = <<~RUGO
+    use "str"
+    x = echo "hello" | str.upper
+    puts x
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "HELLO")
+end
+
+# ===================================================================
+# MIXED — consistency across namespace types in same script
+# ===================================================================
+
+rats "paren-free mixed: all namespace types consistent"
+  source = <<~RUGO
+    use "math"
+    import "os"
+    def local_tag()
+      return "from-local"
+    end
+    a = math.pi
+    b = os.getwd
+    c = local_tag
+    puts type_of(a)
+    puts type_of(b)
+    puts type_of(c)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "Float")
+  test.assert_eq(result["lines"][1], "String")
+  test.assert_eq(result["lines"][2], "String")
+end

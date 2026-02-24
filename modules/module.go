@@ -109,6 +109,20 @@ func LookupFunc(module, funcName string) (string, bool) {
 	return "", false
 }
 
+// LookupFuncDef returns the full function definition for a module function.
+func LookupFuncDef(module, funcName string) (*FuncDef, bool) {
+	m, ok := registry[module]
+	if !ok {
+		return nil, false
+	}
+	for i := range m.Funcs {
+		if m.Funcs[i].Name == funcName {
+			return &m.Funcs[i], true
+		}
+	}
+	return nil, false
+}
+
 // Names returns sorted names of all registered modules.
 func Names() []string {
 	names := make([]string, 0, len(registry))
