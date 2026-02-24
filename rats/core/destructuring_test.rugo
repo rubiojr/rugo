@@ -1,4 +1,5 @@
 use "test"
+use "eval"
 import "strings"
 import "path/filepath"
 
@@ -114,4 +115,34 @@ rats "destructure go bridge multi-return in conditional"
   else
     test.fail("should have found separator")
   end
+end
+
+# --- Error cases: too few elements ---
+
+rats "destructure with too few elements gives clear error"
+  source = <<~RUGO
+    a, b, c = [1]
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot destructure")
+  test.assert_contains(result["output"], "1 element")
+  test.assert_contains(result["output"], "3 variables")
+end
+
+rats "destructure with empty array gives clear error"
+  source = <<~RUGO
+    a, b, c = []
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot destructure")
+  test.assert_contains(result["output"], "empty")
+  test.assert_contains(result["output"], "3 variables")
+end
+
+rats "destructure with more elements still works"
+  a, b = [1, 2, 3]
+  test.assert_eq(a, 1)
+  test.assert_eq(b, 2)
 end

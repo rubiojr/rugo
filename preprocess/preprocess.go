@@ -1894,6 +1894,17 @@ func expandDestructuring(src string) string {
 
 		// Emit: __destr__ = expr
 		result = append(result, indent+"__destr__ = "+rhs)
+		// Emit: bounds check before destructuring
+		n := len(targets)
+		result = append(result, fmt.Sprintf("%sif type_of(__destr__) == \"Array\" && len(__destr__) < %d", indent, n))
+		result = append(result, fmt.Sprintf("%s  if len(__destr__) == 0", indent))
+		result = append(result, fmt.Sprintf("%s    raise(\"cannot destructure: array is empty but %d variables were declared\")", indent, n))
+		result = append(result, fmt.Sprintf("%s  elsif len(__destr__) == 1", indent))
+		result = append(result, fmt.Sprintf(`%s    raise("cannot destructure: array has 1 element but %d variables were declared")`, indent, n))
+		result = append(result, indent+"  else")
+		result = append(result, fmt.Sprintf(`%s    raise("cannot destructure: array has #{len(__destr__)} elements but %d variables were declared")`, indent, n))
+		result = append(result, indent+"  end")
+		result = append(result, indent+"end")
 		// Emit: target = __destr__[i] for each target
 		for i, t := range targets {
 			result = append(result, fmt.Sprintf("%s%s = __destr__[%d]", indent, t, i))
