@@ -193,11 +193,8 @@ func (g *codeGen) buildExprStmt(e *ast.ExprStmt) ([]GoStmt, error) {
 }
 
 func (g *codeGen) buildReturn(r *ast.ReturnStmt) ([]GoStmt, error) {
-	fti := g.currentFuncTypeInfo()
 	if r.Value == nil {
-		if fti != nil && fti.ReturnType.IsTyped() {
-			return []GoStmt{GoReturnStmt{Value: GoRawExpr{Code: typedZero(fti.ReturnType)}}}, nil
-		}
+		// Bare `return` in Rugo always means "return nil".
 		return []GoStmt{GoReturnStmt{Value: GoRawExpr{Code: "nil"}}}, nil
 	}
 	expr, err := g.buildExpr(r.Value)
@@ -492,7 +489,12 @@ func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
 
 	retType := "interface{}"
 	if fti != nil && fti.ReturnType.IsTyped() {
-		retType = fti.ReturnType.GoType()
+		// Only narrow the return type when all code paths produce a value.
+		// If some paths fall through without a return, the function can
+		// implicitly return nil, so the signature must stay interface{}.
+		if bodyAlwaysReturns(f.Body) {
+			retType = fti.ReturnType.GoType()
+		}
 	}
 
 	// Build params
@@ -562,12 +564,11 @@ func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
 	}
 	body = append(body, bodyStmts...)
 
-	if !g.bodyHasImplicitReturn(f.Body) {
-		if fti != nil && fti.ReturnType.IsTyped() {
-			body = append(body, GoReturnStmt{Value: GoRawExpr{Code: typedZero(fti.ReturnType)}})
-		} else {
-			body = append(body, GoReturnStmt{Value: GoRawExpr{Code: "nil"}})
-		}
+	if !bodyAlwaysReturns(f.Body) {
+		// Not all code paths produce a value — the function may fall through
+		// without returning. The return type was kept as interface{} above,
+		// so the fallback is nil.
+		body = append(body, GoReturnStmt{Value: GoRawExpr{Code: "nil"}})
 	}
 	g.inFunc = false
 	g.currentFunc = nil

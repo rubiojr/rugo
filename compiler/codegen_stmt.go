@@ -47,6 +47,44 @@ func branchCoversAllPaths(body []ast.Statement) bool {
 	return stmtCoversAllPaths(body[len(body)-1])
 }
 
+// bodyAlwaysReturns checks whether all code paths through the body terminate
+// with a return (explicit ReturnStmt or ImplicitReturnStmt). Used to decide
+// whether the inferred return type can stay narrowed: if some paths fall through
+// without returning, the type must widen to interface{} so the fallback can
+// return nil.
+func bodyAlwaysReturns(body []ast.Statement) bool {
+	for _, s := range body {
+		if stmtAlwaysReturns(s) {
+			return true
+		}
+	}
+	return false
+}
+
+func stmtAlwaysReturns(s ast.Statement) bool {
+	switch st := s.(type) {
+	case *ast.ReturnStmt:
+		return true
+	case *ast.ImplicitReturnStmt:
+		return true
+	case *ast.IfStmt:
+		if len(st.ElseBody) == 0 {
+			return false
+		}
+		if !bodyAlwaysReturns(st.Body) {
+			return false
+		}
+		for _, ec := range st.ElsifClauses {
+			if !bodyAlwaysReturns(ec.Body) {
+				return false
+			}
+		}
+		return bodyAlwaysReturns(st.ElseBody)
+	default:
+		return false
+	}
+}
+
 // stmtError wraps a codegen error with file:line context from the statement.
 func (g *codeGen) stmtError(s ast.Statement, err error) error {
 	line := s.StmtLine()

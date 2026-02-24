@@ -114,3 +114,69 @@ rats "implicit return from if/else in lambda"
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "[2, 4, 6, nil]")
 end
+
+# Bug 8daeef0: functions with typed returns but incomplete paths
+# should return nil (not the type's zero value) when no return is hit.
+
+rats "partial return path returns nil not empty string"
+  source = <<~RUGO
+    def maybe(x)
+      if x
+        return "yes"
+      end
+    end
+    result = maybe(false)
+    puts(result == nil)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "partial return path returns nil not zero int"
+  source = <<~RUGO
+    def find_index(arr, target)
+      for i in arr
+        if i == target
+          return i
+        end
+      end
+    end
+    result = find_index([1, 2, 3], 99)
+    puts(result == nil)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "partial return path returns nil not false"
+  source = <<~RUGO
+    def check(x)
+      if x > 0
+        return true
+      end
+    end
+    result = check(-1)
+    puts(result == nil)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
+
+rats "bare return in typed function returns nil"
+  source = <<~RUGO
+    def process(x)
+      if x == nil
+        return
+      end
+      return "done"
+    end
+    result = process(nil)
+    puts(result == nil)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "true")
+end
