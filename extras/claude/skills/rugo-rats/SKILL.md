@@ -38,14 +38,6 @@ rats "can be skipped"
 end
 ```
 
-### Grammar
-
-```
-TestDef = "rats" str_lit Body "end" .
-```
-
-The `rats` keyword follows the same pattern as `FuncDef` but with a string description instead of an ident name and no parameters.
-
 ## CLI
 
 ```bash
@@ -56,6 +48,8 @@ rugo rats --filter "greet"           # filter by test name
 rugo rats -j 4                       # run with 4 parallel workers
 rugo rats -j 1                       # run sequentially
 rugo rats --tap                      # raw TAP output
+rugo rats --recap                    # Print all failures with details at the end
+rugo rats --timing                   # Per test and total elapsed time
 ```
 
 ## Output
@@ -182,67 +176,187 @@ are skipped during discovery.
 
 ## Regression Test Suite
 
-The `rats/` directory contains the project's regression test suite (54 test files, 600+ tests):
-
-| File | Tests | Coverage area |
-|------|-------|---------------|
-| `rats/01_cli_test.rugo` | 9 | CLI basics |
-| `rats/02_variables_test.rugo` | 8 | Variable assignment |
-| `rats/03_control_flow_test.rugo` | 4 | if/else, loops |
-| `rats/04_functions_test.rugo` | 9 | Function definitions |
-| `rats/05_data_structures_test.rugo` | 5 | Arrays, hashes |
-| `rats/06_modules_test.rugo` | 9 | Module system |
-| `rats/07_require_shell_test.rugo` | 3 | require + shell |
-| `rats/08_rats_self_test.rugo` | 10 | RATS self-tests |
-| `rats/09_try_or_test.rugo` | 5 | try/or error handling |
-| `rats/10_error_output_test.rugo` | 7 | Error output formatting |
-| `rats/10_raise_test.rugo` | 5 | raise keyword |
-| `rats/11_backticks_test.rugo` | 4 | Backtick shell exec |
-| `rats/12_syntax_errors_test.rugo` | 21 | Syntax error reporting |
-| `rats/13_spawn_test.rugo` | 29 | spawn concurrency |
-| `rats/14_parallel_test.rugo` | 11 | parallel blocks |
-| `rats/15_test_colors_test.rugo` | 8 | Color output |
-| `rats/16_cli_module_test.rugo` | 17 | CLI module |
-| `rats/17_color_module_test.rugo` | 7 | Color module |
-| `rats/18_escape_sequences_test.rugo` | 9 | Escape sequences |
-| `rats/19_json_module_test.rugo` | 10 | JSON module |
-| `rats/20_custom_modules_test.rugo` | 4 | Custom modules |
-| `rats/21_summary_test.rugo` | 2 | Test summary output |
-| `rats/22_raw_strings_test.rugo` | 8 | Raw strings |
-| `rats/23_comparisons_test.rugo` | 8 | Comparison operators |
-| `rats/24_constants_test.rugo` | 8 | Constants |
-| `rats/25_arg_count_test.rugo` | 6 | Argument count checks |
-| `rats/26_negative_index_test.rugo` | 5 | Negative indexing |
-| `rats/27_pipes_test.rugo` | 14 | Pipe operator |
-| `rats/28_bench_test.rugo` | 4 | Benchmarks |
-| `rats/29_module_edge_cases_test.rugo` | 8 | Module edge cases |
-| `rats/30_heredoc_test.rugo` | 12 | Heredocs |
-| `rats/31_structs_test.rugo` | 69 | Structs |
-| `rats/32_hash_keys_test.rugo` | 12 | Hash keys |
-| `rats/33_hash_colon_syntax_test.rugo` | 16 | Hash colon syntax |
-| `rats/34_web_module_test.rugo` | 31 | Web module |
-| `rats/35_web_middleware_test.rugo` | 16 | Web middleware |
-| `rats/36_inline_tests_test.rugo` | 4 | Inline tests |
-| `rats/37_error_ux_test.rugo` | 32 | Error UX |
-| `rats/38_def_optional_parens_test.rugo` | 11 | Optional parens |
-| `rats/39_type_inference_test.rugo` | 25 | Type inference |
-| `rats/40_test_timeout_test.rugo` | 3 | Test timeouts |
-| `rats/41_lambdas_test.rugo` | 19 | Lambdas |
-| `rats/42_http_module_test.rugo` | 10 | HTTP module |
-| `rats/43_require_typed_call_test.rugo` | 2 | Typed require calls |
-| `rats/44_subdir_require_test.rugo` | 2 | Subdir require |
-| `rats/45_require_scope_test.rugo` | 3 | Require scoping |
-| `rats/46_type_of_test.rugo` | 19 | type_of() |
-| `rats/47_if_scope_test.rugo` | 5 | If block scoping |
-| `rats/48_bare_variable_test.rugo` | 11 | Bare variable errors |
-| `rats/49_remote_require_test.rugo` | 5 | Remote require |
-| `rats/50_setup_file_test.rugo` | 2 | setup_file/teardown_file |
-| `rats/51_setup_teardown_combined_test.rugo` | 3 | Combined hooks |
-| `rats/fmt_test.rugo` | 9 | fmt module |
-| `rats/re_test.rugo` | 16 | Regex module |
-| `rats/gobridge/` | 60 | 7 files covering Go bridge packages |
+The `rats/` directory contains the project's regression test suite.
 
 Fixtures live in `rats/fixtures/` (`.rugo` files for scripts, `_test.rugo` files for test fixtures).
+
+## Do's and Don'ts When Writing RATS Tests
+
+### DO: Inline code inside `rats` blocks (preferred)
+
+Write assertions directly inside the `rats` block. This is the cleanest, most readable pattern and should be the default choice.
+
+```ruby
+use "test"
+use "re"
+
+rats "variables and arithmetic"
+  x = 10
+  y = 20
+  test.assert_eq(x + y, 30)
+end
+
+rats "re.find returns first match"
+  test.assert_eq(re.find("\\d+", "abc123def456"), "123")
+end
+
+rats "struct constructor"
+  p = Point(10, 20)
+  test.assert_eq(p.x, 10)
+  test.assert_eq(p.y, 20)
+end
+```
+
+### DO: Define functions and structs outside `rats` blocks
+
+Top-level `def` functions, `struct` definitions, `use` imports, and `require` imports are visible to all `rats` blocks in the file. Use this to share helpers across tests.
+
+```ruby
+use "test"
+
+struct Point
+  x
+  y
+end
+
+def Point.sum()
+  return self.x + self.y
+end
+
+def get_name(obj)
+  return obj.name
+end
+
+rats "method call"
+  p = Point(3, 7)
+  test.assert_eq(p.sum(), 10)
+end
+
+rats "helper function"
+  h = {"name" => "Alice"}
+  test.assert_eq(get_name(h), "Alice")
+end
+```
+
+### DO: Use lambdas inline inside `rats` blocks
+
+Lambda definitions work directly inside `rats` blocks.
+
+```ruby
+use "test"
+
+rats "type_of lambda"
+  f = fn(x) x + 1 end
+  test.assert_eq(type_of(f), "Lambda")
+end
+
+rats "lambda as callback"
+  nums = [1, 2, 3]
+  doubled = map(nums, fn(n) n * 2 end)
+  test.assert_eq(doubled, [2, 4, 6])
+end
+```
+
+### DO: Use `eval.run()` with heredocs when inline is not possible
+
+When you need to test error conditions, exit codes, compile errors, pipe chains, or features that require output capture (`puts`), use the `eval` module with heredocs. This compiles and runs the snippet in a subprocess.
+
+```ruby
+use "test"
+use "eval"
+
+rats "division by zero is a runtime error"
+  source = <<~RUGO
+    x = 5 / 0
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "division by zero")
+end
+
+rats "pipe chain works"
+  source = <<~RUGO
+    use "str"
+    echo "hello world" | str.upper | puts
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HELLO WORLD")
+end
+```
+
+Use single-quoted heredoc delimiters (`<<~'RUGO'`) when the snippet contains string interpolation that should not be expanded by the outer test:
+
+```ruby
+rats "dot access on string is a runtime error"
+  source = <<~'RUGO'
+    x = "hello"
+    puts(x.name)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot access .name on String")
+end
+```
+
+### DON'T: Use fixtures and `test.run("rugo run ...")` unless unavoidable
+
+Fixture-based tests that shell out to `rugo run rats/fixtures/some_file.rugo` are harder to read because the test logic lives in a separate file. **Avoid this pattern** unless you are testing CLI behavior, binary compilation, or process-level concerns that genuinely require a separate invocation.
+
+Acceptable uses of `test.run()`:
+
+```ruby
+# OK — testing the CLI itself
+rats "rugo --version works"
+  result = test.run("rugo --version")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "rugo version")
+end
+
+# OK — testing binary compilation
+rats "rugo build creates binary"
+  result = test.run("rugo build -o #{test.tmpdir()}/hello examples/hello.rugo")
+  test.assert_eq(result["status"], 0)
+end
+```
+
+If you find yourself writing `test.run("rugo run rats/fixtures/...")`, stop and ask: can this be inlined in the `rats` block, or written with `eval.run()` and a heredoc? Almost always, yes.
+
+### DON'T: Reference top-level variables or constants from inside `rats` blocks
+
+Each `rats` block is an **isolated scope**. Top-level variables and constants are not visible inside `rats` blocks -- the compiler will emit an error.
+
+```ruby
+use "test"
+
+port = 8080     # top-level variable
+PORT = 9090     # top-level constant
+
+rats "this will NOT compile"
+  # WRONG — port and PORT are not in scope here
+  test.assert_eq(port, 8080)   # compile error!
+  test.assert_eq(PORT, 9090)   # compile error!
+end
+```
+
+What IS shared across `rats` blocks:
+- `def` functions
+- `struct` definitions
+- `use` module imports
+- `require` imports
+
+What is NOT shared:
+- Variables (lowercase)
+- Constants (UPPERCASE)
+- Anything defined inside another `rats` block
+
+### Pattern summary
+
+| Pattern | When to use |
+|---|---|
+| **Inline** (preferred) | Value checks, module calls, structs, loops, conditions -- anything testable via direct assertions |
+| **eval.run() + heredoc** (acceptable) | Error conditions, exit codes, pipe chains, compile errors, features needing `puts` output capture |
+| **test.run() + fixtures** (avoid) | Only for CLI testing, binary compilation, or process-level behavior that cannot be expressed otherwise |
 
 ## Running RATS
 
