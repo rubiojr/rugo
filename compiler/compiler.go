@@ -334,7 +334,7 @@ func (c *Compiler) RunCapture(filename string, extraArgs ...string) (*CapturedOu
 // on the returned tmpDir.
 //
 // If a cached binary exists for the same Go source and go.mod, the cached
-// binary is copied instead of running go build.
+// binary is decompressed instead of running go build.
 func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 	tmpDir, err = makeBuildDir()
 	if err != nil {
@@ -347,10 +347,8 @@ func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 
 	// Check binary cache before running go build.
 	if cached := binCacheLookup(cacheKey); cached != "" {
-		if data, err := os.ReadFile(cached); err == nil {
-			if err := os.WriteFile(binFile, data, 0755); err == nil {
-				return tmpDir, binFile, nil
-			}
+		if binCacheDecompress(cached, binFile) == nil {
+			return tmpDir, binFile, nil
 		}
 	}
 
