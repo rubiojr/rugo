@@ -569,6 +569,8 @@ func InspectCompiledPackage(pkgPath string) (*Package, error) {
 				if p := named.Obj().Pkg(); p != nil {
 					structWrappers[ExternalTypeKey(p.Path(), si.GoName)] = wrapType
 					structWrappers[ExternalTypeKey(p.Name(), si.GoName)] = wrapType
+					// Register in global registry for cross-package reuse.
+					RegisterTypeWrapper(ExternalTypeKey(p.Path(), si.GoName), wrapType)
 				}
 			}
 		}
@@ -673,6 +675,13 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 				if p := named.Obj().Pkg(); p != nil {
 					structWrappers[ExternalTypeKey(p.Path(), si.GoName)] = wrapType
 					structWrappers[ExternalTypeKey(p.Name(), si.GoName)] = wrapType
+					// Register in global registry for cross-package reuse.
+					// Use the full Go module path (from go.mod) because types.Package.Path()
+					// may return the short package name when loaded from source. External
+					// packages looking up this type will use the full import path.
+					RegisterTypeWrapper(ExternalTypeKey(result.GoModulePath, si.GoName), wrapType)
+					// Also register under types.Package.Path() in case it differs.
+					RegisterTypeWrapper(ExternalTypeKey(p.Path(), si.GoName), wrapType)
 				}
 			}
 		}
@@ -764,8 +773,18 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 	}
 
 	result.ExternalTypes = externalTypes
+	// Track external types that reuse an existing wrapper from another package.
+	// These don't need new wrapper code generated — they share the existing one.
+	reusedExternalKeys := make(map[string]bool)
 	for key, ext := range externalTypes {
-		wrapType := ExternalOpaqueWrapperTypeName(ns, ext.PkgName, ext.GoName)
+		// Check if another package already registered a wrapper for this Go type.
+		qualifiedGoType := ExternalTypeKey(ext.PkgPath, ext.GoName)
+		wrapType, reused := LookupTypeWrapper(qualifiedGoType)
+		if !reused {
+			wrapType = ExternalOpaqueWrapperTypeName(ns, ext.PkgName, ext.GoName)
+		} else {
+			reusedExternalKeys[key] = true
+		}
 		structWrappers[key] = wrapType
 		structWrappers[ExternalTypeKey(ext.PkgName, ext.GoName)] = wrapType
 		result.KnownStructs[key] = true
@@ -809,7 +828,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 
 	// Discover methods and embedded fields on external types (after all types are in structWrappers).
 	for key, ext := range externalTypes {
-		if ext.Named == nil {
+		if ext.Named == nil || reusedExternalKeys[key] {
 			continue
 		}
 		ext.Methods = discoverMethods(ext.Named, structWrappers, result.KnownStructs)
@@ -820,13 +839,23 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 	// Pre-collect all external type wrappers as RuntimeHelpers.
 	// These are emitted once (deduped by key) and cover the full type hierarchy
 	// including intermediate types only referenced via embedded fields.
+	// Skip types that reuse an existing wrapper from another package.
 	var allExternalHelpers []RuntimeHelper
-	for _, ext := range externalTypes {
+	for key, ext := range externalTypes {
+		if reusedExternalKeys[key] {
+			continue
+		}
 		allExternalHelpers = append(allExternalHelpers, GenerateExternalOpaqueWrapper(ns, ext))
 		allExternalHelpers = append(allExternalHelpers, methodRuntimeHelpers(ext.Methods)...)
 	}
 	// Generate upcast helpers for all wrapper types (enables auto-upcasting).
+	// Deduplicate: skip wrappers that already exist from another package.
+	seenUpcast := make(map[string]bool)
 	for _, wrapType := range structWrappers {
+		if seenUpcast[wrapType] {
+			continue
+		}
+		seenUpcast[wrapType] = true
 		allExternalHelpers = append(allExternalHelpers, GenerateUpcastHelper(wrapType))
 	}
 

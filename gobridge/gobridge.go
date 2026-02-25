@@ -216,6 +216,12 @@ type Package struct {
 // registry maps Go package paths to their bridge definitions.
 var registry = map[string]*Package{}
 
+// globalTypeWrappers maps fully-qualified Go type paths (e.g., "github.com/mappu/miqt/qt6.QWidget")
+// to wrapper type names (e.g., "rugo_struct_qt6_QWidget"). This enables cross-package wrapper
+// reuse: when package B discovers a type from package A as an external type, it reuses
+// package A's existing wrapper instead of creating a duplicate rugo_ext_ wrapper.
+var globalTypeWrappers = map[string]string{}
+
 // stdlibPackages lists Go stdlib packages available for import.
 // These are lazily introspected and registered on first access.
 var stdlibPackages = []string{
@@ -254,6 +260,19 @@ func ensureStdlib() {
 // Register adds a Go package to the bridge registry.
 func Register(pkg *Package) {
 	registry[pkg.Path] = pkg
+}
+
+// RegisterTypeWrapper records that a fully-qualified Go type (e.g., "github.com/mappu/miqt/qt6.QWidget")
+// has been wrapped as the given wrapper type name. Used for cross-package wrapper reuse.
+func RegisterTypeWrapper(goTypePath, wrapperType string) {
+	globalTypeWrappers[goTypePath] = wrapperType
+}
+
+// LookupTypeWrapper checks if a fully-qualified Go type already has a wrapper registered
+// from another package. Returns the wrapper type name and true if found.
+func LookupTypeWrapper(goTypePath string) (string, bool) {
+	wt, ok := globalTypeWrappers[goTypePath]
+	return wt, ok
 }
 
 // IsPackage returns true if the package is whitelisted for Go bridge.
