@@ -160,7 +160,13 @@ func FormatBridgePackage(pkg *gobridge.Package) string {
 			sb.WriteString(fmt.Sprintf("struct %s { ", si.GoName))
 			var fields []string
 			for _, f := range si.Fields {
-				fields = append(fields, fmt.Sprintf("%s: %s", f.RugoName, gobridge.GoTypeName(f.Type)))
+				fieldType := gobridge.GoTypeName(f.Type)
+				if f.WrapSliceType != "" {
+					fieldType = "[]" + structNameFromWrapper(f.WrapSliceType)
+				} else if f.WrapType != "" {
+					fieldType = structNameFromWrapper(f.WrapType)
+				}
+				fields = append(fields, fmt.Sprintf("%s: %s", f.RugoName, fieldType))
 			}
 			sb.WriteString(strings.Join(fields, ", "))
 			sb.WriteString(" }\n")

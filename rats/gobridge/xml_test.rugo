@@ -61,7 +61,8 @@ rats "encoding/xml unknown function still reports clean compile error"
 end
 
 rats "rugo doc lists go-gpx.read"
-  result = test.run("rugo doc github.com/twpayne/go-gpx@v1.5.0")
+  root = test.run("git rev-parse --show-toplevel")["output"]
+  result = test.run("NO_COLOR=1 #{root}/bin/rugo doc github.com/twpayne/go-gpx@v1.5.0")
   if result["status"] != 0
     test.skip("go-gpx doc unavailable in this environment")
   end

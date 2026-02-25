@@ -189,6 +189,17 @@ func GenerateStructWrapper(ns, pkgAlias string, si GoStructInfo) RuntimeHelper {
 			} else {
 				sb.WriteString(fmt.Sprintf("\t\treturn interface{}(&%s{v: w.v.%s}), true\n", f.WrapType, f.GoName))
 			}
+		} else if f.WrapSliceType != "" {
+			sb.WriteString(fmt.Sprintf("\t\t_items := make([]interface{}, len(w.v.%s))\n", f.GoName))
+			sb.WriteString(fmt.Sprintf("\t\tfor _i := range w.v.%s {\n", f.GoName))
+			if f.WrapSliceElemValue {
+				sb.WriteString(fmt.Sprintf("\t\t\t_items[_i] = interface{}(&%s{v: &w.v.%s[_i]})\n", f.WrapSliceType, f.GoName))
+			} else {
+				sb.WriteString(fmt.Sprintf("\t\t\tif w.v.%s[_i] == nil { _items[_i] = nil; continue }\n", f.GoName))
+				sb.WriteString(fmt.Sprintf("\t\t\t_items[_i] = interface{}(&%s{v: w.v.%s[_i]})\n", f.WrapSliceType, f.GoName))
+			}
+			sb.WriteString("\t\t}\n")
+			sb.WriteString("\t\treturn _items, true\n")
 		} else {
 			sb.WriteString(fmt.Sprintf("\t\treturn %s, true\n", TypeWrapReturn("w.v."+f.GoName, f.Type)))
 		}
@@ -203,8 +214,8 @@ func GenerateStructWrapper(ns, pkgAlias string, si GoStructInfo) RuntimeHelper {
 	sb.WriteString(fmt.Sprintf("func (w *%s) DotSet(field string, val interface{}) bool {\n", wrapType))
 	sb.WriteString("\tswitch field {\n")
 	for _, f := range si.Fields {
-		if f.WrapType != "" {
-			continue // embedded struct fields are read-only
+		if f.WrapType != "" || f.WrapSliceType != "" {
+			continue // opaque and struct-slice fields are read-only
 		}
 		conv := TypeConvToGo("val", f.Type)
 		if f.TypeCast != "" {

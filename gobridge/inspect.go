@@ -748,6 +748,7 @@ func InspectCompiledPackage(pkgPath string) (*Package, error) {
 			if !ok {
 				continue
 			}
+			si.Fields = discoverStructFields(named, structWrappers, cr.KnownStructs)
 			si.Methods = discoverMethods(named, structWrappers, cr.KnownStructs)
 			collectMethodCastImports(named, si.Methods, pkgPath, extraImports)
 			embedded := discoverEmbeddedFields(named, structWrappers, cr.KnownStructs)
@@ -821,6 +822,56 @@ func classifyStructFields(goName string, st *types.Struct) *GoStructInfo {
 	}
 }
 
+// discoverStructFields classifies exported, non-embedded struct fields.
+// Supports primitives, direct struct handles (*T/T), and slices of struct
+// handles ([]*T/[]T).
+func discoverStructFields(named *types.Named, structWrappers map[string]string, knownStructs map[string]bool) []GoStructFieldInfo {
+	st, ok := named.Underlying().(*types.Struct)
+	if !ok {
+		return nil
+	}
+	var fields []GoStructFieldInfo
+	for i := 0; i < st.NumFields(); i++ {
+		f := st.Field(i)
+		if !f.Exported() || f.Embedded() {
+			continue
+		}
+		field := GoStructFieldInfo{
+			GoName:   f.Name(),
+			RugoName: ToSnakeCase(f.Name()),
+		}
+
+		if structName := extractStructName(f.Type(), knownStructs); structName != "" {
+			if wrapType, ok := structWrappers[structName]; ok {
+				_, isPtr := types.Unalias(f.Type()).(*types.Pointer)
+				field.WrapType = wrapType
+				field.WrapValue = !isPtr
+				fields = append(fields, field)
+				continue
+			}
+		}
+
+		if structName, elemIsPtr := extractStructSliceName(f.Type(), knownStructs); structName != "" {
+			if wrapType, ok := structWrappers[structName]; ok {
+				field.Type = GoAny
+				field.WrapSliceType = wrapType
+				field.WrapSliceElemValue = !elemIsPtr
+				fields = append(fields, field)
+				continue
+			}
+		}
+
+		gt, tier, _ := ClassifyGoType(f.Type(), true)
+		if tier == TierBlocked || tier == TierFunc {
+			continue
+		}
+		field.Type = gt
+		field.TypeCast = namedTypeCast(f.Type())
+		fields = append(fields, field)
+	}
+	return fields
+}
+
 // FinalizeStructs enriches an InspectedPackage with struct constructors and
 // reclassifies skipped functions that use known struct types as params/returns.
 // It also discovers external named types from dependencies and generates
@@ -863,6 +914,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 			if !ok {
 				continue
 			}
+			si.Fields = discoverStructFields(named, structWrappers, result.KnownStructs)
 			si.Methods = discoverMethods(named, structWrappers, result.KnownStructs)
 			collectMethodCastImports(named, si.Methods, pkg.Path, extraImports)
 			// Discover embedded pointer-to-struct fields for upcast support.
@@ -975,15 +1027,10 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 		if !ok {
 			continue
 		}
-		var plainFields []GoStructFieldInfo
-		for _, f := range si.Fields {
-			if f.WrapType == "" {
-				plainFields = append(plainFields, f)
-			}
-		}
+		si.Fields = discoverStructFields(named, structWrappers, result.KnownStructs)
 		si.Methods = discoverMethods(named, structWrappers, result.KnownStructs)
 		collectMethodCastImports(named, si.Methods, pkg.Path, extraImports)
-		si.Fields = append(plainFields, discoverEmbeddedFields(named, structWrappers, result.KnownStructs)...)
+		si.Fields = append(si.Fields, discoverEmbeddedFields(named, structWrappers, result.KnownStructs)...)
 	}
 	// Attach refreshed struct helpers to constructors now that final methods are known.
 	for _, si := range pkg.Structs {
@@ -1238,6 +1285,20 @@ func extractStructName(t types.Type, knownStructs map[string]bool) string {
 		}
 	}
 	return ""
+}
+
+func extractStructSliceName(t types.Type, knownStructs map[string]bool) (string, bool) {
+	s, ok := types.Unalias(t).Underlying().(*types.Slice)
+	if !ok {
+		return "", false
+	}
+	elem := s.Elem()
+	_, elemIsPtr := types.Unalias(elem).(*types.Pointer)
+	structName := extractStructName(elem, knownStructs)
+	if structName == "" {
+		return "", false
+	}
+	return structName, elemIsPtr
 }
 
 // needsWrapper checks if a GoFuncSig references a given wrapper type.

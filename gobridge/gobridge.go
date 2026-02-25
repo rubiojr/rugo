@@ -103,12 +103,14 @@ type GoStructInfo struct {
 
 // GoStructFieldInfo describes a single exported field of a Go struct.
 type GoStructFieldInfo struct {
-	GoName    string // PascalCase field name (e.g., "Name")
-	RugoName  string // snake_case field name (e.g., "name")
-	Type      GoType // field type for conversion
-	TypeCast  string // optional explicit cast for DotSet (e.g., "uint16", "os.FileMode")
-	WrapType  string // if set, field is an opaque struct handle — wrap with this type
-	WrapValue bool   // when WrapType is set, true means source field is a value (wrap as &field)
+	GoName             string // PascalCase field name (e.g., "Name")
+	RugoName           string // snake_case field name (e.g., "name")
+	Type               GoType // field type for conversion
+	TypeCast           string // optional explicit cast for DotSet (e.g., "uint16", "os.FileMode")
+	WrapType           string // if set, field is an opaque struct handle — wrap with this type
+	WrapValue          bool   // when WrapType is set, true means source field is a value (wrap as &field)
+	WrapSliceType      string // if set, field is []Struct/[]*Struct and elements are wrapped with this type
+	WrapSliceElemValue bool   // when WrapSliceType is set, true means slice elements are values (wrap as &elem)
 }
 
 // GoStructMethodInfo describes a bridgeable method on a Go struct.

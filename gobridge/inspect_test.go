@@ -240,6 +240,36 @@ func TestInspectSourcePackage_VariadicReadOptionSupport(t *testing.T) {
 	assert.Equal(t, "assert:interface{Read([]byte) (int, error)}", readSig.TypeCasts[0])
 	require.Contains(t, readSig.TypeCasts, 1)
 	assert.Equal(t, "varread.ReadOption", readSig.TypeCasts[1])
+
+	var gpxInfo *GoStructInfo
+	for i := range result.Package.Structs {
+		if result.Package.Structs[i].GoName == "GPX" {
+			gpxInfo = &result.Package.Structs[i]
+			break
+		}
+	}
+	require.NotNil(t, gpxInfo, "GPX struct should be discovered")
+
+	fields := map[string]GoStructFieldInfo{}
+	for _, f := range gpxInfo.Fields {
+		fields[f.RugoName] = f
+	}
+
+	require.Contains(t, fields, "metadata")
+	assert.Equal(t, "rugo_struct_varread_MetadataType", fields["metadata"].WrapType)
+	assert.False(t, fields["metadata"].WrapValue)
+
+	require.Contains(t, fields, "wpt")
+	assert.Equal(t, "rugo_struct_varread_WptType", fields["wpt"].WrapSliceType)
+	assert.False(t, fields["wpt"].WrapSliceElemValue)
+
+	require.Contains(t, fields, "rte")
+	assert.Equal(t, "rugo_struct_varread_RteType", fields["rte"].WrapSliceType)
+	assert.False(t, fields["rte"].WrapSliceElemValue)
+
+	require.Contains(t, fields, "trk")
+	assert.Equal(t, "rugo_struct_varread_TrkType", fields["trk"].WrapSliceType)
+	assert.False(t, fields["trk"].WrapSliceElemValue)
 }
 
 func TestExtractStructName_PrefersQualifiedExternalKey(t *testing.T) {

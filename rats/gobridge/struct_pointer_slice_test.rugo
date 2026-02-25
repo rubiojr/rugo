@@ -1,0 +1,83 @@
+# RATS: Go bridge struct fields with pointer and pointer-slice types
+use "test"
+
+rats "require Go module exposes pointer and pointer-slice struct fields"
+  tmpdir = test.tmpdir()
+  root = test.run("git rev-parse --show-toplevel")["output"]
+  copy_result = test.run("cp -r #{root}/gobridge/testdata/fixture_variadic_read #{tmpdir}/varread")
+  test.assert_eq(copy_result["status"], 0)
+
+  script = <<~SCRIPT
+    require "varread"
+    import "strings"
+
+    g = varread.read(strings.new_reader("<gpx/>"))
+    puts(g.version)
+    puts(g.metadata.name)
+    puts(len(g.wpt))
+    puts(g.wpt[0].name)
+    puts(len(g.rte))
+    puts(len(g.trk))
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("#{root}/bin/rugo run #{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "1.1")
+  test.assert_eq(lines[1], "meta")
+  test.assert_eq(lines[2], "1")
+  test.assert_eq(lines[3], "wpt1")
+  test.assert_eq(lines[4], "1")
+  test.assert_eq(lines[5], "1")
+end
+
+rats "pointer-slice fields are read-only and error cleanly on assignment"
+  tmpdir = test.tmpdir()
+  root = test.run("git rev-parse --show-toplevel")["output"]
+  copy_result = test.run("cp -r #{root}/gobridge/testdata/fixture_variadic_read #{tmpdir}/varread")
+  test.assert_eq(copy_result["status"], 0)
+
+  script = <<~SCRIPT
+    require "varread"
+    import "strings"
+    g = varread.read(strings.new_reader("<gpx/>"))
+    g.wpt = []
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("#{root}/bin/rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "wpt")
+end
+
+rats "variadic ReadOption type mismatch reports interface conversion"
+  tmpdir = test.tmpdir()
+  root = test.run("git rev-parse --show-toplevel")["output"]
+  copy_result = test.run("cp -r #{root}/gobridge/testdata/fixture_variadic_read #{tmpdir}/varread")
+  test.assert_eq(copy_result["status"], 0)
+
+  script = <<~SCRIPT
+    require "varread"
+    import "strings"
+    varread.read(strings.new_reader("<gpx/>"), 123)
+  SCRIPT
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = test.run("#{root}/bin/rugo run #{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "need type assertion")
+  test.assert_contains(result["output"], "ReadOption")
+end
+
+rats "rugo doc shows pointer and pointer-slice struct fields"
+  tmpdir = test.tmpdir()
+  root = test.run("git rev-parse --show-toplevel")["output"]
+  copy_result = test.run("cp -r #{root}/gobridge/testdata/fixture_variadic_read #{tmpdir}/varread")
+  test.assert_eq(copy_result["status"], 0)
+
+  result = test.run("NO_COLOR=1 #{root}/bin/rugo doc #{tmpdir}/varread")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "metadata: MetadataType")
+  test.assert_contains(result["output"], "wpt: []WptType")
+  test.assert_contains(result["output"], "rte: []RteType")
+  test.assert_contains(result["output"], "trk: []TrkType")
+  test.assert_contains(result["output"], "read(any, any...)")
+end
