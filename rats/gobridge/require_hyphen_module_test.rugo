@@ -1,0 +1,46 @@
+use "test"
+
+rats "require local go module with hyphen path builds successfully"
+  dir = test.tmpdir()
+  root = test.run("git rev-parse --show-toplevel")["output"]
+
+  go_mod = <<~MOD
+    module example.com/go-hmod
+
+    go 1.22
+  MOD
+
+  go_src = <<~GO
+    package hmod
+
+    type Node struct {
+      Next  *Node
+      Items []*Node
+    }
+
+    func NewNode() *Node { return &Node{} }
+  GO
+
+  test.write_file("#{dir}/go.mod", go_mod)
+  test.write_file("#{dir}/hmod.go", go_src)
+
+  script = "#{dir}/main.rugo"
+  source = "require \"" + dir + "\" as hmod\n" +
+    "puts(\"ok\")\n"
+  test.write_file(script, source)
+
+  emit = test.run("NO_COLOR=1 #{root}/bin/rugo emit #{script}")
+  if emit["status"] != 0
+    test.fail(emit["output"])
+  end
+  test.assert_contains(emit["output"], "example.com/go-hmod")
+
+  build = test.run("#{root}/bin/rugo build #{script} -o #{dir}/app")
+  if build["status"] != 0
+    test.fail(build["output"])
+  end
+
+  run = test.run("#{dir}/app")
+  test.assert_eq(run["status"], 0)
+  test.assert_contains(run["output"], "ok")
+end

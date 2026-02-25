@@ -1612,7 +1612,7 @@ func collectExternalFromSig(sig *types.Signature, modulePath string, knownStruct
 
 // collectExternalFromType checks if a type is a pointer (or value) of a named
 // type from an external package and adds it to the externals map.
-func collectExternalFromType(t types.Type, modulePath string, _ map[string]bool, externals map[string]ExternalTypeInfo) {
+func collectExternalFromType(t types.Type, modulePath string, knownStructs map[string]bool, externals map[string]ExternalTypeInfo) {
 	var named *types.Named
 
 	if ptr, ok := t.(*types.Pointer); ok {
@@ -1630,6 +1630,13 @@ func collectExternalFromType(t types.Type, modulePath string, _ map[string]bool,
 	}
 
 	typeName := named.Obj().Name()
+
+	// If this type is already known as an in-package struct, don't treat it as
+	// an external dependency type. This is critical when typePkg paths are short
+	// package names (e.g. "gpx") while modulePath is full (e.g. ".../go-gpx").
+	if knownStructs[ExternalTypeKey(pkg.Path(), typeName)] || knownStructs[ExternalTypeKey(pkg.Name(), typeName)] {
+		return
+	}
 
 	// Skip types from the module itself — those are handled as in-package structs.
 	// Check both the full module path and the short package name (the type checker

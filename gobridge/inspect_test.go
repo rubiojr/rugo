@@ -272,6 +272,30 @@ func TestInspectSourcePackage_VariadicReadOptionSupport(t *testing.T) {
 	assert.False(t, fields["trk"].WrapSliceElemValue)
 }
 
+func TestFinalizeStructs_ModulePathPkgNameMismatch_DoesNotImportSelfByPkgName(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "go.mod"), []byte(`module example.com/go-hmod
+
+go 1.22
+`), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "hmod.go"), []byte(`package hmod
+
+type Node struct {
+	Next  *Node
+	Items []*Node
+}
+
+func NewNode() *Node { return &Node{} }
+`), 0o644))
+
+	result, err := InspectSourcePackage(dir)
+	require.NoError(t, err)
+	FinalizeStructs(result, "hmod", "hmod")
+
+	require.Contains(t, result.Package.Funcs, "new_node")
+	assert.NotContains(t, result.Package.ExtraImports, "hmod")
+}
+
 func TestExtractStructName_PrefersQualifiedExternalKey(t *testing.T) {
 	pkg := types.NewPackage("example.com/gdk", "gdk")
 	snapshot := types.NewNamed(types.NewTypeName(0, pkg, "Snapshot", nil), types.NewStruct(nil, nil), nil)
