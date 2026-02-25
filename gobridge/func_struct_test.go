@@ -204,6 +204,20 @@ func TestClassifyFuncType_FuncPointerParam(t *testing.T) {
 	assert.True(t, ft.FuncParamPointer[0], "func pointer param should be marked")
 }
 
+func TestClassifyFuncType_BasicNarrowIntCasts(t *testing.T) {
+	params := types.NewTuple(
+		types.NewVar(0, nil, "a", types.Typ[types.Int16]),
+		types.NewVar(0, nil, "b", types.Typ[types.Uint16]),
+	)
+	sig := types.NewSignatureType(nil, nil, nil, params, nil, false)
+
+	ft := ClassifyFuncType(sig, nil, nil)
+	require.NotNil(t, ft)
+	require.NotNil(t, ft.TypeCasts)
+	assert.Equal(t, "int16", ft.TypeCasts[0])
+	assert.Equal(t, "uint16", ft.TypeCasts[1])
+}
+
 // --- FuncAdapterConv tests ---
 
 func TestFuncAdapterConv_PrimitiveOnly(t *testing.T) {

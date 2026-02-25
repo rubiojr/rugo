@@ -1,6 +1,8 @@
 package gobridge
 
 import (
+	"errors"
+	"go/token"
 	"go/types"
 	"os"
 	"path/filepath"
@@ -347,4 +349,57 @@ func (p *Paintable) Snapshot(s *ext.Snapshot, w, h float64) {}
 	require.NotEmpty(t, helperCode, "paintable constructor must include refreshed wrapper helper")
 	assert.Contains(t, helperCode, "rugo_upcast_rugo_ext_local_ext_Snapshot(args[0]).v")
 	assert.NotContains(t, helperCode, "rugo_upcast_rugo_struct_local_Snapshot(args[0]).v")
+}
+
+func TestNewExportPathResolver_CachesSuccess(t *testing.T) {
+	orig := goListExportJSON
+	t.Cleanup(func() { goListExportJSON = orig })
+
+	calls := 0
+	goListExportJSON = func(_, path string) ([]byte, error) {
+		calls++
+		return []byte(`{"Export":"/tmp/` + path + `.a"}`), nil
+	}
+
+	resolve := newExportPathResolver("/tmp")
+	got1, err := resolve("example.com/mod")
+	require.NoError(t, err)
+	got2, err := resolve("example.com/mod")
+	require.NoError(t, err)
+	assert.Equal(t, got1, got2)
+	assert.Equal(t, 1, calls, "resolver should cache successful lookups")
+}
+
+func TestNewExportPathResolver_CachesFailures(t *testing.T) {
+	orig := goListExportJSON
+	t.Cleanup(func() { goListExportJSON = orig })
+
+	calls := 0
+	goListExportJSON = func(_, _ string) ([]byte, error) {
+		calls++
+		return nil, errors.New("boom")
+	}
+
+	resolve := newExportPathResolver("/tmp")
+	_, err := resolve("example.com/mod")
+	require.Error(t, err)
+	_, err = resolve("example.com/mod")
+	require.Error(t, err)
+	assert.Equal(t, 1, calls, "resolver should cache failed lookups too")
+}
+
+func TestModuleAwareImporter_FallsBackWhenGoListFails(t *testing.T) {
+	root := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/fallback\n\ngo 1.22\n"), 0o644))
+
+	orig := goListExportJSON
+	t.Cleanup(func() { goListExportJSON = orig })
+	goListExportJSON = func(_, _ string) ([]byte, error) {
+		return nil, errors.New("go list timeout")
+	}
+
+	imp := moduleAwareImporter(token.NewFileSet(), root)
+	pkg, err := imp.Import("fmt")
+	require.NoError(t, err)
+	assert.Equal(t, "fmt", pkg.Name())
 }

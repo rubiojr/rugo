@@ -1,0 +1,56 @@
+use "test"
+
+rats "go bridge casts narrow integer params for required Go modules"
+  dir = test.tmpdir()
+  go_mod = <<~MOD
+    module example.com/narrow
+
+    go 1.22
+  MOD
+  go_src = <<~GO
+    package narrow
+
+    func AddI16(a int16, b int16) int16 { return a + b }
+    func KeepU16(v uint16) uint16 { return v }
+  GO
+  test.write_file("#{dir}/go.mod", go_mod)
+  test.write_file("#{dir}/narrow.go", go_src)
+
+  script = "#{dir}/main.rugo"
+  source = "require \"" + dir + "\" as narrow\n" +
+    "puts(narrow.add_i16(7, 5))\n" +
+    "puts(narrow.keep_u16(65535))\n"
+  test.write_file(script, source)
+
+  result = test.run("rugo run #{script}")
+  if result["status"] != 0
+    test.fail(result["output"])
+  end
+  test.assert_contains(result["output"], "12")
+  test.assert_contains(result["output"], "65535")
+end
+
+rats "go bridge still errors on wrong arg count with narrow integer funcs"
+  dir = test.tmpdir()
+  go_mod = <<~MOD
+    module example.com/narrow
+
+    go 1.22
+  MOD
+  go_src = <<~GO
+    package narrow
+
+    func AddI16(a int16, b int16) int16 { return a + b }
+  GO
+  test.write_file("#{dir}/go.mod", go_mod)
+  test.write_file("#{dir}/narrow.go", go_src)
+
+  script = "#{dir}/bad_call.rugo"
+  source = "require \"" + dir + "\" as narrow\n" +
+    "narrow.add_i16(7)\n"
+  test.write_file(script, source)
+
+  result = test.run("rugo run #{script}")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "takes 2 arguments")
+end

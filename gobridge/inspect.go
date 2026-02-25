@@ -1,6 +1,7 @@
 package gobridge
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"go/ast"
@@ -14,6 +15,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
+	"time"
 )
 
 // InspectedPackage holds the results of introspecting a Go source package.
@@ -191,6 +194,60 @@ func ReadGoModulePath(path string) (string, error) {
 // `go list -export -json`, which is module-aware and handles dependencies
 // in the Go module cache. Falls back to importer.Default() for stdlib.
 // dir is the directory of the Go module being inspected (used as cwd for go list).
+var goListExportJSON = func(goModDir, path string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "go", "list", "-export", "-json", path)
+	cmd.Dir = goModDir
+	out, err := cmd.Output()
+	if ctx.Err() == context.DeadlineExceeded {
+		return nil, fmt.Errorf("go list -export timed out for %s", path)
+	}
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func newExportPathResolver(goModDir string) func(path string) (string, error) {
+	cache := map[string]string{}
+	var cacheMu sync.Mutex
+
+	return func(path string) (string, error) {
+		cacheMu.Lock()
+		exportPath, ok := cache[path]
+		cacheMu.Unlock()
+		if ok {
+			if exportPath == "" {
+				return "", fmt.Errorf("no export data for %s", path)
+			}
+			return exportPath, nil
+		}
+
+		out, err := goListExportJSON(goModDir, path)
+		if err != nil {
+			cacheMu.Lock()
+			cache[path] = ""
+			cacheMu.Unlock()
+			return "", err
+		}
+
+		var info struct{ Export string }
+		if err := json.Unmarshal(out, &info); err != nil || info.Export == "" {
+			cacheMu.Lock()
+			cache[path] = ""
+			cacheMu.Unlock()
+			return "", fmt.Errorf("no export data for %s", path)
+		}
+
+		cacheMu.Lock()
+		cache[path] = info.Export
+		cacheMu.Unlock()
+		return info.Export, nil
+	}
+}
+
 func moduleAwareImporter(fset *token.FileSet, dir string) types.Importer {
 	// Check if `go list` works in this directory (has go.mod with dependencies).
 	// If not, fall back to the default importer (works for stdlib-only packages).
@@ -199,39 +256,21 @@ func moduleAwareImporter(fset *token.FileSet, dir string) types.Importer {
 		return importer.Default()
 	}
 
-	return importerFunc(func(path string) (*types.Package, error) {
-		// Try module-aware import via `go list -export`.
-		cmd := exec.Command("go", "list", "-export", "-json", path)
-		cmd.Dir = goModDir
-		out, err := cmd.Output()
+	defaultImp := importer.Default()
+	resolveExport := newExportPathResolver(goModDir)
+	gcImp := importer.ForCompiler(fset, "gc", func(p string) (io.ReadCloser, error) {
+		exportPath, err := resolveExport(p)
 		if err != nil {
+			return nil, fmt.Errorf("go list %s: %w", p, err)
+		}
+		return os.Open(exportPath)
+	})
+
+	return importerFunc(func(path string) (*types.Package, error) {
+		if _, err := resolveExport(path); err != nil {
 			// Fall back to default importer for stdlib packages.
-			return importer.Default().Import(path)
+			return defaultImp.Import(path)
 		}
-
-		var info struct{ Export string }
-		if err := json.Unmarshal(out, &info); err != nil || info.Export == "" {
-			return importer.Default().Import(path)
-		}
-
-		// Use ForCompiler with a lookup that reads the export file.
-		gcImp := importer.ForCompiler(fset, "gc", func(p string) (io.ReadCloser, error) {
-			if p == path {
-				return os.Open(info.Export)
-			}
-			// For transitive imports, delegate to go list as well.
-			cmd := exec.Command("go", "list", "-export", "-json", p)
-			cmd.Dir = goModDir
-			out, err := cmd.Output()
-			if err != nil {
-				return nil, fmt.Errorf("go list %s: %w", p, err)
-			}
-			var info2 struct{ Export string }
-			if err := json.Unmarshal(out, &info2); err != nil || info2.Export == "" {
-				return nil, fmt.Errorf("no export data for %s", p)
-			}
-			return os.Open(info2.Export)
-		})
 		return gcImp.Import(path)
 	})
 }
@@ -1568,40 +1607,7 @@ func containsString(ss []string, s string) bool {
 // that needs an explicit cast (e.g., "qt6.GestureType"). Returns empty
 // string if the type is a basic type or doesn't need casting.
 func namedTypeCast(t types.Type) string {
-	if cast := interfaceAssertionCastFromRaw(t); cast != "" {
-		return cast
-	}
-
-	if alias, ok := t.(*types.Alias); ok {
-		obj := alias.Obj()
-		if obj.Pkg() == nil {
-			return ""
-		}
-		target := types.Unalias(t)
-		if named, ok := target.(*types.Named); ok {
-			if _, isBasic := named.Underlying().(*types.Basic); isBasic {
-				return obj.Pkg().Name() + "." + obj.Name()
-			}
-		}
-		if _, isBasic := target.(*types.Basic); isBasic {
-			return obj.Pkg().Name() + "." + obj.Name()
-		}
-		return ""
-	}
-
-	named, ok := t.(*types.Named)
-	if !ok {
-		return basicTypeCast(t)
-	}
-	pkg := named.Obj().Pkg()
-	if pkg == nil {
-		return "" // built-in (error, etc.)
-	}
-	// Only emit cast for types with a different underlying basic type.
-	if _, isBasic := named.Underlying().(*types.Basic); !isBasic {
-		return ""
-	}
-	return rewriteStdlibAlias(pkg.Path(), pkg.Name(), named.Obj().Name())
+	return typeCastFromRaw(t)
 }
 
 // basicTypeCast returns a Go type cast for basic types that need narrowing

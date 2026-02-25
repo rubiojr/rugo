@@ -320,23 +320,11 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 			return nil
 		}
 		ft.Params = append(ft.Params, gt)
-		if cast := interfaceAssertionCastFromRaw(t); cast != "" {
+		if cast := namedTypeCastFromRaw(t); cast != "" {
 			if ft.TypeCasts == nil {
 				ft.TypeCasts = make(map[int]string)
 			}
 			ft.TypeCasts[i] = cast
-			continue
-		}
-		// Detect named types that need explicit casts in the adapter.
-		if named, ok := t.(*types.Named); ok {
-			if pkg := named.Obj().Pkg(); pkg != nil {
-				if _, isBasic := named.Underlying().(*types.Basic); isBasic {
-					if ft.TypeCasts == nil {
-						ft.TypeCasts = make(map[int]string)
-					}
-					ft.TypeCasts[i] = pkg.Name() + "." + named.Obj().Name()
-				}
-			}
 		}
 	}
 
@@ -465,16 +453,34 @@ func ClassifyGoType(t types.Type, isParam bool) (GoType, Tier, string) {
 
 // ToSnakeCase converts PascalCase to snake_case.
 // Handles consecutive uppercase (e.g., "IsNaN" → "is_nan", "FMA" → "fma").
+var snakeCaseAbbreviations = []struct {
+	abbr  string
+	lower string
+}{
+	{"HTTPS", "https"},
+	{"HTTP", "http"},
+	{"NaN", "nan"},
+	{"URL", "url"},
+	{"URI", "uri"},
+	{"JSON", "json"},
+	{"XML", "xml"},
+	{"ID", "id"},
+	{"UTF", "utf"},
+	{"TCP", "tcp"},
+	{"UDP", "udp"},
+	{"IP", "ip"},
+	{"TLS", "tls"},
+	{"SSL", "ssl"},
+	{"API", "api"},
+	{"SQL", "sql"},
+	{"DNS", "dns"},
+	{"EOF", "eof"},
+	{"FMA", "fma"},
+}
+
 func ToSnakeCase(s string) string {
-	abbreviations := map[string]string{
-		"NaN": "nan", "URL": "url", "URI": "uri", "HTTP": "http",
-		"HTTPS": "https", "JSON": "json", "XML": "xml", "ID": "id",
-		"UTF": "utf", "TCP": "tcp", "UDP": "udp", "IP": "ip",
-		"TLS": "tls", "SSL": "ssl", "API": "api", "SQL": "sql",
-		"DNS": "dns", "EOF": "eof", "FMA": "fma",
-	}
-	for abbr, lower := range abbreviations {
-		s = strings.ReplaceAll(s, abbr, "_"+lower+"_")
+	for _, abbr := range snakeCaseAbbreviations {
+		s = strings.ReplaceAll(s, abbr.abbr, "_"+abbr.lower+"_")
 	}
 	var result []rune
 	runes := []rune(s)
@@ -550,7 +556,16 @@ func GoTypeConst(t GoType) string {
 // which needs cast: os.FileMode(rugo_to_int(arg)).
 // Returns empty string if no cast is needed.
 func namedTypeCastFromRaw(t types.Type) string {
+	return typeCastFromRaw(t)
+}
+
+// typeCastFromRaw returns the explicit cast target for bridge params.
+// Handles interface assertions, narrow integer casts, and named/aliased basics.
+func typeCastFromRaw(t types.Type) string {
 	if cast := interfaceAssertionCastFromRaw(t); cast != "" {
+		return cast
+	}
+	if cast := basicTypeCast(t); cast != "" {
 		return cast
 	}
 
@@ -564,11 +579,11 @@ func namedTypeCastFromRaw(t types.Type) string {
 		target := types.Unalias(t)
 		if named, ok := target.(*types.Named); ok {
 			if _, isBasic := named.Underlying().(*types.Basic); isBasic {
-				return obj.Pkg().Name() + "." + obj.Name()
+				return rewriteStdlibAlias(obj.Pkg().Path(), obj.Pkg().Name(), obj.Name())
 			}
 		}
 		if _, isBasic := target.(*types.Basic); isBasic {
-			return obj.Pkg().Name() + "." + obj.Name()
+			return rewriteStdlibAlias(obj.Pkg().Path(), obj.Pkg().Name(), obj.Name())
 		}
 		return ""
 	}

@@ -10,6 +10,7 @@ import (
 	"go/types"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // GoType represents a Go type that can be bridged to/from Rugo's interface{} system.
@@ -222,6 +223,8 @@ var registry = map[string]*Package{}
 // package A's existing wrapper instead of creating a duplicate rugo_ext_ wrapper.
 var globalTypeWrappers = map[string]string{}
 
+var registryMu sync.RWMutex
+
 // stdlibPackages lists Go stdlib packages available for import.
 // These are lazily introspected and registered on first access.
 var stdlibPackages = []string{
@@ -248,57 +251,77 @@ var stdlibPackages = []string{
 // Safe to call multiple times — packages already in the registry are skipped.
 func ensureStdlib() {
 	for _, path := range stdlibPackages {
-		if _, ok := registry[path]; ok {
+		registryMu.RLock()
+		_, ok := registry[path]
+		registryMu.RUnlock()
+		if ok {
 			continue
 		}
 		if pkg, err := InspectCompiledPackage(path); err == nil {
-			registry[path] = pkg
+			registryMu.Lock()
+			if _, exists := registry[path]; !exists {
+				registry[path] = pkg
+			}
+			registryMu.Unlock()
 		}
 	}
 }
 
 // Register adds a Go package to the bridge registry.
 func Register(pkg *Package) {
+	registryMu.Lock()
 	registry[pkg.Path] = pkg
+	registryMu.Unlock()
 }
 
 // RegisterTypeWrapper records that a fully-qualified Go type (e.g., "github.com/mappu/miqt/qt6.QWidget")
 // has been wrapped as the given wrapper type name. Used for cross-package wrapper reuse.
 func RegisterTypeWrapper(goTypePath, wrapperType string) {
+	registryMu.Lock()
 	globalTypeWrappers[goTypePath] = wrapperType
+	registryMu.Unlock()
 }
 
 // LookupTypeWrapper checks if a fully-qualified Go type already has a wrapper registered
 // from another package. Returns the wrapper type name and true if found.
 func LookupTypeWrapper(goTypePath string) (string, bool) {
+	registryMu.RLock()
 	wt, ok := globalTypeWrappers[goTypePath]
+	registryMu.RUnlock()
 	return wt, ok
 }
 
 // IsPackage returns true if the package is whitelisted for Go bridge.
 func IsPackage(pkg string) bool {
+	registryMu.RLock()
 	_, ok := registry[pkg]
+	registryMu.RUnlock()
 	return ok
 }
 
 // PackageNames returns sorted names of all available Go bridge packages.
 func PackageNames() []string {
 	ensureStdlib()
+	registryMu.RLock()
 	names := make([]string, 0, len(registry))
 	for name := range registry {
 		names = append(names, name)
 	}
+	registryMu.RUnlock()
 	sort.Strings(names)
 	return names
 }
 
 // Lookup looks up a Go bridge function by package path and rugo name.
 func Lookup(pkg, rugoName string) (*GoFuncSig, bool) {
+	registryMu.RLock()
 	bp, ok := registry[pkg]
 	if !ok {
+		registryMu.RUnlock()
 		return nil, false
 	}
 	sig, ok := bp.Funcs[rugoName]
+	registryMu.RUnlock()
 	if !ok {
 		return nil, false
 	}
@@ -337,27 +360,46 @@ func DefaultNS(pkg string) string {
 // PackageFuncs returns the function registry for a package, or nil if not found.
 // Used by codegen to scan for needed runtime helpers.
 func PackageFuncs(pkg string) map[string]GoFuncSig {
+	registryMu.RLock()
 	bp, ok := registry[pkg]
 	if !ok {
+		registryMu.RUnlock()
 		return nil
 	}
-	return bp.Funcs
+	funcs := make(map[string]GoFuncSig, len(bp.Funcs))
+	for name, sig := range bp.Funcs {
+		funcs[name] = sig
+	}
+	registryMu.RUnlock()
+	return funcs
 }
 
 // GetPackage returns the full Package definition for a given path, or nil.
 // Lazily introspects stdlib packages if not yet registered, and falls back
 // to compile-time introspection for arbitrary Go packages.
 func GetPackage(pkg string) *Package {
+	registryMu.RLock()
 	if p, ok := registry[pkg]; ok {
+		registryMu.RUnlock()
 		return p
 	}
+	registryMu.RUnlock()
 	ensureStdlib()
+	registryMu.RLock()
 	if p, ok := registry[pkg]; ok {
+		registryMu.RUnlock()
 		return p
 	}
+	registryMu.RUnlock()
 	// Try on-demand introspection for any Go package (e.g., net/http).
 	if p, err := InspectCompiledPackage(pkg); err == nil {
+		registryMu.Lock()
+		if existing, ok := registry[pkg]; ok {
+			registryMu.Unlock()
+			return existing
+		}
 		registry[pkg] = p
+		registryMu.Unlock()
 		return p
 	}
 	return nil
@@ -367,18 +409,24 @@ func GetPackage(pkg string) *Package {
 // Ensures well-known stdlib packages are registered before searching.
 // Returns the package and true if found.
 func LookupByNS(ns string) (*Package, bool) {
+	registryMu.RLock()
 	for _, pkg := range registry {
 		if DefaultNS(pkg.Path) == ns {
+			registryMu.RUnlock()
 			return pkg, true
 		}
 	}
+	registryMu.RUnlock()
 	// Try lazy introspection of well-known stdlib packages.
 	ensureStdlib()
+	registryMu.RLock()
 	for _, pkg := range registry {
 		if DefaultNS(pkg.Path) == ns {
+			registryMu.RUnlock()
 			return pkg, true
 		}
 	}
+	registryMu.RUnlock()
 	return nil, false
 }
 

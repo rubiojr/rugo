@@ -174,6 +174,26 @@ func TestClassifyFunc_Blocked(t *testing.T) {
 	}
 }
 
+func TestClassifyFunc_BasicNarrowIntCasts(t *testing.T) {
+	params := types.NewTuple(
+		types.NewVar(0, nil, "a", types.Typ[types.Int8]),
+		types.NewVar(0, nil, "b", types.Typ[types.Int16]),
+		types.NewVar(0, nil, "c", types.Typ[types.Uint16]),
+	)
+	sig := types.NewSignatureType(nil, nil, nil, params, nil, false)
+
+	bf := ClassifyFunc("Narrow", "narrow", sig)
+	if bf.Tier == TierBlocked {
+		t.Fatalf("func(int8, int16, uint16) should be bridgeable: %s", bf.Reason)
+	}
+	if bf.TypeCasts == nil {
+		t.Fatalf("expected narrow integer casts, got nil")
+	}
+	if bf.TypeCasts[0] != "int8" || bf.TypeCasts[1] != "int16" || bf.TypeCasts[2] != "uint16" {
+		t.Fatalf("unexpected TypeCasts: %#v", bf.TypeCasts)
+	}
+}
+
 func TestClassifyFunc_FuncPointerParam(t *testing.T) {
 	// Build func(cb *func(int))
 	cbParams := types.NewTuple(types.NewVar(0, nil, "v", types.Typ[types.Int]))
@@ -314,6 +334,15 @@ func TestToSnakeCase(t *testing.T) {
 		got := ToSnakeCase(tt.input)
 		if got != tt.want {
 			t.Errorf("ToSnakeCase(%q) = %q, want %q", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestToSnakeCase_OverlappingAbbreviationsDeterministic(t *testing.T) {
+	for i := 0; i < 200; i++ {
+		got := ToSnakeCase("HTTPSProxy")
+		if got != "https_proxy" {
+			t.Fatalf("iteration %d: ToSnakeCase(HTTPSProxy) = %q, want %q", i, got, "https_proxy")
 		}
 	}
 }
