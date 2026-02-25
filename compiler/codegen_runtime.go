@@ -234,60 +234,72 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 			call, hashCode)
 	}
 
-	// Build converted args
-	// For variadic functions, the last entry in sig.Params is a slice type
-	// (e.g., GoStringSlice for ...string). We convert variadic args using the
-	// element type so Go's variadic calling convention works naturally.
+	// Build converted args.
+	// For variadic calls, map argument positions >= variadicIdx to the last param.
+	// If the variadic param is a slice-encoded type (e.g., []string), convert each
+	// arg using the element type. Otherwise convert each arg with the variadic param
+	// type/casts (e.g., variadic GoAny + named cast).
 	var variadicElemType gobridge.GoType
 	variadicIdx := -1
+	hasVariadicElem := false
 	if sig.Variadic && len(sig.Params) > 0 {
-		lastParam := sig.Params[len(sig.Params)-1]
-		if elem, ok := gobridge.SliceElemType(lastParam); ok {
+		variadicIdx = len(sig.Params) - 1
+		if elem, ok := gobridge.SliceElemType(sig.Params[variadicIdx]); ok {
 			variadicElemType = elem
-			variadicIdx = len(sig.Params) - 1
+			hasVariadicElem = true
 		}
 	}
 
 	var convertedArgs []string
 	for i, arg := range argExprs {
-		// Variadic args: convert using element type (e.g., GoString for ...string)
+		paramIdx := i
 		if variadicIdx >= 0 && i >= variadicIdx {
-			convertedArgs = append(convertedArgs, gobridge.TypeConvToGo(arg, variadicElemType))
+			paramIdx = variadicIdx
+		}
+		// Variadic args for slice-encoded params use element conversion.
+		if variadicIdx >= 0 && i >= variadicIdx && hasVariadicElem {
+			conv := gobridge.TypeConvToGo(arg, variadicElemType)
+			if sig.TypeCasts != nil {
+				if cast, ok := sig.TypeCasts[paramIdx]; ok {
+					conv = gobridge.ApplyTypeCast(conv, cast)
+				}
+			}
+			convertedArgs = append(convertedArgs, conv)
 			continue
 		}
-		if i < len(sig.Params) {
+		if paramIdx < len(sig.Params) {
 			// Struct handle unwrapping: extract the inner Go struct from the wrapper.
 			if sig.StructCasts != nil {
-				if wrapType, ok := sig.StructCasts[i]; ok {
+				if wrapType, ok := sig.StructCasts[paramIdx]; ok {
 					conv := fmt.Sprintf("rugo_upcast_%s(%s).v", wrapType, arg)
-					if sig.StructParamValue != nil && sig.StructParamValue[i] {
+					if sig.StructParamValue != nil && sig.StructParamValue[paramIdx] {
 						conv = "*" + conv
 					}
 					convertedArgs = append(convertedArgs, conv)
 					continue
 				}
 			}
-			if sig.Params[i] == gobridge.GoFunc && sig.FuncTypes != nil {
-				if ft, ok := sig.FuncTypes[i]; ok {
+			if sig.Params[paramIdx] == gobridge.GoFunc && sig.FuncTypes != nil {
+				if ft, ok := sig.FuncTypes[paramIdx]; ok {
 					conv := gobridge.FuncAdapterConv(arg, ft)
 					funcType := gobridge.FuncTypeName(ft)
 					if sig.TypeCasts != nil {
-						if cast, ok := sig.TypeCasts[i]; ok {
+						if cast, ok := sig.TypeCasts[paramIdx]; ok {
 							funcType = cast
 							conv = fmt.Sprintf("%s(%s)", cast, conv)
 						}
 					}
-					if sig.FuncParamPointer != nil && sig.FuncParamPointer[i] {
+					if sig.FuncParamPointer != nil && sig.FuncParamPointer[paramIdx] {
 						conv = fmt.Sprintf("func() *%s { _f := %s; return &_f }()", funcType, conv)
 					}
 					convertedArgs = append(convertedArgs, conv)
 					continue
 				}
 			}
-			conv := gobridge.TypeConvToGo(arg, sig.Params[i])
-			// Apply named type cast if specified
+			conv := gobridge.TypeConvToGo(arg, sig.Params[paramIdx])
+			// Apply named type cast if specified.
 			if sig.TypeCasts != nil {
-				if cast, ok := sig.TypeCasts[i]; ok {
+				if cast, ok := sig.TypeCasts[paramIdx]; ok {
 					conv = gobridge.ApplyTypeCast(conv, cast)
 				}
 			}

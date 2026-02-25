@@ -84,6 +84,10 @@ func GenerateExternalOpaqueWrapper(ns string, ext ExternalTypeInfo) RuntimeHelpe
 	sb.WriteString("\t\tsp.SetGoPointer(ptr)\n")
 	sb.WriteString("\t}\n")
 	sb.WriteString("}\n\n")
+	sb.WriteString(fmt.Sprintf("func (w *%s) GoValue() interface{} {\n", wrapType))
+	sb.WriteString("\tif w == nil { return nil }\n")
+	sb.WriteString("\treturn w.v\n")
+	sb.WriteString("}\n\n")
 
 	// DotGet — __type__ + embedded struct fields
 	sb.WriteString(fmt.Sprintf("func (w *%s) DotGet(field string) (interface{}, bool) {\n", wrapType))
@@ -167,6 +171,10 @@ func GenerateStructWrapper(ns, pkgAlias string, si GoStructInfo) RuntimeHelper {
 	sb.WriteString("\tif sp, ok := interface{}(w.v).(interface{ SetGoPointer(uintptr) }); ok {\n")
 	sb.WriteString("\t\tsp.SetGoPointer(ptr)\n")
 	sb.WriteString("\t}\n")
+	sb.WriteString("}\n\n")
+	sb.WriteString(fmt.Sprintf("func (w *%s) GoValue() interface{} {\n", wrapType))
+	sb.WriteString("\tif w == nil { return nil }\n")
+	sb.WriteString("\treturn w.v\n")
 	sb.WriteString("}\n\n")
 
 	// DotGet method

@@ -211,6 +211,35 @@ func TestInspectCompiledPackage_TimeStructSupport(t *testing.T) {
 	assert.True(t, since.StructParamValue[0], "time.since takes value type time.Time")
 }
 
+func TestInspectCompiledPackage_EncodingXMLNewDecoder(t *testing.T) {
+	pkg, err := InspectCompiledPackage("encoding/xml")
+	require.NoError(t, err)
+	require.NotNil(t, pkg)
+
+	sig, ok := pkg.Funcs["new_decoder"]
+	require.True(t, ok, "xml.new_decoder should be bridged")
+	require.Len(t, sig.Params, 1)
+	assert.Equal(t, GoAny, sig.Params[0])
+	require.Contains(t, sig.TypeCasts, 0)
+	assert.Equal(t, "assert:interface{Read([]byte) (int, error)}", sig.TypeCasts[0])
+}
+
+func TestInspectSourcePackage_VariadicReadOptionSupport(t *testing.T) {
+	result, err := InspectSourcePackage(fixtureDir("fixture_variadic_read"))
+	require.NoError(t, err)
+
+	FinalizeStructs(result, "varread", "varread")
+
+	readSig, ok := result.Package.Funcs["read"]
+	require.True(t, ok, "read should be bridged")
+	require.True(t, readSig.Variadic, "read should stay variadic")
+	require.Equal(t, []GoType{GoAny, GoAny}, readSig.Params)
+	require.Contains(t, readSig.TypeCasts, 0)
+	assert.Equal(t, "assert:interface{Read([]byte) (int, error)}", readSig.TypeCasts[0])
+	require.Contains(t, readSig.TypeCasts, 1)
+	assert.Equal(t, "varread.ReadOption", readSig.TypeCasts[1])
+}
+
 func TestExtractStructName_PrefersQualifiedExternalKey(t *testing.T) {
 	pkg := types.NewPackage("example.com/gdk", "gdk")
 	snapshot := types.NewNamed(types.NewTypeName(0, pkg, "Snapshot", nil), types.NewStruct(nil, nil), nil)

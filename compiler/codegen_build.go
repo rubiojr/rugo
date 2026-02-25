@@ -802,11 +802,10 @@ func (g *codeGen) buildImports(needsSync, needsTime bool) []GoImport {
 			emitted[pkg] = true
 		}
 		if alias == "" {
-			if unaliased[pkg] {
-				continue
+			if !unaliased[pkg] {
+				imports = append(imports, GoImport{Path: pkg})
+				unaliased[pkg] = true
 			}
-			imports = append(imports, GoImport{Path: pkg})
-			unaliased[pkg] = true
 		} else {
 			imports = append(imports, GoImport{Path: pkg, Alias: alias})
 			// Keep the default package name available for generated struct wrappers.

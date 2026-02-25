@@ -144,6 +144,9 @@ func rugo_inspect_key(k interface{}) string {
 // recurses into []interface{} elements so Go stdlib functions like
 // json.Marshal can process Rugo hashes and arrays.
 func rugo_to_go(v interface{}) interface{} {
+	if gv, ok := v.(interface{ GoValue() interface{} }); ok {
+		return rugo_to_go(gv.GoValue())
+	}
 	switch val := v.(type) {
 	case map[interface{}]interface{}:
 		m := make(map[string]interface{}, len(val))
@@ -641,4 +644,3 @@ func rugo_bridge_err(rugoName string, err error) string {
 	}
 	return fmt.Sprintf("%s: %s", rugoName, msg)
 }
-

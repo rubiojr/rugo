@@ -1,0 +1,69 @@
+# RATS: Test Go bridge — encoding/xml interfaces
+use "test"
+use "eval"
+
+import "encoding/xml"
+import "strings"
+import "bytes"
+
+rats "encoding/xml.new_decoder accepts strings.Reader wrapper"
+  d = xml.new_decoder(strings.new_reader("<root/>"))
+  test.assert_true(d.strict)
+end
+
+rats "encoding/xml.escape_text accepts bytes.Buffer writer"
+  b = bytes.new_buffer("")
+  xml.escape_text(b, "<x>")
+  test.assert_eq(b.string(), "&lt;x&gt;")
+end
+
+rats "encoding/xml.new_decoder wrong arity reports compile error cleanly"
+  source = <<~RUGO
+    import "encoding/xml"
+    xml.new_decoder
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "xml.new_decoder() takes 1 argument")
+  test.assert_contains(result["output"], ".rugo:2")
+end
+
+rats "encoding/xml.new_decoder invalid reader type reports interface conversion"
+  source = <<~RUGO
+    import "encoding/xml"
+    xml.new_decoder(123)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "interface conversion")
+  test.assert_contains(result["output"], "Read(")
+end
+
+rats "encoding/xml.escape_text invalid writer type reports interface conversion"
+  source = <<~RUGO
+    import "encoding/xml"
+    xml.escape_text(123, "<x>")
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "interface conversion")
+  test.assert_contains(result["output"], "Write(")
+end
+
+rats "encoding/xml unknown function still reports clean compile error"
+  source = <<~RUGO
+    import "encoding/xml"
+    xml.new_decorder("x")
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unknown function xml.new_decorder")
+end
+
+rats "rugo doc lists go-gpx.read"
+  result = test.run("rugo doc github.com/twpayne/go-gpx@v1.5.0")
+  if result["status"] != 0
+    test.skip("go-gpx doc unavailable in this environment")
+  end
+  test.assert_contains(result["output"], "go-gpx.read")
+end

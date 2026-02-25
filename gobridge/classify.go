@@ -62,11 +62,27 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 	hasCast := false
 	for i := 0; i < params.Len(); i++ {
 		t := params.At(i).Type()
+		if cast, ok := variadicNamedFuncOptionCast(sig, i, t); ok {
+			bf.Params = append(bf.Params, GoAny)
+			if bf.TypeCasts == nil {
+				bf.TypeCasts = make(map[int]string)
+			}
+			bf.TypeCasts[i] = cast
+			hasCast = true
+			continue
+		}
 		funcSig, funcPtr := extractFuncParamSignature(t)
 		gt, tier, reason := ClassifyGoType(t, true)
 		if funcSig != nil {
 			gt = GoFunc
 			tier = TierFunc
+		}
+		if iface, ok := types.Unalias(t).Underlying().(*types.Interface); ok && iface.NumMethods() > 0 {
+			if interfaceAssertionCastFromRaw(t) == "" {
+				bf.Tier = TierBlocked
+				bf.Reason = fmt.Sprintf("param %d: interface type", i)
+				return bf
+			}
 		}
 		if tier == TierBlocked {
 			bf.Tier = TierBlocked
@@ -150,6 +166,25 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 		bf.Tier = TierAuto
 	}
 	return bf
+}
+
+func variadicNamedFuncOptionCast(sig *types.Signature, i int, t types.Type) (string, bool) {
+	if sig == nil || !sig.Variadic() || i != sig.Params().Len()-1 {
+		return "", false
+	}
+	slice, ok := types.Unalias(t).Underlying().(*types.Slice)
+	if !ok {
+		return "", false
+	}
+	elem := slice.Elem()
+	if signatureType(elem) == nil {
+		return "", false
+	}
+	cast := namedFuncTypeCast(elem)
+	if cast == "" {
+		return "", false
+	}
+	return cast, true
 }
 
 func signatureType(t types.Type) *types.Signature {
@@ -597,7 +632,49 @@ func isBridgeableInterface(iface *types.Interface) bool {
 			}
 		}
 	}
-	return hasGoPointer && hasSetGoPointer
+	if hasGoPointer && hasSetGoPointer {
+		return true
+	}
+	if iface.NumMethods() != 1 {
+		return false
+	}
+	m := iface.Method(0)
+	sig, ok := m.Type().(*types.Signature)
+	if !ok || sig.Params().Len() != 1 || sig.Results().Len() != 2 {
+		return false
+	}
+	if !isByteSliceType(sig.Params().At(0).Type()) {
+		return false
+	}
+	if !isIntType(sig.Results().At(0).Type()) {
+		return false
+	}
+	if !isErrorType(sig.Results().At(1).Type()) {
+		return false
+	}
+	return m.Name() == "Read" || m.Name() == "Write"
+}
+
+func isByteSliceType(t types.Type) bool {
+	s, ok := types.Unalias(t).(*types.Slice)
+	if !ok {
+		return false
+	}
+	b, ok := types.Unalias(s.Elem()).Underlying().(*types.Basic)
+	return ok && b.Kind() == types.Byte
+}
+
+func isIntType(t types.Type) bool {
+	b, ok := types.Unalias(t).Underlying().(*types.Basic)
+	return ok && b.Kind() == types.Int
+}
+
+func isErrorType(t types.Type) bool {
+	n, ok := types.Unalias(t).(*types.Named)
+	if !ok {
+		return false
+	}
+	return n.Obj() != nil && n.Obj().Pkg() == nil && n.Obj().Name() == "error"
 }
 
 func interfaceAssertionCastFromRaw(t types.Type) string {
@@ -608,6 +685,9 @@ func interfaceAssertionCastFromRaw(t types.Type) string {
 			target = named.Underlying()
 		}
 		if iface, ok := target.(*types.Interface); ok && isBridgeableInterface(iface) {
+			if cast := specialInterfaceAssertionCast(iface); cast != "" {
+				return "assert:" + cast
+			}
 			obj := v.Obj()
 			if pkg := obj.Pkg(); pkg != nil {
 				return "assert:" + pkg.Name() + "." + obj.Name()
@@ -616,6 +696,9 @@ func interfaceAssertionCastFromRaw(t types.Type) string {
 		}
 	case *types.Named:
 		if iface, ok := types.Unalias(v).Underlying().(*types.Interface); ok && isBridgeableInterface(iface) {
+			if cast := specialInterfaceAssertionCast(iface); cast != "" {
+				return "assert:" + cast
+			}
 			if pkg := v.Obj().Pkg(); pkg != nil {
 				return "assert:" + pkg.Name() + "." + v.Obj().Name()
 			}
@@ -623,6 +706,32 @@ func interfaceAssertionCastFromRaw(t types.Type) string {
 		}
 	}
 	return ""
+}
+
+func specialInterfaceAssertionCast(iface *types.Interface) string {
+	if iface == nil {
+		return ""
+	}
+	iface.Complete()
+	if iface.NumMethods() != 1 {
+		return ""
+	}
+	m := iface.Method(0)
+	sig, ok := m.Type().(*types.Signature)
+	if !ok || sig.Params().Len() != 1 || sig.Results().Len() != 2 {
+		return ""
+	}
+	if !isByteSliceType(sig.Params().At(0).Type()) || !isIntType(sig.Results().At(0).Type()) || !isErrorType(sig.Results().At(1).Type()) {
+		return ""
+	}
+	switch m.Name() {
+	case "Read":
+		return "interface{Read([]byte) (int, error)}"
+	case "Write":
+		return "interface{Write([]byte) (int, error)}"
+	default:
+		return ""
+	}
 }
 
 // qualifiedGoTypeName returns the package-qualified Go type name for a type,

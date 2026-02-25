@@ -719,6 +719,10 @@ func docOutput(text string) {
 		fmt.Print(text)
 		return
 	}
+	if os.Getenv("RUGO_FORCE_COLOR") == "" && !term.IsTerminal(int(os.Stdout.Fd())) {
+		fmt.Print(text)
+		return
+	}
 	fmt.Print(docColorize(text))
 }
 

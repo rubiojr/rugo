@@ -4,6 +4,9 @@ import (
 	"go/importer"
 	"go/types"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestClassifyGoType_Basic(t *testing.T) {
@@ -230,6 +233,67 @@ func TestClassifyFunc_BridgeableInterfaceParam(t *testing.T) {
 	if bf.TypeCasts == nil || bf.TypeCasts[0] != "assert:gtk.StyleProvider" {
 		t.Fatalf("expected interface assertion cast, got %#v", bf.TypeCasts)
 	}
+}
+
+func TestClassifyFunc_IOWriterParam(t *testing.T) {
+	imp := importer.Default()
+	pkg, err := imp.Import("encoding/xml")
+	if err != nil {
+		t.Fatalf("importing encoding/xml: %v", err)
+	}
+
+	obj := pkg.Scope().Lookup("EscapeText")
+	fn, ok := obj.(*types.Func)
+	if !ok {
+		t.Fatal("encoding/xml.EscapeText is not a Func")
+	}
+
+	bf := ClassifyFunc("EscapeText", "escape_text", fn.Type().(*types.Signature))
+	if bf.Tier == TierBlocked {
+		t.Fatalf("io.Writer param should be bridgeable, got blocked: %s", bf.Reason)
+	}
+	if len(bf.Params) < 1 || bf.Params[0] != GoAny {
+		t.Fatalf("params = %v, want first param GoAny", bf.Params)
+	}
+	if bf.TypeCasts == nil || bf.TypeCasts[0] != "assert:interface{Write([]byte) (int, error)}" {
+		t.Fatalf("expected io.Writer assertion cast, got %#v", bf.TypeCasts)
+	}
+}
+
+func TestClassifyFunc_VariadicNamedFuncOptions(t *testing.T) {
+	pkg := types.NewPackage("example.com/varread", "varread")
+	readOptions := types.NewNamed(
+		types.NewTypeName(0, pkg, "readOptions", nil),
+		types.NewStruct(nil, nil),
+		nil,
+	)
+	readOptionSig := types.NewSignatureType(
+		nil, nil, nil,
+		types.NewTuple(types.NewVar(0, nil, "opts", types.NewPointer(readOptions))),
+		nil,
+		false,
+	)
+	readOption := types.NewNamed(
+		types.NewTypeName(0, pkg, "ReadOption", nil),
+		readOptionSig,
+		nil,
+	)
+
+	params := types.NewTuple(
+		types.NewVar(0, nil, "path", types.Typ[types.String]),
+		types.NewVar(0, nil, "options", types.NewSlice(readOption)),
+	)
+	results := types.NewTuple(types.NewVar(0, nil, "", types.Typ[types.Bool]))
+	sig := types.NewSignatureType(nil, nil, nil, params, results, true)
+
+	bf := ClassifyFunc("Read", "read", sig)
+	if bf.Tier == TierBlocked {
+		t.Fatalf("variadic named func options should be bridgeable, got blocked: %s", bf.Reason)
+	}
+	require.Equal(t, []GoType{GoString, GoAny}, bf.Params)
+	require.True(t, bf.Variadic)
+	require.Contains(t, bf.TypeCasts, 1)
+	assert.Equal(t, "varread.ReadOption", bf.TypeCasts[1])
 }
 
 func TestToSnakeCase(t *testing.T) {

@@ -98,18 +98,19 @@ func InspectSourcePackage(dir string) (*InspectedPackage, error) {
 		return nil, fmt.Errorf("type checking failed for %s", modulePath)
 	}
 
-	cr := classifyScope(typePkg.Scope(), true)
+	cr := classifyScope(typePkg.Scope(), true, modulePath)
 
 	if len(cr.Funcs) == 0 && len(cr.Structs) == 0 && len(cr.Skipped) == 0 {
 		return nil, fmt.Errorf("no bridgeable functions found in %s", modulePath)
 	}
 
 	pkg := &Package{
-		Path:     modulePath,
-		Funcs:    cr.Funcs,
-		Doc:      fmt.Sprintf("Functions from Go module %s.", modulePath),
-		External: true,
-		Structs:  cr.Structs,
+		Path:         modulePath,
+		Funcs:        cr.Funcs,
+		Doc:          fmt.Sprintf("Functions from Go module %s.", modulePath),
+		External:     true,
+		Structs:      cr.Structs,
+		ExtraImports: cr.ExtraImports,
 	}
 
 	return &InspectedPackage{
@@ -247,18 +248,20 @@ type classifiedScope struct {
 	Structs      []GoStructInfo
 	KnownStructs map[string]bool
 	NamedTypes   map[string]*types.Named
+	ExtraImports []string
 }
 
 // classifyScope enumerates exported symbols from a Go package scope and classifies them.
 // When discoverStructs is true, exported struct types are discovered for wrapper generation
 // (used by InspectSourcePackage for require'd Go modules).
 // Package-level var methods (e.g., base64.StdEncoding.EncodeToString) are always discovered.
-func classifyScope(scope *types.Scope, discoverStructs bool) classifiedScope {
+func classifyScope(scope *types.Scope, discoverStructs bool, pkgPath string) classifiedScope {
 	var allFuncs []ClassifiedFunc
 	var structInfos []GoStructInfo
 	knownStructs := make(map[string]bool)
 	namedTypes := make(map[string]*types.Named)
 	varConsts := make(map[string]GoFuncSig)
+	castImports := make(map[string]bool)
 
 	for _, name := range scope.Names() {
 		obj := scope.Lookup(name)
@@ -344,6 +347,7 @@ func classifyScope(scope *types.Scope, discoverStructs bool) classifiedScope {
 			}
 			if len(f.TypeCasts) > 0 {
 				sig.TypeCasts = f.TypeCasts
+				collectTypeCastImports(f.Sig, f.TypeCasts, pkgPath, castImports)
 			}
 			funcs[f.RugoName] = sig
 		} else {
@@ -363,13 +367,135 @@ func classifyScope(scope *types.Scope, discoverStructs bool) classifiedScope {
 	// E.g., hex.Encode(dst, src []byte) int → auto-allocates dst via EncodedLen.
 	autoWrapDstBufferFuncs(funcs)
 
+	var extraImports []string
+	for imp := range castImports {
+		extraImports = append(extraImports, imp)
+	}
+	sort.Strings(extraImports)
+
 	return classifiedScope{
 		Funcs:        funcs,
 		Skipped:      skipped,
 		Structs:      structInfos,
 		KnownStructs: knownStructs,
 		NamedTypes:   namedTypes,
+		ExtraImports: extraImports,
 	}
+}
+
+func collectTypeCastImports(sig *types.Signature, casts map[int]string, pkgPath string, out map[string]bool) {
+	if sig == nil || len(casts) == 0 {
+		return
+	}
+	params := sig.Params()
+	for i := 0; i < params.Len(); i++ {
+		cast, ok := casts[i]
+		if !ok {
+			continue
+		}
+		if imp := typeCastImportPath(params.At(i).Type(), cast, pkgPath); imp != "" {
+			out[imp] = true
+		}
+	}
+}
+
+func collectMethodCastImports(named *types.Named, methods []GoStructMethodInfo, pkgPath string, out map[string]bool) {
+	if named == nil || len(methods) == 0 {
+		return
+	}
+	sigs := make(map[string]*types.Signature)
+	mset := types.NewMethodSet(types.NewPointer(named))
+	for i := 0; i < mset.Len(); i++ {
+		fn, ok := mset.At(i).Obj().(*types.Func)
+		if !ok || !fn.Exported() {
+			continue
+		}
+		sig, ok := fn.Type().(*types.Signature)
+		if !ok {
+			continue
+		}
+		sigs[fn.Name()] = sig
+	}
+	for _, m := range methods {
+		if len(m.TypeCasts) == 0 {
+			continue
+		}
+		sig, ok := sigs[m.GoName]
+		if !ok {
+			continue
+		}
+		collectTypeCastImports(sig, m.TypeCasts, pkgPath, out)
+	}
+}
+
+func typeCastImportPath(t types.Type, cast, pkgPath string) string {
+	qualifier := castQualifier(cast)
+	if qualifier == "" {
+		return ""
+	}
+	pkg := typePackage(t)
+	if pkg == nil {
+		return ""
+	}
+	if qualifier != pkg.Name() || pkg.Path() == "" || pkg.Path() == pkgPath {
+		return ""
+	}
+	if pkg.Path() == pkg.Name() && pkg.Path() != pkgPath && !isDefaultImportable(pkg.Path()) {
+		return ""
+	}
+	return pkg.Path()
+}
+
+func castQualifier(cast string) string {
+	cast = strings.TrimPrefix(cast, "assert:")
+	cast = strings.TrimPrefix(cast, "*")
+	dot := strings.Index(cast, ".")
+	if dot <= 0 {
+		return ""
+	}
+	return cast[:dot]
+}
+
+func typePackage(t types.Type) *types.Package {
+	switch v := t.(type) {
+	case *types.Pointer:
+		return typePackage(v.Elem())
+	case *types.Alias:
+		return v.Obj().Pkg()
+	case *types.Named:
+		return v.Obj().Pkg()
+	default:
+		return nil
+	}
+}
+
+var defaultImportableCache = map[string]bool{}
+
+func isDefaultImportable(path string) bool {
+	if ok, seen := defaultImportableCache[path]; seen {
+		return ok
+	}
+	_, err := importer.Default().Import(path)
+	ok := err == nil
+	defaultImportableCache[path] = ok
+	return ok
+}
+
+func mapFromSlice(items []string) map[string]bool {
+	set := make(map[string]bool, len(items))
+	for _, item := range items {
+		set[item] = true
+	}
+	return set
+}
+
+func sortedKeys(set map[string]bool) []string {
+	out := make([]string, 0, len(set))
+	for k := range set {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // autoWrapDstBufferFuncs detects Go functions with output-buffer params and
@@ -553,7 +679,8 @@ func InspectCompiledPackage(pkgPath string) (*Package, error) {
 
 	// Discover structs for wrapper generation and reclassify blocked functions
 	// that use in-package struct params/returns.
-	cr := classifyScope(pkg.Scope(), true)
+	cr := classifyScope(pkg.Scope(), true, pkgPath)
+	extraImports := mapFromSlice(cr.ExtraImports)
 
 	if len(cr.Structs) > 0 {
 		ns := DefaultNS(pkgPath)
@@ -583,6 +710,7 @@ func InspectCompiledPackage(pkgPath string) (*Package, error) {
 				continue
 			}
 			si.Methods = discoverMethods(named, structWrappers, cr.KnownStructs)
+			collectMethodCastImports(named, si.Methods, pkgPath, extraImports)
 			embedded := discoverEmbeddedFields(named, structWrappers, cr.KnownStructs)
 			si.Fields = append(si.Fields, embedded...)
 		}
@@ -606,6 +734,7 @@ func InspectCompiledPackage(pkgPath string) (*Package, error) {
 				stillSkipped = append(stillSkipped, f)
 				continue
 			}
+			collectTypeCastImports(f.Sig, sig.TypeCasts, pkgPath, extraImports)
 			sig.RuntimeHelpers = append(sig.RuntimeHelpers, allStructHelpers...)
 			cr.Funcs[f.RugoName] = *sig
 		}
@@ -617,10 +746,11 @@ func InspectCompiledPackage(pkgPath string) (*Package, error) {
 	}
 
 	return &Package{
-		Path:    pkgPath,
-		Funcs:   cr.Funcs,
-		Doc:     fmt.Sprintf("Functions from Go's %s package.", pkgPath),
-		Structs: cr.Structs,
+		Path:         pkgPath,
+		Funcs:        cr.Funcs,
+		Doc:          fmt.Sprintf("Functions from Go's %s package.", pkgPath),
+		Structs:      cr.Structs,
+		ExtraImports: sortedKeys(extraImports),
 	}, nil
 }
 
@@ -660,6 +790,7 @@ func classifyStructFields(goName string, st *types.Struct) *GoStructInfo {
 // Must be called before gobridge.Register().
 func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 	pkg := result.Package
+	extraImports := mapFromSlice(pkg.ExtraImports)
 
 	// Build a lookup from Go struct name to wrapper type name.
 	structWrappers := make(map[string]string) // GoName or qualified key → wrapper type name
@@ -694,6 +825,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 				continue
 			}
 			si.Methods = discoverMethods(named, structWrappers, result.KnownStructs)
+			collectMethodCastImports(named, si.Methods, pkg.Path, extraImports)
 			// Discover embedded pointer-to-struct fields for upcast support.
 			embedded := discoverEmbeddedFields(named, structWrappers, result.KnownStructs)
 			si.Fields = append(si.Fields, embedded...)
@@ -793,6 +925,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 		if !containsString(pkg.ExtraImports, ext.PkgPath) {
 			pkg.ExtraImports = append(pkg.ExtraImports, ext.PkgPath)
 		}
+		extraImports[ext.PkgPath] = true
 	}
 
 	// Re-discover in-package struct methods/embedded fields now that external
@@ -810,6 +943,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 			}
 		}
 		si.Methods = discoverMethods(named, structWrappers, result.KnownStructs)
+		collectMethodCastImports(named, si.Methods, pkg.Path, extraImports)
 		si.Fields = append(plainFields, discoverEmbeddedFields(named, structWrappers, result.KnownStructs)...)
 	}
 	// Attach refreshed struct helpers to constructors now that final methods are known.
@@ -832,6 +966,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 			continue
 		}
 		ext.Methods = discoverMethods(ext.Named, structWrappers, result.KnownStructs)
+		collectMethodCastImports(ext.Named, ext.Methods, pkg.Path, extraImports)
 		ext.EmbeddedFields = discoverEmbeddedFields(ext.Named, structWrappers, result.KnownStructs)
 		externalTypes[key] = ext
 	}
@@ -868,6 +1003,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 		}
 		sig := reclassifyWithStructs(f, structWrappers, pkgAlias, result.KnownStructs)
 		if sig != nil {
+			collectTypeCastImports(f.Sig, sig.TypeCasts, pkg.Path, extraImports)
 			// Attach in-package struct wrapper RuntimeHelpers.
 			for _, si := range pkg.Structs {
 				wt := structWrappers[si.GoName]
@@ -885,6 +1021,7 @@ func FinalizeStructs(result *InspectedPackage, ns, pkgAlias string) {
 		}
 	}
 	result.Skipped = stillSkipped
+	pkg.ExtraImports = sortedKeys(extraImports)
 }
 
 // reclassifyWithStructs attempts to build a GoFuncSig for a blocked function
@@ -905,6 +1042,14 @@ func reclassifyWithStructs(f ClassifiedFunc, structWrappers map[string]string, p
 	params := f.Sig.Params()
 	for i := 0; i < params.Len(); i++ {
 		t := params.At(i).Type()
+		if cast, ok := variadicNamedFuncOptionCast(f.Sig, i, t); ok {
+			sig.Params = append(sig.Params, GoAny)
+			if sig.TypeCasts == nil {
+				sig.TypeCasts = make(map[int]string)
+			}
+			sig.TypeCasts[i] = cast
+			continue
+		}
 		gt, tier, _ := ClassifyGoType(t, true)
 		if tier == TierBlocked {
 			// Check for string view types before the struct wrapper path.
