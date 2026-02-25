@@ -319,6 +319,22 @@ func TestGenNot(t *testing.T) {
 	}
 }
 
+func TestGenCallConvertsNonGoTypedArgToTypedParam(t *testing.T) {
+	src := compileToGo(t, `
+def takes_string(s)
+  return s
+end
+
+f = fn()
+  css = "abc"
+  takes_string(css)
+end
+`)
+	if !strings.Contains(src, "rugofn_takes_string(rugo_to_string(css))") {
+		t.Errorf("expected conversion for non-Go-typed argument:\n%s", src)
+	}
+}
+
 // --- Compiler Integration Tests ---
 
 func TestCompilerCompile(t *testing.T) {

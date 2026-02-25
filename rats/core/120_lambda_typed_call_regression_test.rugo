@@ -1,0 +1,22 @@
+use "test"
+use "eval"
+
+# Regression: typed params called from lambda-local interface{} vars
+rats "lambda local arg converts for typed param call"
+  source = <<~RUGO
+    def takes_string(s)
+      return s
+    end
+
+    f = fn()
+      css = "abc"
+      return takes_string(css)
+    end
+
+    puts f()
+  RUGO
+
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["lines"][0], "abc")
+end

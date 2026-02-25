@@ -501,12 +501,28 @@ func (g *codeGen) typedCallExprs(funcName string, args []GoExpr, argExprs []ast.
 	for i, a := range args {
 		argType := g.exprType(argExprs[i])
 		if i < len(fti.ParamTypes) && fti.ParamTypes[i].IsTyped() {
-			if argType == fti.ParamTypes[i] {
+			paramType := fti.ParamTypes[i]
+			if !g.goTyped(argExprs[i]) {
+				switch paramType {
+				case TypeInt:
+					result[i] = GoCallExpr{Func: "rugo_to_int", Args: []GoExpr{a}}
+				case TypeFloat:
+					result[i] = GoCallExpr{Func: "rugo_to_float", Args: []GoExpr{a}}
+				case TypeString:
+					result[i] = GoCallExpr{Func: "rugo_to_string", Args: []GoExpr{a}}
+				case TypeBool:
+					result[i] = GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{a}}
+				default:
+					result[i] = GoTypeAssert{Value: a, Type: paramType.GoType()}
+				}
+				continue
+			}
+			if argType == paramType {
 				result[i] = a
-			} else if argType.IsTyped() && argType.IsNumeric() && fti.ParamTypes[i].IsNumeric() {
-				if fti.ParamTypes[i] == TypeFloat && argType == TypeInt {
+			} else if argType.IsTyped() && argType.IsNumeric() && paramType.IsNumeric() {
+				if paramType == TypeFloat && argType == TypeInt {
 					result[i] = GoCastExpr{Type: "float64", Value: a}
-				} else if fti.ParamTypes[i] == TypeInt && argType == TypeFloat {
+				} else if paramType == TypeInt && argType == TypeFloat {
 					result[i] = GoCastExpr{Type: "int", Value: a}
 				} else {
 					result[i] = a
@@ -514,7 +530,7 @@ func (g *codeGen) typedCallExprs(funcName string, args []GoExpr, argExprs []ast.
 			} else if argType.IsTyped() {
 				result[i] = a
 			} else {
-				result[i] = GoTypeAssert{Value: a, Type: fti.ParamTypes[i].GoType()}
+				result[i] = GoTypeAssert{Value: a, Type: paramType.GoType()}
 			}
 		} else {
 			if argType.IsTyped() {
