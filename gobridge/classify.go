@@ -77,17 +77,15 @@ func ClassifyFunc(goName, rugoName string, sig *types.Signature) ClassifiedFunc 
 			gt = GoFunc
 			tier = TierFunc
 		}
-		if iface, ok := types.Unalias(t).Underlying().(*types.Interface); ok && iface.NumMethods() > 0 {
-			if interfaceAssertionCastFromRaw(t) == "" {
+		if tier == TierBlocked {
+			if cast := interfaceAssertionCastFromRaw(t); cast != "" {
+				gt = GoAny
+				tier = TierCastable
+			} else {
 				bf.Tier = TierBlocked
-				bf.Reason = fmt.Sprintf("param %d: interface type", i)
+				bf.Reason = fmt.Sprintf("param %d: %s", i, reason)
 				return bf
 			}
-		}
-		if tier == TierBlocked {
-			bf.Tier = TierBlocked
-			bf.Reason = fmt.Sprintf("param %d: %s", i, reason)
-			return bf
 		}
 		if tier == TierFunc {
 			if funcSig == nil {
@@ -291,6 +289,15 @@ func ClassifyFuncType(sig *types.Signature, structWrappers map[string]string, kn
 			continue
 		}
 		if tier == TierBlocked {
+			// Bridge named interface params via runtime assertion cast.
+			if cast := interfaceAssertionCastFromRaw(t); cast != "" {
+				ft.Params = append(ft.Params, GoAny)
+				if ft.TypeCasts == nil {
+					ft.TypeCasts = make(map[int]string)
+				}
+				ft.TypeCasts[i] = cast
+				continue
+			}
 			// Try struct wrapper fallback for callback params.
 			if structWrappers != nil {
 				structName := extractStructName(t, knownStructs)
@@ -699,7 +706,7 @@ func interfaceAssertionCastFromRaw(t types.Type) string {
 		if named, ok := target.(*types.Named); ok {
 			target = named.Underlying()
 		}
-		if iface, ok := target.(*types.Interface); ok && isBridgeableInterface(iface) {
+		if iface, ok := target.(*types.Interface); ok && iface.NumMethods() > 0 {
 			if cast := specialInterfaceAssertionCast(iface); cast != "" {
 				return "assert:" + cast
 			}
@@ -710,7 +717,7 @@ func interfaceAssertionCastFromRaw(t types.Type) string {
 			return "assert:" + obj.Name()
 		}
 	case *types.Named:
-		if iface, ok := types.Unalias(v).Underlying().(*types.Interface); ok && isBridgeableInterface(iface) {
+		if iface, ok := types.Unalias(v).Underlying().(*types.Interface); ok && iface.NumMethods() > 0 {
 			if cast := specialInterfaceAssertionCast(iface); cast != "" {
 				return "assert:" + cast
 			}

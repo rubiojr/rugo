@@ -226,6 +226,29 @@ func TestInspectCompiledPackage_EncodingXMLNewDecoder(t *testing.T) {
 	assert.Equal(t, "assert:interface{Read([]byte) (int, error)}", sig.TypeCasts[0])
 }
 
+func TestInspectCompiledPackage_FilepathWalkFunctions(t *testing.T) {
+	pkg, err := InspectCompiledPackage("path/filepath")
+	require.NoError(t, err)
+	require.NotNil(t, pkg)
+
+	walkDir, ok := pkg.Funcs["walk_dir"]
+	require.True(t, ok, "filepath.walk_dir should be bridged")
+	require.Len(t, walkDir.Params, 2)
+	assert.Equal(t, GoString, walkDir.Params[0])
+	assert.Equal(t, GoFunc, walkDir.Params[1])
+	require.Contains(t, walkDir.FuncTypes, 1)
+
+	cb := walkDir.FuncTypes[1]
+	require.NotNil(t, cb)
+	assert.Equal(t, []GoType{GoString, GoAny, GoError}, cb.Params)
+	assert.Equal(t, []GoType{GoError}, cb.Returns)
+	require.Contains(t, cb.TypeCasts, 1)
+	assert.Equal(t, "assert:fs.DirEntry", cb.TypeCasts[1])
+
+	_, ok = pkg.Funcs["walk"]
+	require.True(t, ok, "filepath.walk should be bridged")
+}
+
 func TestInspectSourcePackage_VariadicReadOptionSupport(t *testing.T) {
 	result, err := InspectSourcePackage(fixtureDir("fixture_variadic_read"))
 	require.NoError(t, err)

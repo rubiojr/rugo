@@ -219,11 +219,7 @@ func GenerateStructWrapper(ns, pkgAlias string, si GoStructInfo) RuntimeHelper {
 		}
 		conv := TypeConvToGo("val", f.Type)
 		if f.TypeCast != "" {
-			if strings.HasPrefix(f.TypeCast, "*") {
-				conv = fmt.Sprintf("*%s(%s)", f.TypeCast[1:], conv)
-			} else {
-				conv = fmt.Sprintf("%s(%s)", f.TypeCast, conv)
-			}
+			conv = ApplyTypeCast(conv, f.TypeCast)
 		}
 		sb.WriteString(fmt.Sprintf("\tcase %q:\n", f.RugoName))
 		sb.WriteString(fmt.Sprintf("\t\tw.v.%s = %s\n", f.GoName, conv))
@@ -299,8 +295,8 @@ func writeMethodCase(sb *strings.Builder, m GoStructMethodInfo, ns string) {
 				funcType := funcTypeName(ft)
 				if m.TypeCasts != nil {
 					if cast, ok := m.TypeCasts[i]; ok {
-						funcType = cast
-						conv = fmt.Sprintf("%s(%s)", cast, conv)
+						funcType = TypeCastTarget(cast)
+						conv = ApplyTypeCast(conv, cast)
 					}
 				}
 				if m.FuncParamPointer != nil && m.FuncParamPointer[i] {

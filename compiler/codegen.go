@@ -280,6 +280,25 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			break
 		}
 	}
+	seenExtraSuppressors := map[string]bool{}
+	for _, pkg := range sortedGoBridgeImports(g.goImports) {
+		bp := gobridge.GetPackage(pkg)
+		if bp == nil {
+			continue
+		}
+		for _, extra := range bp.ExtraImports {
+			target := bridgeExtraImportTypeSuppressor(bp, extra)
+			if target == "" {
+				continue
+			}
+			line := "var _ " + target
+			if seenExtraSuppressors[line] {
+				continue
+			}
+			seenExtraSuppressors[line] = true
+			suppressors = append(suppressors, line)
+		}
+	}
 	file.Decls = append(file.Decls, GoRawDecl{Code: strings.Join(suppressors, "\n") + "\n"})
 	file.Decls = append(file.Decls, GoBlankLine{})
 
@@ -364,6 +383,61 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 
 	file.Init = mainBody
 	return PrintGoFile(file), nil
+}
+
+func bridgeExtraImportTypeSuppressor(bp *gobridge.Package, extraPath string) string {
+	if bp == nil {
+		return ""
+	}
+	qualifier := gobridge.DefaultNS(extraPath)
+	if qualifier == "" {
+		return ""
+	}
+	for _, sig := range bp.Funcs {
+		if target := bridgeCastTargetForQualifier(sig.TypeCasts, qualifier); target != "" {
+			return target
+		}
+		for _, ft := range sig.FuncTypes {
+			if target := bridgeFuncTypeCastTarget(ft, qualifier); target != "" {
+				return target
+			}
+		}
+	}
+	return ""
+}
+
+func bridgeCastTargetForQualifier(casts map[int]string, qualifier string) string {
+	if len(casts) == 0 || qualifier == "" {
+		return ""
+	}
+	keys := make([]int, 0, len(casts))
+	for k := range casts {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+	for _, k := range keys {
+		target := gobridge.TypeCastTarget(casts[k])
+		bare := strings.TrimLeft(target, "*")
+		if strings.HasPrefix(bare, qualifier+".") {
+			return target
+		}
+	}
+	return ""
+}
+
+func bridgeFuncTypeCastTarget(ft *gobridge.GoFuncType, qualifier string) string {
+	if ft == nil {
+		return ""
+	}
+	if target := bridgeCastTargetForQualifier(ft.TypeCasts, qualifier); target != "" {
+		return target
+	}
+	for _, nested := range ft.FuncTypes {
+		if target := bridgeFuncTypeCastTarget(nested, qualifier); target != "" {
+			return target
+		}
+	}
+	return ""
 }
 
 // --- Type inference helpers for codegen ---

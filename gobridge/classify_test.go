@@ -280,6 +280,31 @@ func TestClassifyFunc_IOWriterParam(t *testing.T) {
 	}
 }
 
+func TestClassifyFunc_FilepathWalkDir(t *testing.T) {
+	imp := importer.Default()
+	pkg, err := imp.Import("path/filepath")
+	require.NoError(t, err)
+
+	obj := pkg.Scope().Lookup("WalkDir")
+	fn, ok := obj.(*types.Func)
+	require.True(t, ok, "path/filepath.WalkDir is not a func")
+
+	bf := ClassifyFunc("WalkDir", "walk_dir", fn.Type().(*types.Signature))
+	require.Empty(t, bf.Reason, "WalkDir should be bridgeable")
+	require.NotEqual(t, TierBlocked, bf.Tier, "WalkDir should not be blocked")
+	require.Len(t, bf.Params, 2)
+	require.Equal(t, GoString, bf.Params[0])
+	require.Equal(t, GoFunc, bf.Params[1])
+	require.Contains(t, bf.FuncTypes, 1)
+
+	cb := bf.FuncTypes[1]
+	require.NotNil(t, cb)
+	require.Equal(t, []GoType{GoString, GoAny, GoError}, cb.Params)
+	require.Equal(t, []GoType{GoError}, cb.Returns)
+	require.Contains(t, cb.TypeCasts, 1)
+	assert.Equal(t, "assert:fs.DirEntry", cb.TypeCasts[1])
+}
+
 func TestClassifyFunc_VariadicNamedFuncOptions(t *testing.T) {
 	pkg := types.NewPackage("example.com/varread", "varread")
 	readOptions := types.NewNamed(

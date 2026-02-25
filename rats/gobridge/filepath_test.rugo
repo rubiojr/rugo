@@ -53,3 +53,30 @@ rats "filepath.to_slash and from_slash"
   test.assert_eq(filepath.to_slash("a/b/c"), "a/b/c")
   test.assert_eq(filepath.from_slash("a/b/c"), "a/b/c")
 end
+
+rats "filepath.walk_dir callback handles DirEntry"
+  dir = test.tmpdir()
+  test.write_file("#{dir}/one.txt", "one")
+  test.write_file("#{dir}/two.txt", "two")
+
+  count = 0
+  saw_one = false
+  saw_two = false
+
+  filepath.walk_dir(dir, fn(path, entry, err)
+    test.assert_nil(err)
+    count = count + 1
+    base = filepath.base(path)
+    if base == "one.txt"
+      saw_one = true
+    end
+    if base == "two.txt"
+      saw_two = true
+    end
+    return nil
+  end)
+
+  test.assert_true(count >= 3)
+  test.assert_true(saw_one)
+  test.assert_true(saw_two)
+end

@@ -285,8 +285,8 @@ func (g *codeGen) generateGoBridgeCall(pkg string, sig *gobridge.GoFuncSig, argE
 					funcType := gobridge.FuncTypeName(ft)
 					if sig.TypeCasts != nil {
 						if cast, ok := sig.TypeCasts[paramIdx]; ok {
-							funcType = cast
-							conv = fmt.Sprintf("%s(%s)", cast, conv)
+							funcType = gobridge.TypeCastTarget(cast)
+							conv = gobridge.ApplyTypeCast(conv, cast)
 						}
 					}
 					if sig.FuncParamPointer != nil && sig.FuncParamPointer[paramIdx] {
