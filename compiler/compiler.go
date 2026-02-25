@@ -332,10 +332,26 @@ func (c *Compiler) RunCapture(filename string, extraArgs ...string) (*CapturedOu
 // buildBinary compiles a CompileResult to a native binary in a temp directory.
 // Returns the temp dir path and binary path. The caller must defer os.RemoveAll
 // on the returned tmpDir.
+//
+// If a cached binary exists for the same Go source and go.mod, the cached
+// binary is copied instead of running go build.
 func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 	tmpDir, err = makeBuildDir()
 	if err != nil {
 		return "", "", fmt.Errorf("creating build dir: %w", err)
+	}
+
+	goMod := goModContent(result.Program, result.Sandbox, result.GoModuleRequires)
+	cacheKey := binCacheKey(result.GoSource, goMod)
+	binFile = filepath.Join(tmpDir, "rugo_program")
+
+	// Check binary cache before running go build.
+	if cached := binCacheLookup(cacheKey); cached != "" {
+		if data, err := os.ReadFile(cached); err == nil {
+			if err := os.WriteFile(binFile, data, 0755); err == nil {
+				return tmpDir, binFile, nil
+			}
+		}
 	}
 
 	goFile := filepath.Join(tmpDir, "main.go")
@@ -344,13 +360,11 @@ func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 		return "", "", fmt.Errorf("writing Go source: %w", err)
 	}
 
-	goMod := goModContent(result.Program, result.Sandbox, result.GoModuleRequires)
 	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte(goMod), 0644); err != nil {
 		os.RemoveAll(tmpDir)
 		return "", "", fmt.Errorf("writing go.mod: %w", err)
 	}
 
-	binFile = filepath.Join(tmpDir, "rugo_program")
 	buildCmd := exec.Command("go", "build", "-mod=mod", "-ldflags=-s -w", "-o", binFile, ".")
 	buildCmd.Dir = tmpDir
 	buildCmd.Env = appendGoNoSumCheck(os.Environ())
@@ -360,6 +374,8 @@ func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 		os.RemoveAll(tmpDir)
 		return "", "", translateBuildError(buildStderr.String(), result.SourceFile)
 	}
+
+	binCacheStore(cacheKey, binFile)
 
 	return tmpDir, binFile, nil
 }
