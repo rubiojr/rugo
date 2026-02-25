@@ -1,0 +1,53 @@
+# RATS: Postfix-if conditional assignment should leave var nil when condition is false
+use "test"
+use "eval"
+
+rats "postfix if false leaves variable nil"
+  source = <<~RUGO
+    y = 20 if false
+    puts y
+    puts type_of(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "nil\nNil")
+end
+
+rats "postfix if true assigns variable"
+  source = <<~RUGO
+    y = 20 if true
+    puts y
+    puts type_of(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "20\nInteger")
+end
+
+rats "regular if false leaves variable nil"
+  source = <<~RUGO
+    if false
+      z = 42
+    end
+    puts z
+    puts type_of(z)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "nil\nNil")
+end
+
+rats "if-else assigns in taken branch only"
+  source = <<~RUGO
+    if false
+      w = 10
+    else
+      w = 20
+    end
+    puts w
+    puts type_of(w)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "20\nInteger")
+end

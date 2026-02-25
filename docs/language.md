@@ -57,7 +57,7 @@ After semantic checks, the AST passes through a chain of immutable transforms (`
 
 **ConcurrencyLowering** (`ast/lower.go`): Replaces high-level concurrency constructs (`SpawnExpr`, `ParallelExpr`, `TryExpr`) with lowered equivalents (`LoweredSpawnExpr`, `LoweredParallelExpr`, `LoweredTryExpr`) that carry pre-processed information — for example, extracting the last expression in a spawn body into a dedicated `ResultExpr` field, or pre-categorizing parallel branches as expression vs. statement. This pass also rewrites `return` statements inside spawn blocks and try handlers into `SpawnReturnStmt` and `TryHandlerReturnStmt` respectively.
 
-**ImplicitReturnLowering** (`ast/implicit_return.go`): Converts last-expression-as-return-value patterns into explicit AST nodes. A trailing `ExprStmt` in a `FuncDef` or `FnExpr` body becomes an `ImplicitReturnStmt`; in a try handler it becomes a `TryResultStmt`. When the last statement is an `IfStmt`, the transform recurses into each branch.
+**ImplicitReturnLowering** (`ast/implicit_return.go`): Converts last-expression-as-return-value patterns into explicit AST nodes. A trailing `ExprStmt` in a `FuncDef` or `FnExpr` body becomes an `ImplicitReturnStmt`; in a try handler it becomes a `TryResultStmt`. When the last statement is an `IfStmt` or `CaseStmt`, the transform recurses into each branch.
 
 The `Factory` (`ast/factory.go`) centralizes AST node construction for transform passes, ensuring consistent creation and providing a hook point for future enhancements.
 
@@ -207,6 +207,8 @@ Different blocks create different scoping boundaries:
 | **`def` function** | Yes | Yes (read-only) | No |
 | **`fn` lambda** | Yes | Yes (captures outer) | No |
 | **`if/elsif/else`** | No (transparent) | Yes | Yes |
+| **`case/of` (statement)** | No (transparent) | Yes | Yes |
+| **`case/of` (expression)** | Yes (IIFE) | Yes | No |
 | **`while` loop** | Yes | Yes (read + modify) | No |
 | **`for..in` loop** | Yes | Yes (read + modify) | No |
 | **`spawn` block** | Yes | Yes (shared) | No |
@@ -216,7 +218,7 @@ Different blocks create different scoping boundaries:
 
 **`rats` blocks are fully isolated** — they cannot see any top-level variables or constants. Use environment variables to share state between setup hooks and test blocks.
 
-**`if` blocks are transparent** — they share the parent scope. Variables created inside an `if` block are accessible after the block ends.
+**`if` blocks are transparent** — they share the parent scope. Variables created inside an `if` block are accessible after the block ends. Statement-form `case/of` blocks have the same transparent scoping. However, when `case` is used as an expression (assigned to a variable), it compiles to an IIFE with its own scope — variables assigned inside branches do not leak out.
 
 **Loops create their own scope** — `while` and `for` loops can read and modify outer variables, but variables first assigned inside the loop body are local to that iteration scope. The `for` loop variable is also local.
 
@@ -272,6 +274,109 @@ greet "world" if name != nil
 ```
 
 This is preprocessor sugar — `STMT if COND` is rewritten to `if COND\n  STMT\nend`. It only applies when `if` appears mid-line (not at the start), outside strings and brackets.
+
+#### Case Expression
+
+The `case/of/elsif/else/end` construct provides multi-branch matching against a subject expression (similar to `switch` in other languages, or `case` in Ruby and Nim):
+
+```ruby
+case status
+of "ok"
+  puts "all good"
+of "error", "fail"
+  puts "something went wrong"
+else
+  puts "unknown"
+end
+```
+
+**Semantics:**
+
+1. The subject expression is evaluated **once** into a temporary variable.
+2. Each `of` branch compares the temp using `==`. Multiple comma-separated values are OR'd together.
+3. Optional `elsif` branches provide boolean conditions (not compared to the subject).
+4. `else` is a catch-all default.
+5. No match and no `else` evaluates to `nil`.
+6. No fallthrough — the first matching branch wins.
+7. `of` branches must come before `elsif`; `else` must be last.
+
+**Arrow form** — for single-expression branches, use `->`:
+
+```ruby
+case status
+of "ok" -> "all good"
+of "error", "fail" -> "something went wrong"
+else -> "unknown"
+end
+```
+
+Arrow form takes a single expression (not an assignment). Both forms can be mixed:
+
+```ruby
+case code
+of 200 -> "success"
+of 404
+  log("not found")
+  "not found"
+else -> "other"
+end
+```
+
+**Case as expression** — `case` can be used anywhere an expression is expected, including assignment position and function arguments. Each branch's last expression becomes the result:
+
+```ruby
+# Assignment position
+label = case status
+of "ok" -> "success"
+of "error" -> "failure"
+else -> "unknown"
+end
+
+# Multi-line branches work too
+message = case code
+of 200
+  puts("ok")
+  "all good"
+of 404
+  puts("missing")
+  "not found"
+else -> "other"
+end
+```
+
+When used as an expression (e.g., assigned to a variable), `case` compiles to a Go IIFE (immediately-invoked function expression) with a named return variable. Variables assigned inside expression branches are local to the IIFE and do not leak to the parent scope — unlike statement-form `case`, which has transparent scoping.
+
+**Implicit return** — inside functions, a trailing `case` expression is implicitly returned:
+
+```ruby
+def grade(letter)
+  case letter
+  of "A" -> "excellent"
+  of "B" -> "good"
+  of "C" -> "average"
+  else -> "unknown"
+  end
+end
+```
+
+**Elsif integration** — boolean conditions can follow `of` branches for Nim-style flexibility:
+
+```ruby
+case score
+of 100 -> "perfect"
+of 0 -> "zero"
+elsif score >= 90
+  "A"
+elsif score >= 80
+  "B"
+else
+  "C"
+end
+```
+
+**Scoping** — statement-form `case` blocks are transparent, like `if`. Variables assigned inside branches leak to the parent scope. Expression-form `case` (assigned to a variable) uses an IIFE, so branch variables are local.
+
+**Codegen note:** Statement-form `case` compiles to a Go `if/else` chain (not a Go `switch`). The subject is stored in a temp variable (`__case_N`). Each `of` becomes `rugo_to_bool(rugo_eq(__case_N, value))` conditions OR'd together. Expression-form `case` compiles to a Go IIFE with a named return `(r interface{})` — each branch assigns its result to `r`.
 
 ### Functions
 
@@ -683,7 +788,10 @@ MulExpr     = UnaryExpr { ('*' | '/' | '%') UnaryExpr }
 UnaryExpr   = '!' Postfix | '-' Postfix | Postfix
 Postfix     = Primary { Suffix }
 Suffix      = '(' [ ArgList ] ')' | '[' Expr [ ',' Expr ] ']' | '.' ident
+Primary     = ... | CaseExpr | ...
 ```
+
+`CaseExpr` lives in `Primary` rather than `Statement` to avoid an LL(1) conflict — both assignment and standalone case start with the `"case"` token. Standalone `case` (not assigned to a variable) flows through `AssignOrExpr → Expr → Primary → CaseExpr` and the walker converts it to a `CaseStmt` for efficient codegen (no IIFE overhead).
 
 Operator precedence (lowest to highest):
 
@@ -716,6 +824,7 @@ Node (interface)
 │   ├── FuncDef           — def name(params) body end
 │   ├── TestDef           — rats "name" body end
 │   ├── IfStmt            — if/elsif/else/end
+│   ├── CaseStmt          — case/of/elsif/else/end (contains []OfClause)
 │   ├── WhileStmt         — while cond body end
 │   ├── ForStmt           — for var [, var2] in expr body end
 │   ├── BreakStmt         — break
@@ -750,6 +859,7 @@ Node (interface)
     ├── SpawnExpr         — spawn body end
     ├── ParallelExpr      — parallel body end
     ├── FnExpr            — fn(params) body end (lambda)
+    ├── CaseExpr          — case/of/elsif/else/end as expression (IIFE codegen)
     │
     │   (produced by ConcurrencyLowering — replace their non-lowered counterparts)
     ├── LoweredTryExpr      — try with extracted result expr and handler body

@@ -61,6 +61,8 @@ func (g *codeGen) buildStmtInner(s ast.Statement) ([]GoStmt, error) {
 		return g.buildExprStmt(st)
 	case *ast.IfStmt:
 		return g.buildIf(st)
+	case *ast.CaseStmt:
+		return g.buildCase(st)
 	case *ast.WhileStmt:
 		return g.buildWhile(st)
 	case *ast.ForStmt:
@@ -248,6 +250,135 @@ func (g *codeGen) buildTryHandlerReturn(r *ast.TryHandlerReturnStmt) ([]GoStmt, 
 
 // --- Container statement builders ---
 
+func (g *codeGen) buildCase(cs *ast.CaseStmt) ([]GoStmt, error) {
+	// Pre-declare variables assigned inside any branch (Ruby-like scoping).
+	var preDecls []GoStmt
+	var allBranches []ast.Statement
+	for _, oc := range cs.OfClauses {
+		allBranches = append(allBranches, oc.Body...)
+	}
+	for _, ec := range cs.ElsifClauses {
+		allBranches = append(allBranches, ec.Body...)
+	}
+	allBranches = append(allBranches, cs.ElseBody...)
+	for _, name := range collectAssignTargets(allBranches) {
+		if !g.isDeclared(name) {
+			if assignedInAllCaseBranches(cs, name) {
+				varType := g.varType(name)
+				if varType.IsTyped() {
+					preDecls = append(preDecls, GoVarStmt{Name: name, Type: varType.GoType()})
+				} else {
+					preDecls = append(preDecls, GoVarStmt{Name: name, Type: "interface{}"})
+				}
+			} else {
+				preDecls = append(preDecls, GoVarStmt{Name: name, Type: "interface{}"})
+			}
+			g.declareVar(name)
+		}
+	}
+
+	// Evaluate subject expression once into a temp variable.
+	g.caseCounter++
+	tempVar := fmt.Sprintf("__case_%d", g.caseCounter)
+	subjExpr, err := g.buildExpr(cs.Subject)
+	if err != nil {
+		return nil, err
+	}
+	tempDecl := GoAssignStmt{Target: tempVar, Op: ":=", Value: subjExpr}
+	tempUse := GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", tempVar)}}
+
+	p := &goPrinter{}
+	tempStr := tempVar
+
+	// Build of clauses as if/else-if chain using rugo_eq.
+	var firstCond GoExpr
+	var firstBody []GoStmt
+	var elseIfs []GoElseIf
+
+	for i, oc := range cs.OfClauses {
+		// Build condition: rugo_eq(temp, val1) || rugo_eq(temp, val2) || ...
+		var parts []string
+		for _, v := range oc.Values {
+			valExpr, err := g.buildExpr(v)
+			if err != nil {
+				return nil, err
+			}
+			valStr := p.exprStr(valExpr)
+			parts = append(parts, fmt.Sprintf("rugo_to_bool(rugo_eq(%s, %s))", tempStr, valStr))
+		}
+		cond := GoRawExpr{Code: strings.Join(parts, " || ")}
+
+		// Build body — handle arrow form and block form.
+		var body []GoStmt
+		if oc.ArrowExpr != nil {
+			arrowExpr, err := g.buildExpr(oc.ArrowExpr)
+			if err != nil {
+				return nil, err
+			}
+			body = []GoStmt{GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", p.exprStr(arrowExpr))}}}
+		} else {
+			body, err = g.buildStmts(oc.Body)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if i == 0 {
+			firstCond = cond
+			firstBody = body
+		} else {
+			elseIfs = append(elseIfs, GoElseIf{Cond: cond, Body: body})
+		}
+	}
+
+	// Build elsif clauses (boolean conditions, not compared to subject).
+	for _, ec := range cs.ElsifClauses {
+		ecCond, err := g.buildCondExpr(ec.Condition)
+		if err != nil {
+			return nil, err
+		}
+		ecBody, err := g.buildStmts(ec.Body)
+		if err != nil {
+			return nil, err
+		}
+		elseIfs = append(elseIfs, GoElseIf{Cond: ecCond, Body: ecBody})
+	}
+
+	// Build else body.
+	var elseBody []GoStmt
+	if len(cs.ElseBody) > 0 {
+		elseBody, err = g.buildStmts(cs.ElseBody)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// If there are no of clauses and no elsif clauses, just emit the else body.
+	if firstCond == nil && len(elseIfs) == 0 {
+		result := append(preDecls, tempDecl, tempUse)
+		result = append(result, elseBody...)
+		return result, nil
+	}
+
+	// If there are no of clauses but there are elsif clauses, promote the
+	// first elsif to the initial if condition.
+	if firstCond == nil && len(elseIfs) > 0 {
+		firstCond = elseIfs[0].Cond
+		firstBody = elseIfs[0].Body
+		elseIfs = elseIfs[1:]
+	}
+
+	ifStmt := GoIfStmt{
+		Cond:   firstCond,
+		Body:   firstBody,
+		ElseIf: elseIfs,
+		Else:   elseBody,
+	}
+
+	result := append(preDecls, tempDecl, tempUse, ifStmt)
+	return result, nil
+}
+
 func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 	// Pre-declare variables (Ruby-like scoping)
 	var preDecls []GoStmt
@@ -259,10 +390,18 @@ func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 	allBranches = append(allBranches, i.ElseBody...)
 	for _, name := range collectAssignTargets(allBranches) {
 		if !g.isDeclared(name) {
-			varType := g.varType(name)
-			if varType.IsTyped() {
-				preDecls = append(preDecls, GoVarStmt{Name: name, Type: varType.GoType()})
+			if assignedInAllBranches(i, name) {
+				// Variable is assigned in every branch, so it's safe to use
+				// the inferred typed declaration.
+				varType := g.varType(name)
+				if varType.IsTyped() {
+					preDecls = append(preDecls, GoVarStmt{Name: name, Type: varType.GoType()})
+				} else {
+					preDecls = append(preDecls, GoVarStmt{Name: name, Type: "interface{}"})
+				}
 			} else {
+				// Variable is only assigned in some branches; use interface{}
+				// so the zero value is nil (not a typed Go zero like 0 or "").
 				preDecls = append(preDecls, GoVarStmt{Name: name, Type: "interface{}"})
 			}
 			g.declareVar(name)

@@ -63,6 +63,24 @@ func (f *Factory) IfStmtWithBranches(src *IfStmt, body, elseBody []Statement, el
 	return &cp
 }
 
+// CaseStmtWithBranches creates a shallow copy of a CaseStmt with new branches.
+func (f *Factory) CaseStmtWithBranches(src *CaseStmt, ofClauses []OfClause, elsifs []ElsifClause, elseBody []Statement) *CaseStmt {
+	cp := *src
+	cp.OfClauses = ofClauses
+	cp.ElsifClauses = elsifs
+	cp.ElseBody = elseBody
+	return &cp
+}
+
+// CaseExprWithBranches creates a shallow copy of a CaseExpr with new branches.
+func (f *Factory) CaseExprWithBranches(src *CaseExpr, ofClauses []OfClause, elsifs []ElsifClause, elseBody []Statement) *CaseExpr {
+	cp := *src
+	cp.OfClauses = ofClauses
+	cp.ElsifClauses = elsifs
+	cp.ElseBody = elseBody
+	return &cp
+}
+
 // FnExprWithBody creates a shallow copy of a FnExpr with a new body.
 func (f *Factory) FnExprWithBody(src *FnExpr, body []Statement) *FnExpr {
 	return &FnExpr{Params: src.Params, Body: body}

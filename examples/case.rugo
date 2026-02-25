@@ -1,0 +1,94 @@
+# Case expressions in Rugo
+use "conv"
+
+# Basic case/of/else
+status = "ok"
+case status
+of "ok"
+  puts("status: all good")
+of "error", "fail"
+  puts("status: something went wrong")
+else
+  puts("status: unknown")
+end
+
+# Arrow form (single-line branches)
+day = "Saturday"
+case day
+of "Saturday", "Sunday" -> puts("it's the weekend!")
+of "Monday" -> puts("start of the week")
+else -> puts("regular weekday")
+end
+
+# Multiple values per branch
+code = 404
+case code
+of 200, 201 -> puts("HTTP success")
+of 301, 302 -> puts("HTTP redirect")
+of 400, 404 -> puts("HTTP client error")
+of 500, 502 -> puts("HTTP server error")
+else -> puts("HTTP other: " + conv.to_s(code))
+end
+
+# Case as expression (implicit return in functions)
+def grade(score)
+  case score
+  of 100 -> "perfect"
+  of 0 -> "zero"
+  elsif score >= 90
+    "A"
+  elsif score >= 80
+    "B"
+  elsif score >= 70
+    "C"
+  else
+    "F"
+  end
+end
+
+puts("Score 95 -> " + grade(95))
+puts("Score 85 -> " + grade(85))
+puts("Score 72 -> " + grade(72))
+puts("Score 100 -> " + grade(100))
+puts("Score 50 -> " + grade(50))
+
+# Matching strings with expression return
+def color_type(color)
+  case color
+  of "red", "orange", "yellow" -> "warm"
+  of "blue", "green", "purple" -> "cool"
+  else -> "unknown"
+  end
+end
+
+puts("red is " + color_type("red"))
+puts("blue is " + color_type("blue"))
+puts("pink is " + color_type("pink"))
+
+# Case as expression (assigned to a variable)
+status = "ok"
+label = case status
+of "ok" -> "success"
+of "error" -> "failure"
+else -> "unknown"
+end
+puts("label: " + label)
+
+# Multi-line branch expression
+code = 404
+message = case code
+of 200
+  "all good"
+of 404
+  "not found"
+else
+  "other"
+end
+puts("message: " + message)
+
+# No match returns nil
+x = case "mystery"
+of "a" -> 1
+of "b" -> 2
+end
+puts("no match: " + type_of(x))

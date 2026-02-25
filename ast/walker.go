@@ -242,6 +242,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 			s.SourceLine = line
 		case *IfStmt:
 			s.SourceLine = line
+		case *CaseStmt:
+			s.SourceLine = line
 		case *WhileStmt:
 			s.SourceLine = line
 		case *ForStmt:
@@ -273,6 +275,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		case *BenchDef:
 			s.EndLine = endLine
 		case *IfStmt:
+			s.EndLine = endLine
+		case *CaseStmt:
 			s.EndLine = endLine
 		case *WhileStmt:
 			s.EndLine = endLine
@@ -796,6 +800,190 @@ func (w *walker) walkIfStmt(ast []int32) (Statement, error) {
 	}, nil
 }
 
+func (w *walker) walkCaseExpr(ast []int32) (Expr, error) {
+	// CaseExpr = "case" Expr { "of" ExprList ( "->" Expr | Body ) }
+	//            { "elsif" Expr ( "->" Expr | Body ) }
+	//            [ "else" ( "->" Expr | Body ) ] "end" .
+	_, ast = w.readToken(ast) // "case"
+
+	subject, ast, err := w.walkExpr(ast)
+	if err != nil {
+		return nil, err
+	}
+
+	var ofClauses []OfClause
+	var elsifClauses []ElsifClause
+	var elseBody []Statement
+
+	for len(ast) > 0 {
+		if ast[0] >= 0 {
+			tok, rest := w.readToken(ast)
+			if tok.ch == parser.RugoTOK_of {
+				ast = rest
+				// Parse ExprList
+				values, r, err := w.walkExprList(ast)
+				if err != nil {
+					return nil, err
+				}
+				ast = r
+
+				// Check for "->" or Body
+				if len(ast) > 0 && ast[0] >= 0 {
+					tok2, rest2 := w.readToken(ast)
+					if tok2.ch == parser.RugoTOK_002d003e {
+						// Arrow form: of values -> expr
+						ast = rest2
+						arrowExpr, r, err := w.walkExpr(ast)
+						if err != nil {
+							return nil, err
+						}
+						ast = r
+						ofClauses = append(ofClauses, OfClause{
+							Values:    values,
+							ArrowExpr: arrowExpr,
+						})
+						continue
+					}
+				}
+
+				// Multi-line body form
+				sym, children, rest := w.readNonTerminal(ast)
+				if sym == parser.RugoBody {
+					ofBody, err := w.walkBody(children)
+					if err != nil {
+						return nil, err
+					}
+					ofClauses = append(ofClauses, OfClause{
+						Values: values,
+						Body:   ofBody,
+					})
+					ast = rest
+				} else {
+					// Empty body
+					ofClauses = append(ofClauses, OfClause{
+						Values: values,
+					})
+				}
+			} else if tok.ch == parser.RugoTOK_elsif {
+				ast = rest
+				elsifCond, r, err := w.walkExpr(ast)
+				if err != nil {
+					return nil, err
+				}
+				ast = r
+
+				// Check for "->" or Body
+				if len(ast) > 0 && ast[0] >= 0 {
+					tok2, rest2 := w.readToken(ast)
+					if tok2.ch == parser.RugoTOK_002d003e {
+						// Arrow form: elsif cond -> expr
+						ast = rest2
+						arrowExpr, r, err := w.walkExpr(ast)
+						if err != nil {
+							return nil, err
+						}
+						ast = r
+						elsifClauses = append(elsifClauses, ElsifClause{
+							Condition: elsifCond,
+							Body:      []Statement{&ExprStmt{Expression: arrowExpr}},
+						})
+						continue
+					}
+				}
+
+				sym, children, rest := w.readNonTerminal(ast)
+				if sym == parser.RugoBody {
+					elsifBody, err := w.walkBody(children)
+					if err != nil {
+						return nil, err
+					}
+					elsifClauses = append(elsifClauses, ElsifClause{
+						Condition: elsifCond,
+						Body:      elsifBody,
+					})
+					ast = rest
+				}
+			} else if tok.ch == parser.RugoTOK_else {
+				ast = rest
+
+				// Check for "->" or Body
+				if len(ast) > 0 && ast[0] >= 0 {
+					tok2, rest2 := w.readToken(ast)
+					if tok2.ch == parser.RugoTOK_002d003e {
+						// Arrow form: else -> expr
+						ast = rest2
+						arrowExpr, r, err := w.walkExpr(ast)
+						if err != nil {
+							return nil, err
+						}
+						ast = r
+						elseBody = []Statement{&ExprStmt{Expression: arrowExpr}}
+						continue
+					}
+				}
+
+				sym, children, rest := w.readNonTerminal(ast)
+				if sym == parser.RugoBody {
+					elseBody, err = w.walkBody(children)
+					if err != nil {
+						return nil, err
+					}
+					ast = rest
+				}
+			} else {
+				// "end"
+				break
+			}
+		} else {
+			break
+		}
+	}
+
+	return &CaseExpr{
+		Subject:      subject,
+		OfClauses:    ofClauses,
+		ElsifClauses: elsifClauses,
+		ElseBody:     elseBody,
+	}, nil
+}
+
+func (w *walker) walkExprList(ast []int32) ([]Expr, []int32, error) {
+	// ExprList = Expr { ',' Expr } .
+	sym, children, rest := w.readNonTerminal(ast)
+	if sym != parser.RugoExprList {
+		return nil, rest, fmt.Errorf("expected ExprList, got %v", sym)
+	}
+	// Parse the first expression
+	var exprs []Expr
+	expr, children, err := w.walkExpr(children)
+	if err != nil {
+		return nil, rest, err
+	}
+	exprs = append(exprs, expr)
+
+	// Parse remaining comma-separated expressions
+	for len(children) > 0 {
+		if children[0] >= 0 {
+			tok, r := w.readToken(children)
+			if tok.src == "," {
+				children = r
+				expr, r, err = w.walkExpr(children)
+				if err != nil {
+					return nil, rest, err
+				}
+				exprs = append(exprs, expr)
+				children = r
+			} else {
+				break
+			}
+		} else {
+			break
+		}
+	}
+
+	return exprs, rest, nil
+}
+
 func (w *walker) walkWhileStmt(ast []int32) (Statement, error) {
 	// WhileStmt = "while" Expr Body "end" .
 	_, ast = w.readToken(ast) // "while"
@@ -888,6 +1076,17 @@ func (w *walker) walkAssignOrExpr(ast []int32) (Statement, error) {
 			return &DotAssignStmt{Object: dot.Object, Field: dot.Field, Value: rhs}, nil
 		}
 		return nil, &UserError{Msg: "cannot assign to non-variable — left side of '=' must be a variable, index expression (x[i]), or field access (x.y)"}
+	}
+	// Standalone CaseExpr (no '=') is converted to CaseStmt
+	// so existing codegen handles it without IIFE overhead.
+	if ce, ok := lhs.(*CaseExpr); ok {
+		return &CaseStmt{
+			Subject:      ce.Subject,
+			OfClauses:    ce.OfClauses,
+			ElsifClauses: ce.ElsifClauses,
+			ElseBody:     ce.ElseBody,
+			BaseStmt:     BaseStmt{SourceLine: ce.SourceLine},
+		}, nil
 	}
 	return &ExprStmt{Expression: lhs}, nil
 }
@@ -1187,6 +1386,9 @@ func (w *walker) walkPrimary(ast []int32) (Expr, []int32, error) {
 			return expr, rest, err
 		case parser.RugoFnExpr:
 			expr, err := w.walkFnExpr(children[2 : 2+children[1]])
+			return expr, rest, err
+		case parser.RugoCaseExpr:
+			expr, err := w.walkCaseExpr(children[2 : 2+children[1]])
 			return expr, rest, err
 		}
 	}

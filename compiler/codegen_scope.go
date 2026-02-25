@@ -45,6 +45,28 @@ func collectIdentsFromStmt(s ast.Statement, names map[string]bool) {
 		for _, b := range st.ElseBody {
 			collectIdentsFromStmt(b, names)
 		}
+	case *ast.CaseStmt:
+		collectIdentsFromExpr(st.Subject, names)
+		for _, oc := range st.OfClauses {
+			for _, v := range oc.Values {
+				collectIdentsFromExpr(v, names)
+			}
+			if oc.ArrowExpr != nil {
+				collectIdentsFromExpr(oc.ArrowExpr, names)
+			}
+			for _, b := range oc.Body {
+				collectIdentsFromStmt(b, names)
+			}
+		}
+		for _, ei := range st.ElsifClauses {
+			collectIdentsFromExpr(ei.Condition, names)
+			for _, b := range ei.Body {
+				collectIdentsFromStmt(b, names)
+			}
+		}
+		for _, b := range st.ElseBody {
+			collectIdentsFromStmt(b, names)
+		}
 	case *ast.WhileStmt:
 		collectIdentsFromExpr(st.Condition, names)
 		for _, b := range st.Body {
@@ -129,6 +151,28 @@ func collectIdentsFromExpr(e ast.Expr, names map[string]bool) {
 			for _, s := range br.Stmts {
 				collectIdentsFromStmt(s, names)
 			}
+		}
+	case *ast.CaseExpr:
+		collectIdentsFromExpr(ex.Subject, names)
+		for _, oc := range ex.OfClauses {
+			for _, v := range oc.Values {
+				collectIdentsFromExpr(v, names)
+			}
+			if oc.ArrowExpr != nil {
+				collectIdentsFromExpr(oc.ArrowExpr, names)
+			}
+			for _, s := range oc.Body {
+				collectIdentsFromStmt(s, names)
+			}
+		}
+		for _, ec := range ex.ElsifClauses {
+			collectIdentsFromExpr(ec.Condition, names)
+			for _, s := range ec.Body {
+				collectIdentsFromStmt(s, names)
+			}
+		}
+		for _, s := range ex.ElseBody {
+			collectIdentsFromStmt(s, names)
 		}
 	case *ast.FnExpr:
 		for _, b := range ex.Body {

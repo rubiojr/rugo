@@ -176,6 +176,39 @@ type ElsifClause struct {
 	Body      []Statement
 }
 
+// CaseStmt represents case/of/elsif/else/end.
+type CaseStmt struct {
+	BaseStmt
+	Subject      Expr
+	OfClauses    []OfClause
+	ElsifClauses []ElsifClause
+	ElseBody     []Statement
+}
+
+func (c *CaseStmt) node() {}
+func (c *CaseStmt) stmt() {}
+
+// OfClause is one of branch in a case statement.
+type OfClause struct {
+	Values    []Expr      // comma-separated match values (compared with ==)
+	Body      []Statement // multi-line body (nil if ArrowExpr is set)
+	ArrowExpr Expr        // single-line arrow expression (nil if multi-line)
+}
+
+// CaseExpr is case/of/elsif/else/end used as an expression (e.g. in assignment position).
+// It shares the same branch structure as CaseStmt but implements the Expr interface.
+// Codegen wraps it in an IIFE so it evaluates to the matched branch value.
+type CaseExpr struct {
+	Subject      Expr
+	OfClauses    []OfClause
+	ElsifClauses []ElsifClause
+	ElseBody     []Statement
+	SourceLine   int
+}
+
+func (c *CaseExpr) node() {}
+func (c *CaseExpr) expr() {}
+
 // WhileStmt represents while cond body end.
 type WhileStmt struct {
 	BaseStmt

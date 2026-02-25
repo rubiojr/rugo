@@ -35,6 +35,21 @@ func stmtCoversAllPaths(s ast.Statement) bool {
 			}
 		}
 		return branchCoversAllPaths(st.ElseBody)
+	case *ast.CaseStmt:
+		if len(st.ElseBody) == 0 {
+			return false
+		}
+		for _, oc := range st.OfClauses {
+			if !branchCoversAllPaths(oc.Body) {
+				return false
+			}
+		}
+		for _, ec := range st.ElsifClauses {
+			if !branchCoversAllPaths(ec.Body) {
+				return false
+			}
+		}
+		return branchCoversAllPaths(st.ElseBody)
 	default:
 		return false
 	}
@@ -73,6 +88,21 @@ func stmtAlwaysReturns(s ast.Statement) bool {
 		}
 		if !bodyAlwaysReturns(st.Body) {
 			return false
+		}
+		for _, ec := range st.ElsifClauses {
+			if !bodyAlwaysReturns(ec.Body) {
+				return false
+			}
+		}
+		return bodyAlwaysReturns(st.ElseBody)
+	case *ast.CaseStmt:
+		if len(st.ElseBody) == 0 {
+			return false
+		}
+		for _, oc := range st.OfClauses {
+			if !bodyAlwaysReturns(oc.Body) {
+				return false
+			}
 		}
 		for _, ec := range st.ElsifClauses {
 			if !bodyAlwaysReturns(ec.Body) {
@@ -128,11 +158,76 @@ func collectAssignTargets(stmts []ast.Statement) []string {
 					collect(clause.Body)
 				}
 				collect(st.ElseBody)
+			case *ast.CaseStmt:
+				for _, oc := range st.OfClauses {
+					collect(oc.Body)
+				}
+				for _, clause := range st.ElsifClauses {
+					collect(clause.Body)
+				}
+				collect(st.ElseBody)
 			}
 		}
 	}
 	collect(stmts)
 	return names
+}
+
+// assignedInAllBranches returns true if the variable name is assigned in every
+// branch of the if-statement (i.e. the if body AND the else body both assign it,
+// and any elsif branches also assign it). When there is no else branch, the
+// variable may remain uninitialized, so this returns false.
+func assignedInAllBranches(i *ast.IfStmt, name string) bool {
+	if len(i.ElseBody) == 0 && len(i.ElsifClauses) == 0 {
+		return false
+	}
+	if len(i.ElsifClauses) == 0 {
+		return branchAssigns(i.Body, name) && branchAssigns(i.ElseBody, name)
+	}
+	// With elsif clauses, all branches must assign: if + each elsif + else
+	if !branchAssigns(i.Body, name) {
+		return false
+	}
+	for _, ec := range i.ElsifClauses {
+		if !branchAssigns(ec.Body, name) {
+			return false
+		}
+	}
+	if len(i.ElseBody) == 0 {
+		return false
+	}
+	return branchAssigns(i.ElseBody, name)
+}
+
+// branchAssigns returns true if the given statements directly assign to name.
+func branchAssigns(stmts []ast.Statement, name string) bool {
+	for _, s := range stmts {
+		if a, ok := s.(*ast.AssignStmt); ok && a.Target == name {
+			return true
+		}
+	}
+	return false
+}
+
+// assignedInAllCaseBranches returns true if the variable name is assigned in every
+// branch of the case statement (i.e. all of branches, all elsif branches, and
+// the else branch). When there is no else branch, the variable may remain
+// uninitialized, so this returns false.
+func assignedInAllCaseBranches(cs *ast.CaseStmt, name string) bool {
+	if len(cs.ElseBody) == 0 {
+		return false
+	}
+	for _, oc := range cs.OfClauses {
+		if !branchAssigns(oc.Body, name) {
+			return false
+		}
+	}
+	for _, ec := range cs.ElsifClauses {
+		if !branchAssigns(ec.Body, name) {
+			return false
+		}
+	}
+	return branchAssigns(cs.ElseBody, name)
 }
 
 // rangeExprs detects optimizable range patterns in the collection expression.

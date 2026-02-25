@@ -51,6 +51,7 @@ type codeGen struct {
 	lambdaScopeBase []int                // scope index at each lambda entry (stack)
 	lambdaOuterFunc []*ast.FuncDef       // enclosing function at each lambda entry (stack)
 	sandbox         *SandboxConfig       // Landlock sandbox config (nil = no sandbox)
+	caseCounter     int                  // counter for unique case temp variable names
 }
 
 // generate produces Go source code from a ast.Program AST.

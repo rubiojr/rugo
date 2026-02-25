@@ -1,0 +1,1421 @@
+# RATS: Test case/of/elsif/else/end statement
+use "test"
+use "eval"
+use "str"
+
+# --- Basic matching ---
+
+rats "case matches first of branch"
+  x = "hello"
+  result = nil
+  case x
+  of "hello"
+    result = "matched"
+  of "world"
+    result = "wrong"
+  end
+  test.assert_eq(result, "matched")
+end
+
+rats "case matches second of branch"
+  x = "world"
+  result = nil
+  case x
+  of "hello"
+    result = "wrong"
+  of "world"
+    result = "matched"
+  end
+  test.assert_eq(result, "matched")
+end
+
+rats "case falls through to else"
+  x = "unknown"
+  result = nil
+  case x
+  of "hello"
+    result = "wrong"
+  of "world"
+    result = "wrong"
+  else
+    result = "default"
+  end
+  test.assert_eq(result, "default")
+end
+
+rats "case no match no else gives nil"
+  x = "missing"
+  case x
+  of "hello"
+    result = "wrong"
+  end
+  test.assert_eq(result, nil)
+end
+
+# --- Multi-value of ---
+
+rats "case matches multiple values in one of branch"
+  status = "fail"
+  result = nil
+  case status
+  of "ok", "success"
+    result = "good"
+  of "error", "fail"
+    result = "bad"
+  else
+    result = "unknown"
+  end
+  test.assert_eq(result, "bad")
+end
+
+rats "case multi-value matches first value"
+  x = "a"
+  result = nil
+  case x
+  of "a", "b", "c"
+    result = "found"
+  end
+  test.assert_eq(result, "found")
+end
+
+rats "case multi-value matches last value"
+  x = "c"
+  result = nil
+  case x
+  of "a", "b", "c"
+    result = "found"
+  end
+  test.assert_eq(result, "found")
+end
+
+# --- Integer matching ---
+
+rats "case matches integers"
+  n = 42
+  result = nil
+  case n
+  of 1
+    result = "one"
+  of 42
+    result = "forty-two"
+  else
+    result = "other"
+  end
+  test.assert_eq(result, "forty-two")
+end
+
+rats "case matches integer zero"
+  n = 0
+  result = nil
+  case n
+  of 0
+    result = "zero"
+  of 1
+    result = "one"
+  end
+  test.assert_eq(result, "zero")
+end
+
+# --- Boolean matching ---
+
+rats "case matches boolean true"
+  b = true
+  result = nil
+  case b
+  of true
+    result = "yes"
+  of false
+    result = "no"
+  end
+  test.assert_eq(result, "yes")
+end
+
+rats "case matches boolean false"
+  b = false
+  result = nil
+  case b
+  of true
+    result = "yes"
+  of false
+    result = "no"
+  end
+  test.assert_eq(result, "no")
+end
+
+# --- Nil matching ---
+
+rats "case matches nil"
+  x = nil
+  result = "unset"
+  case x
+  of nil
+    result = "was nil"
+  of "something"
+    result = "wrong"
+  end
+  test.assert_eq(result, "was nil")
+end
+
+# --- Arrow (single-line) form as implicit return ---
+
+rats "case arrow form as implicit return"
+  source = <<~RUGO
+    def grade(letter)
+      case letter
+      of "A" -> "excellent"
+      of "B" -> "good"
+      of "C" -> "average"
+      else -> "unknown"
+      end
+    end
+    puts grade("A")
+    puts grade("B")
+    puts grade("C")
+    puts grade("Z")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "excellent\ngood\naverage\nunknown")
+end
+
+rats "case arrow form with multi-value"
+  source = <<~RUGO
+    def describe(code)
+      case code
+      of 200, 201 -> "success"
+      of 404 -> "not found"
+      of 500, 502, 503 -> "server error"
+      else -> "other"
+      end
+    end
+    puts describe(200)
+    puts describe(201)
+    puts describe(404)
+    puts describe(500)
+    puts describe(999)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "success\nsuccess\nnot found\nserver error\nother")
+end
+
+# --- Multi-line as expression (implicit return) ---
+
+rats "case multi-line as implicit return"
+  source = <<~RUGO
+    def describe(status)
+      case status
+      of "ok"
+        "all good"
+      of "error", "fail"
+        "something went wrong"
+      else
+        "unknown: " + status
+      end
+    end
+    puts describe("ok")
+    puts describe("fail")
+    puts describe("what")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "all good\nsomething went wrong\nunknown: what")
+end
+
+# --- Elsif integration ---
+
+rats "case with elsif boolean condition"
+  val = 75
+  result = nil
+  case val
+  of 100
+    result = "perfect"
+  of 90
+    result = "A"
+  elsif val >= 80
+    result = "B"
+  else
+    result = "C"
+  end
+  test.assert_eq(result, "C")
+end
+
+rats "case elsif matches when of branches don't"
+  val = 85
+  result = nil
+  case val
+  of 100
+    result = "perfect"
+  elsif val >= 90
+    result = "A"
+  elsif val >= 80
+    result = "B"
+  else
+    result = "C"
+  end
+  test.assert_eq(result, "B")
+end
+
+rats "case elsif as implicit return"
+  source = <<~RUGO
+    def classify(score)
+      case score
+      of 100 -> "perfect"
+      of 0 -> "zero"
+      elsif score >= 90
+        "A"
+      elsif score >= 80
+        "B"
+      else
+        "C"
+      end
+    end
+    puts classify(100)
+    puts classify(0)
+    puts classify(95)
+    puts classify(85)
+    puts classify(50)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "perfect\nzero\nA\nB\nC")
+end
+
+# --- Variable scoping (leak to parent) ---
+
+rats "case variables leak to parent scope"
+  x = "hello"
+  case x
+  of "hello"
+    msg = "found"
+  of "world"
+    msg = "wrong"
+  end
+  test.assert_eq(msg, "found")
+end
+
+rats "case variable pre-declared as nil when no match"
+  x = "zzz"
+  case x
+  of "a"
+    result = "found"
+  end
+  test.assert_eq(result, nil)
+end
+
+rats "case variable assigned in all branches"
+  source = <<~RUGO
+    def test_scope(flag)
+      case flag
+      of "a"
+        out = "alpha"
+      of "b"
+        out = "beta"
+      else
+        out = "other"
+      end
+      return out
+    end
+    puts test_scope("a")
+    puts test_scope("b")
+    puts test_scope("x")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "alpha\nbeta\nother")
+end
+
+# --- First match wins (no fallthrough) ---
+
+rats "case first match wins"
+  x = "a"
+  result = nil
+  case x
+  of "a"
+    result = "first"
+  of "a"
+    result = "second"
+  end
+  test.assert_eq(result, "first")
+end
+
+# --- Nested case ---
+
+rats "nested case statements"
+  x = 1
+  y = "a"
+  result = nil
+  case x
+  of 1
+    case y
+    of "a"
+      result = "1a"
+    of "b"
+      result = "1b"
+    end
+  of 2
+    result = "two"
+  end
+  test.assert_eq(result, "1a")
+end
+
+# --- Mixed arrow and multi-line ---
+
+rats "case mixed arrow and multi-line in function"
+  source = <<~RUGO
+    def mixed(x)
+      case x
+      of "short" -> "s"
+      of "long"
+        "long result"
+      else -> "other"
+      end
+    end
+    puts mixed("short")
+    puts mixed("long")
+    puts mixed("x")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "s\nlong result\nother")
+end
+
+# --- Case with expressions as values ---
+
+rats "case matches computed values"
+  target = 10
+  case target
+  of 5 + 5
+    result = "ten"
+  of 20 / 2
+    result = "wrong"
+  end
+  test.assert_eq(result, "ten")
+end
+
+# --- Case with string interpolation ---
+
+rats "case matches string with interpolation"
+  prefix = "hello"
+  x = "hello world"
+  result = nil
+  case x
+  of "#{prefix} world"
+    result = "matched"
+  else
+    result = "no match"
+  end
+  test.assert_eq(result, "matched")
+end
+
+# --- Case with float ---
+
+rats "case matches float values"
+  x = 3.14
+  result = nil
+  case x
+  of 3.14
+    result = "pi"
+  of 2.71
+    result = "e"
+  end
+  test.assert_eq(result, "pi")
+end
+
+# --- Else-only case ---
+
+rats "case with only else"
+  x = "anything"
+  result = nil
+  case x
+  else
+    result = "default"
+  end
+  test.assert_eq(result, "default")
+end
+
+# --- Case inside loop ---
+
+rats "case inside while loop"
+  items = ["a", "b", "c"]
+  results = []
+  i = 0
+  while i < len(items)
+    case items[i]
+    of "a"
+      results = append(results, 1)
+    of "b"
+      results = append(results, 2)
+    of "c"
+      results = append(results, 3)
+    end
+    i = i + 1
+  end
+  test.assert_eq(results[0], 1)
+  test.assert_eq(results[1], 2)
+  test.assert_eq(results[2], 3)
+end
+
+rats "case inside for loop"
+  items = ["x", "y", "z"]
+  results = []
+  for item in items
+    case item
+    of "x"
+      results = append(results, "X")
+    of "y"
+      results = append(results, "Y")
+    of "z"
+      results = append(results, "Z")
+    end
+  end
+  test.assert_eq(results[0], "X")
+  test.assert_eq(results[1], "Y")
+  test.assert_eq(results[2], "Z")
+end
+
+# --- Case with array matching ---
+
+rats "case matches array value"
+  x = [1, 2, 3]
+  result = nil
+  case x
+  of [1, 2, 3]
+    result = "matched"
+  of [4, 5, 6]
+    result = "wrong"
+  end
+  test.assert_eq(result, "matched")
+end
+
+# --- Case with hash matching ---
+
+rats "case matches hash value"
+  x = {"a" => 1}
+  result = nil
+  case x
+  of {"a" => 1}
+    result = "matched"
+  of {"b" => 2}
+    result = "wrong"
+  end
+  test.assert_eq(result, "matched")
+end
+
+# --- Case with function call as subject ---
+
+rats "case with function call as subject"
+  source = <<~RUGO
+    def get_status()
+      return "ok"
+    end
+    case get_status()
+    of "ok"
+      result = "good"
+    of "error"
+      result = "bad"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "good")
+end
+
+# --- Case in function with early return in branch ---
+
+rats "case with return in branch"
+  source = <<~RUGO
+    def check(x)
+      case x
+      of "early"
+        return "returned early"
+      of "normal"
+        return "normal path"
+      end
+      return "fell through"
+    end
+    puts check("early")
+    puts check("normal")
+    puts check("other")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "returned early\nnormal path\nfell through")
+end
+
+# --- Case inside loop with assignment ---
+
+rats "case inside loop with assignment in branches"
+  count = 0
+  items = [1, 2, 3]
+  for item in items
+    case item
+    of 1
+      count = count + 1
+    of 2
+      count = count + 10
+    of 3
+      count = count + 100
+    end
+  end
+  test.assert_eq(count, 111)
+end
+
+# --- Multiple case statements in sequence ---
+
+rats "multiple case statements in sequence"
+  a = "x"
+  b = "y"
+  case a
+  of "x"
+    r1 = "found x"
+  else
+    r1 = "other"
+  end
+  case b
+  of "y"
+    r2 = "found y"
+  else
+    r2 = "other"
+  end
+  test.assert_eq(r1, "found x")
+  test.assert_eq(r2, "found y")
+end
+
+# ===================================================================
+# Negative / error tests
+# ===================================================================
+
+# --- Parse errors ---
+
+rats "error: case without subject"
+  source = <<~RUGO
+    case
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "reserved keyword")
+end
+
+rats "error: case missing end"
+  source = <<~RUGO
+    x = "hello"
+    case x
+    of "a"
+      puts "hi"
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unclosed block")
+end
+
+rats "error: of after else"
+  source = <<~RUGO
+    x = "hello"
+    case x
+    else
+      puts "default"
+    of "a"
+      puts "a"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"of\"")
+end
+
+rats "error: of after elsif"
+  source = <<~RUGO
+    x = 5
+    case x
+    elsif x > 3
+      puts "big"
+    of 1
+      puts "one"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"of\"")
+end
+
+rats "error: elsif after else"
+  source = <<~RUGO
+    x = "hello"
+    case x
+    of "a"
+      puts "a"
+    else
+      puts "default"
+    elsif x == "b"
+      puts "b"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"elsif\"")
+end
+
+rats "error: double else"
+  source = <<~RUGO
+    x = "hello"
+    case x
+    else
+      puts "first"
+    else
+      puts "second"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"else\"")
+end
+
+rats "error: arrow with assignment"
+  source = <<~RUGO
+    x = "hello"
+    case x
+    of "a" -> result = "hello"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"=\"")
+end
+
+rats "error: double arrow"
+  source = <<~RUGO
+    x = "hello"
+    case x
+    of "a" -> "one" -> "two"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"->\"")
+end
+
+rats "error: arrow with missing expression"
+  source = <<~RUGO
+    x = "hello"
+    case x
+    of "a" ->
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+# --- Semantic edge cases that should work ---
+
+rats "empty case compiles and runs"
+  source = <<~RUGO
+    x = "hello"
+    case x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "case with only elsif works"
+  source = <<~RUGO
+    x = 5
+    case x
+    elsif x > 3
+      result = "big"
+    else
+      result = "small"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "big")
+end
+
+# ===================================================================
+# Case-as-expression tests
+# ===================================================================
+
+# --- Basic assignment with arrow form ---
+
+rats "case expression: basic arrow assignment"
+  source = <<~RUGO
+    x = "hello"
+    result = case x
+    of "hello" -> "matched"
+    of "world" -> "wrong"
+    else -> "default"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "matched")
+end
+
+rats "case expression: matches second branch"
+  source = <<~RUGO
+    x = "world"
+    result = case x
+    of "hello" -> "wrong"
+    of "world" -> "matched"
+    else -> "default"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "matched")
+end
+
+rats "case expression: falls through to else"
+  source = <<~RUGO
+    x = "unknown"
+    result = case x
+    of "hello" -> "wrong"
+    of "world" -> "wrong"
+    else -> "default"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "default")
+end
+
+rats "case expression: no match no else gives nil"
+  source = <<~RUGO
+    x = "missing"
+    result = case x
+    of "hello" -> "wrong"
+    of "world" -> "wrong"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "nil")
+end
+
+# --- Multi-value of in expression ---
+
+rats "case expression: multi-value of"
+  source = <<~RUGO
+    status = "fail"
+    result = case status
+    of "ok", "success" -> "good"
+    of "error", "fail" -> "bad"
+    else -> "unknown"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "bad")
+end
+
+# --- Multi-line block branches ---
+
+rats "case expression: multi-line block branches"
+  source = <<~RUGO
+    x = "long"
+    result = case x
+    of "short"
+      "s"
+    of "long"
+      prefix = "long"
+      prefix + " result"
+    else
+      "other"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "long result")
+end
+
+# --- Elsif in expression ---
+
+rats "case expression: elsif branch"
+  source = <<~RUGO
+    score = 85
+    result = case score
+    of 100 -> "perfect"
+    of 0 -> "zero"
+    elsif score >= 90
+      "A"
+    elsif score >= 80
+      "B"
+    else
+      "C"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "B")
+end
+
+# --- Mixed arrow and multi-line ---
+
+rats "case expression: mixed arrow and multi-line"
+  source = <<~RUGO
+    x = "long"
+    result = case x
+    of "short" -> "s"
+    of "long"
+      "long result"
+    else -> "other"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "long result")
+end
+
+# --- Integer matching ---
+
+rats "case expression: integer matching"
+  source = <<~RUGO
+    n = 42
+    result = case n
+    of 1 -> "one"
+    of 42 -> "forty-two"
+    else -> "other"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "forty-two")
+end
+
+# --- Boolean matching ---
+
+rats "case expression: boolean matching"
+  source = <<~RUGO
+    b = true
+    result = case b
+    of true -> "yes"
+    of false -> "no"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "yes")
+end
+
+# --- Nil matching ---
+
+rats "case expression: nil matching"
+  source = <<~RUGO
+    x = nil
+    result = case x
+    of nil -> "was nil"
+    of "something" -> "wrong"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "was nil")
+end
+
+# --- Case expression as implicit return in function ---
+
+rats "case expression: implicit return in function"
+  source = <<~RUGO
+    def grade(letter)
+      case letter
+      of "A" -> "excellent"
+      of "B" -> "good"
+      else -> "unknown"
+      end
+    end
+    puts grade("A")
+    puts grade("B")
+    puts grade("Z")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "excellent\ngood\nunknown")
+end
+
+# --- Case expression with function call as subject ---
+
+rats "case expression: function call as subject"
+  source = <<~RUGO
+    def get_status()
+      return "ok"
+    end
+    result = case get_status()
+    of "ok" -> "good"
+    of "error" -> "bad"
+    else -> "unknown"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "good")
+end
+
+# --- Case expression with computed values ---
+
+rats "case expression: computed values in of"
+  source = <<~RUGO
+    target = 10
+    result = case target
+    of 5 + 5 -> "ten"
+    of 20 / 2 -> "wrong"
+    else -> "other"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "ten")
+end
+
+# --- Nested case expressions ---
+
+rats "case expression: nested"
+  source = <<~RUGO
+    x = 1
+    y = "a"
+    result = case x
+    of 1
+      case y
+      of "a" -> "1a"
+      of "b" -> "1b"
+      else -> "1?"
+      end
+    of 2 -> "two"
+    else -> "other"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "1a")
+end
+
+# --- Multiple case expressions in sequence ---
+
+rats "case expression: multiple in sequence"
+  source = <<~RUGO
+    a = "x"
+    b = "y"
+    r1 = case a
+    of "x" -> "found x"
+    else -> "other"
+    end
+    r2 = case b
+    of "y" -> "found y"
+    else -> "other"
+    end
+    puts r1
+    puts r2
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "found x\nfound y")
+end
+
+# --- Case expression scope isolation (IIFE) ---
+
+rats "case expression: variables don't leak to parent scope"
+  source = <<~RUGO
+    x = "hello"
+    result = case x
+    of "hello"
+      inner_var = "inside"
+      inner_var
+    else
+      "default"
+    end
+    puts result
+    puts inner_var
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "inner_var")
+end
+
+# --- Else-only case expression ---
+
+rats "case expression: else-only"
+  source = <<~RUGO
+    x = "anything"
+    result = case x
+    else -> "always"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "always")
+end
+
+# --- Case expression in reassignment ---
+
+rats "case expression: reassignment"
+  source = <<~RUGO
+    result = "initial"
+    x = "b"
+    result = case x
+    of "a" -> "alpha"
+    of "b" -> "beta"
+    else -> "other"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "beta")
+end
+
+# --- Case expression used directly in puts ---
+
+rats "case expression: used as function argument"
+  source = <<~RUGO
+    x = "hi"
+    puts(case x
+    of "hi" -> "hello!"
+    else -> "bye"
+    end)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello!")
+end
+
+# --- Case expression with string interpolation ---
+
+rats "case expression: string interpolation in values"
+  prefix = "hello"
+  x = "hello world"
+  result = case x
+  of "#{prefix} world" -> "matched"
+  else -> "no match"
+  end
+  test.assert_eq(result, "matched")
+end
+
+# --- Case expression with float ---
+
+rats "case expression: float matching"
+  source = <<~RUGO
+    x = 3.14
+    result = case x
+    of 3.14 -> "pi"
+    of 2.71 -> "e"
+    else -> "other"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "pi")
+end
+
+# --- Case expression inside loop ---
+
+rats "case expression: inside for loop"
+  source = <<~RUGO
+    items = ["a", "b", "c"]
+    results = []
+    for item in items
+      r = case item
+      of "a" -> 1
+      of "b" -> 2
+      of "c" -> 3
+      else -> 0
+      end
+      results = append(results, r)
+    end
+    puts results[0]
+    puts results[1]
+    puts results[2]
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "1\n2\n3")
+end
+
+# --- Case expression with elsif-only (no of) ---
+
+rats "case expression: elsif-only"
+  source = <<~RUGO
+    x = 5
+    result = case x
+    elsif x > 3
+      "big"
+    else
+      "small"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "big")
+end
+
+# --- Case expression: subject evaluated once ---
+
+rats "case expression: subject evaluated once"
+  source = <<~RUGO
+    def make_value()
+      puts "called"
+      return 42
+    end
+    result = case make_value()
+    of 42 -> "found"
+    of 99 -> "wrong"
+    else -> "other"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "called\nfound")
+end
+
+# --- Case expression: multi-line else-only ---
+
+rats "case expression: multi-line else-only"
+  source = <<~RUGO
+    x = "anything"
+    result = case x
+    else
+      prefix = "always"
+      prefix + " here"
+    end
+    puts result
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "always here")
+end
+
+# ===================================================================
+# Case-as-expression negative / error tests
+# ===================================================================
+
+rats "case expression error: arrow with assignment"
+  source = <<~RUGO
+    x = "hello"
+    result = case x
+    of "a" -> result = "hello"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"=\"")
+end
+
+rats "case expression error: missing end"
+  source = <<~RUGO
+    x = "hello"
+    result = case x
+    of "a" -> "one"
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unclosed block")
+end
+
+rats "case expression error: of after else"
+  source = <<~RUGO
+    x = "hello"
+    result = case x
+    else -> "default"
+    of "a" -> "one"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"of\"")
+end
+
+rats "case expression error: double else"
+  source = <<~RUGO
+    x = "hello"
+    result = case x
+    else -> "first"
+    else -> "second"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"else\"")
+end
+
+# ===================================================================
+# Adversarial / edge-case error tests
+# ===================================================================
+
+# --- Statement form adversarial errors ---
+
+rats "error: stray of outside case"
+  source = <<~RUGO
+    x = 5
+    of 1 -> "one"
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+rats "error: case keyword as variable name"
+  source = <<~RUGO
+    case = 5
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+rats "error: of with trailing comma"
+  source = <<~RUGO
+    x = 5
+    case x
+    of 1, -> "one"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+rats "error: unterminated case with only of keyword"
+  source = <<~RUGO
+    case x
+    of
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+# --- Expression form adversarial errors ---
+
+rats "case expression error: of after elsif"
+  source = <<~RUGO
+    x = 5
+    result = case x
+    elsif x > 3
+      "big"
+    of 1 -> "one"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"of\"")
+end
+
+rats "case expression error: elsif after else"
+  source = <<~RUGO
+    x = 5
+    result = case x
+    of 1 -> "one"
+    else -> "other"
+    elsif x > 3
+      "big"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"elsif\"")
+end
+
+rats "case expression error: double arrow"
+  source = <<~RUGO
+    x = 5
+    result = case x
+    of 1 -> "one" -> "two"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unexpected \"->\"")
+end
+
+rats "case expression error: arrow with missing expression"
+  source = <<~RUGO
+    x = 5
+    result = case x
+    of 1 ->
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "reserved keyword")
+end
+
+rats "case expression error: of with trailing comma"
+  source = <<~RUGO
+    x = 5
+    result = case x
+    of 1, -> "one"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+rats "case expression error: without subject"
+  source = <<~RUGO
+    result = case
+    of 1 -> "one"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "error:")
+end
+
+# --- Error messages must not leak Go internals ---
+
+rats "error: no Go internals in case error messages"
+  source = <<~RUGO
+    x = "hello"
+    result = case x
+    of "a" -> result = "hello"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  # Must not contain Go implementation details
+  output = result["output"]
+  test.assert_eq(str.contains(output, "interface{}"), false)
+  test.assert_eq(str.contains(output, "GoIIFE"), false)
+  test.assert_eq(str.contains(output, "__case_"), false)
+  test.assert_eq(str.contains(output, "func()"), false)
+end
+
+rats "error: no Go internals in case runtime error"
+  source = <<~RUGO
+    x = "hello"
+    result = case x
+    of "hello"
+      raise("boom")
+    else -> "ok"
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  output = result["output"]
+  test.assert_contains(output, "boom")
+  test.assert_eq(str.contains(output, "interface{}"), false)
+  test.assert_eq(str.contains(output, "__case_"), false)
+end

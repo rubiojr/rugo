@@ -72,6 +72,15 @@ func (ir *implicitReturner) walkStmt(s Statement) Statement {
 		}
 		return ir.f.IfStmtWithBranches(st, body, elseBody, elsifs)
 
+	case *CaseStmt:
+		ofs, oc := ir.walkOfClauses(st.OfClauses)
+		elsifs, ec := ir.walkElsifs(st.ElsifClauses)
+		elseBody, ebc := ir.walkStmts(st.ElseBody)
+		if !oc && !ec && !ebc {
+			return s
+		}
+		return ir.f.CaseStmtWithBranches(st, ofs, elsifs, elseBody)
+
 	case *WhileStmt:
 		body, changed := ir.walkStmts(st.Body)
 		if !changed {
@@ -277,6 +286,19 @@ func (ir *implicitReturner) walkExpr(e Expr) Expr {
 		}
 		return &HashLiteral{Pairs: pairs}
 
+	case *CaseExpr:
+		subject := ir.walkExpr(ex.Subject)
+		ofClauses, ofChanged := ir.walkOfClauses(ex.OfClauses)
+		elsifs, elsifChanged := ir.walkElsifs(ex.ElsifClauses)
+		elseBody, elseChanged := ir.walkStmts(ex.ElseBody)
+		if subject == ex.Subject && !ofChanged && !elsifChanged && !elseChanged {
+			return e
+		}
+		return ir.f.CaseExprWithBranches(
+			&CaseExpr{Subject: subject, SourceLine: ex.SourceLine},
+			ofClauses, elsifs, elseBody,
+		)
+
 	default:
 		return e
 	}
@@ -395,6 +417,9 @@ func (ir *implicitReturner) transformLastStmt(s Statement, ctx bodyContext) Stat
 	case *IfStmt:
 		return ir.transformIfBranches(st, ctx)
 
+	case *CaseStmt:
+		return ir.transformCaseBranches(st, ctx)
+
 	default:
 		return nil
 	}
@@ -472,6 +497,117 @@ func (ir *implicitReturner) transformElsifBranches(clauses []ElsifClause, ctx bo
 				b = body
 			}
 			out[i] = ElsifClause{Condition: ec.Condition, Body: b}
+		}
+	}
+	if !modified {
+		return nil
+	}
+	return out
+}
+
+// walkOfClauses processes of clauses, recursing into their bodies.
+func (ir *implicitReturner) walkOfClauses(clauses []OfClause) ([]OfClause, bool) {
+	var out []OfClause
+	modified := false
+	for i, oc := range clauses {
+		if oc.ArrowExpr != nil {
+			// Arrow form: walk the expression
+			expr := ir.walkExpr(oc.ArrowExpr)
+			if expr != oc.ArrowExpr {
+				if !modified {
+					out = make([]OfClause, len(clauses))
+					copy(out[:i], clauses[:i])
+					modified = true
+				}
+			}
+			if modified {
+				out[i] = OfClause{Values: oc.Values, ArrowExpr: expr}
+			}
+		} else {
+			// Multi-line body form
+			body, changed := ir.walkStmts(oc.Body)
+			if changed {
+				if !modified {
+					out = make([]OfClause, len(clauses))
+					copy(out[:i], clauses[:i])
+					modified = true
+				}
+			}
+			if modified {
+				out[i] = OfClause{Values: oc.Values, Body: body}
+			}
+		}
+	}
+	if !modified {
+		return clauses, false
+	}
+	return out, true
+}
+
+// transformCaseBranches recurses into a CaseStmt's branches, converting the
+// last expression in each branch to the appropriate return node.
+func (ir *implicitReturner) transformCaseBranches(cs *CaseStmt, ctx bodyContext) Statement {
+	ofs := ir.transformOfBranches(cs.OfClauses, ctx)
+	elsifs := ir.transformElsifBranches(cs.ElsifClauses, ctx)
+	elseBody := ir.transformBranchBody(cs.ElseBody, ctx)
+
+	if ofs == nil && elsifs == nil && elseBody == nil {
+		return nil
+	}
+
+	o := cs.OfClauses
+	if ofs != nil {
+		o = ofs
+	}
+	ec := cs.ElsifClauses
+	if elsifs != nil {
+		ec = elsifs
+	}
+	e := cs.ElseBody
+	if elseBody != nil {
+		e = elseBody
+	}
+	return ir.f.CaseStmtWithBranches(cs, o, ec, e)
+}
+
+// transformOfBranches converts the last expression in each of clause.
+func (ir *implicitReturner) transformOfBranches(clauses []OfClause, ctx bodyContext) []OfClause {
+	var out []OfClause
+	modified := false
+	for i, oc := range clauses {
+		if oc.ArrowExpr != nil {
+			// Arrow form: wrap the expression as a return node
+			ret := ir.makeReturnNode(oc.ArrowExpr, 0, ctx)
+			if ret != nil {
+				if !modified {
+					out = make([]OfClause, len(clauses))
+					copy(out[:i], clauses[:i])
+					modified = true
+				}
+			}
+			if modified {
+				if ret != nil {
+					out[i] = OfClause{Values: oc.Values, Body: []Statement{ret}}
+				} else {
+					out[i] = oc
+				}
+			}
+		} else {
+			body := ir.transformBranchBody(oc.Body, ctx)
+			if body != nil {
+				if !modified {
+					out = make([]OfClause, len(clauses))
+					copy(out[:i], clauses[:i])
+					modified = true
+				}
+			}
+			if modified {
+				b := oc.Body
+				if body != nil {
+					b = body
+				}
+				out[i] = OfClause{Values: oc.Values, Body: b}
+			}
 		}
 	}
 	if !modified {

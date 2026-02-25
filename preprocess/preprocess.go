@@ -16,6 +16,7 @@ var RugoKeywords = map[string]bool{
 	"rats": true, "try": true, "or": true,
 	"spawn": true, "parallel": true, "bench": true, "fn": true,
 	"struct": true, "with": true, "sandbox": true, "do": true,
+	"case": true, "of": true,
 }
 
 var rugoBuiltins = map[string]bool{
@@ -328,6 +329,8 @@ func Preprocess(src string, allFuncs map[string]bool) (string, []int, error) {
 			blockStack = append(blockStack, "parallel")
 		case "fn":
 			blockStack = append(blockStack, "fn")
+		case "case":
+			blockStack = append(blockStack, "case")
 		case "end":
 			if len(blockStack) > 0 {
 				top := blockStack[len(blockStack)-1]
@@ -1532,6 +1535,7 @@ var blockOpenerKeywords = map[string]bool{
 	"def": true, "if": true, "while": true, "for": true,
 	"try": true, "spawn": true, "parallel": true, "fn": true,
 	"rats": true, "bench": true, "struct": true, "do": true,
+	"case": true,
 }
 
 // expandInlineFnLine expands inline fn bodies in a single line.

@@ -51,6 +51,20 @@ func walkStmtRecursive(s ast.Statement, fn func(ast.Statement) bool) {
 		for _, child := range st.ElseBody {
 			walkStmtRecursive(child, fn)
 		}
+	case *ast.CaseStmt:
+		for _, oc := range st.OfClauses {
+			for _, child := range oc.Body {
+				walkStmtRecursive(child, fn)
+			}
+		}
+		for _, clause := range st.ElsifClauses {
+			for _, child := range clause.Body {
+				walkStmtRecursive(child, fn)
+			}
+		}
+		for _, child := range st.ElseBody {
+			walkStmtRecursive(child, fn)
+		}
 	case *ast.WhileStmt:
 		for _, child := range st.Body {
 			walkStmtRecursive(child, fn)
@@ -79,6 +93,42 @@ func walkStmtExprs(s ast.Statement, fn func(ast.Expr) bool) bool {
 		for _, s := range st.Body {
 			if walkStmtExprs(s, fn) {
 				return true
+			}
+		}
+		for _, ec := range st.ElsifClauses {
+			if walkExpr(ec.Condition, fn) {
+				return true
+			}
+			for _, s := range ec.Body {
+				if walkStmtExprs(s, fn) {
+					return true
+				}
+			}
+		}
+		for _, s := range st.ElseBody {
+			if walkStmtExprs(s, fn) {
+				return true
+			}
+		}
+	case *ast.CaseStmt:
+		if walkExpr(st.Subject, fn) {
+			return true
+		}
+		for _, oc := range st.OfClauses {
+			for _, v := range oc.Values {
+				if walkExpr(v, fn) {
+					return true
+				}
+			}
+			if oc.ArrowExpr != nil {
+				if walkExpr(oc.ArrowExpr, fn) {
+					return true
+				}
+			}
+			for _, s := range oc.Body {
+				if walkStmtExprs(s, fn) {
+					return true
+				}
 			}
 		}
 		for _, ec := range st.ElsifClauses {
@@ -227,6 +277,42 @@ func walkExpr(e ast.Expr, fn func(ast.Expr) bool) bool {
 				if walkStmtExprs(s, fn) {
 					return true
 				}
+			}
+		}
+	case *ast.CaseExpr:
+		if walkExpr(ex.Subject, fn) {
+			return true
+		}
+		for _, oc := range ex.OfClauses {
+			for _, v := range oc.Values {
+				if walkExpr(v, fn) {
+					return true
+				}
+			}
+			if oc.ArrowExpr != nil {
+				if walkExpr(oc.ArrowExpr, fn) {
+					return true
+				}
+			}
+			for _, s := range oc.Body {
+				if walkStmtExprs(s, fn) {
+					return true
+				}
+			}
+		}
+		for _, ec := range ex.ElsifClauses {
+			if walkExpr(ec.Condition, fn) {
+				return true
+			}
+			for _, s := range ec.Body {
+				if walkStmtExprs(s, fn) {
+					return true
+				}
+			}
+		}
+		for _, s := range ex.ElseBody {
+			if walkStmtExprs(s, fn) {
+				return true
 			}
 		}
 	}

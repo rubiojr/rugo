@@ -258,6 +258,32 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 	case *ast.IfStmt:
 		inferIfStmt(ti, scope, st)
 
+	case *ast.CaseStmt:
+		inferExpr(ti, scope, st.Subject)
+		ti.ExprTypes[st.Subject] = inferExpr(ti, scope, st.Subject)
+		for _, oc := range st.OfClauses {
+			for _, v := range oc.Values {
+				inferExpr(ti, scope, v)
+				ti.ExprTypes[v] = inferExpr(ti, scope, v)
+			}
+			if oc.ArrowExpr != nil {
+				inferExpr(ti, scope, oc.ArrowExpr)
+			}
+			for _, s := range oc.Body {
+				inferStmt(ti, scope, s)
+			}
+		}
+		for _, clause := range st.ElsifClauses {
+			inferExpr(ti, scope, clause.Condition)
+			ti.ExprTypes[clause.Condition] = inferExpr(ti, scope, clause.Condition)
+			for _, s := range clause.Body {
+				inferStmt(ti, scope, s)
+			}
+		}
+		for _, s := range st.ElseBody {
+			inferStmt(ti, scope, s)
+		}
+
 	case *ast.WhileStmt:
 		inferExpr(ti, scope, st.Condition)
 		ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
@@ -350,6 +376,20 @@ func collectReturns(ti *TypeInfo, scope *typeScope, s ast.Statement, out *[]Rugo
 	case *ast.IfStmt:
 		for _, s := range st.Body {
 			collectReturns(ti, scope, s, out)
+		}
+		for _, clause := range st.ElsifClauses {
+			for _, s := range clause.Body {
+				collectReturns(ti, scope, s, out)
+			}
+		}
+		for _, s := range st.ElseBody {
+			collectReturns(ti, scope, s, out)
+		}
+	case *ast.CaseStmt:
+		for _, oc := range st.OfClauses {
+			for _, s := range oc.Body {
+				collectReturns(ti, scope, s, out)
+			}
 		}
 		for _, clause := range st.ElsifClauses {
 			for _, s := range clause.Body {
@@ -460,6 +500,30 @@ func inferExprInner(ti *TypeInfo, scope *typeScope, e ast.Expr) RugoType {
 			for _, s := range br.Stmts {
 				inferStmt(ti, scope, s)
 			}
+		}
+		return TypeDynamic
+
+	case *ast.CaseExpr:
+		inferExpr(ti, scope, ex.Subject)
+		for _, oc := range ex.OfClauses {
+			for _, v := range oc.Values {
+				inferExpr(ti, scope, v)
+			}
+			if oc.ArrowExpr != nil {
+				inferExpr(ti, scope, oc.ArrowExpr)
+			}
+			for _, s := range oc.Body {
+				inferStmt(ti, scope, s)
+			}
+		}
+		for _, ec := range ex.ElsifClauses {
+			inferExpr(ti, scope, ec.Condition)
+			for _, s := range ec.Body {
+				inferStmt(ti, scope, s)
+			}
+		}
+		for _, s := range ex.ElseBody {
+			inferStmt(ti, scope, s)
 		}
 		return TypeDynamic
 

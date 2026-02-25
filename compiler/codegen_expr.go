@@ -96,6 +96,8 @@ func (g *codeGen) buildExpr(e ast.Expr) (GoExpr, error) {
 		return g.buildLoweredSpawnExpr(ex)
 	case *ast.LoweredParallelExpr:
 		return g.buildLoweredParallelExpr(ex)
+	case *ast.CaseExpr:
+		return g.buildCaseExpr(ex)
 	case *ast.FnExpr:
 		return g.buildFnExpr(ex)
 
@@ -953,4 +955,178 @@ func (g *codeGen) buildFnExpr(e *ast.FnExpr) (GoExpr, error) {
 	fullBody = append(fullBody, GoReturnStmt{Value: GoRawExpr{Code: "nil"}})
 
 	return GoLambdaExpr{Body: fullBody}, nil
+}
+
+// buildCaseExpr wraps a case expression in an IIFE that returns the matched
+// branch value.  The generated Go code looks like:
+//
+//	func() (r interface{}) {
+//	    __case_N := subject
+//	    _ = __case_N
+//	    if rugo_to_bool(rugo_eq(__case_N, v1)) { r = <branch1> }
+//	    else if ... { r = <branch2> } else { r = <else> }
+//	    return
+//	}()
+func (g *codeGen) buildCaseExpr(ce *ast.CaseExpr) (GoExpr, error) {
+	g.pushScope()
+	defer g.popScope()
+
+	// Evaluate subject once.
+	g.caseCounter++
+	tempVar := fmt.Sprintf("__case_%d", g.caseCounter)
+	subjExpr, err := g.buildExpr(ce.Subject)
+	if err != nil {
+		return nil, err
+	}
+	tempDecl := GoAssignStmt{Target: tempVar, Op: ":=", Value: subjExpr}
+	tempUse := GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", tempVar)}}
+
+	p := &goPrinter{}
+
+	// Build of clauses as if/else-if chain.
+	var firstCond GoExpr
+	var firstBody []GoStmt
+	var elseIfs []GoElseIf
+
+	for i, oc := range ce.OfClauses {
+		var parts []string
+		for _, v := range oc.Values {
+			valExpr, err := g.buildExpr(v)
+			if err != nil {
+				return nil, err
+			}
+			parts = append(parts, fmt.Sprintf("rugo_to_bool(rugo_eq(%s, %s))", tempVar, p.exprStr(valExpr)))
+		}
+		cond := GoRawExpr{Code: strings.Join(parts, " || ")}
+
+		var body []GoStmt
+		if oc.ArrowExpr != nil {
+			arrowExpr, err := g.buildExpr(oc.ArrowExpr)
+			if err != nil {
+				return nil, err
+			}
+			body = []GoStmt{GoAssignStmt{Target: "r", Op: "=", Value: arrowExpr}}
+		} else {
+			stmts, err := g.buildCaseExprBranchBody(oc.Body)
+			if err != nil {
+				return nil, err
+			}
+			body = stmts
+		}
+
+		if i == 0 {
+			firstCond = cond
+			firstBody = body
+		} else {
+			elseIfs = append(elseIfs, GoElseIf{Cond: cond, Body: body})
+		}
+	}
+
+	// Build elsif clauses (boolean conditions).
+	for _, ec := range ce.ElsifClauses {
+		ecCond, err := g.buildCondExpr(ec.Condition)
+		if err != nil {
+			return nil, err
+		}
+		stmts, err := g.buildCaseExprBranchBody(ec.Body)
+		if err != nil {
+			return nil, err
+		}
+		elseIfs = append(elseIfs, GoElseIf{Cond: ecCond, Body: stmts})
+	}
+
+	// Build else body.
+	var elseBody []GoStmt
+	if len(ce.ElseBody) > 0 {
+		stmts, err := g.buildCaseExprBranchBody(ce.ElseBody)
+		if err != nil {
+			return nil, err
+		}
+		elseBody = stmts
+	}
+
+	// Assemble IIFE body.
+	var iifeBody []GoStmt
+	iifeBody = append(iifeBody, tempDecl, tempUse)
+
+	// Handle degenerate cases (no of clauses).
+	if firstCond == nil && len(elseIfs) == 0 {
+		iifeBody = append(iifeBody, elseBody...)
+	} else {
+		if firstCond == nil && len(elseIfs) > 0 {
+			firstCond = elseIfs[0].Cond
+			firstBody = elseIfs[0].Body
+			elseIfs = elseIfs[1:]
+		}
+		iifeBody = append(iifeBody, GoIfStmt{
+			Cond:   firstCond,
+			Body:   firstBody,
+			ElseIf: elseIfs,
+			Else:   elseBody,
+		})
+	}
+
+	// Bare return at end — Go requires a terminating statement even with
+	// named returns.  The named return variable r is already set by branch
+	// assignments, so this just satisfies the compiler.
+	iifeBody = append(iifeBody, GoReturnStmt{})
+
+	return GoIIFEExpr{
+		ReturnType: "(r interface{})",
+		Body:       iifeBody,
+	}, nil
+}
+
+// buildCaseExprBranchBody builds a multi-line case expression branch body.
+// All statements except the last are built normally. The last statement, if
+// it is an ExprStmt, has its expression built directly and assigned to the
+// IIFE return variable r (avoiding the "_ = <expr>" wrapping that
+// buildExprStmt would produce). If the last statement is a CaseStmt, it is
+// built as a CaseExpr (IIFE) and assigned to r so nested case expressions
+// propagate their value correctly.
+func (g *codeGen) buildCaseExprBranchBody(body []ast.Statement) ([]GoStmt, error) {
+	if len(body) == 0 {
+		return nil, nil
+	}
+
+	// Build all-but-last normally.
+	init, err := g.buildStmts(body[:len(body)-1])
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle last statement.
+	last := body[len(body)-1]
+
+	// ExprStmt: assign its value to r directly.
+	if es, ok := last.(*ast.ExprStmt); ok {
+		expr, err := g.buildExpr(es.Expression)
+		if err != nil {
+			return nil, err
+		}
+		return append(init, GoAssignStmt{Target: "r", Op: "=", Value: expr}), nil
+	}
+
+	// CaseStmt: convert back to CaseExpr and build as expression → r.
+	if cs, ok := last.(*ast.CaseStmt); ok {
+		ce := &ast.CaseExpr{
+			Subject:      cs.Subject,
+			OfClauses:    cs.OfClauses,
+			ElsifClauses: cs.ElsifClauses,
+			ElseBody:     cs.ElseBody,
+			SourceLine:   cs.SourceLine,
+		}
+		expr, err := g.buildCaseExpr(ce)
+		if err != nil {
+			return nil, err
+		}
+		return append(init, GoAssignStmt{Target: "r", Op: "=", Value: expr}), nil
+	}
+
+	// Non-expression last statement (e.g., assignment) — build normally.
+	lastStmts, err := g.buildStmt(last)
+	if err != nil {
+		return nil, err
+	}
+	return append(init, lastStmts...), nil
 }

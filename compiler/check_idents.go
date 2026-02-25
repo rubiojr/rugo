@@ -322,6 +322,43 @@ func (w *identWalker) checkStmt(s ast.Statement, localScope map[string]bool) err
 				return err
 			}
 		}
+	case *ast.CaseStmt:
+		if err := w.checkExpr(st.Subject, st.StmtLine(), localScope); err != nil {
+			return err
+		}
+		// case/of don't create their own scope — variables leak out (same as if)
+		for _, oc := range st.OfClauses {
+			for _, v := range oc.Values {
+				if err := w.checkExpr(v, st.StmtLine(), localScope); err != nil {
+					return err
+				}
+			}
+			if oc.ArrowExpr != nil {
+				if err := w.checkExpr(oc.ArrowExpr, st.StmtLine(), localScope); err != nil {
+					return err
+				}
+			}
+			for _, bs := range oc.Body {
+				if err := w.checkStmt(bs, localScope); err != nil {
+					return err
+				}
+			}
+		}
+		for _, ec := range st.ElsifClauses {
+			if err := w.checkExpr(ec.Condition, st.StmtLine(), localScope); err != nil {
+				return err
+			}
+			for _, bs := range ec.Body {
+				if err := w.checkStmt(bs, localScope); err != nil {
+					return err
+				}
+			}
+		}
+		for _, bs := range st.ElseBody {
+			if err := w.checkStmt(bs, localScope); err != nil {
+				return err
+			}
+		}
 	case *ast.WhileStmt:
 		if err := w.checkExpr(st.Condition, st.StmtLine(), localScope); err != nil {
 			return err
@@ -492,6 +529,42 @@ func (w *identWalker) checkExpr(e ast.Expr, line int, localScope map[string]bool
 				if err := w.checkStmt(bs, localScope); err != nil {
 					return err
 				}
+			}
+		}
+	case *ast.CaseExpr:
+		if err := w.checkExpr(ex.Subject, line, localScope); err != nil {
+			return err
+		}
+		for _, oc := range ex.OfClauses {
+			for _, v := range oc.Values {
+				if err := w.checkExpr(v, line, localScope); err != nil {
+					return err
+				}
+			}
+			if oc.ArrowExpr != nil {
+				if err := w.checkExpr(oc.ArrowExpr, line, localScope); err != nil {
+					return err
+				}
+			}
+			for _, s := range oc.Body {
+				if err := w.checkStmt(s, localScope); err != nil {
+					return err
+				}
+			}
+		}
+		for _, ec := range ex.ElsifClauses {
+			if err := w.checkExpr(ec.Condition, line, localScope); err != nil {
+				return err
+			}
+			for _, s := range ec.Body {
+				if err := w.checkStmt(s, localScope); err != nil {
+					return err
+				}
+			}
+		}
+		for _, s := range ex.ElseBody {
+			if err := w.checkStmt(s, localScope); err != nil {
+				return err
 			}
 		}
 	case *ast.StringLiteral:
