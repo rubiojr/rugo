@@ -49,9 +49,10 @@ Rugo stands on the shoulders of giants:
 * **Zig** (inline catch)
 * **Bash** (shell fallback, pipes)
 * **BATS** (test runner)
-* **Rust** (inline tests alongside code).
+* **Rust** (inline tests alongside code)
 * **Elixir** (Lambdas)
 * **Landlock** (kernel-native sandboxing)
+* **Nim** (case statements)
 
 ## Install
 
