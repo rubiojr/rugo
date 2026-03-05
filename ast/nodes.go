@@ -73,6 +73,18 @@ type RequireStmt struct {
 func (r *RequireStmt) node() {}
 func (r *RequireStmt) stmt() {}
 
+// EmbedStmt represents embed "path" as name.
+// The file at Path is embedded into the binary at compile time and
+// accessible as a string variable named Alias.
+type EmbedStmt struct {
+	BaseStmt
+	Path  string // file path (relative to source file directory)
+	Alias string // variable name in Rugo code
+}
+
+func (e *EmbedStmt) node() {}
+func (e *EmbedStmt) stmt() {}
+
 // SandboxStmt represents the sandbox directive for Landlock-based process sandboxing.
 // A bare `sandbox` (all fields empty) means maximum restriction (deny everything).
 type SandboxStmt struct {

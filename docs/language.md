@@ -1060,6 +1060,34 @@ See [External Modules](mods.md#external-modules-custom-rugo-builds) for details 
 
 There is no implicit search path — the require string tells you exactly where the code comes from: a relative path is local, a URL-shaped path is remote.
 
+### File Embedding (`embed`)
+
+The `embed` keyword embeds file contents into the compiled binary at build time. The file is read during compilation and baked into the executable — no external files needed at runtime.
+
+```ruby
+embed "config.yaml" as config
+embed "assets/template.html" as template
+
+puts config
+puts len(template)
+```
+
+**Syntax:** `embed "path" as name`
+- `path` — file path relative to the source file
+- `name` — variable name that holds the file content as a string
+
+**Path restriction:** Embedded file paths must resolve to the same directory or a subdirectory of the `.rugo` source file that declares them. This mirrors Go's `embed` restriction and prevents libraries from accessing files outside their own tree:
+
+```ruby
+embed "data/config.txt" as cfg       # OK: subdirectory
+embed "sibling.txt" as sib           # OK: same directory
+embed "../secret.txt" as secret      # ERROR: escapes source directory
+```
+
+**How it works:** The compiler uses Go's `//go:embed` under the hood. Files are copied into the build directory and linked directly into the binary's data section — efficient even for large files.
+
+> **Note:** `embed` cannot be used with `eval.run()` because `eval.run()` compiles from an ephemeral temp directory with no files to embed. Use `eval.file()` instead when embedding is needed.
+
 ### Module Visibility
 
 Functions prefixed with `_` are private to their module. The compiler rejects any attempt to call them from outside:

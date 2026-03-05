@@ -195,6 +195,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		stmt, err = w.walkImportStmt(innerChildren)
 	case parser.RugoRequireStmt:
 		stmt, err = w.walkRequireStmt(innerChildren)
+	case parser.RugoEmbedStmt:
+		stmt, err = w.walkEmbedStmt(innerChildren)
 	case parser.RugoSandboxStmt:
 		stmt, err = w.walkSandboxStmt(innerChildren)
 	case parser.RugoFuncDef:
@@ -231,6 +233,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		case *ImportStmt:
 			s.SourceLine = line
 		case *RequireStmt:
+			s.SourceLine = line
+		case *EmbedStmt:
 			s.SourceLine = line
 		case *SandboxStmt:
 			s.SourceLine = line
@@ -292,6 +296,8 @@ func (w *walker) walkStatement(ast []int32) (Statement, []int32, error) {
 		case *ImportStmt:
 			s.EndLine = line
 		case *RequireStmt:
+			s.EndLine = line
+		case *EmbedStmt:
 			s.EndLine = line
 		case *SandboxStmt:
 			s.EndLine = line
@@ -385,6 +391,19 @@ func (w *walker) walkRequireStmt(ast []int32) (Statement, error) {
 		}
 	}
 	return &RequireStmt{Path: path, Alias: alias, With: with}, nil
+}
+
+func (w *walker) walkEmbedStmt(ast []int32) (Statement, error) {
+	// EmbedStmt = "embed" str_lit "as" ident .
+	_, ast = w.readToken(ast) // skip "embed"
+	tok, ast := w.readToken(ast)
+	path, err := unquoteString(tok.src)
+	if err != nil {
+		return nil, err
+	}
+	_, ast = w.readToken(ast) // skip "as"
+	aliasTok, _ := w.readToken(ast)
+	return &EmbedStmt{Path: path, Alias: aliasTok.src}, nil
 }
 
 func (w *walker) walkSandboxStmt(ast []int32) (Statement, error) {

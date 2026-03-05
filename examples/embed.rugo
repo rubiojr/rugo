@@ -1,0 +1,6 @@
+# Embed a file into the binary at compile time.
+# The content of greeting.txt is baked into the executable.
+embed "greeting.txt" as greeting
+
+puts greeting
+puts "Length: #{len(greeting)}"

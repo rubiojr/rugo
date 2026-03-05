@@ -17,6 +17,7 @@ var RugoKeywords = map[string]bool{
 	"spawn": true, "parallel": true, "bench": true, "fn": true,
 	"struct": true, "with": true, "sandbox": true, "do": true,
 	"case": true, "of": true,
+	"embed": true,
 }
 
 // blockKeywordSet contains keywords that form their own block with `end`

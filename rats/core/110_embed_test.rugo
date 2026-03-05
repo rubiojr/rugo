@@ -1,0 +1,509 @@
+# RATS: Test embed statement
+use "test"
+use "os"
+use "conv"
+use "eval"
+use "str"
+
+# --- Happy path ---
+
+rats "embed text file"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "hello embed")
+  script = <<~RUGO
+    embed "data.txt" as content
+    puts content
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello embed")
+end
+
+rats "embed from subdirectory"
+  tmpdir = test.tmpdir()
+  os.exec("mkdir -p #{tmpdir}/assets")
+  test.write_file("#{tmpdir}/assets/config.txt", "key=value")
+  script = <<~RUGO
+    embed "assets/config.txt" as cfg
+    puts cfg
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "key=value")
+end
+
+rats "embed preserves exact content"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "line1\nline2\n")
+  script = <<~RUGO
+    embed "data.txt" as data
+    puts len(data)
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "12")
+end
+
+rats "multiple embeds"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/a.txt", "alpha")
+  test.write_file("#{tmpdir}/b.txt", "beta")
+  script = <<~RUGO
+    embed "a.txt" as a
+    embed "b.txt" as b
+    puts a
+    puts b
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "alpha\nbeta")
+end
+
+rats "embed same file with different aliases"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "shared")
+  script = <<~RUGO
+    embed "data.txt" as copy1
+    embed "data.txt" as copy2
+    puts copy1
+    puts copy2
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "shared\nshared")
+end
+
+rats "embed empty file"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/empty.txt", "")
+  script = <<~RUGO
+    embed "empty.txt" as data
+    puts len(data)
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "0")
+end
+
+rats "embed large content"
+  tmpdir = test.tmpdir()
+  content = ""
+  for i in range(100)
+    content = content + "line #{i}: the quick brown fox jumps\n"
+  end
+  test.write_file("#{tmpdir}/big.txt", content)
+  script = <<~RUGO
+    embed "big.txt" as big
+    puts len(big)
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  size = conv.to_i(result["output"])
+  test.assert_true(size > 3000)
+end
+
+rats "embed file with special characters"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/special.txt", "has \"quotes\" and $dollars and `backticks`\n")
+  script = <<~RUGO
+    embed "special.txt" as data
+    print data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "quotes")
+  test.assert_contains(result["output"], "$dollars")
+  test.assert_contains(result["output"], "`backticks`")
+end
+
+# --- Expressions and control flow ---
+
+rats "embed variable in string concatenation"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/name.txt", "World")
+  script = <<~RUGO
+    embed "name.txt" as name
+    puts "Hello, " + name
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello, World")
+end
+
+rats "embed variable in string interpolation"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/who.txt", "World")
+  # Build inner script with interpolation syntax without triggering outer interpolation
+  inner = 'embed "who.txt" as who' + "\n" + 'puts "Hello, #{' + 'who}!"'
+  test.write_file("#{tmpdir}/main.rugo", inner)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "Hello, World!")
+end
+
+rats "embed variable passed to function"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/msg.txt", "passed")
+  script = <<~RUGO
+    embed "msg.txt" as msg
+    def show(x)
+      return x
+    end
+    puts show(msg)
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "passed")
+end
+
+rats "embed variable accessible from function"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/greeting.txt", "hi")
+  script = <<~RUGO
+    embed "greeting.txt" as greeting
+    def show()
+      return greeting
+    end
+    puts show()
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hi")
+end
+
+rats "embed variable with len and string methods"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "  hello  ")
+  script = <<~RUGO
+    use "str"
+    embed "data.txt" as data
+    puts len(data)
+    puts str.trim(data)
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "9\nhello")
+end
+
+rats "embed variable can be reassigned"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "original")
+  script = <<~RUGO
+    embed "data.txt" as data
+    puts data
+    data = "overwritten"
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "original\noverwritten")
+end
+
+rats "embed variable in conditional"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/flag.txt", "yes")
+  script = <<~RUGO
+    embed "flag.txt" as flag
+    if flag == "yes"
+      puts "enabled"
+    else
+      puts "disabled"
+    end
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "enabled")
+end
+
+rats "embed variable in for loop"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/items.txt", "a,b,c")
+  script = <<~RUGO
+    use "str"
+    embed "items.txt" as raw
+    items = str.split(raw, ",")
+    for item in items
+      puts item
+    end
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "a\nb\nc")
+end
+
+# --- Ordering ---
+
+rats "embed after function definitions"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "after")
+  script = <<~RUGO
+    def show()
+      return data
+    end
+    embed "data.txt" as data
+    puts show()
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "after")
+end
+
+rats "embed after regular statements"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "embedded")
+  script = <<~RUGO
+    x = 42
+    embed "data.txt" as data
+    puts x
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42\nembedded")
+end
+
+rats "embed mixed with use and import"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "  mixed  ")
+  script = <<~RUGO
+    use "str"
+    embed "data.txt" as data
+    import "strings"
+    puts str.trim(data)
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "mixed")
+end
+
+# --- Require ---
+
+rats "embed in required file"
+  tmpdir = test.tmpdir()
+  os.exec("mkdir -p #{tmpdir}/lib")
+  test.write_file("#{tmpdir}/lib/lib_data.txt", "from lib")
+  lib_script = <<~RUGO
+    embed "lib_data.txt" as lib_content
+    def get_content()
+      return lib_content
+    end
+  RUGO
+  test.write_file("#{tmpdir}/lib/mylib.rugo", lib_script)
+  main_script = <<~RUGO
+    require "lib/mylib"
+    puts mylib.get_content()
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", main_script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "from lib")
+end
+
+# --- Errors: placement ---
+
+rats "error on embed inside def"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "x")
+  script = <<~RUGO
+    def show()
+      embed "data.txt" as inner
+      return inner
+    end
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "top level")
+end
+
+rats "error on embed inside if"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "x")
+  script = <<~RUGO
+    if true
+      embed "data.txt" as data
+      puts data
+    end
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "top level")
+end
+
+rats "error on embed inside for"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "x")
+  script = <<~RUGO
+    for i in range(1)
+      embed "data.txt" as data
+      puts data
+    end
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "top level")
+end
+
+rats "error on embed inside while"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "x")
+  script = <<~RUGO
+    while true
+      embed "data.txt" as data
+      break
+    end
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "top level")
+end
+
+# --- Errors: paths ---
+
+rats "error on embed in eval.run"
+  source = <<~RUGO
+    embed "data.txt" as data
+    puts data
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "not supported in eval.run()")
+end
+
+rats "error on path escape"
+  tmpdir = test.tmpdir()
+  script = <<~RUGO
+    embed "../secret.txt" as data
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "escapes source directory")
+end
+
+rats "error on missing file"
+  tmpdir = test.tmpdir()
+  script = <<~RUGO
+    embed "nonexistent.txt" as data
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "no such file")
+end
+
+rats "error on embedding directory"
+  tmpdir = test.tmpdir()
+  os.exec("mkdir -p #{tmpdir}/subdir")
+  script = <<~RUGO
+    embed "subdir" as data
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "directory")
+end
+
+rats "error on duplicate embed alias"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/a.txt", "a")
+  test.write_file("#{tmpdir}/b.txt", "b")
+  script = <<~RUGO
+    embed "a.txt" as data
+    embed "b.txt" as data
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "already used")
+end
+
+rats "error on absolute path"
+  tmpdir = test.tmpdir()
+  script = <<~RUGO
+    embed "/etc/hostname" as data
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "absolute paths are not allowed")
+end
+
+rats "error on empty path"
+  tmpdir = test.tmpdir()
+  script = <<~RUGO
+    embed "" as data
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot be empty")
+end
+
+rats "error on sneaky path with middle .."
+  tmpdir = test.tmpdir()
+  os.exec("mkdir -p #{tmpdir}/sub")
+  script = <<~RUGO
+    embed "sub/../../etc/passwd" as data
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "escapes source directory")
+end
+
+rats "error on embed inside rats block"
+  tmpdir = test.tmpdir()
+  test.write_file("#{tmpdir}/data.txt", "x")
+  script = <<~RUGO
+    use "test"
+    rats "inner"
+      embed "data.txt" as inner
+      test.assert_eq(inner, "x")
+    end
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "top level")
+end
+
+rats "error on embed path with only dots"
+  tmpdir = test.tmpdir()
+  script = <<~RUGO
+    embed ".." as data
+    puts data
+  RUGO
+  test.write_file("#{tmpdir}/main.rugo", script)
+  result = eval.file("#{tmpdir}/main.rugo")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "escapes source directory")
+end

@@ -73,6 +73,9 @@ type Compiler struct {
 	// sourcePrefix is prepended to the main file source before parsing.
 	// Used to auto-inject require statements for test helpers.
 	sourcePrefix string
+	// DisableEmbed rejects embed statements with a clear error.
+	// Set by eval.run() where no user files exist alongside the source.
+	DisableEmbed bool
 }
 
 // CompileResult holds the output of a compilation.
@@ -84,6 +87,10 @@ type CompileResult struct {
 	// GoModuleRequires maps Go module paths to local cache directories
 	// for Go modules discovered via require. Used by go.mod generation.
 	GoModuleRequires map[string]string
+	// EmbedFiles maps staged filenames (under embeds/) to their absolute
+	// source paths on disk. Used by buildBinary to copy files into the
+	// temp build directory before go build.
+	EmbedFiles map[string]string
 }
 
 // Compile reads a Rugo source file, resolves requires, and produces Go source.
@@ -159,12 +166,12 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	// Generate Go source
-	goSrc, err := generate(resolved, filename, c.TestMode, c.Sandbox)
+	genResult, err := generate(resolved, filename, c.TestMode, c.Sandbox, c.DisableEmbed)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CompileResult{GoSource: goSrc, Program: resolved, SourceFile: filename, Sandbox: c.Sandbox, GoModuleRequires: c.goModuleRequires}, nil
+	return &CompileResult{GoSource: genResult.GoSource, Program: resolved, SourceFile: filename, Sandbox: c.Sandbox, GoModuleRequires: c.goModuleRequires, EmbedFiles: genResult.EmbedFiles}, nil
 }
 
 // discoverHelpers finds Rugo files in a helpers/ directory next to the test file
@@ -342,7 +349,8 @@ func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 	}
 
 	goMod := goModContent(result.Program, result.Sandbox, result.GoModuleRequires)
-	cacheKey := binCacheKey(result.GoSource, goMod)
+	embedHash := embedCacheHash(result.EmbedFiles)
+	cacheKey := binCacheKey(result.GoSource, goMod+embedHash)
 	binFile = filepath.Join(tmpDir, "rugo_program")
 
 	// Check binary cache before running go build.
@@ -350,6 +358,12 @@ func buildBinary(result *CompileResult) (tmpDir, binFile string, err error) {
 		if binCacheDecompress(cached, binFile) == nil {
 			return tmpDir, binFile, nil
 		}
+	}
+
+	// Stage embedded files before writing main.go (which references them).
+	if err := stageEmbedFiles(tmpDir, result.EmbedFiles); err != nil {
+		os.RemoveAll(tmpDir)
+		return "", "", err
 	}
 
 	goFile := filepath.Join(tmpDir, "main.go")
@@ -391,6 +405,11 @@ func (c *Compiler) Build(filename, output string) error {
 		return fmt.Errorf("creating build dir: %w", err)
 	}
 	defer os.RemoveAll(tmpDir)
+
+	// Stage embedded files before writing main.go (which references them).
+	if err := stageEmbedFiles(tmpDir, result.EmbedFiles); err != nil {
+		return err
+	}
 
 	goFile := filepath.Join(tmpDir, "main.go")
 	if err := os.WriteFile(goFile, []byte(result.GoSource), 0644); err != nil {
@@ -865,6 +884,9 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 					case *ast.ExprStmt:
 						st.SourceFile = modSourceFile
 						resolved = append(resolved, st)
+					case *ast.EmbedStmt:
+						st.SourceFile = modSourceFile
+						resolved = append(resolved, st)
 					}
 				}
 			}
@@ -1033,6 +1055,9 @@ func (c *Compiler) resolveRequires(prog *ast.Program) (*ast.Program, error) {
 				st.SourceFile = reqSourceFile
 				resolved = append(resolved, st)
 			case *ast.ExprStmt:
+				st.SourceFile = reqSourceFile
+				resolved = append(resolved, st)
+			case *ast.EmbedStmt:
 				st.SourceFile = reqSourceFile
 				resolved = append(resolved, st)
 			}
@@ -1736,6 +1761,8 @@ func rejectNestedImports(stmts []ast.Statement, sourceFile string) error {
 			return fmt.Errorf("%s:%d: import statements must be at the top level", sourceFile, s.StmtLine())
 		case *ast.RequireStmt:
 			return fmt.Errorf("%s:%d: require statements must be at the top level", sourceFile, s.StmtLine())
+		case *ast.EmbedStmt:
+			return fmt.Errorf("%s:%d: embed statements must be at the top level", sourceFile, s.StmtLine())
 		}
 		// Recurse into nested blocks
 		switch st := s.(type) {

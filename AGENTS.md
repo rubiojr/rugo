@@ -76,6 +76,7 @@ egg -o parser.go -package parser -start Program -type Parser -constprefix Rugo r
 | Grammar      | `parser/rugo.ebnf`   | Never hand-edit `parser.go`; regenerate with `egg` |
 | Walker       | `ast/walker.go`      | Transforms parse tree -> AST nodes (`ast/nodes.go`) |
 | Codegen      | `compiler/codegen.go`| AST nodes -> Go source                         |
+| Embed        | `compiler/codegen_embed.go` | File embedding via `embed "path" as name` |
 
 ## Code Style (Go)
 

@@ -107,6 +107,8 @@ func (ic *identCheck) Check(prog *ast.Program) error {
 			} else {
 				global[st.Target] = true
 			}
+		case *ast.EmbedStmt:
+			global[st.Alias] = true
 		}
 	}
 
@@ -125,7 +127,7 @@ func (ic *identCheck) Check(prog *ast.Program) error {
 	topScope := make(map[string]bool)
 	for _, s := range prog.Statements {
 		switch s.(type) {
-		case *ast.FuncDef, *ast.UseStmt, *ast.ImportStmt, *ast.RequireStmt, *ast.SandboxStmt:
+		case *ast.FuncDef, *ast.UseStmt, *ast.ImportStmt, *ast.RequireStmt, *ast.SandboxStmt, *ast.EmbedStmt:
 			continue
 		}
 		if assign, ok := s.(*ast.AssignStmt); ok && assign.Namespace != "" {

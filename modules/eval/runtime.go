@@ -37,7 +37,7 @@ func (*Eval) Run(source string) interface{} {
 		panic(fmt.Sprintf("eval.run: writing source: %v", err))
 	}
 
-	c := &compiler.Compiler{BaseDir: tmpDir}
+	c := &compiler.Compiler{BaseDir: tmpDir, DisableEmbed: true}
 	result, err := c.RunCapture(srcFile)
 	if err != nil {
 		return errorToHash(err)

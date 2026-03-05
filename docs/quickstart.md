@@ -46,6 +46,7 @@ rugo doc http             # show module documentation
 22. [Doc Comments](quickstart/20-doc-comments.md)
 23. [Sandbox](quickstart/21-sandbox.md)
 24. [Go Modules via Require](quickstart/22-go-modules.md)
+25. [File Embedding](quickstart/23-embed.md)
 
 ## Standard Library
 

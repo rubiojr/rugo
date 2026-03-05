@@ -303,7 +303,7 @@ func FuzzCodegen(f *testing.F) {
 				}
 			}()
 			var genErr error
-			goSrc, genErr = generate(prog, "fuzz.rugo", false, nil)
+			genResult, genErr := generate(prog, "fuzz.rugo", false, nil, false)
 			if genErr != nil {
 				errStr := genErr.Error()
 				if strings.Contains(errStr, "internal compiler error") {
@@ -321,7 +321,9 @@ func FuzzCodegen(f *testing.F) {
 					t.Errorf("codegen nil pointer on input:\n%s\nerror: %s", src, errStr)
 				}
 				checkGoLeaks(t, src, "codegen", errStr)
+				return
 			}
+			goSrc = genResult.GoSource
 		}()
 		if goSrc == "" {
 			return

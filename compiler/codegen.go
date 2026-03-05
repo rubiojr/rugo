@@ -55,10 +55,18 @@ type codeGen struct {
 	loopCtlDepth    int                  // loop nesting depth at current function scope (reset by def/fn)
 	inTryHandler    bool                 // true when building try handler body
 	loopNeedsCtl    bool                 // set when next/break is emitted inside a try handler in a loop
+	embedFiles      map[string]string    // staged name → absolute source path (populated during codegen)
+	disableEmbed    bool                 // reject embed statements (set by eval.run)
+}
+
+// generateResult holds the output of code generation.
+type generateResult struct {
+	GoSource   string
+	EmbedFiles map[string]string // staged name → absolute source path
 }
 
 // generate produces Go source code from a ast.Program AST.
-func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *SandboxConfig) (string, error) {
+func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *SandboxConfig, disableEmbed bool) (*generateResult, error) {
 	// Run AST transform chain before type inference and codegen.
 	prog = ast.Chain(
 		ast.ConcurrencyLowering(),
@@ -81,10 +89,16 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 		funcDefs:    make(map[string]funcArity),
 		testMode:    testMode,
 		typeInfo:    ti,
-		sandbox:     sandbox,
+		sandbox:      sandbox,
+		embedFiles:   make(map[string]string),
+		disableEmbed: disableEmbed,
 	}
 
-	return g.generate(prog)
+	src, err := g.generate(prog)
+	if err != nil {
+		return nil, err
+	}
+	return &generateResult{GoSource: src, EmbedFiles: g.embedFiles}, nil
 }
 
 func (g *codeGen) generate(prog *ast.Program) (string, error) {
@@ -94,6 +108,7 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	var benches []*ast.BenchDef
 	var topStmts []ast.Statement
 	var nsVars []*ast.AssignStmt // top-level assignments from require'd files (emitted as package-level vars)
+	var embeds []*ast.EmbedStmt
 	var setupFunc *ast.FuncDef
 	var teardownFunc *ast.FuncDef
 	var setupFileFunc *ast.FuncDef
@@ -138,6 +153,9 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 			continue
 		case *ast.ImportStmt:
 			g.goImports[st.Package] = st.Alias
+			continue
+		case *ast.EmbedStmt:
+			embeds = append(embeds, st)
 			continue
 		case *ast.SandboxStmt:
 			// Placement and duplicate checks are done in validateSandboxPlacement.
@@ -248,6 +266,9 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 
 	// Imports
 	file.Imports = g.buildImports(needsSyncImport, needsTimeImport)
+	if len(embeds) > 0 {
+		file.Imports = append(file.Imports, GoImport{Path: "embed", Alias: "_"})
+	}
 
 	// Unused import suppressors
 	var suppressors []string
@@ -310,6 +331,13 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	file.Decls = append(file.Decls, GoRawDecl{Code: strings.Join(suppressors, "\n") + "\n"})
 	file.Decls = append(file.Decls, GoBlankLine{})
 
+	// Embed declarations
+	if len(embeds) > 0 {
+		if err := g.processEmbeds(embeds, file); err != nil {
+			return "", err
+		}
+	}
+
 	// Runtime helpers
 	file.Decls = append(file.Decls, GoRawDecl{Code: g.buildRuntimeCode()})
 
@@ -330,10 +358,17 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	}
 
 	// Package-level variables for user-defined function access
-	if len(g.handlerVars) > 0 {
+	if len(g.handlerVars) > 0 || len(embeds) > 0 {
 		names := make([]string, 0, len(g.handlerVars))
 		for name := range g.handlerVars {
 			names = append(names, name)
+		}
+		// Embed aliases are always package-level so functions can access them.
+		for _, e := range embeds {
+			if !g.handlerVars[e.Alias] {
+				names = append(names, e.Alias)
+				g.handlerVars[e.Alias] = true
+			}
 		}
 		sort.Strings(names)
 		for _, name := range names {
@@ -381,7 +416,11 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 	if g.sandbox != nil {
 		mainBody = append(mainBody, g.buildSandboxApply()...)
 	}
+	mainBody = append(mainBody, embedInitStmts(embeds)...)
 	g.pushScope()
+	for _, e := range embeds {
+		g.declareVar(e.Alias)
+	}
 	mainStmts, merr := g.buildStmts(topStmts)
 	if merr != nil {
 		return "", merr
