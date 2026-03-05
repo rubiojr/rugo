@@ -52,6 +52,9 @@ type codeGen struct {
 	lambdaOuterFunc []*ast.FuncDef       // enclosing function at each lambda entry (stack)
 	sandbox         *SandboxConfig       // Landlock sandbox config (nil = no sandbox)
 	caseCounter     int                  // counter for unique case temp variable names
+	loopCtlDepth    int                  // loop nesting depth at current function scope (reset by def/fn)
+	inTryHandler    bool                 // true when building try handler body
+	loopNeedsCtl    bool                 // set when next/break is emitted inside a try handler in a loop
 }
 
 // generate produces Go source code from a ast.Program AST.

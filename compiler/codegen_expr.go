@@ -409,16 +409,22 @@ func (g *codeGen) buildLoweredTryExpr(e *ast.LoweredTryExpr) (GoExpr, error) {
 
 	g.pushScope()
 	g.declareVar(e.ErrVar)
+
+	savedInTryHandler := g.inTryHandler
+	g.inTryHandler = true
+
 	var handlerBody []GoStmt
 	if e.ResultExpr != nil {
 		stmts, berr := g.buildStmts(e.Handler)
 		if berr != nil {
+			g.inTryHandler = savedInTryHandler
 			g.popScope()
 			return nil, berr
 		}
 		handlerBody = append(handlerBody, stmts...)
 		val, verr := g.buildExpr(e.ResultExpr)
 		if verr != nil {
+			g.inTryHandler = savedInTryHandler
 			g.popScope()
 			return nil, verr
 		}
@@ -426,11 +432,14 @@ func (g *codeGen) buildLoweredTryExpr(e *ast.LoweredTryExpr) (GoExpr, error) {
 	} else {
 		stmts, berr := g.buildStmts(e.Handler)
 		if berr != nil {
+			g.inTryHandler = savedInTryHandler
 			g.popScope()
 			return nil, berr
 		}
 		handlerBody = append(handlerBody, stmts...)
 	}
+
+	g.inTryHandler = savedInTryHandler
 	g.popScope()
 
 	return GoIIFEExpr{
@@ -892,9 +901,12 @@ func (g *codeGen) buildFnExpr(e *ast.FnExpr) (GoExpr, error) {
 	}
 	savedFunc := g.currentFunc
 	savedInFunc := g.inFunc
+	savedLoopCtl := g.loopCtlDepth
 	g.inFunc = true
+	g.loopCtlDepth = 0
 
 	restoreLambda := func() {
+		g.loopCtlDepth = savedLoopCtl
 		g.inFunc = savedInFunc
 		g.currentFunc = savedFunc
 		g.lambdaScopeBase = g.lambdaScopeBase[:len(g.lambdaScopeBase)-1]

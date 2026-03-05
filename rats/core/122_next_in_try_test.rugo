@@ -1,0 +1,90 @@
+# Tests that next/break work correctly inside try handlers within loops.
+
+use "test"
+use "eval"
+
+rats "next inside try-or-err works in for loop"
+  source = <<~'RUGO'
+    results = []
+    for i in [1, 2, 3, 4, 5]
+      try raise("skip") or err
+        next
+      end
+      append results, i
+    end
+    puts results
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[]")
+end
+
+rats "break inside try-or-err works in for loop"
+  source = <<~'RUGO'
+    results = []
+    for i in [1, 2, 3, 4, 5]
+      append results, i
+      if i == 3
+        try raise("stop") or err
+          break
+        end
+      end
+    end
+    puts results
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[1, 2, 3]")
+end
+
+rats "next inside try-or-err works in while loop"
+  source = <<~'RUGO'
+    results = []
+    i = 0
+    while i < 5
+      i += 1
+      if i == 3
+        try raise("skip") or err
+          next
+        end
+      end
+      append results, i
+    end
+    puts results
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[1, 2, 4, 5]")
+end
+
+rats "next in try skips rest of loop body"
+  source = <<~'RUGO'
+    results = []
+    for i in [1, 2, 3]
+      try raise("skip") or err
+        next
+      end
+      append results, "should-not-reach"
+    end
+    puts results
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[]")
+end
+
+rats "try-or-err without next/break still works in loop"
+  source = <<~'RUGO'
+    results = []
+    for i in [1, 2, 3]
+      val = try raise("oops") or err
+        0
+      end
+      append results, val
+    end
+    puts results
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "[0, 0, 0]")
+end

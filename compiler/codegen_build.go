@@ -68,8 +68,22 @@ func (g *codeGen) buildStmtInner(s ast.Statement) ([]GoStmt, error) {
 	case *ast.ForStmt:
 		return g.buildFor(st)
 	case *ast.BreakStmt:
+		if g.inTryHandler && g.loopCtlDepth > 0 {
+			g.loopNeedsCtl = true
+			return []GoStmt{
+				GoAssignStmt{Target: "__rugo_loop_ctl", Op: "=", Value: GoRawExpr{Code: "2"}},
+				GoReturnStmt{},
+			}, nil
+		}
 		return []GoStmt{GoBreakStmt{}}, nil
 	case *ast.NextStmt:
+		if g.inTryHandler && g.loopCtlDepth > 0 {
+			g.loopNeedsCtl = true
+			return []GoStmt{
+				GoAssignStmt{Target: "__rugo_loop_ctl", Op: "=", Value: GoRawExpr{Code: "1"}},
+				GoReturnStmt{},
+			}, nil
+		}
 		return []GoStmt{GoContinueStmt{}}, nil
 	case *ast.ReturnStmt:
 		return g.buildReturn(st)
@@ -453,6 +467,48 @@ func (g *codeGen) buildIf(i *ast.IfStmt) ([]GoStmt, error) {
 	return result, nil
 }
 
+// buildLoopBody builds loop body statements with loop-control tracking.
+// When next/break appears inside a try handler, it emits a __rugo_loop_ctl
+// closure variable and per-statement checks so that the loop control
+// propagates out of the try IIFE correctly.
+func (g *codeGen) buildLoopBody(stmts []ast.Statement) ([]GoStmt, error) {
+	g.loopCtlDepth++
+	savedNeedsCtl := g.loopNeedsCtl
+	g.loopNeedsCtl = false
+
+	body, err := g.buildStmts(stmts)
+
+	needsCtl := g.loopNeedsCtl
+	g.loopNeedsCtl = savedNeedsCtl
+	g.loopCtlDepth--
+
+	if err != nil {
+		return nil, err
+	}
+
+	if !needsCtl {
+		return body, nil
+	}
+
+	// Wrap: declare __rugo_loop_ctl, then after each statement check it.
+	loopCtlCheck := GoIfStmt{
+		Cond: GoRawExpr{Code: "__rugo_loop_ctl != 0"},
+		Body: []GoStmt{GoRawStmt{Code: "if __rugo_loop_ctl == 1 { continue }; break"}},
+	}
+	var wrapped []GoStmt
+	wrapped = append(wrapped, GoRawStmt{Code: "__rugo_loop_ctl := 0"})
+	for _, s := range body {
+		wrapped = append(wrapped, s)
+		// Skip checks after non-executable statements (directives, comments, blanks).
+		switch s.(type) {
+		case GoLineDirective, GoComment, GoBlankLine:
+			continue
+		}
+		wrapped = append(wrapped, loopCtlCheck)
+	}
+	return wrapped, nil
+}
+
 func (g *codeGen) buildWhile(w *ast.WhileStmt) ([]GoStmt, error) {
 	cond, err := g.buildCondExpr(w.Condition)
 	if err != nil {
@@ -460,7 +516,7 @@ func (g *codeGen) buildWhile(w *ast.WhileStmt) ([]GoStmt, error) {
 	}
 
 	g.pushScope()
-	body, err := g.buildStmts(w.Body)
+	body, err := g.buildLoopBody(w.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -511,7 +567,7 @@ func (g *codeGen) buildFor(f *ast.ForStmt) ([]GoStmt, error) {
 			preamble = append(preamble, GoExprStmt{Expr: GoRawExpr{Code: "_ = rugo_for_kv.Val"}})
 		}
 
-		body, err := g.buildStmts(f.Body)
+		body, err := g.buildLoopBody(f.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -530,7 +586,7 @@ func (g *codeGen) buildFor(f *ast.ForStmt) ([]GoStmt, error) {
 	preamble = append(preamble, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", iterVar)}})
 	g.declareVar(iterVar)
 
-	body, err := g.buildStmts(f.Body)
+	body, err := g.buildLoopBody(f.Body)
 	if err != nil {
 		return nil, err
 	}
@@ -569,7 +625,7 @@ func (g *codeGen) buildForRange(f *ast.ForStmt, startExpr, endExpr string) ([]Go
 			preamble = append(preamble, GoExprStmt{Expr: GoRawExpr{Code: "_ = rugo_range_i"}})
 		}
 
-		body, err := g.buildStmts(f.Body)
+		body, err := g.buildLoopBody(f.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -587,7 +643,7 @@ func (g *codeGen) buildForRange(f *ast.ForStmt, startExpr, endExpr string) ([]Go
 		preamble = append(preamble, GoExprStmt{Expr: GoRawExpr{Code: fmt.Sprintf("_ = %s", iterVar)}})
 		g.declareVar(iterVar)
 
-		body, err := g.buildStmts(f.Body)
+		body, err := g.buildLoopBody(f.Body)
 		if err != nil {
 			return nil, err
 		}
@@ -694,13 +750,17 @@ func (g *codeGen) buildFunc(f *ast.FuncDef) (GoFuncDecl, error) {
 
 	g.currentFunc = f
 	g.inFunc = true
+	savedLoopCtl := g.loopCtlDepth
+	g.loopCtlDepth = 0
 	bodyStmts, err := g.buildStmts(f.Body)
 	if err != nil {
+		g.loopCtlDepth = savedLoopCtl
 		g.inFunc = false
 		g.currentFunc = nil
 		g.popScope()
 		return GoFuncDecl{}, err
 	}
+	g.loopCtlDepth = savedLoopCtl
 	body = append(body, bodyStmts...)
 
 	if !bodyAlwaysReturns(f.Body) {
