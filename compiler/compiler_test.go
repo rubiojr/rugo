@@ -808,6 +808,32 @@ func TestGenDotCall(t *testing.T) {
 	}
 }
 
+// Regression: a function parameter with the same name as a top-level variable
+// must not cause the top-level variable to be promoted to interface{}, which
+// would break shell interpolation using string concatenation.
+func TestShellInterpolationNotBrokenByFuncParam(t *testing.T) {
+	raw := `def foo(dest)
+  try ` + "`" + `echo "#{dest}"` + "`" + ` or err
+    raise err
+  end
+end
+
+dest = "hello"
+echo "#{dest}"
+`
+	cleaned, err := preprocess.StripComments(raw)
+	require.NoError(t, err)
+	preprocessed, _, err := preprocess.Preprocess(cleaned, nil)
+	require.NoError(t, err)
+
+	goSrc := compileToGo(t, preprocessed)
+	// The top-level dest must NOT be promoted to package-level interface{}
+	// just because a function parameter happens to share the same name.
+	assert.NotContains(t, goSrc, "var dest interface{}")
+	// It should use a typed := declaration inside main()
+	assert.Contains(t, goSrc, `dest := "hello"`)
+}
+
 func TestGenShellBuiltin(t *testing.T) {
 	src := compileToGo(t, `__shell__("ls -la")`)
 	if !strings.Contains(src, "rugo_shell(") {

@@ -1,0 +1,36 @@
+# Regression: a function parameter sharing a name with a top-level variable
+# must not cause the top-level var to be promoted to interface{}, which would
+# break shell interpolation.
+
+use "test"
+use "eval"
+
+rats "shell interp works when func param shadows top-level var"
+  source = <<~'RUGO'
+    def foo(dest)
+      try `echo "#{dest}"` or err
+        raise err
+      end
+    end
+
+    dest = "hello"
+    echo "#{dest}"
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "func reading outer var still works after param shadow fix"
+  source = <<~'RUGO'
+    def greet()
+      echo "#{name}"
+    end
+
+    name = "world"
+    greet()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "world")
+end

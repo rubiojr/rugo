@@ -194,13 +194,18 @@ func (g *codeGen) generate(prog *ast.Program) (string, error) {
 		// Always promote if the top-level name is referenced, even if
 		// the function also assigns to it (the assignment will create
 		// a local shadow at codegen time).
+		// Exclude function parameters — they shadow outer variables.
 		for _, f := range funcs {
 			if f.Namespace != "" {
 				continue
 			}
 			refs := collectIdents(f.Body)
+			paramSet := make(map[string]bool, len(f.Params))
+			for _, p := range f.Params {
+				paramSet[p.Name] = true
+			}
 			for name := range refs {
-				if topVarNames[name] {
+				if topVarNames[name] && !paramSet[name] {
 					g.handlerVars[name] = true
 				}
 			}
