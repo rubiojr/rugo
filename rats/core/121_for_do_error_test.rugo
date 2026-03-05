@@ -1,0 +1,28 @@
+# Tests that `for ... do` produces a clear error message.
+# Rugo `for` loops use `for x in coll ... end`, not `do`.
+
+use "test"
+use "eval"
+
+rats "for with do produces helpful error"
+  source = <<~'RUGO'
+    for i in [1,2,3] do
+      puts i
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "`for` does not use `do`")
+end
+
+rats "while with do produces helpful error"
+  source = <<~'RUGO'
+    x = 0
+    while x < 10 do
+      x += 1
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "`while` does not use `do`")
+end

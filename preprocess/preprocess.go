@@ -19,6 +19,12 @@ var RugoKeywords = map[string]bool{
 	"case": true, "of": true,
 }
 
+// blockKeywordSet contains keywords that form their own block with `end`
+// and must not be combined with `do`.
+var blockKeywordSet = map[string]bool{
+	"for": true, "while": true, "if": true, "elsif": true, "def": true,
+}
+
 var rugoBuiltins = map[string]bool{
 	"puts": true, "print": true,
 	"len": true, "append": true,
@@ -2508,6 +2514,12 @@ func expandDoEnd(src string) (string, error) {
 				result = append(result, line)
 				i++
 				continue
+			}
+
+			// Block keywords have their own end — `do` is invalid after them.
+			firstToken, _ := scanFirstToken(strings.TrimSpace(prefix))
+			if blockKeywordSet[firstToken] {
+				return "", fmt.Errorf("line %d: `%s` does not use `do` — remove `do` and use `%s ... end`", i+1, firstToken, firstToken)
 			}
 
 			// Find matching end
