@@ -50,3 +50,47 @@ rats "valid shell commands are not affected"
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hello")
 end
+
+# Regression tests for rugo-quirks.md #12: short (3-char) shell commands
+# that happen to be edit-distance 1 from a rugo keyword (e.g. `dnf` -> `def`,
+# `del` -> `def`) were incorrectly rejected with a "did you mean" error
+# instead of falling through to shell fallback.
+#
+# The fuzzy-match suggestion should NOT shadow shell-fallback for short
+# tokens. 3-char tokens have too many false positives to be useful as
+# typo hints, and shell commands like `dnf`/`del`/`apt`/`npm` are common.
+
+rats "short shell command dnf is not blocked by fuzzy-match"
+  # `dnf` is edit-distance 1 from `def` and previously triggered a
+  # "did you mean `def`?" error. It should fall through to shell.
+  source = <<~RUGO
+    dnf --bogus-flag-xyz
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["output"], "")
+  # Must NOT be the misspelled-keyword error.
+  output = result["output"]
+  has_did_you_mean = str.contains(output, "did you mean")
+  test.assert_eq(has_did_you_mean, false)
+end
+
+rats "short shell command del is not blocked by fuzzy-match"
+  # `del` is edit-distance 1 from `def`. Should fall through to shell.
+  source = <<~RUGO
+    del nonexistent-file-xyz
+  RUGO
+  result = eval.run(source)
+  has_did_you_mean = str.contains(result["output"], "did you mean")
+  test.assert_eq(has_did_you_mean, false)
+end
+
+rats "3-char shell command dim still falls through (control)"
+  # `dim` is edit-distance 2 from `def`, already falls through. Keeps
+  # behaviour stable for non-fuzzy 3-char commands.
+  source = <<~RUGO
+    dim foo
+  RUGO
+  result = eval.run(source)
+  has_did_you_mean = str.contains(result["output"], "did you mean")
+  test.assert_eq(has_did_you_mean, false)
+end

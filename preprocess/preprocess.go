@@ -508,8 +508,14 @@ func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string
 // the first character must match to avoid false positives (e.g. "date" → "rats").
 // For very short words (≤ 4 chars), only distance 1 is allowed to prevent
 // false positives like "ping" → "print".
+//
+// Inputs shorter than 4 characters are not fuzzy-matched at all: 3-char
+// shell commands like `dnf`/`del`/`apt`/`npm` are commonly used in
+// shell-fallback context and are too prone to spurious distance-1 matches
+// (e.g. `dnf` → `def`, `del` → `def`) to be useful as typo hints. See
+// rugo-quirks.md #12.
 func closestKeywordOrBuiltin(s string) string {
-	if len(s) < 3 {
+	if len(s) < 4 {
 		return ""
 	}
 	best := ""
