@@ -391,6 +391,197 @@ rats "default literal mismatch silenced under --no-infer"
   test.assert_contains(result["output"], "hi")
 end
 
+# Compound-expression defaults — Section 4b
+#
+# Until now only true literals (`42`, `"hi"`, `-3.14`) were checked
+# against the param annotation; compound expressions like `1.0 + 0.5`
+# or `"a" + "b"` slipped through and produced a value of the wrong type
+# at runtime. The static-type checker now folds simple arithmetic and
+# concatenation expressions into the default-mismatch path so they are
+# caught at compile time too.
+
+rats "default compound: float arithmetic rejected for int param"
+  source = <<~RUGO
+    def f(x : Integer = 1.0 + 0.5) : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Float value as default for parameter 'x' declared as Integer")
+end
+
+rats "default compound: string concat rejected for int param"
+  source = <<~RUGO
+    def f(x : Integer = "a" + "b") : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use String value as default for parameter 'x' declared as Integer")
+end
+
+rats "default compound: int arithmetic rejected for string param"
+  source = <<~RUGO
+    def f(x : String = 1 + 2) : String
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Integer value as default for parameter 'x' declared as String")
+end
+
+rats "default compound: int arithmetic rejected for bool param"
+  source = <<~RUGO
+    def f(x : Bool = 3 * 2) : Bool
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Integer value as default for parameter 'x' declared as Bool")
+end
+
+rats "default compound: comparison-bool rejected for string param"
+  source = <<~RUGO
+    def f(x : String = 1 < 2) : String
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Bool value as default for parameter 'x' declared as String")
+end
+
+rats "default compound: float mul rejected for int param"
+  source = <<~RUGO
+    def f(x : Integer = 2.0 * 3) : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Float value as default for parameter 'x' declared as Integer")
+end
+
+rats "default compound: unary minus around binary float expr rejected for int param"
+  source = <<~RUGO
+    def f(x : Integer = -(1.5 + 0.5)) : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Float value as default for parameter 'x' declared as Integer")
+end
+
+rats "default compound: error in fn lambda also fires"
+  source = <<~RUGO
+    g = fn(x : Integer = 1.0 + 0.5) : Integer
+      return x
+    end
+    puts(g())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Float value as default for parameter 'x' declared as Integer")
+end
+
+# Regressions: compound defaults whose static type is compatible must
+# still compile and run.
+
+rats "default compound ok: int + int accepted for int param"
+  source = <<~RUGO
+    def f(x : Integer = 1 + 2) : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+end
+
+rats "default compound ok: int + int widens to float param"
+  source = <<~RUGO
+    def f(x : Float = 1 + 2) : Float
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+end
+
+rats "default compound ok: float + float accepted for float param"
+  source = <<~RUGO
+    def f(x : Float = 1.0 + 0.5) : Float
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1.5")
+end
+
+rats "default compound ok: string concat accepted for string param"
+  source = <<~RUGO
+    def f(x : String = "a" + "b") : String
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ab")
+end
+
+rats "default compound ok: any param accepts anything"
+  source = <<~RUGO
+    def f(x : Any = 1.0 + 0.5)
+      puts(x)
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1.5")
+end
+
+rats "default compound ok: function-call default silently allowed"
+  source = <<~RUGO
+    def make_default() : Integer
+      return 42
+    end
+    def f(x : Integer = make_default()) : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "42")
+end
+
 # =====================================================================
 # Section 5 — fn lambdas with annotations
 # =====================================================================

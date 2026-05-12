@@ -687,8 +687,14 @@ func checkParamDefaultsStmt(s ast.Statement, sourceFile string) error {
 
 // checkParamDefault validates a single Param's default expression against
 // its annotation. Returns nil when there is no annotation, no default,
-// the annotation is unknown (caught elsewhere), or the default is not a
-// statically-typed literal.
+// the annotation is unknown (caught elsewhere), or the default has no
+// statically-resolvable type (identifiers, function calls, etc.).
+//
+// Both true literals (`42`, `-3.14`) and compound expressions whose
+// type can be folded from their operands (`1.0 + 0.5`, `"a" + "b"`,
+// `1 < 2`) are checked. The error message distinguishes literals
+// ("X literal") from compound expressions ("X value") so the user can
+// tell which form of default they wrote.
 func checkParamDefault(p ast.Param, sourceFile string, line int) error {
 	if p.TypeAnnot == "" || p.Default == nil {
 		return nil
@@ -697,16 +703,25 @@ func checkParamDefault(p ast.Param, sourceFile string, line int) error {
 	if !ok {
 		return nil
 	}
-	litType, isLit := literalType(p.Default)
-	if !isLit {
+	if litType, isLit := literalType(p.Default); isLit {
+		if compatibleCallArgToAnnotation(annot, litType) {
+			return nil
+		}
+		return &ast.UserError{Msg: fmt.Sprintf(
+			"%s:%d: cannot use %s literal as default for parameter '%s' declared as %s",
+			sourceFile, line, displayTypeName(litType), p.Name, displayTypeName(annot),
+		)}
+	}
+	exprType, isStatic := staticExprType(p.Default)
+	if !isStatic {
 		return nil
 	}
-	if compatibleCallArgToAnnotation(annot, litType) {
+	if compatibleCallArgToAnnotation(annot, exprType) {
 		return nil
 	}
 	return &ast.UserError{Msg: fmt.Sprintf(
-		"%s:%d: cannot use %s literal as default for parameter '%s' declared as %s",
-		sourceFile, line, displayTypeName(litType), p.Name, displayTypeName(annot),
+		"%s:%d: cannot use %s value as default for parameter '%s' declared as %s",
+		sourceFile, line, displayTypeName(exprType), p.Name, displayTypeName(annot),
 	)}
 }
 

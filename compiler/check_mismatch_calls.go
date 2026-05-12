@@ -581,3 +581,41 @@ func literalType(e ast.Expr) (RugoType, bool) {
 	}
 	return TypeUnknown, false
 }
+
+// staticExprType extends literalType to fold compound expressions —
+// arithmetic, concatenation, comparison, and logical operators — whose
+// type can be derived statically from their operands. Used by the
+// param-default check so a `: Integer = 1.0 + 0.5` default is caught
+// at compile time rather than producing a Float at runtime.
+//
+// Returns (TypeUnknown, false) when any operand fails to resolve or
+// the operator's result type is itself dynamic/unknown — those cases
+// pass silently, matching the conservative rule used by the rest of
+// the mismatch checker.
+func staticExprType(e ast.Expr) (RugoType, bool) {
+	if t, ok := literalType(e); ok {
+		return t, true
+	}
+	switch ex := e.(type) {
+	case *ast.UnaryExpr:
+		innerT, innerOk := staticExprType(ex.Operand)
+		if !innerOk {
+			return TypeUnknown, false
+		}
+		result := inferUnaryOp(ex.Op, innerT)
+		if result.IsResolved() && result != TypeDynamic {
+			return result, true
+		}
+	case *ast.BinaryExpr:
+		leftT, leftOk := staticExprType(ex.Left)
+		rightT, rightOk := staticExprType(ex.Right)
+		if !leftOk || !rightOk {
+			return TypeUnknown, false
+		}
+		result := inferBinaryOp(ex.Op, leftT, rightT)
+		if result.IsResolved() && result != TypeDynamic {
+			return result, true
+		}
+	}
+	return TypeUnknown, false
+}
