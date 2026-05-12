@@ -81,6 +81,17 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 	// so analysis tools can read it; only hide it from codegen when the
 	// caller has asked for a fully-dynamic build.
 	ti := Infer(prog)
+
+	// Type-annotation mismatch detection. Runs against the inferrer's
+	// output so error messages reference the rugo source rather than the
+	// generated Go. Skipped when inference is disabled — there are no
+	// inferred types to compare against.
+	if !disableInfer {
+		if err := checkMismatch(prog, ti, sourceFile); err != nil {
+			return nil, err
+		}
+	}
+
 	codegenTI := ti
 	if disableInfer {
 		codegenTI = nil
