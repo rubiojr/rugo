@@ -31,11 +31,12 @@ EmbedStmt   = "embed" str_lit "as" ident .
 SandboxStmt = "sandbox" [ SandboxPerm { ',' SandboxPerm } ] .
 SandboxPerm = ident ':' ( str_lit | integer | SandboxList ) .
 SandboxList = '[' ( str_lit | integer ) { ',' ( str_lit | integer ) } ']' .
-FuncDef     = "def" ident '(' [ ParamList ] ')' [ ':' ident ] Body "end" .
+FuncDef     = "def" ident '(' [ ParamList ] ')' [ ':' TypeName ] Body "end" .
 TestDef     = "rats" str_lit Body "end" .
 BenchDef    = "bench" str_lit Body "end" .
 ParamList   = Param { ',' Param } .
-Param       = ident [ ':' ident ] [ '=' Expr ] .
+Param       = ident [ ':' TypeName ] [ '=' Expr ] .
+TypeName    = ident | "nil" .
 Body        = { Statement | ';' } .
 IfStmt      = "if" Expr Body { "elsif" Expr Body } [ "else" Body ] "end" .
 CaseExpr    = "case" Expr { "of" ExprList ( "->" Expr | Body ) } { "elsif" Expr ( "->" Expr | Body ) } [ "else" ( "->" Expr | Body ) ] "end" .
@@ -80,7 +81,7 @@ Primary     = ident
 TryExpr      = "try" Expr "or" ident Body "end" .
 SpawnExpr    = "spawn" Body "end" .
 ParallelExpr = "parallel" Body "end" .
-FnExpr       = "fn" '(' [ ParamList ] ')' [ ':' ident ] Body "end" .
+FnExpr       = "fn" '(' [ ParamList ] ')' [ ':' TypeName ] Body "end" .
 
 ArrayLit    = '[' [ Expr { ',' Expr } ] ']' .
 HashLit     = '{' [ HashEntry { ',' HashEntry } ] '}' .

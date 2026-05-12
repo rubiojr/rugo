@@ -634,15 +634,15 @@ func (w *walker) walkFuncDef(ast []int32) (Statement, error) {
 
 	_, ast = w.readToken(ast) // ')'
 
-	// Optional return type annotation: ':' ident
+	// Optional return type annotation: ':' TypeName
 	var returnType string
 	if len(ast) > 0 && ast[0] >= 0 {
 		tok := w.p.Token(ast[0])
 		if parser.Symbol(tok.Ch) == parser.RugoTOK_003a { // ':'
 			_, ast = w.readToken(ast) // consume ':'
-			typeTok, rest := w.readToken(ast)
+			name, rest := w.walkTypeName(ast)
 			ast = rest
-			returnType = typeTok.src
+			returnType = name
 		}
 	}
 
@@ -707,18 +707,18 @@ func (w *walker) walkParamList(ast []int32) ([]Param, error) {
 }
 
 func (w *walker) walkParam(ast []int32) (Param, error) {
-	// Param = ident [ ':' ident ] [ '=' Expr ] .
+	// Param = ident [ ':' TypeName ] [ '=' Expr ] .
 	nameTok, ast := w.readToken(ast)
 	p := Param{Name: nameTok.src}
 
-	// Optional type annotation: ':' ident
+	// Optional type annotation: ':' TypeName
 	if len(ast) > 0 && ast[0] >= 0 {
 		tok := w.p.Token(ast[0])
 		if parser.Symbol(tok.Ch) == parser.RugoTOK_003a { // ':'
 			_, ast = w.readToken(ast) // consume ':'
-			typeTok, rest := w.readToken(ast)
+			name, rest := w.walkTypeName(ast)
 			ast = rest
-			p.TypeAnnot = typeTok.src
+			p.TypeAnnot = name
 		}
 	}
 
@@ -733,6 +733,24 @@ func (w *walker) walkParam(ast []int32) (Param, error) {
 	}
 
 	return p, nil
+}
+
+// walkTypeName reads a TypeName non-terminal: either an `ident` or the
+// `nil` keyword. Returns the textual name and the remaining ast slice.
+func (w *walker) walkTypeName(ast []int32) (string, []int32) {
+	if len(ast) == 0 {
+		return "", ast
+	}
+	if ast[0] < 0 {
+		_, children, rest := w.readNonTerminal(ast)
+		if len(children) > 0 {
+			tok, _ := w.readToken(children)
+			return tok.src, rest
+		}
+		return "", rest
+	}
+	tok, rest := w.readToken(ast)
+	return tok.src, rest
 }
 
 func (w *walker) walkBody(ast []int32) ([]Statement, error) {
@@ -1617,9 +1635,9 @@ func (w *walker) walkFnExpr(ast []int32) (Expr, error) {
 		tok := w.p.Token(ast[0])
 		if parser.Symbol(tok.Ch) == parser.RugoTOK_003a { // ':'
 			_, ast = w.readToken(ast)
-			typeTok, rest := w.readToken(ast)
+			name, rest := w.walkTypeName(ast)
 			ast = rest
-			returnType = typeTok.src
+			returnType = name
 		}
 	}
 
