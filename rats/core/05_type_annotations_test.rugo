@@ -1,6 +1,11 @@
 # RATS: Optional type annotations on def/fn params and return types
 use "test"
 use "eval"
+use "os"
+
+# =====================================================================
+# Section 1 — Basic positive cases
+# =====================================================================
 
 rats "annotated function with int params and int return"
   source = <<~RUGO
@@ -26,13 +31,25 @@ rats "annotated function with string params and string return"
   test.assert_eq(result["output"], "hello, rugo")
 end
 
-rats "annotated function with bool return"
+rats "annotated function with float params and float return"
   source = <<~RUGO
-    def positive(n : int) : bool
-      return n > 0
+    def avg(a : float, b : float) : float
+      return (a + b) / 2.0
     end
-    puts(positive(5))
-    puts(positive(-1))
+    puts(avg(1.0, 3.0))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "2")
+end
+
+rats "annotated function with bool params and bool return"
+  source = <<~RUGO
+    def both(a : bool, b : bool) : bool
+      return a && b
+    end
+    puts(both(true, true))
+    puts(both(true, false))
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
@@ -40,13 +57,13 @@ rats "annotated function with bool return"
   test.assert_contains(result["output"], "false")
 end
 
-rats "mixed annotated and unannotated params"
+rats "annotated function returning bool from comparison"
   source = <<~RUGO
-    def compare(a, b : int) : bool
+    def eq(a : int, b : int) : bool
       return a == b
     end
-    puts(compare(1, 1))
-    puts(compare(1, 2))
+    puts(eq(2, 2))
+    puts(eq(2, 3))
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
@@ -54,7 +71,195 @@ rats "mixed annotated and unannotated params"
   test.assert_contains(result["output"], "false")
 end
 
-rats "annotation works alongside default value"
+rats "no-arg function with only a return annotation"
+  source = <<~RUGO
+    def pi() : float
+      return 3.14159
+    end
+    puts(pi())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "3.14159")
+end
+
+# =====================================================================
+# Section 2 — Every documented type name works
+# =====================================================================
+
+rats "int param and int return"
+  source = <<~RUGO
+    def f(x : int) : int
+      return x + 1
+    end
+    puts(f(41))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "float param and float return"
+  source = <<~RUGO
+    def f(x : float) : float
+      return x * 2.0
+    end
+    puts(f(1.5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "3.0")
+end
+
+rats "string param and string return"
+  source = <<~RUGO
+    def f(x : string) : string
+      return x + "!"
+    end
+    puts(f("hi"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hi!")
+end
+
+rats "bool param and bool return"
+  source = <<~RUGO
+    def f(x : bool) : bool
+      return !x
+    end
+    puts(f(true))
+    puts(f(false))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "false")
+  test.assert_contains(result["output"], "true")
+end
+
+rats "array param and array return"
+  source = <<~RUGO
+    def first(arr : array) : array
+      return [arr[0]]
+    end
+    puts(first([10, 20, 30]))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "[10]")
+end
+
+rats "hash param round-trips"
+  source = <<~RUGO
+    def keys(h : hash) : array
+      return h.keys()
+    end
+    out = keys({a: 1, b: 2})
+    puts(out.contains("a"))
+    puts(out.contains("b"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+end
+
+rats "nil annotation on return type"
+  source = <<~RUGO
+    def f() : nil
+      return nil
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "nil")
+end
+
+rats "nil annotation on param"
+  source = <<~RUGO
+    def f(x : nil) : any
+      return x
+    end
+    puts(f(nil))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "nil")
+end
+
+rats "any as param and return is the explicit dynamic escape hatch"
+  source = <<~RUGO
+    def echo(x : any) : any
+      return x
+    end
+    puts(echo(42))
+    puts(echo("hello"))
+    puts(echo(true))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "42")
+  test.assert_contains(result["output"], "hello")
+  test.assert_contains(result["output"], "true")
+end
+
+# =====================================================================
+# Section 3 — Mixing annotated and unannotated parameters
+# =====================================================================
+
+rats "annotation only on first parameter"
+  source = <<~RUGO
+    def f(a : int, b)
+      return a + b
+    end
+    puts(f(2, 3))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "5")
+end
+
+rats "annotation only on last parameter"
+  source = <<~RUGO
+    def f(a, b : int)
+      return a + b
+    end
+    puts(f(2, 3))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "5")
+end
+
+rats "annotation only on a middle parameter"
+  source = <<~RUGO
+    def f(a, b : int, c)
+      return a + b + c
+    end
+    puts(f(1, 2, 3))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "6")
+end
+
+rats "return-only annotation, no param annotations"
+  source = <<~RUGO
+    def label(x) : string
+      return "n=" + x
+    end
+    puts(label("42"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "n=42")
+end
+
+# =====================================================================
+# Section 4 — Annotation interaction with default values
+# =====================================================================
+
+rats "annotated param with default value"
   source = <<~RUGO
     def greet(name : string = "world") : string
       return "hi, " + name
@@ -68,7 +273,39 @@ rats "annotation works alongside default value"
   test.assert_contains(result["output"], "hi, rugo")
 end
 
-rats "fn lambda with annotated params and return"
+rats "annotation plus default on single int param"
+  source = <<~RUGO
+    def inc(a : int = 5) : int
+      return a + 1
+    end
+    puts(inc())
+    puts(inc(10))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "6")
+  test.assert_contains(result["output"], "11")
+end
+
+rats "mixed annotated and default in same signature"
+  source = <<~RUGO
+    def f(a : int, b : int = 10) : int
+      return a + b
+    end
+    puts(f(2))
+    puts(f(2, 3))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "12")
+  test.assert_contains(result["output"], "5")
+end
+
+# =====================================================================
+# Section 5 — fn lambdas with annotations
+# =====================================================================
+
+rats "fn lambda with int param and return"
   source = <<~RUGO
     double = fn(x : int) : int
       return x * 2
@@ -80,7 +317,7 @@ rats "fn lambda with annotated params and return"
   test.assert_eq(result["output"], "42")
 end
 
-rats "fn lambda annotation in higher-order context"
+rats "fn lambda passed as higher-order argument"
   source = <<~RUGO
     def apply(f, x)
       return f(x)
@@ -95,84 +332,48 @@ rats "fn lambda annotation in higher-order context"
   test.assert_eq(result["output"], "42")
 end
 
-rats "unknown type name produces compile error"
+rats "typed fn lambda used with array.map"
   source = <<~RUGO
-    def f(x : integer) : int
-      return x
-    end
-  RUGO
-  result = eval.run(source)
-  test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown type")
-  test.assert_contains(result["output"] + result["error"], "integer")
-end
-
-rats "unknown return type produces compile error"
-  source = <<~RUGO
-    def f(x) : integer
-      return x
-    end
-  RUGO
-  result = eval.run(source)
-  test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown return type")
-end
-
-rats "valid type names cover the documented set"
-  source = <<~RUGO
-    def a(x : int) : int
-      return x
-    end
-    def b(x : float) : float
-      return x
-    end
-    def c(x : string) : string
-      return x
-    end
-    def d(x : bool) : bool
-      return x
-    end
-    def e(x : array) : array
-      return x
-    end
-    def f(x : hash) : hash
-      return x
-    end
-    def g(x : any) : any
-      return x
-    end
-    puts(a(1))
-    puts(b(2.5))
-    puts(c("ok"))
-    puts(d(true))
-    puts(e([1, 2]))
-    puts(f({k: "v"}))
-    puts(g(42))
+    arr = [1, 2, 3]
+    out = arr.map(fn(x : int) : int
+      return x * 10
+    end)
+    puts(out)
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "1")
-  test.assert_contains(result["output"], "2.5")
-  test.assert_contains(result["output"], "ok")
-  test.assert_contains(result["output"], "true")
-  test.assert_contains(result["output"], "[1, 2]")
-  test.assert_contains(result["output"], "v")
-  test.assert_contains(result["output"], "42")
+  test.assert_eq(result["output"], "[10, 20, 30]")
 end
 
-rats "annotations produce typed go signatures"
+rats "fn lambda with nil return annotation"
   source = <<~RUGO
-    def squared(n : int) : int
-      return n * n
+    f = fn() : nil
+      return nil
     end
-    puts(squared(7))
+    puts(f())
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "49")
+  test.assert_eq(result["output"], "nil")
 end
 
-rats "recursive annotated function"
+# =====================================================================
+# Section 6 — Semantic correctness inside annotated functions
+# =====================================================================
+
+rats "integer division returns int"
+  source = <<~RUGO
+    def div(a : int, b : int) : int
+      return a / b
+    end
+    puts(div(10, 3))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "3")
+end
+
+rats "recursive annotated function (factorial)"
   source = <<~RUGO
     def factorial(n : int) : int
       if n <= 1
@@ -185,4 +386,431 @@ rats "recursive annotated function"
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "120")
+end
+
+rats "mutually recursive annotated functions"
+  source = <<~RUGO
+    def is_even(n : int) : bool
+      if n == 0
+        return true
+      end
+      return is_odd(n - 1)
+    end
+    def is_odd(n : int) : bool
+      if n == 0
+        return false
+      end
+      return is_even(n - 1)
+    end
+    puts(is_even(4))
+    puts(is_odd(7))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+end
+
+rats "annotated function with multiple return branches"
+  source = <<~RUGO
+    def sign(n : int) : string
+      if n > 0
+        return "positive"
+      end
+      if n < 0
+        return "negative"
+      end
+      return "zero"
+    end
+    puts(sign(5))
+    puts(sign(-1))
+    puts(sign(0))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "positive")
+  test.assert_contains(result["output"], "negative")
+  test.assert_contains(result["output"], "zero")
+end
+
+rats "typed-return function relying on coercion of dynamic body"
+  source = <<~RUGO
+    use "math"
+    def hypot(a : float, b : float) : float
+      return math.sqrt(a * a + b * b)
+    end
+    puts(hypot(3.0, 4.0))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "5")
+end
+
+# =====================================================================
+# Section 7 — Interaction with other language features
+# =====================================================================
+
+rats "annotated function chained through pipe"
+  source = <<~RUGO
+    def shout(s : string) : string
+      return s + "!"
+    end
+    echo "hi" | shout | puts
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hi!")
+end
+
+rats "annotated function called from spawn"
+  source = <<~RUGO
+    def add(a : int, b : int) : int
+      return a + b
+    end
+    t = spawn add(2, 3)
+    puts(t.value)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "5")
+end
+
+rats "annotated functions chained"
+  source = <<~RUGO
+    def inc(n : int) : int
+      return n + 1
+    end
+    def dbl(n : int) : int
+      return n * 2
+    end
+    puts(dbl(inc(5)))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "12")
+end
+
+# =====================================================================
+# Section 8 — Value coercion at the call site
+#
+# Rugo's annotated params perform implicit conversion when the caller
+# supplies a different but representable type (e.g. int -> float,
+# bool -> int, int -> string). Conversions that cannot succeed (e.g.
+# non-numeric string -> int) error at runtime with a clear message.
+# =====================================================================
+
+rats "int argument coerced to float param"
+  source = <<~RUGO
+    def f(a : float, b : float) : float
+      return a + b
+    end
+    puts(f(3, 4))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "7.0")
+end
+
+rats "int argument coerced to string param"
+  source = <<~RUGO
+    def f(a : string) : string
+      return a
+    end
+    puts(f(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "bool argument coerced to int param"
+  source = <<~RUGO
+    def f(a : int) : int
+      return a
+    end
+    puts(f(true))
+    puts(f(false))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1")
+  test.assert_contains(result["output"], "0")
+end
+
+rats "non-numeric string argument to int param fails at runtime"
+  source = <<~RUGO
+    def add(a : int, b : int) : int
+      return a + b
+    end
+    puts(add("xyz", "abc"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "cannot convert")
+end
+
+# =====================================================================
+# Section 9 — Negative tests: invalid type names
+# =====================================================================
+
+rats "unknown type name in param produces compile error"
+  source = <<~RUGO
+    def f(x : integer) : int
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown type")
+  test.assert_contains(result["output"] + result["error"], "integer")
+end
+
+rats "unknown type name in return produces compile error"
+  source = <<~RUGO
+    def f(x) : integer
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown return type")
+end
+
+rats "capitalized type name rejected (case sensitive)"
+  source = <<~RUGO
+    def f(x : Int) : Int
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown type")
+  test.assert_contains(result["output"] + result["error"], "Int")
+end
+
+rats "capitalized nil keyword as type rejected"
+  source = <<~RUGO
+    def f() : Nil
+      return nil
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown return type")
+end
+
+rats "uppercase type name rejected"
+  source = <<~RUGO
+    def f(x : INT) : INT
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown type")
+end
+
+rats "valid-types list appears in error message"
+  source = <<~RUGO
+    def f(x : foobar)
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "int")
+  test.assert_contains(result["output"] + result["error"], "float")
+  test.assert_contains(result["output"] + result["error"], "string")
+  test.assert_contains(result["output"] + result["error"], "any")
+end
+
+rats "unknown type name inside fn lambda param"
+  source = <<~RUGO
+    sq = fn(x : foobar) : int
+      return x * x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown type")
+  test.assert_contains(result["output"] + result["error"], "fn parameter")
+end
+
+rats "unknown type name on fn lambda return"
+  source = <<~RUGO
+    sq = fn(x : int) : foobar
+      return x * x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown return type")
+  test.assert_contains(result["output"] + result["error"], "fn lambda")
+end
+
+# =====================================================================
+# Section 10 — Negative tests: invalid annotation syntax
+# =====================================================================
+
+rats "numeric literal in place of type name is a parse error"
+  source = <<~RUGO
+    def f(x : 42) : int
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+end
+
+rats "string literal in place of type name is a parse error"
+  source = <<~RUGO
+    def f(x : "int") : int
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+end
+
+rats "empty annotation after colon on param is a parse error"
+  source = <<~RUGO
+    def f(x : ) : int
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+end
+
+rats "empty annotation after colon on return is a parse error"
+  source = <<~RUGO
+    def f() : 
+      return 1
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+end
+
+rats "double colon is a parse error"
+  source = <<~RUGO
+    def f(x : : int) : int
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+end
+
+# =====================================================================
+# Section 11 — Generated-code shape
+#
+# These verify that annotations actually flow into the generated Go,
+# producing typed signatures for primitives and interface{} for `any`.
+# =====================================================================
+
+rats "primitive annotations produce typed Go signatures"
+  src = "def add(a : int, b : int) : int\n  return a + b\nend\nputs(add(2, 3))\n"
+  path = test.tmpdir() + "/typed.rugo"
+  test.write_file(path, src)
+  result = test.run("rugo emit #{path}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "func rugofn_add(a int, b int) int")
+end
+
+rats "string annotation produces typed Go string signature"
+  src = "def greet(name : string) : string\n  return \"hi, \" + name\nend\nputs(greet(\"x\"))\n"
+  path = test.tmpdir() + "/str.rugo"
+  test.write_file(path, src)
+  result = test.run("rugo emit #{path}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "func rugofn_greet(name string) string")
+end
+
+rats "bool annotation produces typed Go bool signature"
+  src = "def neg(x : bool) : bool\n  return !x\nend\nputs(neg(true))\n"
+  path = test.tmpdir() + "/bool.rugo"
+  test.write_file(path, src)
+  result = test.run("rugo emit #{path}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "func rugofn_neg(x bool) bool")
+end
+
+rats "any annotation produces interface{} Go signature"
+  src = "def echo(x : any) : any\n  return x\nend\nputs(echo(1))\n"
+  path = test.tmpdir() + "/any.rugo"
+  test.write_file(path, src)
+  result = test.run("rugo emit #{path}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "func rugofn_echo(x interface{}) interface{}")
+end
+
+rats "array annotation does not produce typed Go array signature"
+  src = "def first(arr : array) : array\n  return [arr[0]]\nend\nputs(first([1, 2]))\n"
+  path = test.tmpdir() + "/arr.rugo"
+  test.write_file(path, src)
+  result = test.run("rugo emit #{path}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "func rugofn_first(arr interface{}) interface{}")
+end
+
+rats "emit --stats reports annotation coverage"
+  src = "def add(a : int, b : int) : int\n  return a + b\nend\ndef noop(a, b)\n  return nil\nend\nputs(add(1, 2))\n"
+  path = test.tmpdir() + "/stats.rugo"
+  test.write_file(path, src)
+  result = test.run("rugo emit --stats #{path}")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "annotated:")
+end
+
+# =====================================================================
+# Section 12 — Known limitations
+#
+# These pin current behaviour so changes get noticed. They are
+# negative tests: if any of these STARTS to succeed, the limitation
+# is gone and these tests should be updated.
+# =====================================================================
+
+rats "limitation: multi-line annotated parameter list is a parse error"
+  source = <<~RUGO
+    def add(
+      a : int,
+      b : int
+    ) : int
+      return a + b
+    end
+    puts(add(2, 3))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+end
+
+rats "limitation: reassigning annotated int param to string in body errors"
+  # Annotations are trusted assertions — there is no conflict detector
+  # in the inferrer, so widening the param via reassignment surfaces as
+  # a Go-level type error rather than a clean Rugo diagnostic.
+  source = <<~RUGO
+    def f(a : int)
+      a = "hello"
+      return a
+    end
+    puts(f(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+end
+
+rats "limitation: no space before colon parses as hash-colon sugar"
+  # The preprocessor rewrites `ident:` (no space) into `"ident" =>`,
+  # so `def f(x:int)` is interpreted differently and the program ends
+  # up running the un-annotated form. This is the documented reason
+  # why a space before ':' is required for type annotations.
+  source = <<~RUGO
+    def f(x:int) : int
+      return x
+    end
+    puts(f(5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "5")
 end
