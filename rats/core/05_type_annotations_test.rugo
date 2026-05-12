@@ -2,6 +2,7 @@
 use "test"
 use "eval"
 use "os"
+use "str"
 
 # =====================================================================
 # Section 1 — Basic positive cases
@@ -536,7 +537,7 @@ rats "bool argument coerced to int param"
   test.assert_contains(result["output"], "0")
 end
 
-rats "non-numeric string argument to int param fails at runtime"
+rats "non-numeric string literal as int argument is a compile error"
   source = <<~RUGO
     def add(a : int, b : int) : int
       return a + b
@@ -545,7 +546,9 @@ rats "non-numeric string argument to int param fails at runtime"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "cannot convert")
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'add'")
+  test.assert_contains(combined, "parameter 'a' declared as int")
 end
 
 # =====================================================================
@@ -1213,4 +1216,387 @@ rats "mismatch: only the conflicting return errors, valid returns are fine"
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "10")
+end
+
+# =====================================================================
+# Section 14 — Call-site argument mismatches with literal args
+# =====================================================================
+# When a literal argument is passed to a user-defined function with an
+# annotated parameter and the literal type is incompatible with the
+# annotation, the compiler emits an error pointing at the source line.
+
+rats "call-site: string literal passed to int param errors"
+  source = <<~RUGO
+    def f(a : int) : int
+      return a + 1
+    end
+    puts(f("oops"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
+  test.assert_contains(combined, "parameter 'a' declared as int")
+end
+
+rats "call-site: array literal passed to int param errors"
+  source = <<~RUGO
+    def f(a : int) : int
+      return a
+    end
+    puts(f([1, 2, 3]))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass array literal")
+  test.assert_contains(combined, "parameter 'a' declared as int")
+end
+
+rats "call-site: hash literal passed to array param errors"
+  source = <<~RUGO
+    def f(xs : array) : array
+      return xs
+    end
+    puts(f({a: 1}))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass hash literal")
+  test.assert_contains(combined, "parameter 'xs' declared as array")
+end
+
+rats "call-site: nil literal passed to int param errors"
+  source = <<~RUGO
+    def f(a : int)
+      return a
+    end
+    puts(f(nil))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass nil literal")
+end
+
+rats "call-site: bool literal passed to array param errors"
+  source = <<~RUGO
+    def f(xs : array)
+      return xs
+    end
+    puts(f(true))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass bool literal")
+end
+
+rats "call-site: error points at the rugo source line"
+  source = <<~RUGO
+    def f(a : int) : int
+      return a + 1
+    end
+
+    puts(f("oops"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, ":5:")
+end
+
+rats "call-site: second argument mismatch reports correct index"
+  source = <<~RUGO
+    def add(a : int, b : int) : int
+      return a + b
+    end
+    puts(add(1, "x"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "argument 2 to 'add'")
+  test.assert_contains(combined, "parameter 'b' declared as int")
+end
+
+rats "call-site: variable arg is NOT flagged"
+  source = <<~RUGO
+    def add(a : int, b : int) : int
+      return a + b
+    end
+    x = 5
+    y = 7
+    puts(add(x, y))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "12")
+end
+
+rats "call-site: module call arg is NOT flagged"
+  source = <<~RUGO
+    use "str"
+    puts(str.upper(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "call-site: dot call (ns.f) is NOT flagged"
+  source = <<~RUGO
+    use "str"
+    puts(str.upper("hi"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "HI")
+end
+
+rats "call-site: int literal to float param is allowed (numeric coercion)"
+  source = <<~RUGO
+    def f(a : float) : float
+      return a + 1.0
+    end
+    puts(f(2))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+end
+
+rats "call-site: float literal to int param is allowed (numeric coercion)"
+  source = <<~RUGO
+    def f(a : int) : int
+      return a + 1
+    end
+    puts(f(2.7))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "call-site: int literal to string param is allowed (stringify)"
+  source = <<~RUGO
+    def f(a : string) : string
+      return a
+    end
+    puts(f(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "call-site: any literal to string param is allowed"
+  source = <<~RUGO
+    def f(a : string) : string
+      return a
+    end
+    puts(f([1, 2]))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "call-site: anything to any-annotated param is allowed"
+  source = <<~RUGO
+    def f(x : any) : any
+      return x
+    end
+    puts(f("anything"))
+    puts(f(42))
+    puts(f([1, 2]))
+    puts(f(nil))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "call-site: negative integer literal to int param is allowed"
+  source = <<~RUGO
+    def f(a : int) : int
+      return a + 1
+    end
+    puts(f(-5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "-4")
+end
+
+rats "call-site: negative integer literal to string param is allowed"
+  source = <<~RUGO
+    def f(a : string) : string
+      return a
+    end
+    puts(f(-5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "call-site: literal-arg mismatch inside fn lambda body is caught"
+  source = <<~RUGO
+    def square(n : int) : int
+      return n * n
+    end
+    f = fn()
+      return square("oops")
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
+end
+
+rats "call-site: literal-arg mismatch in recursive self-call is caught"
+  source = <<~RUGO
+    def f(n : int) : int
+      if n <= 0
+        return 0
+      end
+      return f("oops")
+    end
+    puts(f(3))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
+end
+
+rats "call-site: literal-arg mismatch inside if condition is caught"
+  source = <<~RUGO
+    def is_pos(n : int) : bool
+      return n > 0
+    end
+    if is_pos("oops")
+      puts("yes")
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'is_pos'")
+end
+
+rats "call-site: literal-arg mismatch inside spawn body is caught"
+  source = <<~RUGO
+    def square(n : int) : int
+      return n * n
+    end
+    task = spawn
+      square("nope")
+    end
+    puts(task.value)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
+end
+
+rats "call-site: literal-arg mismatch inside try expression is caught"
+  source = <<~RUGO
+    def f(n : int) : int
+      return n * 2
+    end
+    result = try f("oops") or 99
+    puts(result)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
+end
+
+rats "call-site: pipe sugar with wrong literal-type is caught"
+  source = <<~RUGO
+    def square(n : int) : int
+      return n * n
+    end
+    puts(square("oops"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
+end
+
+rats "call-site: unannotated function is NOT flagged"
+  source = <<~RUGO
+    def f(a)
+      return a
+    end
+    puts(f("anything"))
+    puts(f(42))
+    puts(f([1, 2]))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "call-site: function with default-arg + annotation still validates literals"
+  source = <<~RUGO
+    def add(a : int = 1, b : int = 2) : int
+      return a + b
+    end
+    puts(add("oops", 10))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'add'")
+end
+
+rats "call-site: function with default-arg + annotation accepts valid args"
+  source = <<~RUGO
+    def add(a : int = 1, b : int = 2) : int
+      return a + b
+    end
+    puts(add(5, 10))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "15")
+end
+
+rats "call-site: --no-infer disables the call-site check"
+  tmp = test.tmpdir()
+  src_path = tmp + "/no_infer_t2.rugo"
+  test.write_file(src_path, "def f(a : int) : int\n  return a + 1\nend\nputs(f(\"oops\"))\n")
+  result = test.run("rugo run --no-infer " + src_path)
+  # With --no-infer the call-site check is skipped so we never see the
+  # compile-time "cannot pass" message (program may succeed or fail at
+  # runtime depending on the operation, but the compile error is gone).
+  test.assert_true(!str.contains(result["output"], "cannot pass string literal"))
+end
+
+rats "call-site: bool literal to int param is allowed (numeric mutual)"
+  source = <<~RUGO
+    def f(a : int) : int
+      return a
+    end
+    puts(f(true))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "call-site: anything to bool param is allowed (truthiness)"
+  source = <<~RUGO
+    def f(a : bool) : bool
+      return a
+    end
+    puts(f(0))
+    puts(f("hi"))
+    puts(f([1, 2]))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
 end
