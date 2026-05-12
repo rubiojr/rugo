@@ -785,9 +785,9 @@ rats "limitation: multi-line annotated parameter list is a parse error"
 end
 
 rats "limitation: reassigning annotated int param to string in body errors"
-  # Annotations are trusted assertions — there is no conflict detector
-  # in the inferrer, so widening the param via reassignment surfaces as
-  # a Go-level type error rather than a clean Rugo diagnostic.
+  # Mismatch detection now catches this — see Section 13 below
+  # for the full structured-diagnostic coverage. This test stays as a
+  # smoke check that the exit status is non-zero.
   source = <<~RUGO
     def f(a : int)
       a = "hello"
@@ -813,4 +813,404 @@ rats "limitation: no space before colon parses as hash-colon sugar"
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
   test.assert_eq(result["output"], "5")
+end
+
+# =====================================================================
+# Section 13 — Annotation/body mismatch detection
+#
+# Validate that the compile-time mismatch checker catches concrete
+# conflicts between an annotation and the function body, producing a
+# structured rugo-level error with a source location.
+#
+# Coverage:
+#   - Reassigning an annotated param to an incompatible literal type
+#   - Returning the wrong type via explicit `return`
+#   - Implicit return (last-expression-as-value) of the wrong type
+#   - The same patterns inside `fn` lambdas
+#   - Numeric coercion (int <-> float) is allowed (no error)
+#   - `string`, `bool`, `any` annotations accept anything (no error)
+#   - Unannotated functions are not checked at all
+# =====================================================================
+
+rats "mismatch: reassigning annotated int param to string errors with structured message"
+  source = <<~RUGO
+    def f(a : int)
+      a = "hello"
+    end
+    puts(f(1))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
+end
+
+rats "mismatch: error points at the rugo source line, not generated Go"
+  source = <<~RUGO
+    def f(a : int)
+      a = "hello"
+    end
+    puts(f(1))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, ":2:")
+end
+
+rats "mismatch: reassigning annotated float param to string errors"
+  source = <<~RUGO
+    def f(a : float)
+      a = "oops"
+    end
+    f(1.0)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as float")
+end
+
+rats "mismatch: reassigning annotated array param to int errors"
+  source = <<~RUGO
+    def f(a : array)
+      a = 42
+    end
+    f([1, 2, 3])
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign int value to parameter 'a' declared as array")
+end
+
+rats "mismatch: reassigning annotated hash param to array errors"
+  source = <<~RUGO
+    def f(h : hash)
+      h = [1, 2, 3]
+    end
+    f({a: 1})
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign array value to parameter 'h' declared as hash")
+end
+
+rats "mismatch: reassigning annotated nil param to int errors"
+  source = <<~RUGO
+    def f(x : nil)
+      x = 42
+    end
+    f(nil)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign int value to parameter 'x' declared as nil")
+end
+
+rats "mismatch: int -> float param reassignment errors (strict assign rule)"
+  source = <<~RUGO
+    def f(a : int)
+      a = 3.14
+      return a
+    end
+    puts(f(1))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign float value to parameter 'a' declared as int")
+end
+
+rats "mismatch: float -> int param reassignment errors (strict assign rule)"
+  source = <<~RUGO
+    def f(a : float)
+      a = 7
+      return a
+    end
+    puts(f(1.0))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign int value to parameter 'a' declared as float")
+end
+
+rats "mismatch: string annotation rejects non-string reassignment (strict)"
+  source = <<~RUGO
+    def f(s : string)
+      s = 42
+      return s
+    end
+    puts(f("hi"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign int value to parameter 's' declared as string")
+end
+
+rats "mismatch: bool annotation rejects non-bool reassignment (strict)"
+  source = <<~RUGO
+    def f(b : bool)
+      b = "anything"
+      return b
+    end
+    puts(f(true))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign string value to parameter 'b' declared as bool")
+end
+
+rats "mismatch: same-type reassignment is fine (int -> int)"
+  source = <<~RUGO
+    def f(a : int)
+      a = 99
+      return a
+    end
+    puts(f(1))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "99")
+end
+
+rats "mismatch: same-type reassignment is fine (string -> string)"
+  source = <<~RUGO
+    def f(s : string)
+      s = "new value"
+      return s
+    end
+    puts(f("old"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "new value")
+end
+
+rats "mismatch: any annotation accepts any reassignment"
+  source = <<~RUGO
+    def f(x : any)
+      x = "ok"
+      x = 42
+      x = [1, 2]
+      return x
+    end
+    puts(f(1))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "mismatch: returning string from int-annotated function errors"
+  source = <<~RUGO
+    def f() : int
+      return "hi"
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot return string value from function declared returning int")
+end
+
+rats "mismatch: returning array from int-annotated function errors"
+  source = <<~RUGO
+    def f() : int
+      return [1, 2, 3]
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot return array value from function declared returning int")
+end
+
+rats "mismatch: returning int from nil-annotated function errors"
+  source = <<~RUGO
+    def f() : nil
+      return 42
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot return int value from function declared returning nil")
+end
+
+rats "mismatch: returning hash from array-annotated function errors"
+  source = <<~RUGO
+    def f() : array
+      return {a: 1}
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot return hash value from function declared returning array")
+end
+
+rats "mismatch: int -> float return is allowed (numeric coercion)"
+  source = <<~RUGO
+    def f() : float
+      return 42
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "mismatch: float -> int return is allowed (numeric coercion)"
+  source = <<~RUGO
+    def f() : int
+      return 3.14
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "mismatch: returning anything from string-annotated function is allowed"
+  source = <<~RUGO
+    def f() : string
+      return 42
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "mismatch: any-annotated return accepts anything"
+  source = <<~RUGO
+    def f() : any
+      return [1, 2, 3]
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "mismatch: implicit return of wrong type errors"
+  source = <<~RUGO
+    def f() : int
+      "hello"
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot implicitly return string value")
+end
+
+rats "mismatch: implicit return of array from int-annotated function errors"
+  source = <<~RUGO
+    def f() : int
+      [1, 2, 3]
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot implicitly return array value")
+end
+
+rats "mismatch: fn lambda param reassignment to wrong type errors"
+  source = <<~RUGO
+    f = fn(a : int)
+      a = "oops"
+    end
+    f(1)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
+end
+
+rats "mismatch: fn lambda return-type mismatch errors"
+  source = <<~RUGO
+    f = fn() : int
+      return "no"
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot return string value from function declared returning int")
+end
+
+rats "mismatch: nested fn lambda inside def is also checked"
+  source = <<~RUGO
+    def outer()
+      inner = fn(a : int)
+        a = "oops"
+      end
+      return inner(1)
+    end
+    outer()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
+end
+
+rats "mismatch: unannotated functions are not checked"
+  source = <<~RUGO
+    def f(a)
+      a = "hello"
+      a = 42
+      a = [1, 2]
+      return a
+    end
+    puts(f(0))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "mismatch: branch-aware: each return checked independently"
+  source = <<~RUGO
+    def f(x : int) : int
+      if x > 0
+        return "positive"
+      end
+      return x
+    end
+    f(1)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["error"]
+  test.assert_contains(combined, "cannot return string value from function declared returning int")
+end
+
+rats "mismatch: only the conflicting return errors, valid returns are fine"
+  source = <<~RUGO
+    def f(x : int) : int
+      if x > 0
+        return x * 2
+      end
+      return 0
+    end
+    puts(f(5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "10")
 end

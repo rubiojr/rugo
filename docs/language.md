@@ -495,11 +495,12 @@ The recognised type names mirror what `type_of()` returns:
 
 Unknown names produce a compile-time error pointing at the offending position.
 
-Annotations have three effects:
+Annotations have four effects:
 
 1. **Compile-time validation.** The annotation name must be recognised; misspellings (`integer`, `String`) fail at compile time.
 2. **Seeded type inference.** `Infer()` plants the annotated types into `FuncTypeInfo.ParamTypes`/`ReturnType` before walking the body. The inferrer treats annotated params as ground truth and will not widen them to `interface{}` if a later assignment is dynamic. Annotated returns are not overwritten by the inferred return type.
 3. **Typed Go signatures.** When the annotated type is a primitive (`int`, `float`, `string`, `bool`), codegen emits a typed Go signature (`func rugofn_add(a int, b int) int`) instead of the default `func(... interface{}) interface{}`. The return path inserts a `rugo_to_*` coercion if the body produced a dynamic value, so calls into runtime helpers (e.g. `math.sqrt`) still work without manual casts.
+4. **Body/annotation mismatch detection.** After inference, the compiler walks every annotated function body and flags two patterns the inferrer can prove are wrong: reassigning an annotated parameter to a value of a concretely conflicting type (e.g. `a = "hello"` inside `def f(a : int)`) and returning a value whose inferred type conflicts with the annotated return type. Errors point at the rugo source line with a structured message instead of a Go-level compiler error. Assignment is strict (the generated Go has a concrete variable, no coercion at the reassignment site); returns are permissive in the numeric family and for `string`/`bool`/`any` (the codegen inserts coercion). Pass `--no-infer` to skip the check.
 
 Coverage is reported by `rugo emit --stats`:
 
@@ -515,7 +516,7 @@ The `typed` column reflects what inference resolved (with or without annotations
 - Annotations apply only to function parameters and return types — there is no syntax for local variable annotations.
 - Functions with default parameter values compile to a variadic shape; on such functions the annotations act as documentation only, since the runtime signature is dynamic.
 - `array`, `hash`, `nil`, `any` are accepted but do not produce typed Go signatures (the corresponding runtime shapes are already `interface{}`-typed).
-- There is no annotation/body conflict detector in this version: an annotation is treated as a user assertion the inferrer trusts. If the body cannot satisfy the annotation, the Go compiler will surface a mismatch.
+- Mismatch detection only fires when the inferrer can *prove* a conflict (the value's type is concrete and not in the compatibility set). Dynamic / unknown values are silent — annotations stay user assertions where inference cannot decide.
 - A space is required before `:` (`x : int`, not `x:int`) because the preprocessor would otherwise interpret `x:` as the start of a hash literal.
 
 ### Lambdas (First-Class Functions)
