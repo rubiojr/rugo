@@ -6,11 +6,12 @@ import (
 	"github.com/rubiojr/rugo/ast"
 )
 
-// checkMismatch runs annotation/body mismatch detection: inside any
-// annotated def or fn lambda, flag body-level operations that the
-// inferrer can prove disagree with the annotation.
+// checkMismatch runs annotation/body mismatch detection.
 //
-// Two situations are flagged:
+// Two classes of conflict are flagged:
+//
+// Body-level — inside any annotated def or fn lambda, flag operations
+// that the inferrer can prove disagree with the annotation:
 //
 //  1. Reassigning an annotated parameter to a value whose inferred type
 //     concretely conflicts with the parameter's annotation.
@@ -19,23 +20,30 @@ import (
 //     with the function's annotated return type. This covers explicit
 //     `return` statements and last-expression-as-return implicit returns.
 //
+// Call-site — at every direct call site to a user-defined function with
+// annotated parameters, flag literal arguments whose type concretely
+// conflicts with the corresponding parameter's annotation. Variables and
+// computed expressions are never flagged (inference is conservative).
+//
 // The check never fires when either side is dynamic/unknown — annotations
 // are trusted assertions, so unresolved inference must stay silent.
 //
-// Two compatibility predicates apply: a permissive one at return sites
-// (codegen inserts numeric coercion / stringifies) and a strict one at
-// assignment sites (the parameter has a concrete Go type with no
-// coercion at the reassignment).
+// Two compatibility predicates apply: a permissive one at return and
+// call sites (codegen inserts numeric coercion / stringifies) and a
+// strict one at body-level reassignment sites (the parameter has a
+// concrete Go type with no coercion at the reassignment).
 func checkMismatch(prog *ast.Program, ti *TypeInfo, sourceFile string) error {
 	if ti == nil {
 		return nil
 	}
+	// Body-level conflicts inside annotated def/fn bodies.
 	for _, s := range prog.Statements {
 		if err := checkMismatchStmt(s, ti, sourceFile, nil, ""); err != nil {
 			return err
 		}
 	}
-	return nil
+	// Call-site argument conflicts against annotated callees.
+	return checkCallSites(prog, sourceFile)
 }
 
 // checkMismatchStmt walks a statement looking for annotated def/fn bodies
