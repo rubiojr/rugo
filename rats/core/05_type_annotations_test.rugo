@@ -385,8 +385,9 @@ rats "default literal mismatch silenced under --no-infer"
     end
     puts(f())
   RUGO
-  test.write_file("default_no_infer.rugo", source)
-  result = test.run("rugo run --no-infer default_no_infer.rugo")
+  path = test.tmpdir() + "/default_no_infer.rugo"
+  test.write_file(path, source)
+  result = test.run("rugo run --no-infer #{path}")
   test.assert_eq(result["status"], 0)
   test.assert_contains(result["output"], "hi")
 end
