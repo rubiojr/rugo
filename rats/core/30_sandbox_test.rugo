@@ -4,10 +4,38 @@ use "eval"
 use "os"
 use "str"
 
+def detect_landlock()
+  uname = test.run("uname -s")
+  if uname["status"] != 0 || uname["output"] != "Linux"
+    return "non-linux"
+  end
+  # Probe: run a sandboxed program that should be denied access to /etc.
+  # If landlock is actually enforced, os.read_file fails and "LANDLOCK_DENIED"
+  # is printed. If the kernel lacks landlock support, BestEffort() silently
+  # degrades and the read succeeds.
+  probe = <<~RUGO
+    sandbox rox: ["/usr"]
+    import "os"
+    data = try os.read_file("/etc/os-release") or e
+      "LANDLOCK_DENIED"
+    end
+    puts(data)
+  RUGO
+  r = eval.run(probe)
+  if str.contains(r["output"], "LANDLOCK_DENIED")
+    return "available"
+  end
+  return "unsupported-kernel"
+end
+
+LANDLOCK_STATE = detect_landlock()
+
 def skip_if_no_landlock()
-  result = test.run("uname -s")
-  if result["status"] != 0 || result["output"] != "Linux"
+  if LANDLOCK_STATE == "non-linux"
     test.skip("Landlock requires Linux")
+  end
+  if LANDLOCK_STATE != "available"
+    test.skip("Landlock not enforced on this kernel")
   end
 end
 
