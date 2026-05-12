@@ -11,9 +11,10 @@ import (
 // anything that can't be proven typed remains TypeDynamic (interface{}).
 func Infer(prog *ast.Program) *TypeInfo {
 	ti := &TypeInfo{
-		ExprTypes: make(map[ast.Expr]RugoType),
-		FuncTypes: make(map[string]*FuncTypeInfo),
-		VarTypes:  make(map[string]map[string]RugoType),
+		ExprTypes:   make(map[ast.Expr]RugoType),
+		FuncTypes:   make(map[string]*FuncTypeInfo),
+		VarTypes:    make(map[string]map[string]RugoType),
+		VarUseTypes: make(map[ast.Expr]RugoType),
 	}
 
 	// Collect all function definitions (skip duplicates — codegen validates them).
@@ -90,13 +91,29 @@ func funcKey(f *ast.FuncDef) string {
 }
 
 // typeScope tracks variable types within a scope.
+//
+// Two parallel maps:
+//   - vars:    "storage union" — accumulates types via unify on every set.
+//              Used by codegen to decide concrete vs. interface{} storage.
+//   - current: "flow-sensitive" — replaces on every set, reflecting the
+//              variable's type at the current program point. Used by
+//              callers that need per-use precision (Tier 3).
+//
+// Both layers are cloned and re-merged identically across control-flow
+// branch joins; they only diverge within straight-line code where the
+// same variable is reassigned to a different concrete type.
 type typeScope struct {
-	vars   map[string]RugoType
-	parent *typeScope
+	vars    map[string]RugoType
+	current map[string]RugoType
+	parent  *typeScope
 }
 
 func newTypeScope(parent *typeScope) *typeScope {
-	return &typeScope{vars: make(map[string]RugoType), parent: parent}
+	return &typeScope{
+		vars:    make(map[string]RugoType),
+		current: make(map[string]RugoType),
+		parent:  parent,
+	}
 }
 
 func (s *typeScope) get(name string) RugoType {
@@ -109,13 +126,29 @@ func (s *typeScope) get(name string) RugoType {
 	return TypeDynamic
 }
 
+// currentGet returns the flow-sensitive type of name at this point, walking
+// the parent chain. Used by callers (e.g., Ident reads) that want per-use
+// precision instead of the conservative storage union.
+func (s *typeScope) currentGet(name string) RugoType {
+	if t, ok := s.current[name]; ok {
+		return t
+	}
+	if s.parent != nil {
+		return s.parent.currentGet(name)
+	}
+	return TypeDynamic
+}
+
 func (s *typeScope) set(name string, t RugoType) {
 	if existing, ok := s.vars[name]; ok {
-		// Variable reassigned — unify types.
+		// Storage union: unify across all assignments so codegen sees the
+		// full set of types this variable can ever hold.
 		s.vars[name] = unifyTypes(existing, t)
 	} else {
 		s.vars[name] = t
 	}
+	// Flow layer: replace, so per-use reads see the latest assignment.
+	s.current[name] = t
 }
 
 func cloneTypeVars(src map[string]RugoType) map[string]RugoType {
@@ -130,9 +163,11 @@ func inferIfStmt(ti *TypeInfo, scope *typeScope, st *ast.IfStmt) {
 	ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
 
 	baseVars := cloneTypeVars(scope.vars)
+	baseCurrent := cloneTypeVars(scope.current)
 	newBranchScope := func() *typeScope {
 		branchScope := newTypeScope(scope.parent)
 		branchScope.vars = cloneTypeVars(baseVars)
+		branchScope.current = cloneTypeVars(baseCurrent)
 		return branchScope
 	}
 
@@ -164,12 +199,32 @@ func inferIfStmt(ti *TypeInfo, scope *typeScope, st *ast.IfStmt) {
 		branchScopes = append(branchScopes, newBranchScope())
 	}
 
+	joinBranchScopes(scope, baseVars, baseCurrent, branchScopes)
+}
+
+// joinBranchScopes merges per-branch typeScopes into scope, accounting for
+// both the storage-union (vars) and flow-sensitive (current) layers.
+//
+// A branch that does not assign to a name contributes to the "untouched"
+// path: it brings the pre-fork base value of the name into the union, and
+// — if the name had no pre-fork binding — contributes TypeNil to model
+// the absence of an assignment on that path.
+//
+// For loops, callers should include an explicit empty branch in
+// branchScopes to model "loop body may not have executed".
+func joinBranchScopes(scope *typeScope, baseVars, baseCurrent map[string]RugoType, branchScopes []*typeScope) {
 	names := make(map[string]bool)
 	for name := range baseVars {
 		names[name] = true
 	}
+	for name := range baseCurrent {
+		names[name] = true
+	}
 	for _, branchScope := range branchScopes {
 		for name := range branchScope.vars {
+			names[name] = true
+		}
+		for name := range branchScope.current {
 			names[name] = true
 		}
 	}
@@ -195,7 +250,158 @@ func inferIfStmt(ti *TypeInfo, scope *typeScope, st *ast.IfStmt) {
 		if mergedType != TypeUnknown {
 			scope.vars[name] = mergedType
 		}
+
+		// Merge the flow-sensitive layer in parallel. If any branch
+		// leaves the variable untouched, its baseline current type (or
+		// TypeNil if it was never bound) participates in the union.
+		baseCur, baseCurExisted := baseCurrent[name]
+		mergedCur := TypeUnknown
+		curAssignedInAll := true
+		for _, branchScope := range branchScopes {
+			t, ok := branchScope.current[name]
+			if !ok {
+				curAssignedInAll = false
+				if baseCurExisted {
+					mergedCur = unifyTypes(mergedCur, baseCur)
+				}
+				continue
+			}
+			mergedCur = unifyTypes(mergedCur, t)
+		}
+		if !baseCurExisted && !curAssignedInAll {
+			mergedCur = unifyTypes(mergedCur, TypeNil)
+		}
+		if mergedCur != TypeUnknown {
+			scope.current[name] = mergedCur
+		}
 	}
+}
+
+// mergeLoopCurrent models "loop body may not have executed" by joining the
+// post-loop flow-sensitive types with the pre-loop snapshot. The storage
+// (vars) layer is not touched here because set() already unifies on every
+// write — the union of all writes is preserved naturally.
+func mergeLoopCurrent(scope *typeScope, baseCurrent map[string]RugoType) {
+	for name, t := range scope.current {
+		if base, ok := baseCurrent[name]; ok {
+			scope.current[name] = unifyTypes(base, t)
+		} else {
+			scope.current[name] = unifyTypes(t, TypeNil)
+		}
+	}
+}
+
+// inferCaseStmt walks a case statement using branch-scope semantics so the
+// per-clause assignments are joined at the merge point. When the case lacks
+// an else clause, an empty branch is added to model the "no clause matched"
+// path.
+func inferCaseStmt(ti *TypeInfo, scope *typeScope, st *ast.CaseStmt) {
+	inferExpr(ti, scope, st.Subject)
+	ti.ExprTypes[st.Subject] = inferExpr(ti, scope, st.Subject)
+
+	baseVars := cloneTypeVars(scope.vars)
+	baseCurrent := cloneTypeVars(scope.current)
+	newBranchScope := func() *typeScope {
+		branchScope := newTypeScope(scope.parent)
+		branchScope.vars = cloneTypeVars(baseVars)
+		branchScope.current = cloneTypeVars(baseCurrent)
+		return branchScope
+	}
+
+	var branchScopes []*typeScope
+
+	for _, oc := range st.OfClauses {
+		for _, v := range oc.Values {
+			inferExpr(ti, scope, v)
+			ti.ExprTypes[v] = inferExpr(ti, scope, v)
+		}
+		clauseScope := newBranchScope()
+		if oc.ArrowExpr != nil {
+			inferExpr(ti, clauseScope, oc.ArrowExpr)
+		}
+		for _, s := range oc.Body {
+			inferStmt(ti, clauseScope, s)
+		}
+		branchScopes = append(branchScopes, clauseScope)
+	}
+
+	for _, clause := range st.ElsifClauses {
+		inferExpr(ti, scope, clause.Condition)
+		ti.ExprTypes[clause.Condition] = inferExpr(ti, scope, clause.Condition)
+		clauseScope := newBranchScope()
+		for _, s := range clause.Body {
+			inferStmt(ti, clauseScope, s)
+		}
+		branchScopes = append(branchScopes, clauseScope)
+	}
+
+	if len(st.ElseBody) > 0 {
+		elseScope := newBranchScope()
+		for _, s := range st.ElseBody {
+			inferStmt(ti, elseScope, s)
+		}
+		branchScopes = append(branchScopes, elseScope)
+	} else {
+		// No else clause means no `of`/elsif may have matched — model
+		// the "no-match" path as an empty branch.
+		branchScopes = append(branchScopes, newBranchScope())
+	}
+
+	joinBranchScopes(scope, baseVars, baseCurrent, branchScopes)
+}
+
+// inferCaseExpr is the expression-form counterpart to inferCaseStmt; it
+// also branch-joins the per-clause writes so callers reading variables
+// after a case-expression see the union of all paths.
+func inferCaseExpr(ti *TypeInfo, scope *typeScope, ex *ast.CaseExpr) RugoType {
+	inferExpr(ti, scope, ex.Subject)
+
+	baseVars := cloneTypeVars(scope.vars)
+	baseCurrent := cloneTypeVars(scope.current)
+	newBranchScope := func() *typeScope {
+		branchScope := newTypeScope(scope.parent)
+		branchScope.vars = cloneTypeVars(baseVars)
+		branchScope.current = cloneTypeVars(baseCurrent)
+		return branchScope
+	}
+
+	var branchScopes []*typeScope
+
+	for _, oc := range ex.OfClauses {
+		for _, v := range oc.Values {
+			inferExpr(ti, scope, v)
+		}
+		clauseScope := newBranchScope()
+		if oc.ArrowExpr != nil {
+			inferExpr(ti, clauseScope, oc.ArrowExpr)
+		}
+		for _, s := range oc.Body {
+			inferStmt(ti, clauseScope, s)
+		}
+		branchScopes = append(branchScopes, clauseScope)
+	}
+
+	for _, clause := range ex.ElsifClauses {
+		inferExpr(ti, scope, clause.Condition)
+		clauseScope := newBranchScope()
+		for _, s := range clause.Body {
+			inferStmt(ti, clauseScope, s)
+		}
+		branchScopes = append(branchScopes, clauseScope)
+	}
+
+	if len(ex.ElseBody) > 0 {
+		elseScope := newBranchScope()
+		for _, s := range ex.ElseBody {
+			inferStmt(ti, elseScope, s)
+		}
+		branchScopes = append(branchScopes, elseScope)
+	} else {
+		branchScopes = append(branchScopes, newBranchScope())
+	}
+
+	joinBranchScopes(scope, baseVars, baseCurrent, branchScopes)
+	return TypeDynamic
 }
 
 // inferFunc infers types for a single function.
@@ -232,16 +438,23 @@ func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 	ti.VarTypes[funcKey(f)] = scope.vars
 
 	// If a parameter was reassigned from a dynamic expression (e.g.
-	// s = str.trim(s)), its var type will have been widened to dynamic.
-	// Widen ParamTypes to match so the Go declaration uses interface{}.
+	// s = str.trim(s)), or to a type incompatible with its inferred shape
+	// (e.g. `a = "x"; a = 42`), its var type will have been widened to
+	// TypeDynamic (legacy) or a union (post-bitmask). Either way, the
+	// narrow Go signature is no longer safe -- widen ParamTypes to
+	// TypeDynamic so the Go declaration uses interface{}.
 	//
-	// Annotated params are NOT widened — the user has asserted the type, so
-	// we trust them. The conflict detector below catches mismatches.
+	// Annotated params are NOT widened — the user has asserted the type,
+	// so we trust them. The conflict detector below catches mismatches.
 	for i, p := range f.Params {
 		if i < len(fti.AnnotatedArgs) && fti.AnnotatedArgs[i] {
 			continue
 		}
-		if fti.ParamTypes[i].IsTyped() && scope.get(p.Name) == TypeDynamic {
+		if !fti.ParamTypes[i].IsTyped() {
+			continue
+		}
+		inferredVar := scope.get(p.Name)
+		if inferredVar == TypeDynamic || inferredVar.IsUnion() {
 			fti.ParamTypes[i] = TypeDynamic
 		}
 	}
@@ -286,41 +499,24 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 		inferIfStmt(ti, scope, st)
 
 	case *ast.CaseStmt:
-		inferExpr(ti, scope, st.Subject)
-		ti.ExprTypes[st.Subject] = inferExpr(ti, scope, st.Subject)
-		for _, oc := range st.OfClauses {
-			for _, v := range oc.Values {
-				inferExpr(ti, scope, v)
-				ti.ExprTypes[v] = inferExpr(ti, scope, v)
-			}
-			if oc.ArrowExpr != nil {
-				inferExpr(ti, scope, oc.ArrowExpr)
-			}
-			for _, s := range oc.Body {
-				inferStmt(ti, scope, s)
-			}
-		}
-		for _, clause := range st.ElsifClauses {
-			inferExpr(ti, scope, clause.Condition)
-			ti.ExprTypes[clause.Condition] = inferExpr(ti, scope, clause.Condition)
-			for _, s := range clause.Body {
-				inferStmt(ti, scope, s)
-			}
-		}
-		for _, s := range st.ElseBody {
-			inferStmt(ti, scope, s)
-		}
+		inferCaseStmt(ti, scope, st)
 
 	case *ast.WhileStmt:
 		inferExpr(ti, scope, st.Condition)
 		ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
-		// Infer body twice: same rationale as ast.ForStmt — the first pass
-		// may widen variable types that affect expression types.
+		baseCurrentWhile := cloneTypeVars(scope.current)
+		// Infer body twice: the first pass widens variable types via
+		// unify-on-set (vars layer) and seeds VarUseTypes for reads; the
+		// second pass propagates the widening into expression types and
+		// unifies VarUseTypes with all earlier observations.
 		for pass := 0; pass < 2; pass++ {
 			for _, s := range st.Body {
 				inferStmt(ti, scope, s)
 			}
 		}
+		// Model "loop body may not have executed" for the flow-sensitive
+		// layer by unioning back with the pre-loop snapshot.
+		mergeLoopCurrent(scope, baseCurrentWhile)
 
 	case *ast.ForStmt:
 		inferExpr(ti, scope, st.Collection)
@@ -330,6 +526,7 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 		if st.IndexVar != "" {
 			scope.set(st.IndexVar, loopVarType)
 		}
+		baseCurrentFor := cloneTypeVars(scope.current)
 		// Infer body twice: the first pass may widen variable types
 		// (e.g. lines = lines + dynamic_var), and the second pass
 		// ensures expression types reflect the widened variables.
@@ -338,6 +535,7 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 				inferStmt(ti, scope, s)
 			}
 		}
+		mergeLoopCurrent(scope, baseCurrentFor)
 
 	case *ast.ReturnStmt:
 		if st.Value != nil {
@@ -458,6 +656,19 @@ func inferExprInner(ti *TypeInfo, scope *typeScope, e ast.Expr) RugoType {
 		return TypeNil
 
 	case *ast.IdentExpr:
+		// Record the flow-sensitive (per-use) type for downstream
+		// consumers (Tier 3 callsite/return checks). The function return
+		// value remains the conservative storage-union type so that
+		// ExprTypes drives codegen decisions consistently.
+		//
+		// Unify into any pre-existing entry so that re-walks (e.g. a
+		// loop body inferred twice) accumulate the union of all observed
+		// types instead of merely keeping the last pass's view.
+		cur := scope.currentGet(ex.Name)
+		if prev, hadPrev := ti.VarUseTypes[e]; hadPrev {
+			cur = unifyTypes(prev, cur)
+		}
+		ti.VarUseTypes[e] = cur
 		return scope.get(ex.Name)
 
 	case *ast.BinaryExpr:
@@ -531,28 +742,7 @@ func inferExprInner(ti *TypeInfo, scope *typeScope, e ast.Expr) RugoType {
 		return TypeDynamic
 
 	case *ast.CaseExpr:
-		inferExpr(ti, scope, ex.Subject)
-		for _, oc := range ex.OfClauses {
-			for _, v := range oc.Values {
-				inferExpr(ti, scope, v)
-			}
-			if oc.ArrowExpr != nil {
-				inferExpr(ti, scope, oc.ArrowExpr)
-			}
-			for _, s := range oc.Body {
-				inferStmt(ti, scope, s)
-			}
-		}
-		for _, ec := range ex.ElsifClauses {
-			inferExpr(ti, scope, ec.Condition)
-			for _, s := range ec.Body {
-				inferStmt(ti, scope, s)
-			}
-		}
-		for _, s := range ex.ElseBody {
-			inferStmt(ti, scope, s)
-		}
-		return TypeDynamic
+		return inferCaseExpr(ti, scope, ex)
 
 	case *ast.FnExpr:
 		// Walk lambda body using the parent scope so that assignments
@@ -736,10 +926,21 @@ func inferCall(ti *TypeInfo, scope *typeScope, e *ast.CallExpr) RugoType {
 			// they use variadic signature so all params are interface{}.
 			if !fti.HasDefaults {
 				// Only propagate resolved types to avoid poisoning with Dynamic.
+				// Skip annotated params: those are user assertions and must
+				// remain sticky -- a mismatched call site is the caller's
+				// bug, not a reason to widen the param to a union. Without
+				// this guard, post-union unification would pollute the param
+				// (e.g. `int` unioned with `array` from `f([1,2,3])` becomes
+				// `int|array`), and the return-type check would fire on the
+				// polluted union before the call-site check could run.
 				for i, at := range argTypes {
-					if i < len(fti.ParamTypes) && at.IsResolved() && at != TypeDynamic {
-						fti.ParamTypes[i] = unifyTypes(fti.ParamTypes[i], at)
+					if i >= len(fti.ParamTypes) || !at.IsResolved() || at == TypeDynamic {
+						continue
 					}
+					if i < len(fti.AnnotatedArgs) && fti.AnnotatedArgs[i] {
+						continue
+					}
+					fti.ParamTypes[i] = unifyTypes(fti.ParamTypes[i], at)
 				}
 			}
 			return fti.ReturnType
@@ -753,9 +954,13 @@ func inferCall(ti *TypeInfo, scope *typeScope, e *ast.CallExpr) RugoType {
 			if fti, ok := ti.FuncTypes[key]; ok {
 				if !fti.HasDefaults {
 					for i, at := range argTypes {
-						if i < len(fti.ParamTypes) && at.IsResolved() && at != TypeDynamic {
-							fti.ParamTypes[i] = unifyTypes(fti.ParamTypes[i], at)
+						if i >= len(fti.ParamTypes) || !at.IsResolved() || at == TypeDynamic {
+							continue
 						}
+						if i < len(fti.AnnotatedArgs) && fti.AnnotatedArgs[i] {
+							continue
+						}
+						fti.ParamTypes[i] = unifyTypes(fti.ParamTypes[i], at)
 					}
 				}
 				return fti.ReturnType

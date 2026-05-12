@@ -495,13 +495,44 @@ The recognised type names mirror what `type_of()` returns:
 
 Unknown names produce a compile-time error pointing at the offending position.
 
-Annotations have four effects:
+Annotations have five effects:
 
 1. **Compile-time validation.** The annotation name must be recognised; misspellings (`integer`, `String`) fail at compile time.
 2. **Seeded type inference.** `Infer()` plants the annotated types into `FuncTypeInfo.ParamTypes`/`ReturnType` before walking the body. The inferrer treats annotated params as ground truth and will not widen them to `interface{}` if a later assignment is dynamic. Annotated returns are not overwritten by the inferred return type.
 3. **Typed Go signatures.** When the annotated type is a primitive (`int`, `float`, `string`, `bool`), codegen emits a typed Go signature (`func rugofn_add(a int, b int) int`) instead of the default `func(... interface{}) interface{}`. The return path inserts a `rugo_to_*` coercion if the body produced a dynamic value, so calls into runtime helpers (e.g. `math.sqrt`) still work without manual casts.
 4. **Body/annotation mismatch detection.** After inference, the compiler walks every annotated function body and flags two patterns the inferrer can prove are wrong: reassigning an annotated parameter to a value of a concretely conflicting type (e.g. `a = "hello"` inside `def f(a : int)`) and returning a value whose inferred type conflicts with the annotated return type. Errors point at the rugo source line with a structured message instead of a Go-level compiler error. Assignment is strict (the generated Go has a concrete variable, no coercion at the reassignment site); returns are permissive in the numeric family and for `string`/`bool`/`any` (the codegen inserts coercion). Pass `--no-infer` to skip the check.
-5. **Call-site argument validation (literal args).** When a *literal* argument (number, string, bool, nil, array, hash, or `-N`/`!b` over a literal) is passed to a user-defined function with an annotated parameter, the compiler flags concretely-conflicting cases at compile time (e.g. `f("oops")` where `f` is `def f(a : int)`). The check uses the same permissive compatibility rule as returns: numeric family is mutually compatible, `string`/`bool`/`any` accept anything. Non-literal arguments (variables, calls, dot expressions) are not flagged — only the inferrer can reason about those, and adaptive widening already keeps them silent. Module-style `ns.f(...)` calls are also skipped. Pass `--no-infer` to disable.
+5. **Call-site and return-site flow validation.** Beyond literal arguments, the compiler also flags **variable** arguments and **variable** return values when the inferrer can prove a concrete type conflict at that program point.
+   - **Literal arguments.** When a literal (number, string, bool, nil, array, hash, or `-N`/`!b` over a literal) is passed to an annotated parameter with a concretely-conflicting type, the call is rejected (e.g. `f("oops")` where `f` is `def f(a : int)`).
+   - **Variable arguments (Tier 3 flow-sensitive).** Each identifier read site carries a *flow-sensitive* per-use type (`TypeInfo.VarUseTypes`) that reflects the variable's type at exactly that program point — not the conservative storage union of every value it ever held. Sequential reassignments narrow the per-use type (`y = "h"; y = 42; f(y)` passes because at the call site `y` is provably `int`); union outcomes from `if` without `else`, loops that may not run, or `case` without `else` keep the union and produce a precise error message.
+   - **Variable returns (Tier 3 flow-sensitive).** Symmetrically, `return x` is checked against the flow-sensitive type of `x` at the return site, not the storage union. Returning a variable that was reassigned back to a compatible type is permitted even when its history includes incompatible values.
+   - The compatibility rule is the permissive one: numeric family is mutually compatible, `string`/`bool`/`any` accept anything. Module-style `ns.f(...)` calls are skipped. Dynamic or unresolved expressions are silent — annotations stay user assertions where inference cannot decide. Pass `--no-infer` to disable.
+
+##### Variable Type Annotations
+
+Local variables can also carry type annotations on their first assignment using the same `name : type = expr` shape:
+
+```ruby
+x : int = 42
+name : string = "world"
+items : array = [1, 2, 3]
+```
+
+Variable annotations are **sticky**: once `x` is bound as `int`, every later assignment to `x` in the same scope is checked against that annotation. Reassigning to a concretely-conflicting type fails at compile time:
+
+```ruby
+x : int = 42
+x = "oops"      # compile error: cannot assign string value to variable 'x' declared as int
+```
+
+Re-annotating the same name in the same scope (`x : int = ...; x : int = ...`) is also rejected. The annotation lives until the enclosing function or block returns, so two functions can each declare their own `x : T` independently.
+
+Use `: any` to opt out of the check while keeping the annotation as documentation:
+
+```ruby
+x : any = 0
+x = "h"         # allowed
+x = [1, 2]      # allowed
+```
 
 Coverage is reported by `rugo emit --stats`:
 
@@ -514,7 +545,7 @@ The `typed` column reflects what inference resolved (with or without annotations
 
 **Limitations and caveats:**
 
-- Annotations apply only to function parameters and return types — there is no syntax for local variable annotations.
+- Local variable annotations apply only to first assignment (`x : T = expr`). There is no syntax for re-annotating, nor for annotating index assignments (`a[i] : T = ...`) or dot assignments (`o.f : T = ...`).
 - Functions with default parameter values compile to a variadic shape; on such functions the annotations act as documentation only, since the runtime signature is dynamic.
 - `array`, `hash`, `nil`, `any` are accepted but do not produce typed Go signatures (the corresponding runtime shapes are already `interface{}`-typed).
 - Mismatch detection only fires when the inferrer can *prove* a conflict (the value's type is concrete and not in the compatibility set). Dynamic / unknown values are silent — annotations stay user assertions where inference cannot decide.

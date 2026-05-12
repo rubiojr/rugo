@@ -1,41 +1,88 @@
 package compiler
 
 import (
+	"math/bits"
+	"strings"
+
 	"github.com/rubiojr/rugo/ast"
 )
 
-type RugoType int
+// RugoType is a bitmask of concrete-type bits. A single-bit value (e.g.
+// TypeInt) is a concrete type; multi-bit values are unions formed by
+// unifying distinct concretes across control-flow joins. TypeDynamic is the
+// absorbing "give up" bit -- when set, the value behaves like the legacy
+// dynamic sentinel regardless of which other bits are set.
+//
+// The bitmask layout is the locked union representation. Each concrete bit
+// is a power of two, and pairwise disjoint, so:
+//   - `t == TypeInt` keeps its original "exactly int" semantics (a union
+//     would never equal a single-bit constant).
+//   - Set union is bitwise OR, so unifyTypes degenerates to `a | b` (with
+//     the documented int+float numeric-promotion special case).
+//   - Membership is `t & X != 0`.
+//   - The type is still a comparable map key.
+type RugoType uint16
 
 const (
 	// TypeUnknown means inference hasn't resolved the type yet.
-	TypeUnknown RugoType = iota
+	TypeUnknown RugoType = 0
 	// TypeInt is an integer type (Go int).
-	TypeInt
+	TypeInt RugoType = 1 << 0
 	// TypeFloat is a floating-point type (Go float64).
-	TypeFloat
+	TypeFloat RugoType = 1 << 1
 	// TypeString is a string type.
-	TypeString
+	TypeString RugoType = 1 << 2
 	// TypeBool is a boolean type.
-	TypeBool
+	TypeBool RugoType = 1 << 3
 	// TypeNil is the nil literal type.
-	TypeNil
+	TypeNil RugoType = 1 << 4
 	// TypeArray is []interface{} (element types not tracked).
-	TypeArray
+	TypeArray RugoType = 1 << 5
 	// TypeHash is map[interface{}]interface{}.
-	TypeHash
-	// TypeDynamic means the type is explicitly unresolvable (mixed types,
-	// external calls, etc.). Falls back to interface{} in codegen.
-	TypeDynamic
+	TypeHash RugoType = 1 << 6
+	// TypeDynamic is the absorbing "explicitly unresolvable" bit. Falls
+	// back to interface{} in codegen.
+	TypeDynamic RugoType = 1 << 7
 )
 
+// declaredOrder lists concrete bits in their declaration order. Members()
+// and String() use this to produce stable, readable output for diagnostics
+// ("int|string", not "string|int").
+var declaredOrder = []RugoType{
+	TypeInt, TypeFloat, TypeString, TypeBool,
+	TypeNil, TypeArray, TypeHash, TypeDynamic,
+}
+
 func (t RugoType) String() string {
-	switch t {
-	case TypeUnknown:
+	if t == TypeUnknown {
 		return "unknown"
+	}
+	if t == TypeDynamic {
+		return "any"
+	}
+	parts := make([]string, 0, 4)
+	for _, bit := range declaredOrder {
+		if t&bit == 0 {
+			continue
+		}
+		parts = append(parts, singleBitName(bit))
+	}
+	if len(parts) == 0 {
+		return "?"
+	}
+	return strings.Join(parts, "|")
+}
+
+// singleBitName returns the user-facing name for a single-bit RugoType.
+// Callers are responsible for ensuring t is a single bit (or TypeDynamic);
+// multi-bit values must be formatted via String(). This is the
+// diagnostic-side name, NOT the Go-codegen name (use GoType() for that).
+func singleBitName(t RugoType) string {
+	switch t {
 	case TypeInt:
 		return "int"
 	case TypeFloat:
-		return "float64"
+		return "float"
 	case TypeString:
 		return "string"
 	case TypeBool:
@@ -47,26 +94,84 @@ func (t RugoType) String() string {
 	case TypeHash:
 		return "hash"
 	case TypeDynamic:
-		return "dynamic"
-	default:
-		return "?"
+		return "any"
 	}
+	return "?"
 }
 
-// IsNumeric returns true for int and float types.
+// IsNumeric returns true for the single-bit numeric types int and float.
+// Unions are NOT considered numeric even when all members are numeric --
+// numeric promotion already collapses int+float into TypeFloat via
+// unifyTypes, so a multi-bit value here means at least one non-numeric
+// member is present.
 func (t RugoType) IsNumeric() bool {
 	return t == TypeInt || t == TypeFloat
 }
 
-// IsResolved returns true if the type is concrete (not unknown or dynamic).
+// IsResolved returns true if the type carries at least one concrete bit
+// that isn't the absorbing TypeDynamic. TypeUnknown (zero) and TypeDynamic
+// alone are unresolved -- callers should treat them as "we don't know
+// enough to flag a mismatch".
 func (t RugoType) IsResolved() bool {
-	return t != TypeUnknown && t != TypeDynamic
+	if t == TypeUnknown {
+		return false
+	}
+	// Strip the absorbing bit; if anything else remains, we have a
+	// concrete (or union-of-concrete) type.
+	return t & ^TypeDynamic != 0
 }
 
-// IsTyped returns true if the type can be used for typed codegen
-// (resolved and not a compound type like array/hash).
+// IsTyped returns true only for single-bit narrow-Go-codegen types. Unions
+// always fall back to interface{} in codegen.
 func (t RugoType) IsTyped() bool {
 	return t == TypeInt || t == TypeFloat || t == TypeString || t == TypeBool
+}
+
+// Has reports whether every bit of other is set in t. For single-bit
+// queries (Has(TypeInt)) this is membership; for multi-bit queries
+// (Has(TypeInt|TypeString)) it's subset.
+func (t RugoType) Has(other RugoType) bool {
+	if other == TypeUnknown {
+		// Every type "has" the empty set; treat as true for symmetry.
+		return true
+	}
+	return t&other == other
+}
+
+// IsUnion reports whether t carries more than one concrete-type bit,
+// ignoring the absorbing TypeDynamic bit. A union with TypeDynamic set is
+// not flagged as a union because TypeDynamic absorbs the rest at the
+// compatibility layer.
+func (t RugoType) IsUnion() bool {
+	concrete := t & ^TypeDynamic
+	return bits.OnesCount16(uint16(concrete)) > 1
+}
+
+// Members returns the single-bit decomposition of t in declaration order
+// (int, float, string, bool, nil, array, hash, dynamic). Used by the
+// mismatch checker to enumerate union members in diagnostics and by debug
+// inspection.
+func (t RugoType) Members() []RugoType {
+	if t == TypeUnknown {
+		return nil
+	}
+	out := make([]RugoType, 0, 4)
+	for _, bit := range declaredOrder {
+		if t&bit != 0 {
+			out = append(out, bit)
+		}
+	}
+	return out
+}
+
+// NarrowGoType returns the Go type string for narrow codegen, or "" when
+// the value must fall back to interface{}. Unions, dynamic, unknown, and
+// the compound types (array, hash, nil) all return "".
+func (t RugoType) NarrowGoType() string {
+	if !t.IsTyped() {
+		return ""
+	}
+	return t.GoType()
 }
 
 // ParseTypeAnnotation converts a source-level type annotation (e.g. "int")
@@ -123,8 +228,22 @@ func (t RugoType) GoType() string {
 	}
 }
 
-// unifyTypes merges two types. If they agree, returns that type.
-// If either is unknown, returns the other. If they conflict, returns dynamic.
+// unifyTypes is the join operation used at branch / loop merge points (and
+// historically at sequential reassignment; see infer.go for that policy).
+//
+// Semantics:
+//   - TypeUnknown is neutral: unifyTypes(t, TypeUnknown) == t.
+//   - TypeDynamic is absorbing: if either side has the TypeDynamic bit
+//     set, the result is TypeDynamic.
+//   - int + float collapse to TypeFloat (numeric promotion). This is the
+//     single non-OR special case; it preserves narrow Go codegen for
+//     arithmetic across mixed-numeric branches.
+//   - Every other distinct pair produces a union via bitwise OR.
+//
+// Numeric promotion only applies when BOTH sides are single-bit numerics
+// (TypeInt or TypeFloat). A union that happens to contain numeric members
+// extends rather than collapses, because narrowing to float would erase
+// the non-numeric members.
 func unifyTypes(a, b RugoType) RugoType {
 	if a == b {
 		return a
@@ -135,14 +254,15 @@ func unifyTypes(a, b RugoType) RugoType {
 	if b == TypeUnknown {
 		return a
 	}
-	if a == TypeDynamic || b == TypeDynamic {
+	if a.Has(TypeDynamic) || b.Has(TypeDynamic) {
 		return TypeDynamic
 	}
-	// int + float → float (numeric promotion)
-	if a.IsNumeric() && b.IsNumeric() {
+	// Numeric promotion: int+float -> float. Only when BOTH sides are
+	// single-bit numerics; for unions we fall through to OR.
+	if (a == TypeInt && b == TypeFloat) || (a == TypeFloat && b == TypeInt) {
 		return TypeFloat
 	}
-	return TypeDynamic
+	return a | b
 }
 
 // TypeInfo holds inferred type information for a program.
@@ -154,6 +274,13 @@ type TypeInfo struct {
 	// VarTypes maps (scope, variable name) to their final inferred type.
 	// Scope is the function name (or "" for top-level).
 	VarTypes map[string]map[string]RugoType
+	// VarUseTypes maps identifier read sites (IdentExpr nodes) to the
+	// flow-sensitive type of the variable at that point in the program.
+	// This differs from ExprTypes for an IdentExpr in that VarUseTypes
+	// reflects the *current* type (replace semantics across reassignments
+	// in straight-line code), whereas ExprTypes returns the conservative
+	// storage union used by codegen for variable declarations.
+	VarUseTypes map[ast.Expr]RugoType
 }
 
 // FuncTypeInfo holds the inferred signature for a function.

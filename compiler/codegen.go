@@ -644,34 +644,42 @@ func (g *codeGen) typedCallExprs(funcName string, args []GoExpr, argExprs []ast.
 		argType := g.exprType(argExprs[i])
 		if i < len(fti.ParamTypes) && fti.ParamTypes[i].IsTyped() {
 			paramType := fti.ParamTypes[i]
-			if !g.goTyped(argExprs[i]) {
-				switch paramType {
-				case TypeInt:
-					result[i] = GoCallExpr{Func: "rugo_to_int", Args: []GoExpr{a}}
-				case TypeFloat:
-					result[i] = GoCallExpr{Func: "rugo_to_float", Args: []GoExpr{a}}
-				case TypeString:
-					result[i] = GoCallExpr{Func: "rugo_to_string", Args: []GoExpr{a}}
-				case TypeBool:
-					result[i] = GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{a}}
+			// Same narrow type: pass through verbatim.
+			if argType == paramType && g.goTyped(argExprs[i]) {
+				result[i] = a
+				continue
+			}
+			// Numeric promotion/demotion between go-typed numeric args
+			// and a numeric param: a clean Go cast keeps the generated
+			// code readable.
+			if g.goTyped(argExprs[i]) && argType.IsTyped() &&
+				argType.IsNumeric() && paramType.IsNumeric() {
+				switch {
+				case paramType == TypeFloat && argType == TypeInt:
+					result[i] = GoCastExpr{Type: "float64", Value: a}
+				case paramType == TypeInt && argType == TypeFloat:
+					result[i] = GoCastExpr{Type: "int", Value: a}
 				default:
-					result[i] = GoTypeAssert{Value: a, Type: paramType.GoType()}
+					result[i] = a
 				}
 				continue
 			}
-			if argType == paramType {
-				result[i] = a
-			} else if argType.IsTyped() && argType.IsNumeric() && paramType.IsNumeric() {
-				if paramType == TypeFloat && argType == TypeInt {
-					result[i] = GoCastExpr{Type: "float64", Value: a}
-				} else if paramType == TypeInt && argType == TypeFloat {
-					result[i] = GoCastExpr{Type: "int", Value: a}
-				} else {
-					result[i] = a
-				}
-			} else if argType.IsTyped() {
-				result[i] = a
-			} else {
+			// Cross-family or interface{}-source coercion (e.g. int -> string,
+			// bool -> int, interface{} -> string): route through the
+			// rugo_to_X helpers, which accept any input. This is the
+			// branch that lets `f(42)` work when `f` is annotated with a
+			// string param -- without it, codegen emits `f(42)` directly
+			// and Go rejects the type mismatch.
+			switch paramType {
+			case TypeInt:
+				result[i] = GoCallExpr{Func: "rugo_to_int", Args: []GoExpr{a}}
+			case TypeFloat:
+				result[i] = GoCallExpr{Func: "rugo_to_float", Args: []GoExpr{a}}
+			case TypeString:
+				result[i] = GoCallExpr{Func: "rugo_to_string", Args: []GoExpr{a}}
+			case TypeBool:
+				result[i] = GoCallExpr{Func: "rugo_to_bool", Args: []GoExpr{a}}
+			default:
 				result[i] = GoTypeAssert{Value: a, Type: paramType.GoType()}
 			}
 		} else {

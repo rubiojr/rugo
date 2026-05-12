@@ -207,15 +207,72 @@ puts(f(-5))
 		},
 		// Non-literal arguments (variable refs, calls) are not flagged.
 		{
-			name: "variable arg is not flagged",
+			name: "variable arg with dynamic type is not flagged",
 			source: `
 def f(a : int) : int
   return a + 1
 end
-x = "anything"
+h = {1 => 2}
+x = h["k"]
 puts(f(x))
 `,
 			shouldError: false,
+		},
+		// Tier 3: callsite flow — variable arguments are flagged when
+		// their flow-sensitive type is resolved to a concrete shape that
+		// conflicts with the annotation. Dynamic / unresolved types still
+		// pass silently (we cannot prove a mismatch).
+		{
+			name: "variable arg with concrete string is flagged (Tier 3)",
+			source: `
+def f(a : int) : int
+  return a + 1
+end
+x = "hello"
+puts(f(x))
+`,
+			wantSubstr:  "cannot pass string value as argument 1 to 'f'",
+			shouldError: true,
+		},
+		{
+			name: "variable arg sequential overwrite to incompat is flagged (Tier 3)",
+			source: `
+def f(a : int) : int
+  return a
+end
+x = 1
+x = "oops"
+puts(f(x))
+`,
+			wantSubstr:  "cannot pass string value as argument 1 to 'f'",
+			shouldError: true,
+		},
+		{
+			name: "variable arg sequential overwrite back to compat type passes (Tier 3)",
+			source: `
+def f(a : int) : int
+  return a
+end
+x = "h"
+x = 42
+puts(f(x))
+`,
+			shouldError: false,
+		},
+		{
+			name: "variable arg post-no-else-if is union and flagged (Tier 3)",
+			source: `
+def f(a : int) : int
+  return a
+end
+x = 1
+if true
+  x = "oops"
+end
+puts(f(x))
+`,
+			wantSubstr:  "cannot pass",
+			shouldError: true,
 		},
 		{
 			name: "module dot-call is not flagged",

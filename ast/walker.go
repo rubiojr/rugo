@@ -1107,21 +1107,36 @@ func (w *walker) walkReturnStmt(ast []int32) (Statement, error) {
 }
 
 func (w *walker) walkAssignOrExpr(ast []int32) (Statement, error) {
-	// AssignOrExpr = Expr [ '=' Expr ] .
+	// AssignOrExpr = Expr [ ':' TypeName '=' Expr | '=' Expr ] .
 	lhs, ast, err := w.walkExpr(ast)
 	if err != nil {
 		return nil, err
 	}
 	if len(ast) > 0 {
+		// Look at the next token: either ':' (annotated binding) or '='.
+		var typeAnnot string
+		if ast[0] >= 0 {
+			tok := w.p.Token(ast[0])
+			if parser.Symbol(tok.Ch) == parser.RugoTOK_003a { // ':'
+				_, ast = w.readToken(ast) // consume ':'
+				name, rest := w.walkTypeName(ast)
+				ast = rest
+				typeAnnot = name
+			}
+		}
 		// '=' followed by Expr
 		_, ast = w.readToken(ast) // '='
 		rhs, _, err := w.walkExpr(ast)
 		if err != nil {
 			return nil, err
 		}
-		// LHS must be an identifier or index expression for assignment
+		// LHS must be an identifier or index expression for assignment.
+		// Type annotations are valid only on plain identifier bindings.
 		if ident, ok := lhs.(*IdentExpr); ok {
-			return &AssignStmt{Target: ident.Name, Value: rhs}, nil
+			return &AssignStmt{Target: ident.Name, Value: rhs, TypeAnnot: typeAnnot}, nil
+		}
+		if typeAnnot != "" {
+			return nil, &UserError{Msg: "type annotation is only valid on a plain variable binding (`x : T = expr`); index and field assignments are mutations and cannot carry an annotation"}
 		}
 		if idx, ok := lhs.(*IndexExpr); ok {
 			return &IndexAssignStmt{Object: idx.Object, Index: idx.Index, Value: rhs}, nil

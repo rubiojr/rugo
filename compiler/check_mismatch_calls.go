@@ -6,13 +6,15 @@ import (
 	"github.com/rubiojr/rugo/ast"
 )
 
-// checkCallSites validates literal arguments at every direct call to a
+// checkCallSites validates arguments at every direct call to a
 // user-defined function with annotated parameters: when the argument is
-// a literal whose static type concretely conflicts with the parameter's
-// annotation, emit a structured compile-time error.
+// either a literal whose static type concretely conflicts with the
+// parameter's annotation, or a variable reference whose flow-sensitive
+// inferred type concretely conflicts with the annotation (Tier 3),
+// emit a structured compile-time error.
 //
-// Only literal arguments are flagged. Variable arguments and computed
-// expressions are intentionally silent — inference is conservative and a
+// Computed expressions whose inferred type cannot be resolved (TypeDynamic,
+// TypeUnknown) are silently allowed — inference is conservative and a
 // variable may legitimately hold a value of the annotated type even when
 // the inferrer cannot prove it.
 //
@@ -27,10 +29,11 @@ import (
 // because they have no Rugo-level parameter annotations to compare. Calls
 // resolved through a current namespace (sibling calls within a require'd
 // module) ARE checked, matching codegen's resolution order.
-func checkCallSites(prog *ast.Program, sourceFile string) error {
+func checkCallSites(prog *ast.Program, ti *TypeInfo, sourceFile string) error {
 	c := &callChecker{
 		sourceFile: sourceFile,
 		funcs:      collectAnnotatedFuncs(prog),
+		ti:         ti,
 	}
 	if len(c.funcs) == 0 {
 		return nil
@@ -44,7 +47,7 @@ func checkCallSites(prog *ast.Program, sourceFile string) error {
 }
 
 // callChecker walks the program and validates every direct CallExpr's
-// literal arguments against the callee's parameter annotations.
+// arguments against the callee's parameter annotations.
 //
 // The funcs map is keyed by funcKey (i.e. "ns.name" for namespaced
 // functions, bare "name" for top-level), and stores the *original*
@@ -55,6 +58,7 @@ func checkCallSites(prog *ast.Program, sourceFile string) error {
 type callChecker struct {
 	sourceFile string
 	funcs      map[string]*ast.FuncDef
+	ti         *TypeInfo // optional: enables Tier 3 flow-sensitive variable-arg checks
 }
 
 // collectAnnotatedFuncs builds the lookup of user-defined functions with
@@ -442,20 +446,58 @@ func (c *callChecker) checkCall(call *ast.CallExpr, line int, file string, curre
 		if !ok {
 			continue
 		}
-		argType, isLit := literalType(arg)
-		if !isLit {
+		// Path 1: literal argument — flag immediately on concrete mismatch.
+		if argType, isLit := literalType(arg); isLit {
+			if compatibleWithAnnotation(annot, argType) {
+				continue
+			}
+			return &ast.UserError{Msg: fmt.Sprintf(
+				"%s:%d: cannot pass %s literal as argument %d to '%s' (parameter '%s' declared as %s)",
+				file, line, displayTypeName(argType), i+1, displayCalleeName(ident.Name, fn.Namespace),
+				p.Name, displayTypeName(annot),
+			)}
+		}
+		// Path 2 (Tier 3): variable / non-literal argument — consult the
+		// flow-sensitive type recorded for that exact expression. We only
+		// flag when the inferred type is fully resolved AND incompatible;
+		// dynamic or unknown types pass silently.
+		if c.ti == nil {
+			continue
+		}
+		argType := c.argFlowType(arg)
+		if !argType.IsResolved() {
 			continue
 		}
 		if compatibleWithAnnotation(annot, argType) {
 			continue
 		}
 		return &ast.UserError{Msg: fmt.Sprintf(
-			"%s:%d: cannot pass %s literal as argument %d to '%s' (parameter '%s' declared as %s)",
+			"%s:%d: cannot pass %s value as argument %d to '%s' (parameter '%s' declared as %s)",
 			file, line, displayTypeName(argType), i+1, displayCalleeName(ident.Name, fn.Namespace),
 			p.Name, displayTypeName(annot),
 		)}
 	}
 	return nil
+}
+
+// argFlowType returns the per-use flow-sensitive inferred type for an
+// argument expression. For IdentExpr nodes that's VarUseTypes (the type
+// the variable holds at that exact program point). For other expression
+// shapes (calls, binary ops, etc.) it falls back to the conservative
+// ExprTypes entry.
+func (c *callChecker) argFlowType(e ast.Expr) RugoType {
+	if c.ti == nil {
+		return TypeDynamic
+	}
+	if _, isIdent := e.(*ast.IdentExpr); isIdent {
+		if t, ok := c.ti.VarUseTypes[e]; ok {
+			return t
+		}
+	}
+	if t, ok := c.ti.ExprTypes[e]; ok {
+		return t
+	}
+	return TypeDynamic
 }
 
 // resolveCallee mirrors codegen's bare-identifier resolution: try the

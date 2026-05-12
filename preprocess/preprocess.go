@@ -429,6 +429,22 @@ func preprocessLine(line string, userFuncs map[string]bool, knownVars map[string
 	// Check what follows the first token
 	restTrimmed := strings.TrimSpace(rest)
 
+	// Annotated binding: `x : T = expr`. Leave the line untouched so the
+	// parser can recognise the annotation. The shape is strict — `:` must
+	// be followed by an identifier (or the `nil` keyword) and then `=`.
+	// Without all three components we fall through to other rules.
+	if len(restTrimmed) > 0 && restTrimmed[0] == ':' {
+		afterColon := strings.TrimSpace(restTrimmed[1:])
+		annotTok, afterAnnot := scanFirstToken(afterColon)
+		if annotTok != "" && (isIdent(annotTok) || annotTok == "nil") {
+			afterAnnotTrimmed := strings.TrimSpace(afterAnnot)
+			if strings.HasPrefix(afterAnnotTrimmed, "=") &&
+				(len(afterAnnotTrimmed) < 2 || afterAnnotTrimmed[1] != '=') {
+				return line
+			}
+		}
+	}
+
 	// Assignment: `x = ...` — check if RHS is a shell command
 	if len(restTrimmed) > 0 && restTrimmed[0] == '=' && (len(restTrimmed) < 2 || restTrimmed[1] != '=') {
 		rhs := strings.TrimSpace(restTrimmed[1:])

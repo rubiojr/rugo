@@ -141,7 +141,6 @@ func (s Symbol) String() string {
 }
 
 var errorSets = [...][]Symbol{
-{},
 {RugoTOK_embed},
 {RugoTOK_end},
 {RugoTOK_fn},
@@ -225,6 +224,8 @@ type Parser struct{
 	cache     [][]int32
 	eof       bool
 	errBudget int
+	id        rune  // from scanSep, valid if .n != 0
+	n         int   // from scanSep, valid if != 0
 	off       int
 	sc        *scanner.RecScanner
 	src       []byte
@@ -1998,6 +1999,7 @@ func(p *Parser) Scan() (r scanner.Token) {
 func (p *Parser) init(name string, src []byte) (err error) {
 	p.eof = false
 	p.errBudget = 10
+	p.n = 0
 	p.off = 0
 	p.src = src
 	p.tok = scanner.Token{}
@@ -2014,7 +2016,7 @@ func (p *Parser) init(name string, src []byte) (err error) {
 //	AddExpr     = MulExpr { ('+' | '-') MulExpr } .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call MulExpr and goto state 1
 //	State 1
 //		Accept
@@ -2025,15 +2027,15 @@ func (p *Parser) AddExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoAddExpr), 0)
 state0:
-accept, errorSet = false, 66
+accept, errorSet = false, 65
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.MulExpr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 33
+accept, errorSet = true, 32
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_002b, RugoTOK_002d:
 r = append(r, p.shift())
@@ -2049,7 +2051,7 @@ return p.stop(r, accept, errorSet)
 //	AndExpr     = CompExpr { "&&" CompExpr } .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call CompExpr and goto state 1
 //	State 1
 //		Accept
@@ -2060,15 +2062,15 @@ func (p *Parser) AndExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoAndExpr), 0)
 state0:
-accept, errorSet = false, 64
+accept, errorSet = false, 63
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.CompExpr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 10
+accept, errorSet = true, 9
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_00260026:
 r = append(r, p.shift())
@@ -2084,7 +2086,7 @@ return p.stop(r, accept, errorSet)
 //	ArgList     = Expr { ',' Expr } .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 1
 //	State 1
 //		Accept
@@ -2095,15 +2097,15 @@ func (p *Parser) ArgList() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoArgList), 0)
 state0:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 36
+accept, errorSet = true, 35
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_002c:
 r = append(r, p.shift())
@@ -2125,7 +2127,7 @@ return p.stop(r, accept, errorSet)
 //	State 1
 //		on  ']'
 //			shift and goto state 2
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 3
 //	State 2
 //		Accept
@@ -2135,14 +2137,14 @@ return p.stop(r, accept, errorSet)
 //		on  ','
 //			shift and goto state 4
 //	State 4
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 3
 // ArrayLit is used internally from Parse.
 func (p *Parser) ArrayLit() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoArrayLit), 0)
 // state0:
-accept, errorSet = false, 41
+accept, errorSet = false, 40
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_005b:
 r = append(r, p.shift())
@@ -2150,12 +2152,12 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 58
+accept, errorSet = false, 57
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_005d:
 r = append(r, p.shift())
 goto state2
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state3
 }
@@ -2164,7 +2166,7 @@ state2:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 34
+accept, errorSet = false, 33
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_005d:
 r = append(r, p.shift())
@@ -2175,9 +2177,9 @@ goto state4
 }
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state3
 }
@@ -2188,49 +2190,76 @@ return p.stop(r, accept, errorSet)
 // AssignOrExpr grammar:
 //
 //	
-//	AssignOrExpr = Expr [ '=' Expr ] .
+//	AssignOrExpr = Expr [ ':' TypeName '=' Expr | '=' Expr ] .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 1
 //	State 1
 //		Accept
-//		on  '='
+//		on  ':'
 //			shift and goto state 2
+//		on  '='
+//			shift and goto state 4
 //	State 2
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
-//			call Expr and goto state 3
+//		on  "nil", ident
+//			call TypeName and goto state 3
 //	State 3
+//		on  '='
+//			shift and goto state 4
+//	State 4
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
+//			call Expr and goto state 5
+//	State 5
 //		Accept
 // AssignOrExpr is used internally from Parse.
 func (p *Parser) AssignOrExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoAssignOrExpr), 0)
 // state0:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 39
+accept, errorSet = true, 36
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_003d:
+	case  RugoTOK_003a:
 r = append(r, p.shift())
 goto state2
+	case  RugoTOK_003d:
+r = append(r, p.shift())
+goto state4
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 61
+accept, errorSet = false, 13
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
-r = p.add(r, p.Expr())
+	case  RugoTOK_nil, Rugoident:
+r = p.add(r, p.TypeName())
 goto state3
 }
 return p.stop(r, accept, errorSet)
 state3:
+accept, errorSet = false, 38
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_003d:
+r = append(r, p.shift())
+goto state4
+}
+return p.stop(r, accept, errorSet)
+state4:
+accept, errorSet = false, 60
+switch Symbol(p.tok.Ch) {
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
+r = p.add(r, p.Expr())
+goto state5
+}
+return p.stop(r, accept, errorSet)
+state5:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 }
@@ -2250,7 +2279,7 @@ return p.stop(r, accept, errorSet)
 //	State 2
 //		on  "end"
 //			shift and goto state 3
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 4
 //	State 3
 //		Accept
@@ -2262,7 +2291,7 @@ func (p *Parser) BenchDef() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoBenchDef), 0)
 // state0:
-accept, errorSet = false, 55
+accept, errorSet = false, 54
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_bench:
 r = append(r, p.shift())
@@ -2270,7 +2299,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 54
+accept, errorSet = false, 53
 switch Symbol(p.tok.Ch) {
 	case  Rugostr_lit:
 r = append(r, p.shift())
@@ -2278,12 +2307,12 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state3
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state4
 }
@@ -2292,7 +2321,7 @@ state3:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -2311,36 +2340,36 @@ return p.stop(r, accept, errorSet)
 //		Accept
 //		on  ';'
 //			shift and goto state 1
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Statement and goto state 1
 //	State 1
 //		Accept
 //		on  ';'
 //			shift and goto state 1
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Statement and goto state 1
 // Body is used internally from Parse.
 func (p *Parser) Body() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoBody), 0)
 // state0:
-accept, errorSet = true, 46
+accept, errorSet = true, 45
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_003b:
 r = append(r, p.shift())
 goto state1
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Statement())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 46
+accept, errorSet = true, 45
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_003b:
 r = append(r, p.shift())
 goto state1
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Statement())
 goto state1
 }
@@ -2363,7 +2392,7 @@ func (p *Parser) BreakStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoBreakStmt), 0)
 // state0:
-accept, errorSet = false, 56
+accept, errorSet = false, 55
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_break:
 r = append(r, p.shift())
@@ -2385,7 +2414,7 @@ return p.stop(r, accept, errorSet)
 //		on  "case"
 //			shift and goto state 1
 //	State 1
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 2
 //	State 2
 //		on  "of"
@@ -2401,10 +2430,10 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 4
 //		on  "end"
 //			shift and goto state 6
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 5
 //	State 4
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 5
 //	State 5
 //		on  "end"
@@ -2412,7 +2441,7 @@ return p.stop(r, accept, errorSet)
 //	State 6
 //		Accept
 //	State 7
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 8
 //	State 8
 //		on  "else"
@@ -2423,10 +2452,10 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 7
 //		on  "->"
 //			shift and goto state 9
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 10
 //	State 9
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 10
 //	State 10
 //		on  "else"
@@ -2436,7 +2465,7 @@ return p.stop(r, accept, errorSet)
 //		on  "elsif"
 //			shift and goto state 7
 //	State 11
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call ExprList and goto state 12
 //	State 12
 //		on  "of"
@@ -2449,14 +2478,14 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 6
 //		on  "elsif"
 //			shift and goto state 7
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 2
 // CaseExpr is used internally from Parse.
 func (p *Parser) CaseExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoCaseExpr), 0)
 // state0:
-accept, errorSet = false, 72
+accept, errorSet = false, 71
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_case:
 r = append(r, p.shift())
@@ -2464,15 +2493,15 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 74
+accept, errorSet = false, 73
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_of:
 r = append(r, p.shift())
@@ -2489,7 +2518,7 @@ goto state7
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 11
+accept, errorSet = false, 10
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_002d003e:
 r = append(r, p.shift())
@@ -2497,21 +2526,21 @@ goto state4
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state6
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state5
 }
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state5
 }
 return p.stop(r, accept, errorSet)
 state5:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -2522,15 +2551,15 @@ state6:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state7:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state8
 }
 return p.stop(r, accept, errorSet)
 state8:
-accept, errorSet = false, 13
+accept, errorSet = false, 12
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_else:
 r = append(r, p.shift())
@@ -2544,21 +2573,21 @@ goto state7
 	case  RugoTOK_002d003e:
 r = append(r, p.shift())
 goto state9
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state10
 }
 return p.stop(r, accept, errorSet)
 state9:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state10
 }
 return p.stop(r, accept, errorSet)
 state10:
-accept, errorSet = false, 75
+accept, errorSet = false, 74
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_else:
 r = append(r, p.shift())
@@ -2572,15 +2601,15 @@ goto state7
 }
 return p.stop(r, accept, errorSet)
 state11:
-accept, errorSet = false, 60
+accept, errorSet = false, 59
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.ExprList())
 goto state12
 }
 return p.stop(r, accept, errorSet)
 state12:
-accept, errorSet = false, 12
+accept, errorSet = false, 11
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_of:
 r = append(r, p.shift())
@@ -2597,7 +2626,7 @@ goto state6
 	case  RugoTOK_elsif:
 r = append(r, p.shift())
 goto state7
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state2
 }
@@ -2611,14 +2640,14 @@ return p.stop(r, accept, errorSet)
 //	CompExpr    = AddExpr [ comp_op AddExpr ] .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call AddExpr and goto state 1
 //	State 1
 //		Accept
 //		on  comp_op
 //			shift and goto state 2
 //	State 2
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call AddExpr and goto state 3
 //	State 3
 //		Accept
@@ -2627,15 +2656,15 @@ func (p *Parser) CompExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoCompExpr), 0)
 // state0:
-accept, errorSet = false, 65
+accept, errorSet = false, 64
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.AddExpr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 50
+accept, errorSet = true, 49
 switch Symbol(p.tok.Ch) {
 	case  Rugocomp_op:
 r = append(r, p.shift())
@@ -2643,9 +2672,9 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 65
+accept, errorSet = false, 64
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.AddExpr())
 goto state3
 }
@@ -2680,7 +2709,7 @@ func (p *Parser) EmbedStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoEmbedStmt), 0)
 // state0:
-accept, errorSet = false, 1
+accept, errorSet = false, 0
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_embed:
 r = append(r, p.shift())
@@ -2688,7 +2717,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 54
+accept, errorSet = false, 53
 switch Symbol(p.tok.Ch) {
 	case  Rugostr_lit:
 r = append(r, p.shift())
@@ -2696,7 +2725,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 43
+accept, errorSet = false, 42
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_as:
 r = append(r, p.shift())
@@ -2704,7 +2733,7 @@ goto state3
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -2725,7 +2754,7 @@ return p.stop(r, accept, errorSet)
 //	Expr        = OrExpr .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call OrExpr and goto state 1
 //	State 1
 //		Accept
@@ -2734,9 +2763,9 @@ func (p *Parser) Expr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoExpr), 0)
 // state0:
-accept, errorSet = false, 62
+accept, errorSet = false, 61
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.OrExpr())
 goto state1
 }
@@ -2753,7 +2782,7 @@ return p.stop(r, accept, errorSet)
 //	ExprList    = Expr { ',' Expr } .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 1
 //	State 1
 //		Accept
@@ -2764,15 +2793,15 @@ func (p *Parser) ExprList() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoExprList), 0)
 state0:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 36
+accept, errorSet = true, 35
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_002c:
 r = append(r, p.shift())
@@ -2796,14 +2825,14 @@ return p.stop(r, accept, errorSet)
 //	State 2
 //		on  ')'
 //			shift and goto state 3
-//		on  ident
+//		on  ident, Param
 //			call ParamList and goto state 8
 //	State 3
 //		on  "end"
 //			shift and goto state 4
 //		on  ':'
 //			shift and goto state 5
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 7
 //	State 4
 //		Accept
@@ -2813,7 +2842,7 @@ return p.stop(r, accept, errorSet)
 //	State 6
 //		on  "end"
 //			shift and goto state 4
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 7
 //	State 7
 //		on  "end"
@@ -2826,7 +2855,7 @@ func (p *Parser) FnExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoFnExpr), 0)
 // state0:
-accept, errorSet = false, 3
+accept, errorSet = false, 2
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_fn:
 r = append(r, p.shift())
@@ -2834,7 +2863,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 28
+accept, errorSet = false, 27
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0028:
 r = append(r, p.shift())
@@ -2842,18 +2871,18 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 29
+accept, errorSet = false, 28
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0029:
 r = append(r, p.shift())
 goto state3
-	case  Rugoident:
+	case  Rugoident, RugoParam:
 r = p.add(r, p.ParamList())
 goto state8
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 44
+accept, errorSet = false, 43
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -2861,7 +2890,7 @@ goto state4
 	case  RugoTOK_003a:
 r = append(r, p.shift())
 goto state5
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state7
 }
@@ -2870,7 +2899,7 @@ state4:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state5:
-accept, errorSet = false, 14
+accept, errorSet = false, 13
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_nil, Rugoident:
 r = p.add(r, p.TypeName())
@@ -2878,18 +2907,18 @@ goto state6
 }
 return p.stop(r, accept, errorSet)
 state6:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state4
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state7
 }
 return p.stop(r, accept, errorSet)
 state7:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -2897,7 +2926,7 @@ goto state4
 }
 return p.stop(r, accept, errorSet)
 state8:
-accept, errorSet = false, 30
+accept, errorSet = false, 29
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0029:
 r = append(r, p.shift())
@@ -2924,12 +2953,12 @@ return p.stop(r, accept, errorSet)
 //		on  ','
 //			shift and goto state 7
 //	State 3
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 4
 //	State 4
 //		on  "end"
 //			shift and goto state 5
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 6
 //	State 5
 //		Accept
@@ -2947,7 +2976,7 @@ func (p *Parser) ForStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoForStmt), 0)
 // state0:
-accept, errorSet = false, 4
+accept, errorSet = false, 3
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_for:
 r = append(r, p.shift())
@@ -2955,7 +2984,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -2963,7 +2992,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 7
+accept, errorSet = false, 6
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_in:
 r = append(r, p.shift())
@@ -2974,20 +3003,20 @@ goto state7
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state4
 }
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state5
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state6
 }
@@ -2996,7 +3025,7 @@ state5:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state6:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -3004,7 +3033,7 @@ goto state5
 }
 return p.stop(r, accept, errorSet)
 state7:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -3012,7 +3041,7 @@ goto state8
 }
 return p.stop(r, accept, errorSet)
 state8:
-accept, errorSet = false, 8
+accept, errorSet = false, 7
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_in:
 r = append(r, p.shift())
@@ -3039,14 +3068,14 @@ return p.stop(r, accept, errorSet)
 //	State 3
 //		on  ')'
 //			shift and goto state 4
-//		on  ident
+//		on  ident, Param
 //			call ParamList and goto state 9
 //	State 4
 //		on  "end"
 //			shift and goto state 5
 //		on  ':'
 //			shift and goto state 6
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 8
 //	State 5
 //		Accept
@@ -3056,7 +3085,7 @@ return p.stop(r, accept, errorSet)
 //	State 7
 //		on  "end"
 //			shift and goto state 5
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 8
 //	State 8
 //		on  "end"
@@ -3069,7 +3098,7 @@ func (p *Parser) FuncDef() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoFuncDef), 0)
 // state0:
-accept, errorSet = false, 73
+accept, errorSet = false, 72
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_def:
 r = append(r, p.shift())
@@ -3077,7 +3106,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -3085,7 +3114,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 28
+accept, errorSet = false, 27
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0028:
 r = append(r, p.shift())
@@ -3093,18 +3122,18 @@ goto state3
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 29
+accept, errorSet = false, 28
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0029:
 r = append(r, p.shift())
 goto state4
-	case  Rugoident:
+	case  Rugoident, RugoParam:
 r = p.add(r, p.ParamList())
 goto state9
 }
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 44
+accept, errorSet = false, 43
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -3112,7 +3141,7 @@ goto state5
 	case  RugoTOK_003a:
 r = append(r, p.shift())
 goto state6
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state8
 }
@@ -3121,7 +3150,7 @@ state5:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state6:
-accept, errorSet = false, 14
+accept, errorSet = false, 13
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_nil, Rugoident:
 r = p.add(r, p.TypeName())
@@ -3129,18 +3158,18 @@ goto state7
 }
 return p.stop(r, accept, errorSet)
 state7:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state5
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state8
 }
 return p.stop(r, accept, errorSet)
 state8:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -3148,7 +3177,7 @@ goto state5
 }
 return p.stop(r, accept, errorSet)
 state9:
-accept, errorSet = false, 30
+accept, errorSet = false, 29
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0029:
 r = append(r, p.shift())
@@ -3164,13 +3193,13 @@ return p.stop(r, accept, errorSet)
 //	HashEntry   = Expr "=>" Expr .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 1
 //	State 1
 //		on  "=>"
 //			shift and goto state 2
 //	State 2
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 3
 //	State 3
 //		Accept
@@ -3179,15 +3208,15 @@ func (p *Parser) HashEntry() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoHashEntry), 0)
 // state0:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 31
+accept, errorSet = false, 30
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_003d003e:
 r = append(r, p.shift())
@@ -3195,9 +3224,9 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state3
 }
@@ -3219,7 +3248,7 @@ return p.stop(r, accept, errorSet)
 //	State 1
 //		on  '}'
 //			shift and goto state 2
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call HashEntry and goto state 3
 //	State 2
 //		Accept
@@ -3229,14 +3258,14 @@ return p.stop(r, accept, errorSet)
 //		on  ','
 //			shift and goto state 4
 //	State 4
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call HashEntry and goto state 3
 // HashLit is used internally from Parse.
 func (p *Parser) HashLit() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoHashLit), 0)
 // state0:
-accept, errorSet = false, 49
+accept, errorSet = false, 48
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_007b:
 r = append(r, p.shift())
@@ -3244,12 +3273,12 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 59
+accept, errorSet = false, 58
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_007d:
 r = append(r, p.shift())
 goto state2
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.HashEntry())
 goto state3
 }
@@ -3258,7 +3287,7 @@ state2:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 35
+accept, errorSet = false, 34
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_007d:
 r = append(r, p.shift())
@@ -3269,9 +3298,9 @@ goto state4
 }
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 60
+accept, errorSet = false, 59
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.HashEntry())
 goto state3
 }
@@ -3288,7 +3317,7 @@ return p.stop(r, accept, errorSet)
 //		on  "if"
 //			shift and goto state 1
 //	State 1
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 2
 //	State 2
 //		on  "elsif"
@@ -3297,12 +3326,12 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 3
 //		on  "end"
 //			shift and goto state 4
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 6
 //	State 3
 //		on  "end"
 //			shift and goto state 4
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 5
 //	State 4
 //		Accept
@@ -3321,7 +3350,7 @@ func (p *Parser) IfStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoIfStmt), 0)
 // state0:
-accept, errorSet = false, 5
+accept, errorSet = false, 4
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_if:
 r = append(r, p.shift())
@@ -3329,15 +3358,15 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 48
+accept, errorSet = false, 47
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_elsif:
 r = append(r, p.shift())
@@ -3348,18 +3377,18 @@ goto state3
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state4
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state6
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state4
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state5
 }
@@ -3368,7 +3397,7 @@ state4:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state5:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -3376,7 +3405,7 @@ goto state4
 }
 return p.stop(r, accept, errorSet)
 state6:
-accept, errorSet = false, 75
+accept, errorSet = false, 74
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_elsif:
 r = append(r, p.shift())
@@ -3417,7 +3446,7 @@ func (p *Parser) ImportStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoImportStmt), 0)
 // state0:
-accept, errorSet = false, 6
+accept, errorSet = false, 5
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_import:
 r = append(r, p.shift())
@@ -3425,7 +3454,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 54
+accept, errorSet = false, 53
 switch Symbol(p.tok.Ch) {
 	case  Rugostr_lit:
 r = append(r, p.shift())
@@ -3433,7 +3462,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = true, 43
+accept, errorSet = true, 42
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_as:
 r = append(r, p.shift())
@@ -3441,7 +3470,7 @@ goto state3
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -3460,7 +3489,7 @@ return p.stop(r, accept, errorSet)
 //	MulExpr     = UnaryExpr { ('*' | '/' | '%') UnaryExpr } .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call UnaryExpr and goto state 1
 //	State 1
 //		Accept
@@ -3471,15 +3500,15 @@ func (p *Parser) MulExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoMulExpr), 0)
 state0:
-accept, errorSet = false, 67
+accept, errorSet = false, 66
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.UnaryExpr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 26
+accept, errorSet = true, 25
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0025, RugoTOK_002a, RugoTOK_002f:
 r = append(r, p.shift())
@@ -3504,7 +3533,7 @@ func (p *Parser) NextStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoNextStmt), 0)
 // state0:
-accept, errorSet = false, 9
+accept, errorSet = false, 8
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_next:
 r = append(r, p.shift())
@@ -3523,7 +3552,7 @@ return p.stop(r, accept, errorSet)
 //	OrExpr      = AndExpr { "||" AndExpr } .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call AndExpr and goto state 1
 //	State 1
 //		Accept
@@ -3534,15 +3563,15 @@ func (p *Parser) OrExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoOrExpr), 0)
 state0:
-accept, errorSet = false, 63
+accept, errorSet = false, 62
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.AndExpr())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 25
+accept, errorSet = true, 24
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_007c007c:
 r = append(r, p.shift())
@@ -3563,7 +3592,7 @@ return p.stop(r, accept, errorSet)
 //	State 1
 //		on  "end"
 //			shift and goto state 2
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 3
 //	State 2
 //		Accept
@@ -3575,7 +3604,7 @@ func (p *Parser) ParallelExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoParallelExpr), 0)
 // state0:
-accept, errorSet = false, 16
+accept, errorSet = false, 15
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_parallel:
 r = append(r, p.shift())
@@ -3583,12 +3612,12 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state2
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state3
 }
@@ -3597,7 +3626,7 @@ state2:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -3629,7 +3658,7 @@ return p.stop(r, accept, errorSet)
 //		on  '='
 //			shift and goto state 4
 //	State 4
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 5
 //	State 5
 //		Accept
@@ -3638,7 +3667,7 @@ func (p *Parser) Param() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoParam), 0)
 // state0:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -3646,7 +3675,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 37
+accept, errorSet = true, 36
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_003a:
 r = append(r, p.shift())
@@ -3657,7 +3686,7 @@ goto state4
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 14
+accept, errorSet = false, 13
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_nil, Rugoident:
 r = p.add(r, p.TypeName())
@@ -3665,7 +3694,7 @@ goto state3
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = true, 39
+accept, errorSet = true, 38
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_003d:
 r = append(r, p.shift())
@@ -3673,9 +3702,9 @@ goto state4
 }
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state5
 }
@@ -3703,7 +3732,7 @@ func (p *Parser) ParamList() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoParamList), 0)
 state0:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = p.add(r, p.Param())
@@ -3711,7 +3740,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 36
+accept, errorSet = true, 35
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_002c:
 r = append(r, p.shift())
@@ -3727,7 +3756,7 @@ return p.stop(r, accept, errorSet)
 //	Postfix     = Primary { Suffix } .
 //
 //	State 0
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '(', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '(', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Primary and goto state 1
 //	State 1
 //		Accept
@@ -3738,15 +3767,15 @@ func (p *Parser) Postfix() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoPostfix), 0)
 // state0:
-accept, errorSet = false, 70
+accept, errorSet = false, 69
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Primary())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 27
+accept, errorSet = true, 26
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0028, RugoTOK_002e, RugoTOK_005b:
 r = p.add(r, p.Suffix())
@@ -3800,7 +3829,7 @@ return p.stop(r, accept, errorSet)
 //	State 1
 //		Accept
 //	State 2
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 3
 //	State 3
 //		on  ')'
@@ -3810,7 +3839,7 @@ func (p *Parser) Primary() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoPrimary), 0)
 // state0:
-accept, errorSet = false, 71
+accept, errorSet = false, 70
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_false, RugoTOK_nil, RugoTOK_true, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
 r = append(r, p.shift())
@@ -3845,15 +3874,15 @@ state1:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state3
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 30
+accept, errorSet = false, 29
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0029:
 r = append(r, p.shift())
@@ -3878,36 +3907,36 @@ return p.stop(r, accept, errorSet)
 //		Accept
 //		on  ';'
 //			shift and goto state 1
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Statement and goto state 1
 //	State 1
 //		Accept
 //		on  ';'
 //			shift and goto state 1
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Statement and goto state 1
 // Program is used internally from Parse.
 func (p *Parser) Program() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoProgram), 0)
 // state0:
-accept, errorSet = true, 46
+accept, errorSet = true, 45
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_003b:
 r = append(r, p.shift())
 goto state1
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Statement())
 goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 46
+accept, errorSet = true, 45
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_003b:
 r = append(r, p.shift())
 goto state1
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Statement())
 goto state1
 }
@@ -3956,7 +3985,7 @@ func (p *Parser) RequireStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoRequireStmt), 0)
 // state0:
-accept, errorSet = false, 18
+accept, errorSet = false, 17
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_require:
 r = append(r, p.shift())
@@ -3964,7 +3993,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 54
+accept, errorSet = false, 53
 switch Symbol(p.tok.Ch) {
 	case  Rugostr_lit:
 r = append(r, p.shift())
@@ -3972,7 +4001,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = true, 32
+accept, errorSet = true, 31
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_as:
 r = append(r, p.shift())
@@ -3983,7 +4012,7 @@ goto state5
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 51
+accept, errorSet = false, 50
 switch Symbol(p.tok.Ch) {
 	case  Rugoident, Rugostr_lit:
 r = append(r, p.shift())
@@ -3994,7 +4023,7 @@ state4:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state5:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -4002,7 +4031,7 @@ goto state6
 }
 return p.stop(r, accept, errorSet)
 state6:
-accept, errorSet = true, 36
+accept, errorSet = true, 35
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_002c:
 r = append(r, p.shift())
@@ -4022,7 +4051,7 @@ return p.stop(r, accept, errorSet)
 //			shift and goto state 1
 //	State 1
 //		Accept
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 2
 //	State 2
 //		Accept
@@ -4031,7 +4060,7 @@ func (p *Parser) ReturnStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoReturnStmt), 0)
 // state0:
-accept, errorSet = false, 19
+accept, errorSet = false, 18
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_return:
 r = append(r, p.shift())
@@ -4039,9 +4068,9 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 61
+accept, errorSet = true, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state2
 }
@@ -4075,7 +4104,7 @@ func (p *Parser) SandboxList() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoSandboxList), 0)
 // state0:
-accept, errorSet = false, 41
+accept, errorSet = false, 40
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_005b:
 r = append(r, p.shift())
@@ -4083,7 +4112,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 53
+accept, errorSet = false, 52
 switch Symbol(p.tok.Ch) {
 	case  Rugointeger, Rugostr_lit:
 r = append(r, p.shift())
@@ -4091,7 +4120,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 34
+accept, errorSet = false, 33
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_002c:
 r = append(r, p.shift())
@@ -4130,7 +4159,7 @@ func (p *Parser) SandboxPerm() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoSandboxPerm), 0)
 // state0:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -4138,7 +4167,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 38
+accept, errorSet = false, 37
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_003a:
 r = append(r, p.shift())
@@ -4146,7 +4175,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 40
+accept, errorSet = false, 39
 switch Symbol(p.tok.Ch) {
 	case  Rugointeger, Rugostr_lit:
 r = append(r, p.shift())
@@ -4186,7 +4215,7 @@ func (p *Parser) SandboxStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoSandboxStmt), 0)
 // state0:
-accept, errorSet = false, 20
+accept, errorSet = false, 19
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_sandbox:
 r = append(r, p.shift())
@@ -4194,7 +4223,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = true, 52
+accept, errorSet = true, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = p.add(r, p.SandboxPerm())
@@ -4202,7 +4231,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = true, 36
+accept, errorSet = true, 35
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_002c:
 r = append(r, p.shift())
@@ -4210,7 +4239,7 @@ goto state3
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = p.add(r, p.SandboxPerm())
@@ -4231,7 +4260,7 @@ return p.stop(r, accept, errorSet)
 //	State 1
 //		on  "end"
 //			shift and goto state 2
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 3
 //	State 2
 //		Accept
@@ -4243,7 +4272,7 @@ func (p *Parser) SpawnExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoSpawnExpr), 0)
 // state0:
-accept, errorSet = false, 21
+accept, errorSet = false, 20
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_spawn:
 r = append(r, p.shift())
@@ -4251,12 +4280,12 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state2
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state3
 }
@@ -4265,7 +4294,7 @@ state2:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -4325,7 +4354,7 @@ return p.stop(r, accept, errorSet)
 //			call NextStmt and goto state 1
 //		on  "return"
 //			call ReturnStmt and goto state 1
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call AssignOrExpr and goto state 1
 //	State 1
 //		Accept
@@ -4334,7 +4363,7 @@ func (p *Parser) Statement() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoStatement), 0)
 // state0:
-accept, errorSet = false, 47
+accept, errorSet = false, 46
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_use:
 r = p.add(r, p.UseStmt())
@@ -4378,7 +4407,7 @@ goto state1
 	case  RugoTOK_return:
 r = p.add(r, p.ReturnStmt())
 goto state1
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.AssignOrExpr())
 goto state1
 }
@@ -4404,7 +4433,7 @@ return p.stop(r, accept, errorSet)
 //	State 1
 //		on  ')'
 //			shift and goto state 2
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call ArgList and goto state 3
 //	State 2
 //		Accept
@@ -4415,7 +4444,7 @@ return p.stop(r, accept, errorSet)
 //		on  ident
 //			shift and goto state 2
 //	State 5
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 6
 //	State 6
 //		on  ']'
@@ -4423,7 +4452,7 @@ return p.stop(r, accept, errorSet)
 //		on  ','
 //			shift and goto state 7
 //	State 7
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 8
 //	State 8
 //		on  ']'
@@ -4433,7 +4462,7 @@ func (p *Parser) Suffix() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoSuffix), 0)
 // state0:
-accept, errorSet = false, 27
+accept, errorSet = false, 26
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0028:
 r = append(r, p.shift())
@@ -4447,12 +4476,12 @@ goto state5
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 57
+accept, errorSet = false, 56
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0029:
 r = append(r, p.shift())
 goto state2
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.ArgList())
 goto state3
 }
@@ -4461,7 +4490,7 @@ state2:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 30
+accept, errorSet = false, 29
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0029:
 r = append(r, p.shift())
@@ -4469,7 +4498,7 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -4477,15 +4506,15 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state5:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state6
 }
 return p.stop(r, accept, errorSet)
 state6:
-accept, errorSet = false, 34
+accept, errorSet = false, 33
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_005d:
 r = append(r, p.shift())
@@ -4496,15 +4525,15 @@ goto state7
 }
 return p.stop(r, accept, errorSet)
 state7:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state8
 }
 return p.stop(r, accept, errorSet)
 state8:
-accept, errorSet = false, 42
+accept, errorSet = false, 41
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_005d:
 r = append(r, p.shift())
@@ -4528,7 +4557,7 @@ return p.stop(r, accept, errorSet)
 //	State 2
 //		on  "end"
 //			shift and goto state 3
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 4
 //	State 3
 //		Accept
@@ -4540,7 +4569,7 @@ func (p *Parser) TestDef() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoTestDef), 0)
 // state0:
-accept, errorSet = false, 17
+accept, errorSet = false, 16
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_rats:
 r = append(r, p.shift())
@@ -4548,7 +4577,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 54
+accept, errorSet = false, 53
 switch Symbol(p.tok.Ch) {
 	case  Rugostr_lit:
 r = append(r, p.shift())
@@ -4556,12 +4585,12 @@ goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state3
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state4
 }
@@ -4570,7 +4599,7 @@ state3:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -4590,7 +4619,7 @@ return p.stop(r, accept, errorSet)
 //		on  "try"
 //			shift and goto state 1
 //	State 1
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 2
 //	State 2
 //		on  "or"
@@ -4601,7 +4630,7 @@ return p.stop(r, accept, errorSet)
 //	State 4
 //		on  "end"
 //			shift and goto state 5
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 6
 //	State 5
 //		Accept
@@ -4613,7 +4642,7 @@ func (p *Parser) TryExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoTryExpr), 0)
 // state0:
-accept, errorSet = false, 22
+accept, errorSet = false, 21
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_try:
 r = append(r, p.shift())
@@ -4621,15 +4650,15 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 15
+accept, errorSet = false, 14
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_or:
 r = append(r, p.shift())
@@ -4637,7 +4666,7 @@ goto state3
 }
 return p.stop(r, accept, errorSet)
 state3:
-accept, errorSet = false, 52
+accept, errorSet = false, 51
 switch Symbol(p.tok.Ch) {
 	case  Rugoident:
 r = append(r, p.shift())
@@ -4645,12 +4674,12 @@ goto state4
 }
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state5
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state6
 }
@@ -4659,7 +4688,7 @@ state5:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state6:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
@@ -4684,7 +4713,7 @@ func (p *Parser) TypeName() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoTypeName), 0)
 // state0:
-accept, errorSet = false, 14
+accept, errorSet = false, 13
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_nil, Rugoident:
 r = append(r, p.shift())
@@ -4705,10 +4734,10 @@ return p.stop(r, accept, errorSet)
 //	State 0
 //		on  '!', '-'
 //			shift and goto state 1
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '(', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '(', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Postfix and goto state 2
 //	State 1
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '(', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '(', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Postfix and goto state 2
 //	State 2
 //		Accept
@@ -4717,20 +4746,20 @@ func (p *Parser) UnaryExpr() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoUnaryExpr), 0)
 // state0:
-accept, errorSet = false, 68
+accept, errorSet = false, 67
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_0021, RugoTOK_002d:
 r = append(r, p.shift())
 goto state1
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Postfix())
 goto state2
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 69
+accept, errorSet = false, 68
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0028, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Postfix())
 goto state2
 }
@@ -4760,7 +4789,7 @@ func (p *Parser) UseStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoUseStmt), 0)
 // state0:
-accept, errorSet = false, 23
+accept, errorSet = false, 22
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_use:
 r = append(r, p.shift())
@@ -4768,7 +4797,7 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 54
+accept, errorSet = false, 53
 switch Symbol(p.tok.Ch) {
 	case  Rugostr_lit:
 r = append(r, p.shift())
@@ -4790,12 +4819,12 @@ return p.stop(r, accept, errorSet)
 //		on  "while"
 //			shift and goto state 1
 //	State 1
-//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "case", "false", "fn", "nil", "parallel", "spawn", "true", "try", '!', '(', '-', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, CaseExpr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Expr and goto state 2
 //	State 2
 //		on  "end"
 //			shift and goto state 3
-//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit
+//		on  "bench", "break", "case", "def", "embed", "false", "fn", "for", "if", "import", "next", "nil", "parallel", "rats", "require", "return", "sandbox", "spawn", "true", "try", "use", "while", '!', '(', '-', ';', '[', '{', float_lit, ident, integer, raw_str_lit, str_lit, Statement, UseStmt, ImportStmt, RequireStmt, EmbedStmt, SandboxStmt, FuncDef, TestDef, BenchDef, IfStmt, CaseExpr, WhileStmt, ForStmt, BreakStmt, NextStmt, ReturnStmt, AssignOrExpr, Expr, OrExpr, AndExpr, CompExpr, AddExpr, MulExpr, UnaryExpr, Postfix, Primary, TryExpr, SpawnExpr, ParallelExpr, FnExpr, ArrayLit, HashLit
 //			call Body and goto state 4
 //	State 3
 //		Accept
@@ -4807,7 +4836,7 @@ func (p *Parser) WhileStmt() (r []int32) {
 		accept, errorSet := false, 0
 		r = append(p.get(), -int32(RugoWhileStmt), 0)
 // state0:
-accept, errorSet = false, 24
+accept, errorSet = false, 23
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_while:
 r = append(r, p.shift())
@@ -4815,20 +4844,20 @@ goto state1
 }
 return p.stop(r, accept, errorSet)
 state1:
-accept, errorSet = false, 61
+accept, errorSet = false, 60
 switch Symbol(p.tok.Ch) {
-	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_case, RugoTOK_false, RugoTOK_fn, RugoTOK_nil, RugoTOK_parallel, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoCaseExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Expr())
 goto state2
 }
 return p.stop(r, accept, errorSet)
 state2:
-accept, errorSet = false, 45
+accept, errorSet = false, 44
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())
 goto state3
-	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit:
+	case  RugoTOK_bench, RugoTOK_break, RugoTOK_case, RugoTOK_def, RugoTOK_embed, RugoTOK_false, RugoTOK_fn, RugoTOK_for, RugoTOK_if, RugoTOK_import, RugoTOK_next, RugoTOK_nil, RugoTOK_parallel, RugoTOK_rats, RugoTOK_require, RugoTOK_return, RugoTOK_sandbox, RugoTOK_spawn, RugoTOK_true, RugoTOK_try, RugoTOK_use, RugoTOK_while, RugoTOK_0021, RugoTOK_0028, RugoTOK_002d, RugoTOK_003b, RugoTOK_005b, RugoTOK_007b, Rugofloat_lit, Rugoident, Rugointeger, Rugoraw_str_lit, Rugostr_lit, RugoStatement, RugoUseStmt, RugoImportStmt, RugoRequireStmt, RugoEmbedStmt, RugoSandboxStmt, RugoFuncDef, RugoTestDef, RugoBenchDef, RugoIfStmt, RugoCaseExpr, RugoWhileStmt, RugoForStmt, RugoBreakStmt, RugoNextStmt, RugoReturnStmt, RugoAssignOrExpr, RugoExpr, RugoOrExpr, RugoAndExpr, RugoCompExpr, RugoAddExpr, RugoMulExpr, RugoUnaryExpr, RugoPostfix, RugoPrimary, RugoTryExpr, RugoSpawnExpr, RugoParallelExpr, RugoFnExpr, RugoArrayLit, RugoHashLit:
 r = p.add(r, p.Body())
 goto state4
 }
@@ -4837,7 +4866,7 @@ state3:
 accept, errorSet = true, 0
 return p.stop(r, accept, errorSet)
 state4:
-accept, errorSet = false, 2
+accept, errorSet = false, 1
 switch Symbol(p.tok.Ch) {
 	case  RugoTOK_end:
 r = append(r, p.shift())

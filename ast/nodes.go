@@ -283,12 +283,16 @@ type ExprStmt struct {
 func (e *ExprStmt) node() {}
 func (e *ExprStmt) stmt() {}
 
-// AssignStmt represents target = value.
+// AssignStmt represents target = value, optionally with a binding type
+// annotation (`x : int = 42`). TypeAnnot is "" when there is no
+// annotation. Annotations are sticky and validated as binding-only:
+// the parser/walker rejects them on index and field mutations.
 type AssignStmt struct {
 	BaseStmt
 	Target    string
 	Value     Expr
 	Namespace string // non-empty for top-level assignments from require'd files
+	TypeAnnot string // "" if no annotation
 }
 
 func (a *AssignStmt) node() {}

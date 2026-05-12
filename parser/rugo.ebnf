@@ -46,7 +46,7 @@ ForStmt     = "for" ident [ ',' ident ] "in" Expr Body "end" .
 BreakStmt   = "break" .
 NextStmt    = "next" .
 ReturnStmt  = "return" [ Expr ] .
-AssignOrExpr = Expr [ '=' Expr ] .
+AssignOrExpr = Expr [ ':' TypeName '=' Expr | '=' Expr ] .
 
 # Expressions (lowest to highest precedence)
 Expr        = OrExpr .

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rubiojr/rugo/ast"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -273,11 +274,67 @@ puts(f(1))
 	assert.NoError(t, err)
 }
 
+// TestTier3ReturnFlow_ReturnIdentMismatch verifies that returning a
+// variable whose flow-sensitive type concretely conflicts with the
+// declared return type is flagged, even though the value is not a literal.
+func TestTier3ReturnFlow_ReturnIdentMismatch(t *testing.T) {
+	source := `
+def f() : int
+  x = "hello"
+  return x
+end
+puts(f())
+`
+	err := compileSource(t, "tier3ret.rugo", source)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot return string value from function declared returning int")
+}
+
+// TestTier3ReturnFlow_ReturnIdentNarrowedBack verifies that a variable
+// reassigned back to a compatible type is permitted at the return site
+// even though its storage union would include the earlier incompatible type.
+func TestTier3ReturnFlow_ReturnIdentNarrowedBack(t *testing.T) {
+	source := `
+def f() : int
+  x = "h"
+  x = 42
+  return x
+end
+puts(f())
+`
+	err := compileSource(t, "tier3retok.rugo", source)
+	assert.NoError(t, err, "flow-sensitive narrowing should allow this return")
+}
+
+// TestTier3ReturnFlow_ImplicitReturnIdentMismatch covers the
+// implicit-return (last-expression-as-value) form.
+func TestTier3ReturnFlow_ImplicitReturnIdentMismatch(t *testing.T) {
+	source := `
+def f() : int
+  x = "hello"
+  x
+end
+puts(f())
+`
+	err := compileSource(t, "tier3impret.rugo", source)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot implicitly return string value")
+}
+
 // compileSource compiles a source string through the standard pipeline
 // and returns the (possibly nil) error.
 func compileSource(t *testing.T, sourceFile, src string) error {
 	t.Helper()
 	prog := parseProgram(t, src)
+	// Run the same semantic checks the real Compile() pipeline runs so
+	// tests cover TypeAnnotationCheck (unknown type names, re-annotation)
+	// in addition to the generate-stage mismatch detection.
+	checks := ast.CheckChain{
+		TypeAnnotationCheck(sourceFile),
+	}
+	if err := checks.Run(prog); err != nil {
+		return err
+	}
 	_, err := generate(prog, sourceFile, false, nil, false, false)
 	if err != nil {
 		// Sanity check that the error message references the rugo source,
@@ -288,4 +345,188 @@ func compileSource(t *testing.T, sourceFile, src string) error {
 			"error should be a rugo-level diagnostic, got: %s", err.Error())
 	}
 	return err
+}
+
+// TestCompatibleWithAnnotationUnions exercises the union-aware
+// extension of the return-context compatibility rule.
+//
+// Rule: a union is compatible with an annotation iff EVERY single-bit
+// member of the union is independently compatible. This prevents a
+// partially-resolved type (e.g. int|string) from sneaking through a
+// narrow annotation by relying on the most-compatible member.
+func TestCompatibleWithAnnotationUnions(t *testing.T) {
+cases := []struct {
+name       string
+annot      RugoType
+inferred   RugoType
+compatible bool
+}{
+// Numeric-only union passes numeric annotation.
+{"int annot, int|float union", TypeInt, TypeInt | TypeFloat, true},
+{"float annot, int|float union", TypeFloat, TypeInt | TypeFloat, true},
+// String coerces everything -> any union OK.
+{"string annot, int|nil union", TypeString, TypeInt | TypeNil, true},
+{"string annot, array|hash union", TypeString, TypeArray | TypeHash, true},
+// Bool coerces everything -> any union OK.
+{"bool annot, int|string union", TypeBool, TypeInt | TypeString, true},
+// `any` annotation accepts any union.
+{"any annot, string|int union", TypeDynamic, TypeString | TypeInt, true},
+{"any annot, hash|nil union", TypeDynamic, TypeHash | TypeNil, true},
+// Concrete conflicts: union contains a non-coercible member.
+{"int annot, int|string union", TypeInt, TypeInt | TypeString, false},
+{"int annot, int|nil union", TypeInt, TypeInt | TypeNil, false},
+{"int annot, int|array union", TypeInt, TypeInt | TypeArray, false},
+{"float annot, float|string union", TypeFloat, TypeFloat | TypeString, false},
+{"array annot, array|hash union", TypeArray, TypeArray | TypeHash, false},
+{"hash annot, hash|array union", TypeHash, TypeHash | TypeArray, false},
+{"nil annot, nil|int union", TypeNil, TypeNil | TypeInt, false},
+}
+for _, tc := range cases {
+t.Run(tc.name, func(t *testing.T) {
+got := compatibleWithAnnotation(tc.annot, tc.inferred)
+assert.Equal(t, tc.compatible, got,
+"compatibleWithAnnotation(%s, %s)", tc.annot, tc.inferred)
+})
+}
+}
+
+// TestCompatibleAssignToAnnotationUnions exercises the union-aware
+// extension of the strict assignment-context rule. Unions are strict:
+// every member must match exactly.
+func TestCompatibleAssignToAnnotationUnions(t *testing.T) {
+cases := []struct {
+name       string
+annot      RugoType
+inferred   RugoType
+compatible bool
+}{
+// `any` accepts any union.
+{"any annot, int|string union", TypeDynamic, TypeInt | TypeString, true},
+{"any annot, hash|nil union", TypeDynamic, TypeHash | TypeNil, true},
+// Strict: numeric union does NOT pass int (float member differs).
+{"int annot, int|float union", TypeInt, TypeInt | TypeFloat, false},
+{"float annot, int|float union", TypeFloat, TypeInt | TypeFloat, false},
+// Strict: any cross-family union fails.
+{"int annot, int|string union", TypeInt, TypeInt | TypeString, false},
+{"string annot, int|string union", TypeString, TypeInt | TypeString, false},
+{"array annot, array|hash union", TypeArray, TypeArray | TypeHash, false},
+{"string annot, int|nil union", TypeString, TypeInt | TypeNil, false},
+{"bool annot, int|string union", TypeBool, TypeInt | TypeString, false},
+}
+for _, tc := range cases {
+t.Run(tc.name, func(t *testing.T) {
+got := compatibleAssignToAnnotation(tc.annot, tc.inferred)
+assert.Equal(t, tc.compatible, got,
+"compatibleAssignToAnnotation(%s, %s)", tc.annot, tc.inferred)
+})
+}
+}
+
+// TestVarAnnotInitMismatch asserts that the initial binding value must
+// be compatible with the annotation: `x : int = "hi"` is a compile
+// error.
+func TestVarAnnotInitMismatch(t *testing.T) {
+source := `
+def main()
+  x : int = "hello"
+end
+main()
+`
+err := compileSource(t, "init.rugo", source)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "cannot assign string value to")
+assert.Contains(t, err.Error(), "declared as int")
+}
+
+// TestVarAnnotReassignMismatch asserts that reassigning an annotated
+// local with an incompatible type fires the strict assignment check.
+func TestVarAnnotReassignMismatch(t *testing.T) {
+source := `
+def main()
+  x : int = 0
+  x = "hello"
+end
+main()
+`
+err := compileSource(t, "reassign.rugo", source)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "cannot assign string value to")
+}
+
+// TestVarAnnotAnyIsPermissive asserts that `x : any` silences the check
+// for every subsequent assignment (the explicit suppression hatch).
+func TestVarAnnotAnyIsPermissive(t *testing.T) {
+source := `
+def main()
+  x : any = 0
+  x = "hello"
+  x = [1, 2]
+end
+main()
+`
+err := compileSource(t, "any.rugo", source)
+assert.NoError(t, err, "any annotation should accept any reassignment")
+}
+
+// TestVarAnnotUnknownType asserts that an unknown type name in an
+// annotation is rejected with a clear error.
+func TestVarAnnotUnknownType(t *testing.T) {
+source := `
+def main()
+  x : foobar = 0
+end
+main()
+`
+err := compileSource(t, "unknown.rugo", source)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "unknown type")
+assert.Contains(t, err.Error(), "foobar")
+}
+
+// TestVarAnnotReannotationError asserts that re-annotating an already-
+// annotated local in the same scope is a compile error.
+func TestVarAnnotReannotationError(t *testing.T) {
+source := `
+def main()
+  x : int = 0
+  x : int = 1
+end
+main()
+`
+err := compileSource(t, "reannot.rugo", source)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "re-annotation")
+}
+
+// TestVarAnnotUnannotatedUnchanged asserts that the unannotated path is
+// unchanged — mixed reassignment is still permitted.
+func TestVarAnnotUnannotatedUnchanged(t *testing.T) {
+source := `
+def main()
+  x = 0
+  x = "hello"
+end
+main()
+`
+err := compileSource(t, "unannot.rugo", source)
+assert.NoError(t, err)
+}
+
+// TestVarAnnotNumericPromotion asserts that `x : float = 0` allows
+// reassignment with an int literal (numeric coercion).
+func TestVarAnnotNumericPromotion(t *testing.T) {
+source := `
+def main()
+  x : float = 1.0
+  x = 42
+end
+main()
+`
+// Strict assignment context does NOT permit cross-numeric reassignment
+// (the Go variable is float64 — no implicit int→float conversion at the
+// assignment site). The check_mismatch error makes this user-visible.
+err := compileSource(t, "promote.rugo", source)
+require.Error(t, err)
+assert.Contains(t, err.Error(), "cannot assign int value to")
+assert.Contains(t, err.Error(), "declared as float")
 }

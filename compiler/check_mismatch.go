@@ -36,20 +36,25 @@ func checkMismatch(prog *ast.Program, ti *TypeInfo, sourceFile string) error {
 	if ti == nil {
 		return nil
 	}
-	// Body-level conflicts inside annotated def/fn bodies.
+	// Top-level annotated `x : T = ...` bindings live in the program scope.
+	topAnnots := collectLocalAnnots(prog.Statements, nil)
+	// Body-level conflicts inside annotated def/fn bodies AND top-level
+	// reassignment of annotated top-level locals.
 	for _, s := range prog.Statements {
-		if err := checkMismatchStmt(s, ti, sourceFile, nil, ""); err != nil {
+		if err := checkMismatchStmt(s, ti, sourceFile, nil, topAnnots, ""); err != nil {
 			return err
 		}
 	}
 	// Call-site argument conflicts against annotated callees.
-	return checkCallSites(prog, sourceFile)
+	return checkCallSites(prog, ti, sourceFile)
 }
 
 // checkMismatchStmt walks a statement looking for annotated def/fn bodies
-// to validate. paramAnnots and retAnnot describe the *enclosing* function
-// (nil/zero when we're at the top level or inside an unannotated context).
-func checkMismatchStmt(s ast.Statement, ti *TypeInfo, sourceFile string, paramAnnots map[string]RugoType, retAnnot string) error {
+// to validate. paramAnnots describes the *enclosing* function's params
+// (nil at the top level or inside an unannotated context). localAnnots
+// describes annotated local bindings (`x : T = ...`) in the current
+// function/test/bench scope.
+func checkMismatchStmt(s ast.Statement, ti *TypeInfo, sourceFile string, paramAnnots, localAnnots map[string]RugoType, retAnnot string) error {
 	switch st := s.(type) {
 	case *ast.FuncDef:
 		return checkMismatchFunc(st, ti, sourceFile)
@@ -57,7 +62,14 @@ func checkMismatchStmt(s ast.Statement, ti *TypeInfo, sourceFile string, paramAn
 	case *ast.AssignStmt:
 		if paramAnnots != nil {
 			if pa, ok := paramAnnots[st.Target]; ok {
-				if err := checkAssignValue(st, pa, ti, sourceFile); err != nil {
+				if err := checkAssignValue(st, pa, "parameter", ti, sourceFile); err != nil {
+					return err
+				}
+			}
+		}
+		if localAnnots != nil {
+			if la, ok := localAnnots[st.Target]; ok {
+				if err := checkAssignValue(st, la, "variable", ti, sourceFile); err != nil {
 					return err
 				}
 			}
@@ -88,19 +100,19 @@ func checkMismatchStmt(s ast.Statement, ti *TypeInfo, sourceFile string, paramAn
 
 	case *ast.IfStmt:
 		for _, child := range st.Body {
-			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, retAnnot); err != nil {
+			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, retAnnot); err != nil {
 				return err
 			}
 		}
 		for _, c := range st.ElsifClauses {
 			for _, child := range c.Body {
-				if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, retAnnot); err != nil {
+				if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, retAnnot); err != nil {
 					return err
 				}
 			}
 		}
 		for _, child := range st.ElseBody {
-			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, retAnnot); err != nil {
+			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, retAnnot); err != nil {
 				return err
 			}
 		}
@@ -108,48 +120,50 @@ func checkMismatchStmt(s ast.Statement, ti *TypeInfo, sourceFile string, paramAn
 	case *ast.CaseStmt:
 		for _, oc := range st.OfClauses {
 			for _, child := range oc.Body {
-				if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, retAnnot); err != nil {
+				if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, retAnnot); err != nil {
 					return err
 				}
 			}
 		}
 		for _, c := range st.ElsifClauses {
 			for _, child := range c.Body {
-				if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, retAnnot); err != nil {
+				if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, retAnnot); err != nil {
 					return err
 				}
 			}
 		}
 		for _, child := range st.ElseBody {
-			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, retAnnot); err != nil {
+			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, retAnnot); err != nil {
 				return err
 			}
 		}
 
 	case *ast.WhileStmt:
 		for _, child := range st.Body {
-			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, retAnnot); err != nil {
+			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, retAnnot); err != nil {
 				return err
 			}
 		}
 
 	case *ast.ForStmt:
 		for _, child := range st.Body {
-			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, retAnnot); err != nil {
+			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, retAnnot); err != nil {
 				return err
 			}
 		}
 
 	case *ast.TestDef:
+		annots := collectLocalAnnots(st.Body, nil)
 		for _, child := range st.Body {
-			if err := checkMismatchStmt(child, ti, sourceFile, nil, ""); err != nil {
+			if err := checkMismatchStmt(child, ti, sourceFile, nil, annots, ""); err != nil {
 				return err
 			}
 		}
 
 	case *ast.BenchDef:
+		annots := collectLocalAnnots(st.Body, nil)
 		for _, child := range st.Body {
-			if err := checkMismatchStmt(child, ti, sourceFile, nil, ""); err != nil {
+			if err := checkMismatchStmt(child, ti, sourceFile, nil, annots, ""); err != nil {
 				return err
 			}
 		}
@@ -161,9 +175,10 @@ func checkMismatchStmt(s ast.Statement, ti *TypeInfo, sourceFile string, paramAn
 // annotated params or annotated return; unannotated funcs are still walked
 // so we descend into nested fn lambdas.
 func checkMismatchFunc(f *ast.FuncDef, ti *TypeInfo, sourceFile string) error {
-	annots := collectParamAnnots(f.Params)
+	paramAnnots := collectParamAnnots(f.Params)
+	localAnnots := collectLocalAnnots(f.Body, nil)
 	for _, child := range f.Body {
-		if err := checkMismatchStmt(child, ti, fileFor(f, sourceFile), annots, f.ReturnType); err != nil {
+		if err := checkMismatchStmt(child, ti, fileFor(f, sourceFile), paramAnnots, localAnnots, f.ReturnType); err != nil {
 			return err
 		}
 	}
@@ -179,9 +194,10 @@ func checkMismatchExpr(e ast.Expr, ti *TypeInfo, sourceFile string) error {
 		if !ok {
 			return false
 		}
-		annots := collectParamAnnots(fn.Params)
+		paramAnnots := collectParamAnnots(fn.Params)
+		localAnnots := collectLocalAnnots(fn.Body, nil)
 		for _, child := range fn.Body {
-			if err := checkMismatchStmt(child, ti, sourceFile, annots, fn.ReturnType); err != nil {
+			if err := checkMismatchStmt(child, ti, sourceFile, paramAnnots, localAnnots, fn.ReturnType); err != nil {
 				firstErr = err
 				return true
 			}
@@ -191,22 +207,26 @@ func checkMismatchExpr(e ast.Expr, ti *TypeInfo, sourceFile string) error {
 	return firstErr
 }
 
-// checkAssignValue flags assignments that overwrite an annotated parameter
-// with a value of a concretely conflicting type.
+// checkAssignValue flags assignments that overwrite an annotated
+// parameter or local variable with a value of a concretely conflicting
+// type.
 //
 // Assignment context uses the **strict** compatibility rule: the
-// generated Go declares the parameter with a concrete type (int, string,
+// generated Go declares the binding with a concrete type (int, string,
 // etc.), and there is no runtime coercion at the reassignment site. So
-// `a = 3.14` to an int-annotated parameter is a clean rugo-level error
+// `a = 3.14` to an int-annotated binding is a clean rugo-level error
 // rather than a confusing Go-level "cannot use float64 as int" message.
-func checkAssignValue(st *ast.AssignStmt, paramAnnot RugoType, ti *TypeInfo, sourceFile string) error {
+//
+// kind is the user-facing noun ("parameter" or "variable") used in the
+// error message.
+func checkAssignValue(st *ast.AssignStmt, annot RugoType, kind string, ti *TypeInfo, sourceFile string) error {
 	inferred := ti.ExprType(st.Value)
-	if compatibleAssignToAnnotation(paramAnnot, inferred) {
+	if compatibleAssignToAnnotation(annot, inferred) {
 		return nil
 	}
 	return &ast.UserError{Msg: fmt.Sprintf(
-		"%s:%d: cannot assign %s value to parameter '%s' declared as %s",
-		sourceFile, st.SourceLine, displayTypeName(inferred), st.Target, displayTypeName(paramAnnot),
+		"%s:%d: cannot assign %s value to %s '%s' declared as %s",
+		sourceFile, st.SourceLine, displayTypeName(inferred), kind, st.Target, displayTypeName(annot),
 	)}
 }
 
@@ -218,7 +238,7 @@ func checkReturnValue(value ast.Expr, line int, retAnnot string, ti *TypeInfo, s
 		// Unknown type names are caught by TypeAnnotationCheck.
 		return nil
 	}
-	inferred := ti.ExprType(value)
+	inferred := returnFlowType(value, ti)
 	if compatibleWithAnnotation(annot, inferred) {
 		return nil
 	}
@@ -230,6 +250,27 @@ func checkReturnValue(value ast.Expr, line int, retAnnot string, ti *TypeInfo, s
 		"%s:%d: cannot %s %s value from function declared returning %s",
 		sourceFile, line, verb, displayTypeName(inferred), displayTypeName(annot),
 	)}
+}
+
+// returnFlowType returns the flow-sensitive type of a return-statement
+// value: for IdentExpr nodes that's VarUseTypes (the type the variable
+// holds at the return site, replace semantics across reassignments), and
+// for other expression shapes it falls back to ExprTypes.
+//
+// Tier 3 return-flow: returning a variable that was narrowed back to a
+// compatible type via a later reassignment is permitted, even though the
+// storage union for that variable includes earlier (now-overwritten)
+// incompatible types.
+func returnFlowType(e ast.Expr, ti *TypeInfo) RugoType {
+	if ti == nil {
+		return TypeDynamic
+	}
+	if _, isIdent := e.(*ast.IdentExpr); isIdent {
+		if t, ok := ti.VarUseTypes[e]; ok {
+			return t
+		}
+	}
+	return ti.ExprType(e)
 }
 
 // displayTypeName returns the user-facing name for a RugoType. It differs
@@ -260,6 +301,14 @@ func displayTypeName(t RugoType) string {
 // the body), use compatibleAssignToAnnotation, which is strict.
 func compatibleWithAnnotation(annot, inferred RugoType) bool {
 	if inferred == TypeUnknown || inferred == TypeDynamic {
+		return true
+	}
+	if inferred.IsUnion() {
+		for _, m := range inferred.Members() {
+			if !compatibleWithAnnotation(annot, m) {
+				return false
+			}
+		}
 		return true
 	}
 	switch annot {
@@ -293,7 +342,67 @@ func compatibleAssignToAnnotation(annot, inferred RugoType) bool {
 	case TypeDynamic, TypeUnknown:
 		return true
 	}
+	if inferred.IsUnion() {
+		for _, m := range inferred.Members() {
+			if !compatibleAssignToAnnotation(annot, m) {
+				return false
+			}
+		}
+		return true
+	}
 	return annot == inferred
+}
+
+// collectLocalAnnots scans a statement list (a function body, top-level
+// program, or test/bench block) for `x : T = expr` bindings and adds
+// them to dst. First-appearance wins (sticky semantics; re-annotation
+// is rejected by TypeAnnotationCheck before we get here).
+//
+// The scan descends into if/case/while/for/try bodies because Rugo has
+// function-level scoping — an annotation introduced inside a branch is
+// visible across the entire function.
+//
+// It does NOT descend into nested FuncDef / FnExpr / TestDef / BenchDef
+// bodies; each of those owns its own scope.
+func collectLocalAnnots(stmts []ast.Statement, dst map[string]RugoType) map[string]RugoType {
+	for _, s := range stmts {
+		switch st := s.(type) {
+		case *ast.AssignStmt:
+			if st.TypeAnnot == "" {
+				continue
+			}
+			if _, already := dst[st.Target]; already {
+				continue
+			}
+			t, ok := ParseTypeAnnotation(st.TypeAnnot)
+			if !ok {
+				continue
+			}
+			if dst == nil {
+				dst = make(map[string]RugoType)
+			}
+			dst[st.Target] = t
+		case *ast.IfStmt:
+			dst = collectLocalAnnots(st.Body, dst)
+			for _, c := range st.ElsifClauses {
+				dst = collectLocalAnnots(c.Body, dst)
+			}
+			dst = collectLocalAnnots(st.ElseBody, dst)
+		case *ast.CaseStmt:
+			for _, oc := range st.OfClauses {
+				dst = collectLocalAnnots(oc.Body, dst)
+			}
+			for _, c := range st.ElsifClauses {
+				dst = collectLocalAnnots(c.Body, dst)
+			}
+			dst = collectLocalAnnots(st.ElseBody, dst)
+		case *ast.WhileStmt:
+			dst = collectLocalAnnots(st.Body, dst)
+		case *ast.ForStmt:
+			dst = collectLocalAnnots(st.Body, dst)
+		}
+	}
+	return dst
 }
 
 func collectParamAnnots(params []ast.Param) map[string]RugoType {

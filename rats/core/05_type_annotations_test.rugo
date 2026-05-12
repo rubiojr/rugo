@@ -546,7 +546,7 @@ rats "non-numeric string literal as int argument is a compile error"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'add'")
   test.assert_contains(combined, "parameter 'a' declared as int")
 end
@@ -563,8 +563,8 @@ rats "unknown type name in param produces compile error"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown type")
-  test.assert_contains(result["output"] + result["error"], "integer")
+  test.assert_contains(result["output"] + result["output"], "unknown type")
+  test.assert_contains(result["output"] + result["output"], "integer")
 end
 
 rats "unknown type name in return produces compile error"
@@ -575,7 +575,7 @@ rats "unknown type name in return produces compile error"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown return type")
+  test.assert_contains(result["output"] + result["output"], "unknown return type")
 end
 
 rats "capitalized type name rejected (case sensitive)"
@@ -586,8 +586,8 @@ rats "capitalized type name rejected (case sensitive)"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown type")
-  test.assert_contains(result["output"] + result["error"], "Int")
+  test.assert_contains(result["output"] + result["output"], "unknown type")
+  test.assert_contains(result["output"] + result["output"], "Int")
 end
 
 rats "capitalized nil keyword as type rejected"
@@ -598,7 +598,7 @@ rats "capitalized nil keyword as type rejected"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown return type")
+  test.assert_contains(result["output"] + result["output"], "unknown return type")
 end
 
 rats "uppercase type name rejected"
@@ -609,7 +609,7 @@ rats "uppercase type name rejected"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown type")
+  test.assert_contains(result["output"] + result["output"], "unknown type")
 end
 
 rats "valid-types list appears in error message"
@@ -620,10 +620,10 @@ rats "valid-types list appears in error message"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "int")
-  test.assert_contains(result["output"] + result["error"], "float")
-  test.assert_contains(result["output"] + result["error"], "string")
-  test.assert_contains(result["output"] + result["error"], "any")
+  test.assert_contains(result["output"] + result["output"], "int")
+  test.assert_contains(result["output"] + result["output"], "float")
+  test.assert_contains(result["output"] + result["output"], "string")
+  test.assert_contains(result["output"] + result["output"], "any")
 end
 
 rats "unknown type name inside fn lambda param"
@@ -634,8 +634,8 @@ rats "unknown type name inside fn lambda param"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown type")
-  test.assert_contains(result["output"] + result["error"], "fn parameter")
+  test.assert_contains(result["output"] + result["output"], "unknown type")
+  test.assert_contains(result["output"] + result["output"], "fn parameter")
 end
 
 rats "unknown type name on fn lambda return"
@@ -646,8 +646,8 @@ rats "unknown type name on fn lambda return"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["error"], "unknown return type")
-  test.assert_contains(result["output"] + result["error"], "fn lambda")
+  test.assert_contains(result["output"] + result["output"], "unknown return type")
+  test.assert_contains(result["output"] + result["output"], "fn lambda")
 end
 
 # =====================================================================
@@ -844,7 +844,7 @@ rats "mismatch: reassigning annotated int param to string errors with structured
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
 end
 
@@ -857,7 +857,7 @@ rats "mismatch: error points at the rugo source line, not generated Go"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, ":2:")
 end
 
@@ -870,7 +870,7 @@ rats "mismatch: reassigning annotated float param to string errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as float")
 end
 
@@ -883,7 +883,7 @@ rats "mismatch: reassigning annotated array param to int errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign int value to parameter 'a' declared as array")
 end
 
@@ -896,7 +896,7 @@ rats "mismatch: reassigning annotated hash param to array errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign array value to parameter 'h' declared as hash")
 end
 
@@ -909,7 +909,7 @@ rats "mismatch: reassigning annotated nil param to int errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign int value to parameter 'x' declared as nil")
 end
 
@@ -923,7 +923,7 @@ rats "mismatch: int -> float param reassignment errors (strict assign rule)"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign float value to parameter 'a' declared as int")
 end
 
@@ -937,7 +937,7 @@ rats "mismatch: float -> int param reassignment errors (strict assign rule)"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign int value to parameter 'a' declared as float")
 end
 
@@ -951,7 +951,7 @@ rats "mismatch: string annotation rejects non-string reassignment (strict)"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign int value to parameter 's' declared as string")
 end
 
@@ -965,7 +965,7 @@ rats "mismatch: bool annotation rejects non-bool reassignment (strict)"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign string value to parameter 'b' declared as bool")
 end
 
@@ -1018,7 +1018,7 @@ rats "mismatch: returning string from int-annotated function errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot return string value from function declared returning int")
 end
 
@@ -1031,7 +1031,7 @@ rats "mismatch: returning array from int-annotated function errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot return array value from function declared returning int")
 end
 
@@ -1044,7 +1044,7 @@ rats "mismatch: returning int from nil-annotated function errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot return int value from function declared returning nil")
 end
 
@@ -1057,7 +1057,7 @@ rats "mismatch: returning hash from array-annotated function errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot return hash value from function declared returning array")
 end
 
@@ -1114,7 +1114,7 @@ rats "mismatch: implicit return of wrong type errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot implicitly return string value")
 end
 
@@ -1127,7 +1127,7 @@ rats "mismatch: implicit return of array from int-annotated function errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot implicitly return array value")
 end
 
@@ -1140,7 +1140,7 @@ rats "mismatch: fn lambda param reassignment to wrong type errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
 end
 
@@ -1153,7 +1153,7 @@ rats "mismatch: fn lambda return-type mismatch errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot return string value from function declared returning int")
 end
 
@@ -1169,7 +1169,7 @@ rats "mismatch: nested fn lambda inside def is also checked"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
 end
 
@@ -1199,7 +1199,7 @@ rats "mismatch: branch-aware: each return checked independently"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot return string value from function declared returning int")
 end
 
@@ -1234,7 +1234,7 @@ rats "call-site: string literal passed to int param errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
   test.assert_contains(combined, "parameter 'a' declared as int")
 end
@@ -1248,7 +1248,7 @@ rats "call-site: array literal passed to int param errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass array literal")
   test.assert_contains(combined, "parameter 'a' declared as int")
 end
@@ -1262,7 +1262,7 @@ rats "call-site: hash literal passed to array param errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass hash literal")
   test.assert_contains(combined, "parameter 'xs' declared as array")
 end
@@ -1276,7 +1276,7 @@ rats "call-site: nil literal passed to int param errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass nil literal")
 end
 
@@ -1289,7 +1289,7 @@ rats "call-site: bool literal passed to array param errors"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass bool literal")
 end
 
@@ -1303,7 +1303,7 @@ rats "call-site: error points at the rugo source line"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, ":5:")
 end
 
@@ -1316,7 +1316,7 @@ rats "call-site: second argument mismatch reports correct index"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "argument 2 to 'add'")
   test.assert_contains(combined, "parameter 'b' declared as int")
 end
@@ -1450,7 +1450,7 @@ rats "call-site: literal-arg mismatch inside fn lambda body is caught"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
 end
 
@@ -1466,7 +1466,7 @@ rats "call-site: literal-arg mismatch in recursive self-call is caught"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
 end
 
@@ -1481,7 +1481,7 @@ rats "call-site: literal-arg mismatch inside if condition is caught"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'is_pos'")
 end
 
@@ -1497,7 +1497,7 @@ rats "call-site: literal-arg mismatch inside spawn body is caught"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
 end
 
@@ -1511,7 +1511,7 @@ rats "call-site: literal-arg mismatch inside try expression is caught"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
 end
 
@@ -1524,7 +1524,7 @@ rats "call-site: pipe sugar with wrong literal-type is caught"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
 end
 
@@ -1550,7 +1550,7 @@ rats "call-site: function with default-arg + annotation still validates literals
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  combined = result["output"] + result["error"]
+  combined = result["output"] + result["output"]
   test.assert_contains(combined, "cannot pass string literal as argument 1 to 'add'")
 end
 
@@ -1599,4 +1599,341 @@ rats "call-site: anything to bool param is allowed (truthiness)"
   RUGO
   result = eval.run(source)
   test.assert_eq(result["status"], 0)
+end
+
+# =====================================================================
+# Section: Variable type annotations (`x : T = expr`)
+# =====================================================================
+
+rats "var annot: typed binding compiles and runs"
+  source = <<~RUGO
+    x : int = 42
+    puts(x)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "var annot: each builtin type name is accepted"
+  source = <<~RUGO
+    a : int = 1
+    b : float = 1.5
+    c : string = "hi"
+    d : bool = true
+    e : array = [1, 2]
+    f : hash = {1 => 2}
+    g : nil = nil
+    h : any = 42
+    puts(a)
+    puts(b)
+    puts(c)
+    puts(d)
+    puts(e)
+    puts(g)
+    puts(h)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "var annot: init type mismatch errors"
+  source = <<~RUGO
+    x : int = "hello"
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot assign string value to")
+end
+
+rats "var annot: reassign with incompatible type errors"
+  source = <<~RUGO
+    x : int = 0
+    x = "hello"
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot assign string value to")
+end
+
+rats "var annot: any permits any reassignment"
+  source = <<~RUGO
+    x : any = 0
+    x = "hello"
+    x = [1, 2]
+    puts(x)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "[1, 2]")
+end
+
+rats "var annot: unknown type name errors with valid type hint"
+  source = <<~RUGO
+    x : foobar = 0
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unknown type")
+  test.assert_contains(result["output"], "foobar")
+end
+
+rats "var annot: re-annotation in same scope errors"
+  source = <<~RUGO
+    x : int = 0
+    x : int = 1
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "re-annotation")
+end
+
+rats "var annot: unannotated path still permits mixed reassignment"
+  source = <<~RUGO
+    x = 1
+    x = "hello"
+    puts(x)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello")
+end
+
+rats "var annot: inside function body"
+  source = <<~RUGO
+    def f()
+      x : int = 10
+      return x * 2
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "20")
+end
+
+rats "var annot: function-body reassignment violation"
+  source = <<~RUGO
+    def f()
+      x : int = 10
+      x = "oops"
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot assign string value to")
+end
+
+rats "var annot: independent scopes in different functions"
+  source = <<~RUGO
+    def a()
+      x : int = 1
+      return x
+    end
+    def b()
+      x : string = "hi"
+      return x
+    end
+    puts(a())
+    puts(b())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "var annot: numeric promotion not permitted at assignment site"
+  source = <<~RUGO
+    x : float = 1.0
+    x = 42
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot assign int value to")
+end
+
+# =====================================================================
+# Section: Tier 3 flow-sensitive checks (callsite + return)
+# =====================================================================
+
+rats "tier3: callsite flow flags identifier arg with concrete string type"
+  source = <<~RUGO
+    def f(x : int)
+      return x
+    end
+    y = "hello"
+    f(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass string value as argument 1 to 'f'")
+end
+
+rats "tier3: callsite flow allows arg narrowed back to compatible type"
+  source = <<~RUGO
+    def f(x : int)
+      return x + 1
+    end
+    y = "h"
+    y = 42
+    puts(f(y))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "43")
+end
+
+rats "tier3: callsite flow flags arg from if/else union"
+  source = <<~RUGO
+    def f(x : int)
+      return x
+    end
+    if true
+      y = 1
+    else
+      y = "h"
+    end
+    f(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass")
+end
+
+rats "tier3: callsite flow passes dynamic argument silently"
+  source = <<~RUGO
+    def f(x : int)
+      return x
+    end
+    h = {1 => 100}
+    x = h[1]
+    puts(f(x))
+  RUGO
+  result = eval.run(source)
+  # Dynamic types (here from hash indexing) cannot be proven incompatible
+  # at compile time, so the call must compile. Runtime coercion handles
+  # the actual conversion.
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "100")
+end
+
+rats "tier3: return flow flags ident return with concrete mismatch"
+  source = <<~RUGO
+    def f() : int
+      x = "hello"
+      return x
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot return string value from function declared returning int")
+end
+
+rats "tier3: return flow allows ident return narrowed back to compat"
+  source = <<~RUGO
+    def f() : int
+      x = "h"
+      x = 42
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "tier3: implicit return flow flags ident with concrete mismatch"
+  source = <<~RUGO
+    def f() : int
+      x = "hello"
+      x
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot implicitly return string value")
+end
+
+rats "tier3: return flow flags ident from union via if-no-else"
+  source = <<~RUGO
+    def f() : int
+      x = 1
+      if true
+        x = "h"
+      end
+      return x
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot return")
+end
+
+rats "tier3: combined callsite + return flow with narrowed ident"
+  source = <<~RUGO
+    def f(x : int) : int
+      return x * 2
+    end
+    y = "h"
+    y = 21
+    puts(f(y))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "tier3: after for-loop maybe-not-executed, ident arg is union and flagged"
+  source = <<~RUGO
+    def f(x : int)
+      return x
+    end
+    y = 1
+    for item in [1, 2, 3]
+      y = "h"
+    end
+    f(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass")
+end
+
+rats "tier3: after while-loop maybe-not-executed, ident arg is union and flagged"
+  source = <<~RUGO
+    def f(x : int)
+      return x
+    end
+    y = 1
+    while false
+      y = "h"
+    end
+    f(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass")
+end
+
+rats "tier3: after case-stmt no-else, ident arg is union and flagged"
+  source = <<~RUGO
+    def f(x : int)
+      return x
+    end
+    s = "a"
+    y = 1
+    case s
+    of "a"
+      y = "h"
+    end
+    f(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass")
 end

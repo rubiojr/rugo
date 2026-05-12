@@ -25,64 +25,86 @@ func TypeAnnotationCheck(sourceFile string) ast.Check {
 func (a *annotCheck) Name() string { return "type-annotation" }
 
 func (a *annotCheck) Check(prog *ast.Program) error {
+	annotated := map[string]bool{}
 	for _, s := range prog.Statements {
-		if err := a.checkStmt(s); err != nil {
+		if err := a.checkStmt(s, annotated); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (a *annotCheck) checkStmt(s ast.Statement) error {
+func (a *annotCheck) checkStmt(s ast.Statement, annotated map[string]bool) error {
 	switch st := s.(type) {
 	case *ast.FuncDef:
 		if err := validateFuncAnnotations(st, a.sourceFile); err != nil {
 			return err
 		}
+		// Function bodies get their own annotation scope -- a `x : int = ...`
+		// inside the body is independent of any outer binding.
+		localAnnots := map[string]bool{}
 		for _, child := range st.Body {
-			if err := a.checkStmt(child); err != nil {
+			if err := a.checkStmt(child, localAnnots); err != nil {
 				return err
 			}
 		}
+	case *ast.AssignStmt:
+		if st.TypeAnnot != "" {
+			if _, ok := ParseTypeAnnotation(st.TypeAnnot); !ok {
+				return &ast.UserError{Msg: fmt.Sprintf(
+					"%s:%d: unknown type %q in annotation for variable '%s' (valid types: %s)",
+					a.sourceFile, st.SourceLine, st.TypeAnnot, st.Target, strings.Join(KnownTypeNames(), ", "),
+				)}
+			}
+			if annotated[st.Target] {
+				return &ast.UserError{Msg: fmt.Sprintf(
+					"%s:%d: re-annotation of variable '%s' (annotations are sticky bindings — assign without `: T` to update an annotated variable)",
+					a.sourceFile, st.SourceLine, st.Target,
+				)}
+			}
+			annotated[st.Target] = true
+		}
 	case *ast.TestDef:
+		localAnnots := map[string]bool{}
 		for _, child := range st.Body {
-			if err := a.checkStmt(child); err != nil {
+			if err := a.checkStmt(child, localAnnots); err != nil {
 				return err
 			}
 		}
 	case *ast.BenchDef:
+		localAnnots := map[string]bool{}
 		for _, child := range st.Body {
-			if err := a.checkStmt(child); err != nil {
+			if err := a.checkStmt(child, localAnnots); err != nil {
 				return err
 			}
 		}
 	case *ast.IfStmt:
 		for _, child := range st.Body {
-			if err := a.checkStmt(child); err != nil {
+			if err := a.checkStmt(child, annotated); err != nil {
 				return err
 			}
 		}
 		for _, c := range st.ElsifClauses {
 			for _, child := range c.Body {
-				if err := a.checkStmt(child); err != nil {
+				if err := a.checkStmt(child, annotated); err != nil {
 					return err
 				}
 			}
 		}
 		for _, child := range st.ElseBody {
-			if err := a.checkStmt(child); err != nil {
+			if err := a.checkStmt(child, annotated); err != nil {
 				return err
 			}
 		}
 	case *ast.WhileStmt:
 		for _, child := range st.Body {
-			if err := a.checkStmt(child); err != nil {
+			if err := a.checkStmt(child, annotated); err != nil {
 				return err
 			}
 		}
 	case *ast.ForStmt:
 		for _, child := range st.Body {
-			if err := a.checkStmt(child); err != nil {
+			if err := a.checkStmt(child, annotated); err != nil {
 				return err
 			}
 		}
@@ -105,8 +127,9 @@ func (a *annotCheck) checkFnExpr(fn *ast.FnExpr) error {
 	if err := validateFnExprAnnotations(fn, a.sourceFile); err != nil {
 		return err
 	}
+	localAnnots := map[string]bool{}
 	for _, child := range fn.Body {
-		if err := a.checkStmt(child); err != nil {
+		if err := a.checkStmt(child, localAnnots); err != nil {
 			return err
 		}
 	}
