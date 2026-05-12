@@ -35,13 +35,34 @@ func (*Test) WriteFile(path, content string) interface{} {
 // Run executes a command and returns a hash with status, output, and lines.
 func (*Test) Run(command string) interface{} {
 	cmd := exec.Command("sh", "-c", command)
-	// Ensure child output has no ANSI codes so string matching works reliably.
-	env := append(os.Environ(), "NO_COLOR=1")
-	// Prepend the directory of the current executable to PATH so that
-	// "rugo" in test commands resolves to the binary under test (e.g. bin/rugo).
-	if self, err := os.Executable(); err == nil {
-		env = append(env, "PATH="+filepath.Dir(self)+string(filepath.ListSeparator)+os.Getenv("PATH"))
+	// Build env from scratch so we can rewrite PATH cleanly.
+	// Duplicate PATH= entries break shell lookup on some libcs, so we
+	// filter the original PATH out and emit a single, fully-resolved one.
+	env := make([]string, 0, len(os.Environ())+2)
+	for _, kv := range os.Environ() {
+		if strings.HasPrefix(kv, "PATH=") {
+			continue
+		}
+		env = append(env, kv)
 	}
+	// Ensure child output has no ANSI codes so string matching works reliably.
+	env = append(env, "NO_COLOR=1")
+	// Prepend the directory of the running rugo binary to PATH so that
+	// "rugo" in test commands resolves to the binary under test (e.g.
+	// bin/rugo) rather than whatever rugo happens to be installed
+	// system-wide. RUGO_BIN is set by the top-level rugo command; fall
+	// back to os.Executable() (which may be a temp test binary).
+	path := os.Getenv("PATH")
+	rugoBin := os.Getenv("RUGO_BIN")
+	if rugoBin == "" {
+		if self, err := os.Executable(); err == nil {
+			rugoBin = self
+		}
+	}
+	if rugoBin != "" {
+		path = filepath.Dir(rugoBin) + string(filepath.ListSeparator) + path
+	}
+	env = append(env, "PATH="+path)
 	cmd.Env = env
 	out, err := cmd.CombinedOutput()
 	output := strings.TrimRight(string(out), "\n")

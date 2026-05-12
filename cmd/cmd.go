@@ -28,6 +28,16 @@ import (
 // Import modules via blank imports before calling this function
 // so they register via init().
 func Execute(version string) {
+	// Record the path of the running rugo binary so child processes
+	// (e.g. test programs that call test.run("rugo …")) can locate the
+	// same binary instead of falling back to whatever rugo happens to be
+	// on PATH. Don't overwrite if a parent already set it.
+	if os.Getenv("RUGO_BIN") == "" {
+		if self, err := os.Executable(); err == nil {
+			os.Setenv("RUGO_BIN", self)
+		}
+	}
+
 	cmd := &cli.Command{
 		Name:                   "rugo",
 		Usage:                  "A Ruby-inspired language that compiles to Go",
