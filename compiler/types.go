@@ -281,6 +281,15 @@ type TypeInfo struct {
 	// in straight-line code), whereas ExprTypes returns the conservative
 	// storage union used by codegen for variable declarations.
 	VarUseTypes map[ast.Expr]RugoType
+	// VarFnSigs maps identifier read sites used as the callee of a
+	// CallExpr to the annotated `fn(...)` lambda the variable is provably
+	// bound to at that point. Population requires:
+	//   - the lambda has at least one annotated param or an annotated return
+	//   - the variable's binding is unambiguous at the read site (single
+	//     source after sequential reassignments and branch joins)
+	// Used by the Tier 4 call-site checker to validate arguments against
+	// lambda annotations the same way it does for `def` callees.
+	VarFnSigs map[ast.Expr]*ast.FnExpr
 }
 
 // FuncTypeInfo holds the inferred signature for a function.

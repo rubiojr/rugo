@@ -15,6 +15,7 @@ func Infer(prog *ast.Program) *TypeInfo {
 		FuncTypes:   make(map[string]*FuncTypeInfo),
 		VarTypes:    make(map[string]map[string]RugoType),
 		VarUseTypes: make(map[ast.Expr]RugoType),
+		VarFnSigs:   make(map[ast.Expr]*ast.FnExpr),
 	}
 
 	// Collect all function definitions (skip duplicates — codegen validates them).
@@ -103,16 +104,18 @@ func funcKey(f *ast.FuncDef) string {
 // branch joins; they only diverge within straight-line code where the
 // same variable is reassigned to a different concrete type.
 type typeScope struct {
-	vars    map[string]RugoType
-	current map[string]RugoType
-	parent  *typeScope
+	vars      map[string]RugoType
+	current   map[string]RugoType
+	currentFn map[string]*ast.FnExpr
+	parent    *typeScope
 }
 
 func newTypeScope(parent *typeScope) *typeScope {
 	return &typeScope{
-		vars:    make(map[string]RugoType),
-		current: make(map[string]RugoType),
-		parent:  parent,
+		vars:      make(map[string]RugoType),
+		current:   make(map[string]RugoType),
+		currentFn: make(map[string]*ast.FnExpr),
+		parent:    parent,
 	}
 }
 
@@ -139,6 +142,23 @@ func (s *typeScope) currentGet(name string) RugoType {
 	return TypeDynamic
 }
 
+// currentFnGet returns the annotated-lambda binding for name at this point,
+// or nil if no unambiguous fn binding is in scope.
+//
+// A nil-valued entry in this scope's map is a *tombstone* — it means the
+// name was reassigned in this scope (to something other than an annotated
+// lambda) and explicitly shadows any binding the parent might still hold.
+// Only when the name is fully absent from this scope do we walk up.
+func (s *typeScope) currentFnGet(name string) *ast.FnExpr {
+	if fn, ok := s.currentFn[name]; ok {
+		return fn // nil = explicit shadow / cleared
+	}
+	if s.parent != nil {
+		return s.parent.currentFnGet(name)
+	}
+	return nil
+}
+
 func (s *typeScope) set(name string, t RugoType) {
 	if existing, ok := s.vars[name]; ok {
 		// Storage union: unify across all assignments so codegen sees the
@@ -149,6 +169,21 @@ func (s *typeScope) set(name string, t RugoType) {
 	}
 	// Flow layer: replace, so per-use reads see the latest assignment.
 	s.current[name] = t
+	// Lambda layer: write a nil tombstone so currentFnGet stops at this
+	// scope (shadowing any parent binding) instead of walking up. Callers
+	// that want to preserve a lambda binding go through setFn instead.
+	s.currentFn[name] = nil
+}
+
+// setFn updates both the flow-sensitive type and the lambda binding for
+// name. Pass fn=nil to record a non-lambda assignment (clears the binding,
+// equivalent to plain set).
+func (s *typeScope) setFn(name string, t RugoType, fn *ast.FnExpr) {
+	s.set(name, t)
+	if fn != nil {
+		// Overwrite the tombstone written by set() with the real binding.
+		s.currentFn[name] = fn
+	}
 }
 
 func cloneTypeVars(src map[string]RugoType) map[string]RugoType {
@@ -159,15 +194,64 @@ func cloneTypeVars(src map[string]RugoType) map[string]RugoType {
 	return dst
 }
 
+func cloneTypeFns(src map[string]*ast.FnExpr) map[string]*ast.FnExpr {
+	dst := make(map[string]*ast.FnExpr, len(src))
+	for name, fn := range src {
+		dst[name] = fn
+	}
+	return dst
+}
+
+// extractFnBinding returns the annotated lambda an assignment binds its
+// target to, or nil if the RHS is not a stable annotated-fn binding.
+//
+// Two RHS shapes propagate a binding:
+//   - A `*ast.FnExpr` literal that has at least one annotated param or an
+//     annotated return type.
+//   - A `*ast.IdentExpr` aliasing a variable that already holds an
+//     annotated lambda binding in the current scope.
+//
+// All other RHS shapes return nil — the caller (scope.setFn) treats nil as
+// "clear any previous binding for this target", which gives us the
+// expected semantics for `f = "string"`-style overwrites.
+func extractFnBinding(scope *typeScope, e ast.Expr) *ast.FnExpr {
+	switch v := e.(type) {
+	case *ast.FnExpr:
+		if hasAnnotatedFnSignature(v) {
+			return v
+		}
+	case *ast.IdentExpr:
+		return scope.currentFnGet(v.Name)
+	}
+	return nil
+}
+
+// hasAnnotatedFnSignature reports whether a lambda carries any annotation
+// the call-site checker can act on. Lambdas with no annotations are still
+// valid but have no contract to check, so we don't track them.
+func hasAnnotatedFnSignature(fn *ast.FnExpr) bool {
+	if fn.ReturnType != "" {
+		return true
+	}
+	for _, p := range fn.Params {
+		if p.TypeAnnot != "" {
+			return true
+		}
+	}
+	return false
+}
+
 func inferIfStmt(ti *TypeInfo, scope *typeScope, st *ast.IfStmt) {
 	ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
 
 	baseVars := cloneTypeVars(scope.vars)
 	baseCurrent := cloneTypeVars(scope.current)
+	baseFn := cloneTypeFns(scope.currentFn)
 	newBranchScope := func() *typeScope {
 		branchScope := newTypeScope(scope.parent)
 		branchScope.vars = cloneTypeVars(baseVars)
 		branchScope.current = cloneTypeVars(baseCurrent)
+		branchScope.currentFn = cloneTypeFns(baseFn)
 		return branchScope
 	}
 
@@ -199,11 +283,12 @@ func inferIfStmt(ti *TypeInfo, scope *typeScope, st *ast.IfStmt) {
 		branchScopes = append(branchScopes, newBranchScope())
 	}
 
-	joinBranchScopes(scope, baseVars, baseCurrent, branchScopes)
+	joinBranchScopes(scope, baseVars, baseCurrent, baseFn, branchScopes)
 }
 
 // joinBranchScopes merges per-branch typeScopes into scope, accounting for
-// both the storage-union (vars) and flow-sensitive (current) layers.
+// the storage-union (vars), flow-sensitive type (current), and lambda
+// binding (currentFn) layers.
 //
 // A branch that does not assign to a name contributes to the "untouched"
 // path: it brings the pre-fork base value of the name into the union, and
@@ -212,7 +297,13 @@ func inferIfStmt(ti *TypeInfo, scope *typeScope, st *ast.IfStmt) {
 //
 // For loops, callers should include an explicit empty branch in
 // branchScopes to model "loop body may not have executed".
-func joinBranchScopes(scope *typeScope, baseVars, baseCurrent map[string]RugoType, branchScopes []*typeScope) {
+//
+// Lambda binding merge rule: scope.currentFn[name] is preserved iff every
+// branch's currentFn[name] is the same non-nil pointer. Any divergence,
+// any nil entry, or any branch that didn't bind name with a fn drops the
+// entry. This matches the existing "unresolved is silent" rule used by
+// the Tier 4 call-site checker.
+func joinBranchScopes(scope *typeScope, baseVars, baseCurrent map[string]RugoType, baseFn map[string]*ast.FnExpr, branchScopes []*typeScope) {
 	names := make(map[string]bool)
 	for name := range baseVars {
 		names[name] = true
@@ -220,11 +311,17 @@ func joinBranchScopes(scope *typeScope, baseVars, baseCurrent map[string]RugoTyp
 	for name := range baseCurrent {
 		names[name] = true
 	}
+	for name := range baseFn {
+		names[name] = true
+	}
 	for _, branchScope := range branchScopes {
 		for name := range branchScope.vars {
 			names[name] = true
 		}
 		for name := range branchScope.current {
+			names[name] = true
+		}
+		for name := range branchScope.currentFn {
 			names[name] = true
 		}
 	}
@@ -274,6 +371,57 @@ func joinBranchScopes(scope *typeScope, baseVars, baseCurrent map[string]RugoTyp
 		if mergedCur != TypeUnknown {
 			scope.current[name] = mergedCur
 		}
+
+		// Merge the lambda-binding layer. Three outcomes:
+		//   - All branches agree on the same non-nil binding (or were
+		//     untouched and base had a binding) → write the binding.
+		//   - All branches agree on "no binding" (tombstone or untouched
+		//     with no base) AND no branch wrote a tombstone of its own
+		//     → leave scope.currentFn alone (so currentFnGet falls
+		//     through to the parent).
+		//   - Otherwise → ambiguous → write a tombstone to shadow any
+		//     stale parent binding.
+		var sigCandidate *ast.FnExpr
+		baseFnEntry, baseFnExisted := baseFn[name]
+		ambiguous := false
+		anyBranchTouched := baseFnExisted // base counts as "this scope already has an opinion"
+		first := true
+		for _, branchScope := range branchScopes {
+			fn, ok := branchScope.currentFn[name]
+			if ok {
+				anyBranchTouched = true
+			} else {
+				// Branch didn't touch the binding — fall back to base.
+				if baseFnExisted {
+					fn = baseFnEntry
+				}
+				// If base didn't have it either, fn stays nil; treat
+				// as "no binding from this branch".
+			}
+			if first {
+				sigCandidate = fn
+				first = false
+				continue
+			}
+			if fn != sigCandidate {
+				ambiguous = true
+				break
+			}
+		}
+		switch {
+		case ambiguous:
+			// Different branches disagree. Drop to silent and shadow
+			// any parent state.
+			scope.currentFn[name] = nil
+		case sigCandidate != nil:
+			scope.currentFn[name] = sigCandidate
+		case anyBranchTouched:
+			// All branches agreed on "no binding", but at least one
+			// branch (or the base) actively shadowed. Preserve that.
+			scope.currentFn[name] = nil
+		}
+		// else: nobody touched it; leave scope.currentFn alone so any
+		// parent binding still shows through.
 	}
 }
 
@@ -281,12 +429,35 @@ func joinBranchScopes(scope *typeScope, baseVars, baseCurrent map[string]RugoTyp
 // post-loop flow-sensitive types with the pre-loop snapshot. The storage
 // (vars) layer is not touched here because set() already unifies on every
 // write — the union of all writes is preserved naturally.
-func mergeLoopCurrent(scope *typeScope, baseCurrent map[string]RugoType) {
+//
+// The lambda binding layer is also merged: any binding that was changed,
+// cleared, or established only inside the loop body is dropped. Only
+// bindings that match the pre-loop snapshot exactly (or were untouched)
+// survive — the loop may run zero times, so we cannot rely on body-set
+// bindings being present at all read sites after the loop.
+//
+// "Drop" here means: write a tombstone (nil) so any parent-scope binding
+// is shadowed too. If the base also had no entry, we delete entirely so
+// currentFnGet falls through to the parent.
+func mergeLoopCurrent(scope *typeScope, baseCurrent map[string]RugoType, baseFn map[string]*ast.FnExpr) {
 	for name, t := range scope.current {
 		if base, ok := baseCurrent[name]; ok {
 			scope.current[name] = unifyTypes(base, t)
 		} else {
 			scope.current[name] = unifyTypes(t, TypeNil)
+		}
+	}
+	for name, postFn := range scope.currentFn {
+		baseFnEntry, baseHad := baseFn[name]
+		if !baseHad {
+			// Loop body created the entry. Drop entirely so the post-loop
+			// view falls back to the parent scope's binding (if any).
+			delete(scope.currentFn, name)
+		} else if postFn != baseFnEntry {
+			// Loop body changed the binding. The loop may not have run,
+			// so we cannot trust either the pre- or post-loop value.
+			// Use a tombstone to be silent at any later call site.
+			scope.currentFn[name] = nil
 		}
 	}
 }
@@ -301,10 +472,12 @@ func inferCaseStmt(ti *TypeInfo, scope *typeScope, st *ast.CaseStmt) {
 
 	baseVars := cloneTypeVars(scope.vars)
 	baseCurrent := cloneTypeVars(scope.current)
+	baseFn := cloneTypeFns(scope.currentFn)
 	newBranchScope := func() *typeScope {
 		branchScope := newTypeScope(scope.parent)
 		branchScope.vars = cloneTypeVars(baseVars)
 		branchScope.current = cloneTypeVars(baseCurrent)
+		branchScope.currentFn = cloneTypeFns(baseFn)
 		return branchScope
 	}
 
@@ -347,7 +520,7 @@ func inferCaseStmt(ti *TypeInfo, scope *typeScope, st *ast.CaseStmt) {
 		branchScopes = append(branchScopes, newBranchScope())
 	}
 
-	joinBranchScopes(scope, baseVars, baseCurrent, branchScopes)
+	joinBranchScopes(scope, baseVars, baseCurrent, baseFn, branchScopes)
 }
 
 // inferCaseExpr is the expression-form counterpart to inferCaseStmt; it
@@ -358,10 +531,12 @@ func inferCaseExpr(ti *TypeInfo, scope *typeScope, ex *ast.CaseExpr) RugoType {
 
 	baseVars := cloneTypeVars(scope.vars)
 	baseCurrent := cloneTypeVars(scope.current)
+	baseFn := cloneTypeFns(scope.currentFn)
 	newBranchScope := func() *typeScope {
 		branchScope := newTypeScope(scope.parent)
 		branchScope.vars = cloneTypeVars(baseVars)
 		branchScope.current = cloneTypeVars(baseCurrent)
+		branchScope.currentFn = cloneTypeFns(baseFn)
 		return branchScope
 	}
 
@@ -400,7 +575,7 @@ func inferCaseExpr(ti *TypeInfo, scope *typeScope, ex *ast.CaseExpr) RugoType {
 		branchScopes = append(branchScopes, newBranchScope())
 	}
 
-	joinBranchScopes(scope, baseVars, baseCurrent, branchScopes)
+	joinBranchScopes(scope, baseVars, baseCurrent, baseFn, branchScopes)
 	return TypeDynamic
 }
 
@@ -490,7 +665,8 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 	switch st := s.(type) {
 	case *ast.AssignStmt:
 		t := inferExpr(ti, scope, st.Value)
-		scope.set(st.Target, t)
+		fn := extractFnBinding(scope, st.Value)
+		scope.setFn(st.Target, t, fn)
 
 	case *ast.ExprStmt:
 		inferExpr(ti, scope, st.Expression)
@@ -505,6 +681,7 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 		inferExpr(ti, scope, st.Condition)
 		ti.ExprTypes[st.Condition] = inferExpr(ti, scope, st.Condition)
 		baseCurrentWhile := cloneTypeVars(scope.current)
+		baseFnWhile := cloneTypeFns(scope.currentFn)
 		// Infer body twice: the first pass widens variable types via
 		// unify-on-set (vars layer) and seeds VarUseTypes for reads; the
 		// second pass propagates the widening into expression types and
@@ -516,7 +693,7 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 		}
 		// Model "loop body may not have executed" for the flow-sensitive
 		// layer by unioning back with the pre-loop snapshot.
-		mergeLoopCurrent(scope, baseCurrentWhile)
+		mergeLoopCurrent(scope, baseCurrentWhile, baseFnWhile)
 
 	case *ast.ForStmt:
 		inferExpr(ti, scope, st.Collection)
@@ -527,6 +704,7 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 			scope.set(st.IndexVar, loopVarType)
 		}
 		baseCurrentFor := cloneTypeVars(scope.current)
+		baseFnFor := cloneTypeFns(scope.currentFn)
 		// Infer body twice: the first pass may widen variable types
 		// (e.g. lines = lines + dynamic_var), and the second pass
 		// ensures expression types reflect the widened variables.
@@ -535,7 +713,7 @@ func inferStmt(ti *TypeInfo, scope *typeScope, s ast.Statement) {
 				inferStmt(ti, scope, s)
 			}
 		}
-		mergeLoopCurrent(scope, baseCurrentFor)
+		mergeLoopCurrent(scope, baseCurrentFor, baseFnFor)
 
 	case *ast.ReturnStmt:
 		if st.Value != nil {
@@ -669,6 +847,18 @@ func inferExprInner(ti *TypeInfo, scope *typeScope, e ast.Expr) RugoType {
 			cur = unifyTypes(prev, cur)
 		}
 		ti.VarUseTypes[e] = cur
+		// Record the lambda binding (Tier 4) if one is in scope. For
+		// multi-round inference, treat any disagreement with a previously
+		// recorded binding as ambiguous and drop the entry.
+		if fn := scope.currentFnGet(ex.Name); fn != nil {
+			if prev, hadPrev := ti.VarFnSigs[e]; hadPrev && prev != fn {
+				delete(ti.VarFnSigs, e)
+			} else {
+				ti.VarFnSigs[e] = fn
+			}
+		} else {
+			delete(ti.VarFnSigs, e)
+		}
 		return scope.get(ex.Name)
 
 	case *ast.BinaryExpr:
@@ -910,6 +1100,19 @@ func inferCall(ti *TypeInfo, scope *typeScope, e *ast.CallExpr) RugoType {
 
 	// Check if this is a call to a user-defined function.
 	if ident, ok := e.Func.(*ast.IdentExpr); ok {
+		// Record any annotated lambda binding currently in scope for this
+		// callee identifier so the Tier 4 call-site check can find it.
+		// Multi-round inference: drop on disagreement to stay conservative.
+		if fn := scope.currentFnGet(ident.Name); fn != nil {
+			if prev, hadPrev := ti.VarFnSigs[ident]; hadPrev && prev != fn {
+				delete(ti.VarFnSigs, ident)
+			} else {
+				ti.VarFnSigs[ident] = fn
+			}
+		} else {
+			delete(ti.VarFnSigs, ident)
+		}
+
 		// Built-in functions return dynamic.
 		switch ident.Name {
 		case "puts", "print", "__shell__", "__capture__", "__pipe_shell__":

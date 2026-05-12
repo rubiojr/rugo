@@ -1937,3 +1937,381 @@ rats "tier3: after case-stmt no-else, ident arg is union and flagged"
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot pass")
 end
+
+# =====================================================================
+# Section: Tier 4 fn lambda call-site checks
+# =====================================================================
+# When a variable is assigned an annotated `fn(...)` lambda and later
+# called by name, the compiler validates the arguments against the
+# lambda's parameter annotations the same way it does for `def`. The
+# binding is tracked flow-sensitively: aliasing propagates the signature,
+# reassignment to a different annotated lambda updates it, reassignment
+# to a non-fn value clears it, and merge ambiguity drops it silently
+# (matching the existing "unresolved is silent" gradual-typing rule).
+
+rats "tier4: lambda direct binding rejects literal type mismatch"
+  source = <<~RUGO
+    square = fn(n : int) : int
+      return n * n
+    end
+    puts(square("oops"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
+  test.assert_contains(combined, "parameter 'n' declared as int")
+end
+
+rats "tier4: lambda direct binding accepts matching literal"
+  source = <<~RUGO
+    square = fn(n : int) : int
+      return n * n
+    end
+    puts(square(7))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "49")
+end
+
+rats "tier4: lambda binding flagged for second-arg mismatch"
+  source = <<~RUGO
+    add = fn(a : int, b : int) : int
+      return a + b
+    end
+    puts(add(1, "oops"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass string literal as argument 2 to 'add'")
+  test.assert_contains(combined, "parameter 'b' declared as int")
+end
+
+rats "tier4: aliasing propagates the lambda signature"
+  source = <<~RUGO
+    square = fn(n : int) : int
+      return n * n
+    end
+    g = square
+    puts(g("oops"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'g'")
+  test.assert_contains(combined, "parameter 'n' declared as int")
+end
+
+rats "tier4: aliased lambda accepts matching literal"
+  source = <<~RUGO
+    square = fn(n : int) : int
+      return n * n
+    end
+    g = square
+    puts(g(6))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "36")
+end
+
+rats "tier4: reassignment to a different annotated lambda uses new sig"
+  source = <<~RUGO
+    f = fn(n : int) : int
+      return n
+    end
+    f = fn(arr : array) : array
+      return arr
+    end
+    puts(f(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass int literal as argument 1 to 'f'")
+  test.assert_contains(combined, "parameter 'arr' declared as array")
+end
+
+rats "tier4: reassignment to non-fn value clears signature (silent)"
+  source = <<~RUGO
+    f = fn(n : int) : int
+      return n
+    end
+    f = "not a fn anymore"
+    puts(len(f))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "16")
+end
+
+rats "tier4: variable arg flow-sensitive narrowing through reassignment"
+  source = <<~RUGO
+    square = fn(n : int) : int
+      return n * n
+    end
+    y = "h"
+    y = 5
+    puts(square(y))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "25")
+end
+
+rats "tier4: variable arg with concrete wrong type flagged"
+  source = <<~RUGO
+    square = fn(n : int) : int
+      return n * n
+    end
+    y = "hello"
+    square(y)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass string value as argument 1 to 'square'")
+end
+
+rats "tier4: branch divergence drops signature (silent at call)"
+  source = <<~RUGO
+    if true
+      f = fn(n : int) : int
+        return n
+      end
+    else
+      f = fn(s : string) : string
+        return s
+      end
+    end
+    # f's signature is ambiguous after the merge; the call must be
+    # silent (no compile error) and fall back to dynamic dispatch.
+    puts(f(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "tier4: lambda passed as arg to higher-order func is silent"
+  source = <<~RUGO
+    def apply(f, x)
+      return f(x)
+    end
+    inc = fn(n : int) : int
+      return n + 1
+    end
+    # apply's parameter has no annotation, so passing inc here cannot
+    # be checked. Calls THROUGH apply are unchecked.
+    puts(apply(inc, 41))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "tier4: lambda inside an array is silent at call site"
+  source = <<~RUGO
+    arr = [fn(n : int) : int
+      return n + 1
+    end]
+    # arr[0]("oops") is an indexed call; the callee is not a bare
+    # IdentExpr so the Tier 4 check does not fire. Runtime handles it.
+    puts(arr[0](41))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "tier4: lambda inside function body — local scope check"
+  source = <<~RUGO
+    def outer()
+      g = fn(n : int) : int
+        return n * 2
+      end
+      return g("oops")
+    end
+    outer()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'g'")
+end
+
+rats "tier4: lambda with no annotated params — no check fires"
+  source = <<~RUGO
+    f = fn(n)
+      return n
+    end
+    puts(f("anything"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "anything")
+end
+
+rats "tier4: mixed annotated/unannotated lambda params — only annotated checked"
+  source = <<~RUGO
+    f = fn(a, b : int)
+      return b
+    end
+    puts(f("anything", "oops"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass string literal as argument 2 to 'f'")
+  test.assert_contains(combined, "parameter 'b' declared as int")
+end
+
+rats "tier4: lambda with return-only annotation does NOT trigger arg checks"
+  source = <<~RUGO
+    f = fn(n) : int
+      return 0
+    end
+    puts(f("anything"))
+  RUGO
+  result = eval.run(source)
+  # n has no annotation, so passing a string is silent at the call site.
+  test.assert_eq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_eq(str.contains(combined, "cannot pass"), false)
+end
+
+rats "tier4: --no-infer disables lambda call-site checks"
+  source = <<~RUGO
+    square = fn(n : int) : int
+      return n
+    end
+    puts(square("oops"))
+  RUGO
+  # Write the snippet to a tempfile and run rugo with --no-infer
+  # to verify the lambda check is gated on inference like the def
+  # check is.
+  dir = test.tmpdir()
+  path = dir + "/snippet.rugo"
+  test.write_file(path, source)
+  result = test.run("rugo run --no-infer " + path)
+  combined = result["output"] + result["output"]
+  test.assert_eq(str.contains(combined, "cannot pass string literal"), false)
+end
+
+rats "tier4: permissive rule — int passed where string-annotated lambda param"
+  source = <<~RUGO
+    f = fn(name : string)
+      puts("hi " + name)
+    end
+    x = 42
+    f(x)
+  RUGO
+  result = eval.run(source)
+  # Per compatibility rule, `string` annotations accept anything.
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hi 42")
+end
+
+rats "tier4: permissive rule — int passed where float-annotated lambda param"
+  source = <<~RUGO
+    f = fn(x : float) : float
+      return x + 1.0
+    end
+    puts(f(2))
+  RUGO
+  result = eval.run(source)
+  # Numeric family is mutually compatible.
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+end
+
+rats "tier4: lambda call-site check skips method/dot calls"
+  source = <<~RUGO
+    f = fn(n : int) : int
+      return n
+    end
+    h = {"go" => f}
+    # h["go"](...) is a method/index call, not a bare ident — skipped.
+    puts(h["go"]("oops"))
+  RUGO
+  result = eval.run(source)
+  # Should compile (no compile error from Tier 4); runtime may fail.
+  combined = result["output"] + result["output"]
+  test.assert_eq(str.contains(combined, "cannot pass string literal"), false)
+end
+
+rats "tier4: lambda param shadows outer fn binding (no false positive)"
+  # Regression: an inner fn lambda whose own param shadows an outer
+  # variable that happens to hold an annotated lambda. The inner call
+  # MUST resolve to the param, not fall through to the outer binding.
+  source = <<~RUGO
+    f = fn(n : int) : int
+      return n
+    end
+    g = fn(f)
+      return f("ok")
+    end
+    puts(g(42))
+  RUGO
+  result = eval.run(source)
+  # The compile-time Tier 4 check must NOT fire on `f("ok")` inside g.
+  combined = result["output"] + result["output"]
+  test.assert_eq(str.contains(combined, "cannot pass string literal"), false)
+end
+
+rats "tier4: function-body local shadows top-level fn binding"
+  # Inside a def, a local rebinding to a non-fn value must not be
+  # confused with the outer fn variable. (def bodies use a fresh
+  # inference scope so this is naturally silent, but keep a guard.)
+  source = <<~RUGO
+    f = fn(n : int) : int
+      return n
+    end
+    def use_local()
+      f = "not a fn"
+      return f
+    end
+    puts(use_local())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "not a fn")
+end
+
+rats "tier4: inner if/else cannot leak fn binding to outer scope"
+  # Both arms drop the binding (or never establish one); after the if,
+  # the outer call must resolve against the original fn binding.
+  source = <<~RUGO
+    f = fn(n : int) : int
+      return n
+    end
+    if 1 == 1
+      f = "x"
+    else
+      f = 99
+    end
+    # Both arms cleared the binding, so calling f after the if is
+    # silent at the Tier 4 layer (runtime will fail).
+    nil
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "tier4: aliasing chain of three propagates signature"
+  source = <<~RUGO
+    f = fn(n : int) : int
+      return n
+    end
+    g = f
+    h = g
+    puts(h("oops"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'h'")
+  test.assert_contains(combined, "parameter 'n' declared as int")
+end

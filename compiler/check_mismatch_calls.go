@@ -35,7 +35,10 @@ func checkCallSites(prog *ast.Program, ti *TypeInfo, sourceFile string) error {
 		funcs:      collectAnnotatedFuncs(prog),
 		ti:         ti,
 	}
-	if len(c.funcs) == 0 {
+	// Tier 4 (variable-bound lambda call sites) lives in TypeInfo.VarFnSigs
+	// and is independent of whether any top-level def has annotations, so
+	// only short-circuit when both sources have nothing to check.
+	if len(c.funcs) == 0 && (ti == nil || len(ti.VarFnSigs) == 0) {
 		return nil
 	}
 	for _, s := range prog.Statements {
@@ -425,20 +428,40 @@ func (c *callChecker) walkExpr(e ast.Expr, line int, file string, currentNS stri
 // resolved as `currentNS.f` (sibling call within the same module) before
 // falling back to a top-level `f`, matching codegen's resolution order
 // in buildCallExpr.
+//
+// If the identifier does not name a top-level def, fall back to Tier 4:
+// look up an annotated lambda binding recorded for the call's IdentExpr
+// in TypeInfo.VarFnSigs and validate against its signature.
 func (c *callChecker) checkCall(call *ast.CallExpr, line int, file string, currentNS string) error {
 	ident, ok := call.Func.(*ast.IdentExpr)
 	if !ok {
 		return nil
 	}
-	fn := c.resolveCallee(ident.Name, currentNS)
-	if fn == nil {
+	if fn := c.resolveCallee(ident.Name, currentNS); fn != nil {
+		return c.checkArgs(call.Args, fn.Params, displayCalleeName(ident.Name, fn.Namespace), line, file)
+	}
+	// Tier 4 fallback: variable-bound annotated lambda.
+	if c.ti == nil {
 		return nil
 	}
-	for i, arg := range call.Args {
-		if i >= len(fn.Params) {
+	fnExpr, ok := c.ti.VarFnSigs[ident]
+	if !ok || fnExpr == nil {
+		return nil
+	}
+	return c.checkArgs(call.Args, fnExpr.Params, ident.Name, line, file)
+}
+
+// checkArgs validates a list of call arguments against a parameter list
+// (from a def or a tracked annotated lambda). It is the inner loop shared
+// by both Tier 3 (direct def call) and Tier 4 (variable-bound lambda
+// call) checks. calleeName is the user-facing name to put in error
+// messages.
+func (c *callChecker) checkArgs(args []ast.Expr, params []ast.Param, calleeName string, line int, file string) error {
+	for i, arg := range args {
+		if i >= len(params) {
 			break
 		}
-		p := fn.Params[i]
+		p := params[i]
 		if p.TypeAnnot == "" {
 			continue
 		}
@@ -453,14 +476,15 @@ func (c *callChecker) checkCall(call *ast.CallExpr, line int, file string, curre
 			}
 			return &ast.UserError{Msg: fmt.Sprintf(
 				"%s:%d: cannot pass %s literal as argument %d to '%s' (parameter '%s' declared as %s)",
-				file, line, displayTypeName(argType), i+1, displayCalleeName(ident.Name, fn.Namespace),
+				file, line, displayTypeName(argType), i+1, calleeName,
 				p.Name, displayTypeName(annot),
 			)}
 		}
-		// Path 2 (Tier 3): variable / non-literal argument — consult the
-		// flow-sensitive type recorded for that exact expression. We only
-		// flag when the inferred type is fully resolved AND incompatible;
-		// dynamic or unknown types pass silently.
+		// Path 2 (Tier 3 / Tier 4): variable / non-literal argument —
+		// consult the flow-sensitive type recorded for that exact
+		// expression. We only flag when the inferred type is fully
+		// resolved AND incompatible; dynamic or unknown types pass
+		// silently.
 		if c.ti == nil {
 			continue
 		}
@@ -473,7 +497,7 @@ func (c *callChecker) checkCall(call *ast.CallExpr, line int, file string, curre
 		}
 		return &ast.UserError{Msg: fmt.Sprintf(
 			"%s:%d: cannot pass %s value as argument %d to '%s' (parameter '%s' declared as %s)",
-			file, line, displayTypeName(argType), i+1, displayCalleeName(ident.Name, fn.Namespace),
+			file, line, displayTypeName(argType), i+1, calleeName,
 			p.Name, displayTypeName(annot),
 		)}
 	}
