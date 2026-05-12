@@ -300,41 +300,25 @@ func displayTypeName(t RugoType) string {
 // type can flow into a **return** slot declared with the given annotation
 // without the inferrer being able to prove a definite conflict.
 //
-// This is the *permissive* rule used at return sites: the codegen inserts
-// numeric coercion wrappers (rugo_to_int, rugo_to_float) and stringifies
-// anything for a string-typed return, so the numeric family is mutually
-// compatible and `string`/`bool`/`any` annotations accept anything.
-// Unresolved inference (`unknown`, `dynamic`) is always compatible.
+// The rule is strict (same as call-site and assignment-context), with a
+// numeric runtime-coercion carve-out: codegen inserts rugo_to_int /
+// rugo_to_float wrappers at the return boundary, so `Integer` and
+// `Float` are mutually compatible and `Bool` flows freely into either
+// numeric return type. `String`/`Bool` annotations do NOT silently
+// accept other types — that surprised users and hid real type errors.
+// `Any` annotations and `Unknown`/`Dynamic` inferred types remain
+// silent (no proof of conflict).
+//
+// In practice this is the same predicate as compatibleCallArgToAnnotation;
+// they are kept as separate names because the two code paths invoke them
+// in semantically different contexts.
 //
 // For assignment-context checks (reassigning an annotated parameter inside
-// the body), use compatibleAssignToAnnotation, which is strict.
+// the body), use compatibleAssignToAnnotation, which is strict with no
+// numeric carve-out (the parameter has a concrete Go type and there is
+// no coercion at the reassignment site).
 func compatibleWithAnnotation(annot, inferred RugoType) bool {
-	if inferred == TypeUnknown || inferred == TypeDynamic {
-		return true
-	}
-	if inferred.IsUnion() {
-		for _, m := range inferred.Members() {
-			if !compatibleWithAnnotation(annot, m) {
-				return false
-			}
-		}
-		return true
-	}
-	switch annot {
-	case TypeDynamic, TypeUnknown:
-		return true
-	case TypeString, TypeBool:
-		return true
-	case TypeInt, TypeFloat:
-		return inferred == TypeInt || inferred == TypeFloat || inferred == TypeBool
-	case TypeArray:
-		return inferred == TypeArray
-	case TypeHash:
-		return inferred == TypeHash
-	case TypeNil:
-		return inferred == TypeNil
-	}
-	return true
+	return compatibleCallArgToAnnotation(annot, inferred)
 }
 
 // compatibleAssignToAnnotation is the **strict** counterpart used when
@@ -383,9 +367,9 @@ func compatibleAssignToAnnotation(annot, inferred RugoType) bool {
 // numeric carve-out).
 //
 // Use this for call-site checks (literal args, variable args) and for
-// parameter default-value checks. For *return* values, use the
-// permissive compatibleWithAnnotation — codegen really does stringify
-// or coerce-to-bool whatever the return slot needs.
+// parameter default-value checks. The return-context predicate
+// (compatibleWithAnnotation) is currently a thin alias of this function
+// — return slots use the same strict rule with the numeric carve-out.
 func compatibleCallArgToAnnotation(annot, inferred RugoType) bool {
 	if inferred == TypeUnknown || inferred == TypeDynamic {
 		return true

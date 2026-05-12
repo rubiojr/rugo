@@ -1182,7 +1182,7 @@ rats "mismatch: float -> int return is allowed (numeric coercion)"
   test.assert_eq(result["status"], 0)
 end
 
-rats "mismatch: returning Anything from string-annotated function is allowed"
+rats "mismatch: returning Integer from string-annotated function errors"
   source = <<~RUGO
     def f() : String
       return 42
@@ -1190,7 +1190,127 @@ rats "mismatch: returning Anything from string-annotated function is allowed"
     puts(f())
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Integer value from function declared returning String")
+end
+
+rats "mismatch: returning Array from string-annotated function errors"
+  source = <<~RUGO
+    def f() : String
+      return [1, 2, 3]
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Array value from function declared returning String")
+end
+
+rats "mismatch: returning Hash from string-annotated function errors"
+  source = <<~RUGO
+    def f() : String
+      return {a: 1}
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Hash value from function declared returning String")
+end
+
+rats "mismatch: returning Nil from string-annotated function errors"
+  source = <<~RUGO
+    def f() : String
+      return nil
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Nil value from function declared returning String")
+end
+
+rats "mismatch: returning Bool from string-annotated function errors"
+  source = <<~RUGO
+    def f() : String
+      return true
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Bool value from function declared returning String")
+end
+
+rats "mismatch: returning Integer from bool-annotated function errors"
+  source = <<~RUGO
+    def f() : Bool
+      return 42
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Integer value from function declared returning Bool")
+end
+
+rats "mismatch: returning String from bool-annotated function errors"
+  source = <<~RUGO
+    def f() : Bool
+      return "yes"
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return String value from function declared returning Bool")
+end
+
+rats "mismatch: returning Array from bool-annotated function errors"
+  source = <<~RUGO
+    def f() : Bool
+      return [1]
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Array value from function declared returning Bool")
+end
+
+rats "mismatch: implicit Integer return from string-annotated function errors"
+  source = <<~RUGO
+    def f() : String
+      42
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot implicitly return Integer value")
+end
+
+rats "mismatch: returning tracked Integer var from string-annotated function errors"
+  source = <<~RUGO
+    def f() : String
+      x = 42
+      return x
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Integer value from function declared returning String")
 end
 
 rats "mismatch: any-annotated return accepts anything"

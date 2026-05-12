@@ -12,9 +12,10 @@ import (
 // TestCompatibleWithAnnotation locks the mismatch-detection
 // compatibility table for **return-context** checks: returning a value
 // whose inferred type concretely conflicts with the annotated return
-// type. Return-context is permissive because the codegen inserts
-// numeric coercion (rugo_to_int, rugo_to_float) at the return site,
-// and stringifies anything for a string-typed return.
+// type. The rule is strict (same as call-site) with a numeric
+// runtime-coercion carve-out (rugo_to_int / rugo_to_float). Unlike
+// earlier versions, `String`/`Bool` annotations do NOT silently accept
+// arbitrary types — that hid real type errors.
 func TestCompatibleWithAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -32,15 +33,22 @@ func TestCompatibleWithAnnotation(t *testing.T) {
 		{"any annot, string inferred", TypeDynamic, TypeString, true},
 		{"any annot, nil inferred", TypeDynamic, TypeNil, true},
 
-		// `string` and `bool` annotations accept anything (runtime coerces).
-		{"string annot, int inferred", TypeString, TypeInt, true},
-		{"string annot, float inferred", TypeString, TypeFloat, true},
-		{"string annot, bool inferred", TypeString, TypeBool, true},
-		{"string annot, nil inferred", TypeString, TypeNil, true},
-		{"bool annot, int inferred", TypeBool, TypeInt, true},
-		{"bool annot, string inferred", TypeBool, TypeString, true},
+		// Strict: `string` and `bool` annotations only accept matching values.
+		{"string annot, string inferred", TypeString, TypeString, true},
+		{"string annot, int inferred", TypeString, TypeInt, false},
+		{"string annot, float inferred", TypeString, TypeFloat, false},
+		{"string annot, bool inferred", TypeString, TypeBool, false},
+		{"string annot, nil inferred", TypeString, TypeNil, false},
+		{"string annot, array inferred", TypeString, TypeArray, false},
+		{"string annot, hash inferred", TypeString, TypeHash, false},
+		{"bool annot, bool inferred", TypeBool, TypeBool, true},
+		{"bool annot, int inferred", TypeBool, TypeInt, false},
+		{"bool annot, float inferred", TypeBool, TypeFloat, false},
+		{"bool annot, string inferred", TypeBool, TypeString, false},
+		{"bool annot, nil inferred", TypeBool, TypeNil, false},
+		{"bool annot, array inferred", TypeBool, TypeArray, false},
 
-		// Numeric family is mutually compatible.
+		// Numeric family is mutually compatible (codegen coerces).
 		{"int annot, int inferred", TypeInt, TypeInt, true},
 		{"int annot, float inferred", TypeInt, TypeFloat, true},
 		{"int annot, bool inferred", TypeInt, TypeBool, true},
@@ -152,10 +160,13 @@ func TestCompatibleAssignToAnnotation(t *testing.T) {
 // the call boundary, so Integer ↔ Float are mutually compatible, and
 // Bool flows freely into numeric params (runtime treats it as 0/1).
 //
-// Unlike the return-context rule (compatibleWithAnnotation), `String`
-// and `Bool` annotations do NOT accept arbitrary types here — passing
-// an Integer to a `: String` param is a compile error, matching the
-// existing `x : String = 42` strict rule for variables.
+// Unlike the assignment-context rule (compatibleAssignToAnnotation),
+// the numeric carve-out also makes Integer and Float mutually
+// compatible at call sites and at return sites. The return-context
+// predicate (compatibleWithAnnotation) is now an alias of this one —
+// `String` / `Bool` annotations no longer silently accept arbitrary
+// values at returns either, matching the same strict rule a
+// `x : String = ...` local variable enforces.
 func TestCompatibleCallArgToAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -457,11 +468,10 @@ compatible bool
 // Numeric-only union passes numeric annotation.
 {"int annot, Integer|Float union", TypeInt, TypeInt | TypeFloat, true},
 {"float annot, Integer|Float union", TypeFloat, TypeInt | TypeFloat, true},
-// String coerces everything -> any union OK.
-{"string annot, Integer|Nil union", TypeString, TypeInt | TypeNil, true},
-{"string annot, Array|Hash union", TypeString, TypeArray | TypeHash, true},
-// Bool coerces everything -> any union OK.
-{"bool annot, Integer|String union", TypeBool, TypeInt | TypeString, true},
+// String/Bool annotations are strict: any non-matching member fails.
+{"string annot, Integer|Nil union", TypeString, TypeInt | TypeNil, false},
+{"string annot, Array|Hash union", TypeString, TypeArray | TypeHash, false},
+{"bool annot, Integer|String union", TypeBool, TypeInt | TypeString, false},
 // `any` annotation accepts any union.
 {"any annot, String|Integer union", TypeDynamic, TypeString | TypeInt, true},
 {"any annot, Hash|Nil union", TypeDynamic, TypeHash | TypeNil, true},
@@ -630,10 +640,10 @@ assert.Contains(t, err.Error(), "declared as Float")
 // callers that omit the argument receive that exact value, so a literal
 // mismatch is a guaranteed type-violation that the compiler can prove.
 //
-// The compatibility rule is the permissive one (matches call-site
-// checks): `string`/`bool`/`any` accept anything, numeric types are
-// mutually compatible, and `nil`/`array`/`hash` only accept their own
-// type.
+// The compatibility rule is the strict call-site rule (now also used
+// at return sites): numeric types are mutually compatible, `Any`
+// accepts anything, and every other annotation requires a same-type
+// literal.
 func TestParamDefaultLiteralMismatch(t *testing.T) {
 	cases := []struct {
 		name       string
