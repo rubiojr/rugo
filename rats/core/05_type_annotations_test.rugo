@@ -1912,6 +1912,106 @@ rats "var annot: any permits any reassignment"
   test.assert_eq(result["output"], "[1, 2]")
 end
 
+rats "var annot: Integer rejects lambda initializer"
+  source = <<~RUGO
+    fnvar : Integer = fn(x) x end
+    puts(fnvar)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot assign Lambda value to variable 'fnvar' declared as Integer")
+end
+
+rats "var annot: String rejects lambda initializer"
+  source = <<~RUGO
+    fnvar : String = fn() "hi" end
+    puts(fnvar)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot assign Lambda value to variable 'fnvar' declared as String")
+end
+
+rats "var annot: Bool rejects lambda initializer"
+  source = <<~RUGO
+    fnvar : Bool = fn() true end
+    puts(fnvar)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot assign Lambda value to variable 'fnvar' declared as Bool")
+end
+
+rats "var annot: Array rejects lambda initializer"
+  source = <<~RUGO
+    fnvar : Array = fn(x) x end
+    puts(fnvar)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot assign Lambda value to variable 'fnvar' declared as Array")
+end
+
+rats "var annot: Hash rejects lambda initializer"
+  source = <<~RUGO
+    fnvar : Hash = fn(x) x end
+    puts(fnvar)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot assign Lambda value to variable 'fnvar' declared as Hash")
+end
+
+rats "var annot: Nil rejects lambda initializer"
+  source = <<~RUGO
+    fnvar : Nil = fn() nil end
+    puts(fnvar)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot assign Lambda value to variable 'fnvar' declared as Nil")
+end
+
+rats "var annot: Any accepts lambda initializer"
+  source = <<~RUGO
+    fnvar : Any = fn(x) x * 2 end
+    puts(fnvar(5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "10")
+end
+
+rats "var annot: Integer rejects lambda reassignment"
+  source = <<~RUGO
+    count : Integer = 0
+    count = fn(x) x end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot assign Lambda value to variable 'count' declared as Integer")
+end
+
+rats "param annot: Integer rejects lambda reassignment inside body"
+  source = <<~RUGO
+    def f(a : Integer)
+      a = fn(x) x end
+    end
+    f(1)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot assign Lambda value to parameter 'a' declared as Integer")
+end
+
 rats "var annot: unknown type name errors with valid type hint"
   source = <<~RUGO
     x : foobar = 0

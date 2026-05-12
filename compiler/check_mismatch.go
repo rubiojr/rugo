@@ -227,6 +227,15 @@ func checkMismatchExpr(e ast.Expr, ti *TypeInfo, sourceFile string) error {
 // kind is the user-facing noun ("parameter" or "variable") used in the
 // error message.
 func checkAssignValue(st *ast.AssignStmt, annot RugoType, kind string, ti *TypeInfo, sourceFile string) error {
+	// Lambda literals (`fn(...) ... end`) infer as TypeDynamic, which the
+	// compatibility predicate treats as "no proof of conflict". Detect
+	// them syntactically so they cannot silently flow into a typed slot.
+	if _, isFn := st.Value.(*ast.FnExpr); isFn && annot != TypeDynamic && annot != TypeUnknown {
+		return &ast.UserError{Msg: fmt.Sprintf(
+			"%s:%d: cannot assign Lambda value to %s '%s' declared as %s",
+			sourceFile, st.SourceLine, kind, st.Target, displayTypeName(annot),
+		)}
+	}
 	inferred := ti.ExprType(st.Value)
 	if compatibleAssignToAnnotation(annot, inferred) {
 		return nil
