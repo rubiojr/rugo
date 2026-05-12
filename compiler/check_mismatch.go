@@ -193,6 +193,9 @@ func checkMismatchFunc(f *ast.FuncDef, ti *TypeInfo, sourceFile string) error {
 			return err
 		}
 	}
+	if err := checkFallOff(f.ReturnType, f.Body, f.Name, f.SourceLine, fileFor(f, sourceFile)); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -213,9 +216,24 @@ func checkMismatchExpr(e ast.Expr, ti *TypeInfo, sourceFile string) error {
 				return true
 			}
 		}
+		if err := checkFallOff(fn.ReturnType, fn.Body, "<lambda>", fnExprLine(fn), sourceFile); err != nil {
+			firstErr = err
+			return true
+		}
 		return false
 	})
 	return firstErr
+}
+
+// fnExprLine returns a representative source line for an FnExpr node.
+// FnExpr itself has no SourceLine field, so we use the first body
+// statement's line, falling back to 0 (which results in a "file:0:"
+// prefix the user can ignore).
+func fnExprLine(fn *ast.FnExpr) int {
+	if len(fn.Body) == 0 {
+		return 0
+	}
+	return fn.Body[0].StmtLine()
 }
 
 // checkAssignValue flags assignments that overwrite an annotated
@@ -271,6 +289,50 @@ func checkBareReturn(line int, retAnnot, sourceFile string) error {
 	return &ast.UserError{Msg: fmt.Sprintf(
 		"%s:%d: cannot return without a value from function declared returning %s",
 		sourceFile, line, displayTypeName(annot),
+	)}
+}
+
+// checkFallOff flags functions whose body can reach the closing `end`
+// without producing a return value. When the return annotation is `Nil`
+// or `Any` (or absent), falling off the end is fine — the caller's
+// contract permits a nil result. For any other annotation, every path
+// through the body must terminate in a `return`, an implicit-return
+// tail expression, or an exhaustive if/case where every branch itself
+// always returns. Without this check the failure mode is either a
+// silent nil result (for unused/reference-typed slots) or a runtime
+// panic from the generated rugo_to_X coercion call.
+//
+// The check runs AFTER ImplicitReturnLowering: tail expressions in
+// function bodies and tail branches of if/case statements have already
+// been wrapped as ImplicitReturnStmt, so the analyzer only needs to
+// look for explicit/implicit return nodes and exhaustive branches.
+// Reuses bodyAlwaysReturns from codegen_stmt.go for the path analysis.
+func checkFallOff(retAnnot string, body []ast.Statement, name string, line int, sourceFile string) error {
+	if retAnnot == "" {
+		return nil
+	}
+	annot, ok := ParseTypeAnnotation(retAnnot)
+	if !ok {
+		// Unknown type names are caught by TypeAnnotationCheck.
+		return nil
+	}
+	// `Nil` and `Any` return slots accept missing-return; everything
+	// else demands an unconditional return on every path.
+	if compatibleWithAnnotation(annot, TypeNil) {
+		return nil
+	}
+	if bodyAlwaysReturns(body) {
+		return nil
+	}
+	if name == "" || name == "<lambda>" {
+		return &ast.UserError{Msg: fmt.Sprintf(
+			"%s:%d: missing return at end of function declared returning %s",
+			sourceFile, line, displayTypeName(annot),
+		)}
+	}
+	return &ast.UserError{Msg: fmt.Sprintf(
+		"%s:%d: missing return at end of function '%s' declared returning %s",
+		sourceFile, line, name, displayTypeName(annot),
 	)}
 }
 

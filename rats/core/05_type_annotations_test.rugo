@@ -1613,6 +1613,402 @@ rats "mismatch: bare return inside fn lambda with int return annotation errors"
 end
 
 # =====================================================================
+# Section 13c — Function body falls off the end without a return value
+# =====================================================================
+# A function annotated with a non-Nil/non-Any return type must guarantee
+# every control-flow path returns a value. If the body can reach its
+# closing `end` without hitting a `return`, an implicit-return tail
+# expression, or an exhaustive if/case that returns on every branch, the
+# compiler must flag it.
+# ---------------------------------------------------------------------
+
+rats "mismatch: empty body in int-annotated function errors"
+  source = <<~RUGO
+    def f() : Integer
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: assignment tail in int-annotated function errors"
+  source = <<~RUGO
+    def f() : Integer
+      x = 5
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: assignment tail in string-annotated function errors"
+  source = <<~RUGO
+    def greet() : String
+      msg = "hello"
+    end
+    puts(greet())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'greet' declared returning String")
+end
+
+rats "mismatch: assignment tail in float-annotated function errors"
+  source = <<~RUGO
+    def f() : Float
+      pi = 3.14
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Float")
+end
+
+rats "mismatch: assignment tail in bool-annotated function errors"
+  source = <<~RUGO
+    def f() : Bool
+      flag = true
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Bool")
+end
+
+rats "mismatch: assignment tail in array-annotated function errors"
+  source = <<~RUGO
+    def f() : Array
+      xs = [1, 2, 3]
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Array")
+end
+
+rats "mismatch: assignment tail in hash-annotated function errors"
+  source = <<~RUGO
+    def f() : Hash
+      h = {a: 1}
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Hash")
+end
+
+rats "mismatch: while-loop tail in int-annotated function errors"
+  source = <<~RUGO
+    def f() : Integer
+      i = 0
+      while i < 3
+        i = i + 1
+      end
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: for-loop tail in int-annotated function errors"
+  source = <<~RUGO
+    def f() : Integer
+      for x in [1, 2, 3]
+        puts(x)
+      end
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: if without else in int-annotated function errors"
+  source = <<~RUGO
+    def f(b : Bool) : Integer
+      if b
+        return 1
+      end
+    end
+    puts(f(false))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: if/else where else falls off in int-annotated function errors"
+  source = <<~RUGO
+    def f(b : Bool) : Integer
+      if b
+        return 1
+      else
+        x = 2
+      end
+    end
+    puts(f(false))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: if/elsif chain missing else in int-annotated function errors"
+  source = <<~RUGO
+    def f(x : Integer) : Integer
+      if x == 1
+        return 10
+      elsif x == 2
+        return 20
+      end
+    end
+    puts(f(3))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: if/elsif/else where one elsif falls off in int-annotated function errors"
+  source = <<~RUGO
+    def f(x : Integer) : Integer
+      if x == 1
+        return 10
+      elsif x == 2
+        y = 20
+      else
+        return 30
+      end
+    end
+    puts(f(2))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: case statement without else in int-annotated function errors"
+  source = <<~RUGO
+    def f(x : Integer) : Integer
+      case x
+      of 0
+        return 100
+      end
+    end
+    puts(f(5))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: case statement where one of-branch falls off in int-annotated function errors"
+  source = <<~RUGO
+    def f(x : Integer) : Integer
+      case x
+      of 0
+        y = 100
+      else
+        return 200
+      end
+    end
+    puts(f(0))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function 'f' declared returning Integer")
+end
+
+rats "mismatch: fall-off in fn lambda with int return annotation errors"
+  source = <<~RUGO
+    g = fn() : Integer
+      x = 5
+    end
+    puts(g())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "missing return at end of function")
+end
+
+rats "mismatch: fall-off error does NOT leak Go-internal type names"
+  source = <<~RUGO
+    def f() : Integer
+      x = 5
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_true(!str.contains(combined, "int value"))
+  test.assert_true(!str.contains(combined, "float64"))
+  test.assert_true(!str.contains(combined, "interface {}"))
+end
+
+# Regression: cases that must continue to compile and run cleanly.
+
+rats "fall-off: explicit return on every if/else branch is allowed"
+  source = <<~RUGO
+    def f(b : Bool) : Integer
+      if b
+        return 1
+      else
+        return 2
+      end
+    end
+    puts(f(true))
+    puts(f(false))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1")
+  test.assert_contains(result["output"], "2")
+end
+
+rats "fall-off: implicit return on every case branch is allowed"
+  source = <<~RUGO
+    def f(x : Integer) : Integer
+      case x
+      of 0
+        100
+      else
+        200
+      end
+    end
+    puts(f(0))
+    puts(f(5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "100")
+  test.assert_contains(result["output"], "200")
+end
+
+rats "fall-off: implicit-return tail in int-annotated function is allowed"
+  source = <<~RUGO
+    def f() : Integer
+      42
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "42")
+end
+
+rats "fall-off: assignment tail in Nil-annotated function is allowed"
+  source = <<~RUGO
+    def f() : Nil
+      x = 5
+    end
+    f()
+    puts("ok")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ok")
+end
+
+rats "fall-off: assignment tail in Any-annotated function is allowed"
+  source = <<~RUGO
+    def f() : Any
+      x = 5
+    end
+    f()
+    puts("ok")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ok")
+end
+
+rats "fall-off: assignment tail in unannotated function is allowed"
+  source = <<~RUGO
+    def f()
+      x = 5
+    end
+    f()
+    puts("ok")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ok")
+end
+
+rats "fall-off: raise tail counts as a returning path (compiles)"
+  source = <<~RUGO
+    def f() : Integer
+      raise("boom")
+    end
+    puts("before")
+    try f() or err
+      puts("caught: " + err)
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "before")
+  test.assert_contains(result["output"], "caught: boom")
+end
+
+rats "fall-off: code after explicit return still compiles"
+  source = <<~RUGO
+    def f() : Integer
+      return 1
+      puts("unreachable")
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1")
+end
+
+rats "fall-off: return inside while followed by return is allowed"
+  source = <<~RUGO
+    def f() : Integer
+      i = 0
+      while i < 10
+        i = i + 1
+      end
+      return i
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "10")
+end
+
+# =====================================================================
 # Section 14 — Call-site argument mismatches with literal args
 # =====================================================================
 # When a literal argument is passed to a user-defined function with an
