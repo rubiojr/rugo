@@ -51,9 +51,9 @@ func (a *annotCheck) checkStmt(s ast.Statement, annotated map[string]bool) error
 	case *ast.AssignStmt:
 		if st.TypeAnnot != "" {
 			if _, ok := ParseTypeAnnotation(st.TypeAnnot); !ok {
-				return &ast.UserError{Msg: fmt.Sprintf(
-					"%s:%d: unknown type %q in annotation for variable '%s' (valid types: %s)",
-					a.sourceFile, st.SourceLine, st.TypeAnnot, st.Target, strings.Join(KnownTypeNames(), ", "),
+				return &ast.UserError{Msg: unknownTypeMsg(
+					a.sourceFile, st.SourceLine, st.TypeAnnot,
+					fmt.Sprintf("annotation for variable '%s'", st.Target),
 				)}
 			}
 			if annotated[st.Target] {
@@ -146,17 +146,17 @@ func validateFuncAnnotations(f *ast.FuncDef, sourceFile string) error {
 			continue
 		}
 		if _, ok := ParseTypeAnnotation(p.TypeAnnot); !ok {
-			return &ast.UserError{Msg: fmt.Sprintf(
-				"%s:%d: unknown type %q in annotation for parameter '%s' (valid types: %s)",
-				srcFile, f.SourceLine, p.TypeAnnot, p.Name, strings.Join(KnownTypeNames(), ", "),
+			return &ast.UserError{Msg: unknownTypeMsg(
+				srcFile, f.SourceLine, p.TypeAnnot,
+				fmt.Sprintf("annotation for parameter '%s'", p.Name),
 			)}
 		}
 	}
 	if f.ReturnType != "" {
 		if _, ok := ParseTypeAnnotation(f.ReturnType); !ok {
-			return &ast.UserError{Msg: fmt.Sprintf(
-				"%s:%d: unknown return type %q on function '%s' (valid types: %s)",
-				srcFile, f.SourceLine, f.ReturnType, f.Name, strings.Join(KnownTypeNames(), ", "),
+			return &ast.UserError{Msg: unknownTypeMsg(
+				srcFile, f.SourceLine, f.ReturnType,
+				fmt.Sprintf("return type on function '%s'", f.Name),
 			)}
 		}
 	}
@@ -169,19 +169,51 @@ func validateFnExprAnnotations(fn *ast.FnExpr, sourceFile string) error {
 			continue
 		}
 		if _, ok := ParseTypeAnnotation(p.TypeAnnot); !ok {
-			return &ast.UserError{Msg: fmt.Sprintf(
-				"%s: unknown type %q in fn parameter '%s' (valid types: %s)",
-				sourceFile, p.TypeAnnot, p.Name, strings.Join(KnownTypeNames(), ", "),
+			return &ast.UserError{Msg: unknownTypeMsgFile(
+				sourceFile, p.TypeAnnot,
+				fmt.Sprintf("fn parameter '%s'", p.Name),
 			)}
 		}
 	}
 	if fn.ReturnType != "" {
 		if _, ok := ParseTypeAnnotation(fn.ReturnType); !ok {
-			return &ast.UserError{Msg: fmt.Sprintf(
-				"%s: unknown return type %q on fn lambda (valid types: %s)",
-				sourceFile, fn.ReturnType, strings.Join(KnownTypeNames(), ", "),
+			return &ast.UserError{Msg: unknownTypeMsgFile(
+				sourceFile, fn.ReturnType, "return type on fn lambda",
 			)}
 		}
 	}
 	return nil
+}
+
+// unknownTypeMsg renders the "unknown type" diagnostic for a `file:line`
+// source location. When the offending name is a v0.29-era lowercase form
+// (e.g. "int"), the message includes a "did you mean Integer?" hint so
+// users migrating from the early annotation syntax see exactly what to
+// change.
+func unknownTypeMsg(file string, line int, typeName, context string) string {
+	if cap, ok := LegacyLowercaseAnnotation(typeName); ok {
+		return fmt.Sprintf(
+			"%s:%d: unknown type %q in %s — did you mean %q? (annotation type names are capitalised; valid types: %s)",
+			file, line, typeName, context, cap, strings.Join(KnownTypeNames(), ", "),
+		)
+	}
+	return fmt.Sprintf(
+		"%s:%d: unknown type %q in %s (valid types: %s)",
+		file, line, typeName, context, strings.Join(KnownTypeNames(), ", "),
+	)
+}
+
+// unknownTypeMsgFile is the file-only variant used by fn lambdas, which
+// historically lack a source-line column on the FnExpr node.
+func unknownTypeMsgFile(file, typeName, context string) string {
+	if cap, ok := LegacyLowercaseAnnotation(typeName); ok {
+		return fmt.Sprintf(
+			"%s: unknown type %q in %s — did you mean %q? (annotation type names are capitalised; valid types: %s)",
+			file, typeName, context, cap, strings.Join(KnownTypeNames(), ", "),
+		)
+	}
+	return fmt.Sprintf(
+		"%s: unknown type %q in %s (valid types: %s)",
+		file, typeName, context, strings.Join(KnownTypeNames(), ", "),
+	)
 }

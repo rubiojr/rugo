@@ -36,6 +36,13 @@ func checkMismatch(prog *ast.Program, ti *TypeInfo, sourceFile string) error {
 	if ti == nil {
 		return nil
 	}
+	// Default-value annotation conflicts (literal-only). Runs before the
+	// flow-sensitive checks because default expressions are part of the
+	// function signature itself, so a violation should be reported as
+	// soon as the signature is encountered.
+	if err := checkParamDefaults(prog, sourceFile); err != nil {
+		return err
+	}
 	// Top-level annotated `x : T = ...` bindings live in the program scope.
 	topAnnots := collectLocalAnnots(prog.Statements, nil)
 	// Body-level conflicts inside annotated def/fn bodies AND top-level
@@ -274,15 +281,17 @@ func returnFlowType(e ast.Expr, ti *TypeInfo) RugoType {
 }
 
 // displayTypeName returns the user-facing name for a RugoType. It differs
-// from String() in two places: TypeFloat is shown as "float" (String()
-// returns "float64" because it is used as a Go type name in codegen), and
-// TypeDynamic is shown as "any" (the rugo source-level keyword).
+// from String() in one place: TypeFloat is shown as "Float" (String()
+// returns "float64" only via GoType() — note: String() returns "Float").
+// In practice this is now a thin wrapper around String() that exists for
+// historical symmetry with code paths that pre-date the unified
+// annotation vocabulary.
 func displayTypeName(t RugoType) string {
 	switch t {
 	case TypeFloat:
-		return "float"
+		return "Float"
 	case TypeDynamic:
-		return "any"
+		return "Any"
 	}
 	return t.String()
 }
@@ -428,4 +437,144 @@ func fileFor(f *ast.FuncDef, fallback string) string {
 		return f.SourceFile
 	}
 	return fallback
+}
+
+// checkParamDefaults flags parameter default values whose static literal
+// type concretely conflicts with the parameter's annotation. The default
+// expression is part of the signature contract (callers omitting the
+// argument receive that exact value), so a literal mismatch is a
+// guaranteed type-violation that the compiler can prove without any
+// inference.
+//
+// Only literal defaults (numbers, strings, bools, nil, array/hash
+// literals, and unary-`-`/`!` of those) are checked. Computed defaults
+// (function calls, identifiers) are silently allowed because their value
+// could legitimately match the annotation.
+//
+// The compatibility rule is the *permissive* one (compatibleWithAnnotation),
+// matching what call-site checks use: `string`/`bool`/`any` accept
+// anything, numeric types are mutually compatible, and `nil`/`array`/`hash`
+// only accept their own type.
+//
+// Both top-level FuncDefs and FnExpr lambdas (anywhere they appear) are
+// validated. Nested FuncDefs are reachable through walkStmtExprs's
+// statement-body recursion.
+func checkParamDefaults(prog *ast.Program, sourceFile string) error {
+	for _, s := range prog.Statements {
+		if err := checkParamDefaultsStmt(s, sourceFile); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkParamDefaultsStmt(s ast.Statement, sourceFile string) error {
+	switch st := s.(type) {
+	case *ast.FuncDef:
+		file := fileFor(st, sourceFile)
+		for _, p := range st.Params {
+			if err := checkParamDefault(p, file, st.SourceLine); err != nil {
+				return err
+			}
+		}
+		for _, child := range st.Body {
+			if err := checkParamDefaultsStmt(child, file); err != nil {
+				return err
+			}
+		}
+	case *ast.TestDef:
+		for _, child := range st.Body {
+			if err := checkParamDefaultsStmt(child, sourceFile); err != nil {
+				return err
+			}
+		}
+	case *ast.BenchDef:
+		for _, child := range st.Body {
+			if err := checkParamDefaultsStmt(child, sourceFile); err != nil {
+				return err
+			}
+		}
+	case *ast.IfStmt:
+		for _, child := range st.Body {
+			if err := checkParamDefaultsStmt(child, sourceFile); err != nil {
+				return err
+			}
+		}
+		for _, c := range st.ElsifClauses {
+			for _, child := range c.Body {
+				if err := checkParamDefaultsStmt(child, sourceFile); err != nil {
+					return err
+				}
+			}
+		}
+		for _, child := range st.ElseBody {
+			if err := checkParamDefaultsStmt(child, sourceFile); err != nil {
+				return err
+			}
+		}
+	case *ast.WhileStmt:
+		for _, child := range st.Body {
+			if err := checkParamDefaultsStmt(child, sourceFile); err != nil {
+				return err
+			}
+		}
+	case *ast.ForStmt:
+		for _, child := range st.Body {
+			if err := checkParamDefaultsStmt(child, sourceFile); err != nil {
+				return err
+			}
+		}
+	}
+	// Walk expressions in this statement for nested FnExpr lambdas.
+	var firstErr error
+	walkStmtExprs(s, func(e ast.Expr) bool {
+		fn, ok := e.(*ast.FnExpr)
+		if !ok {
+			return false
+		}
+		line := stmtLine(s)
+		for _, p := range fn.Params {
+			if err := checkParamDefault(p, sourceFile, line); err != nil {
+				firstErr = err
+				return true
+			}
+		}
+		return false
+	})
+	return firstErr
+}
+
+// checkParamDefault validates a single Param's default expression against
+// its annotation. Returns nil when there is no annotation, no default,
+// the annotation is unknown (caught elsewhere), or the default is not a
+// statically-typed literal.
+func checkParamDefault(p ast.Param, sourceFile string, line int) error {
+	if p.TypeAnnot == "" || p.Default == nil {
+		return nil
+	}
+	annot, ok := ParseTypeAnnotation(p.TypeAnnot)
+	if !ok {
+		return nil
+	}
+	litType, isLit := literalType(p.Default)
+	if !isLit {
+		return nil
+	}
+	if compatibleWithAnnotation(annot, litType) {
+		return nil
+	}
+	return &ast.UserError{Msg: fmt.Sprintf(
+		"%s:%d: cannot use %s literal as default for parameter '%s' declared as %s",
+		sourceFile, line, displayTypeName(litType), p.Name, displayTypeName(annot),
+	)}
+}
+
+// stmtLine returns the source line of a statement when available, or 0
+// when the statement type does not embed BaseStmt.
+func stmtLine(s ast.Statement) int {
+	type lineGetter interface{ StmtLine() int }
+	if g, ok := s.(lineGetter); ok {
+		return g.StmtLine()
+	}
+	return 0
 }

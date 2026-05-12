@@ -103,11 +103,12 @@ func (s *SandboxStmt) node() {}
 func (s *SandboxStmt) stmt() {}
 
 // Param represents a function parameter with an optional default value
-// and an optional type annotation (e.g. "name : int").
+// and an optional type annotation (e.g. "name : Integer").
 //
-// TypeAnnot is the source-level annotation as a lowercase type name
-// ("int", "float", "string", "bool", "array", "hash", "nil", "any"), or
-// empty string when no annotation was provided.
+// TypeAnnot is the source-level annotation as a capitalised type name
+// ("Integer", "Float", "String", "Bool", "Array", "Hash", "Nil", "Any"),
+// or empty string when no annotation was provided. The recognised names
+// mirror what `type_of()` returns at runtime.
 type Param struct {
 	Name      string
 	Default   Expr   // nil if no default value

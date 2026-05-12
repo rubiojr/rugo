@@ -10,7 +10,7 @@ use "str"
 
 rats "annotated function with int params and int return"
   source = <<~RUGO
-    def add(a : int, b : int) : int
+    def add(a : Integer, b : Integer) : Integer
       return a + b
     end
     puts(add(2, 3))
@@ -22,7 +22,7 @@ end
 
 rats "annotated function with string params and string return"
   source = <<~RUGO
-    def greet(name : string) : string
+    def greet(name : String) : String
       return "hello, " + name
     end
     puts(greet("rugo"))
@@ -34,7 +34,7 @@ end
 
 rats "annotated function with float params and float return"
   source = <<~RUGO
-    def avg(a : float, b : float) : float
+    def avg(a : Float, b : Float) : Float
       return (a + b) / 2.0
     end
     puts(avg(1.0, 3.0))
@@ -46,7 +46,7 @@ end
 
 rats "annotated function with bool params and bool return"
   source = <<~RUGO
-    def both(a : bool, b : bool) : bool
+    def both(a : Bool, b : Bool) : Bool
       return a && b
     end
     puts(both(true, true))
@@ -58,9 +58,9 @@ rats "annotated function with bool params and bool return"
   test.assert_contains(result["output"], "false")
 end
 
-rats "annotated function returning bool from comparison"
+rats "annotated function returning Bool from comparison"
   source = <<~RUGO
-    def eq(a : int, b : int) : bool
+    def eq(a : Integer, b : Integer) : Bool
       return a == b
     end
     puts(eq(2, 2))
@@ -74,7 +74,7 @@ end
 
 rats "no-arg function with only a return annotation"
   source = <<~RUGO
-    def pi() : float
+    def pi() : Float
       return 3.14159
     end
     puts(pi())
@@ -90,7 +90,7 @@ end
 
 rats "int param and int return"
   source = <<~RUGO
-    def f(x : int) : int
+    def f(x : Integer) : Integer
       return x + 1
     end
     puts(f(41))
@@ -102,7 +102,7 @@ end
 
 rats "float param and float return"
   source = <<~RUGO
-    def f(x : float) : float
+    def f(x : Float) : Float
       return x * 2.0
     end
     puts(f(1.5))
@@ -114,7 +114,7 @@ end
 
 rats "string param and string return"
   source = <<~RUGO
-    def f(x : string) : string
+    def f(x : String) : String
       return x + "!"
     end
     puts(f("hi"))
@@ -126,7 +126,7 @@ end
 
 rats "bool param and bool return"
   source = <<~RUGO
-    def f(x : bool) : bool
+    def f(x : Bool) : Bool
       return !x
     end
     puts(f(true))
@@ -140,7 +140,7 @@ end
 
 rats "array param and array return"
   source = <<~RUGO
-    def first(arr : array) : array
+    def first(arr : Array) : Array
       return [arr[0]]
     end
     puts(first([10, 20, 30]))
@@ -152,7 +152,7 @@ end
 
 rats "hash param round-trips"
   source = <<~RUGO
-    def keys(h : hash) : array
+    def keys(h : Hash) : Array
       return h.keys()
     end
     out = keys({a: 1, b: 2})
@@ -166,7 +166,7 @@ end
 
 rats "nil annotation on return type"
   source = <<~RUGO
-    def f() : nil
+    def f() : Nil
       return nil
     end
     puts(f())
@@ -178,7 +178,7 @@ end
 
 rats "nil annotation on param"
   source = <<~RUGO
-    def f(x : nil) : any
+    def f(x : Nil) : Any
       return x
     end
     puts(f(nil))
@@ -190,7 +190,7 @@ end
 
 rats "any as param and return is the explicit dynamic escape hatch"
   source = <<~RUGO
-    def echo(x : any) : any
+    def echo(x : Any) : Any
       return x
     end
     puts(echo(42))
@@ -210,7 +210,7 @@ end
 
 rats "annotation only on first parameter"
   source = <<~RUGO
-    def f(a : int, b)
+    def f(a : Integer, b)
       return a + b
     end
     puts(f(2, 3))
@@ -222,7 +222,7 @@ end
 
 rats "annotation only on last parameter"
   source = <<~RUGO
-    def f(a, b : int)
+    def f(a, b : Integer)
       return a + b
     end
     puts(f(2, 3))
@@ -234,7 +234,7 @@ end
 
 rats "annotation only on a middle parameter"
   source = <<~RUGO
-    def f(a, b : int, c)
+    def f(a, b : Integer, c)
       return a + b + c
     end
     puts(f(1, 2, 3))
@@ -246,7 +246,7 @@ end
 
 rats "return-only annotation, no param annotations"
   source = <<~RUGO
-    def label(x) : string
+    def label(x) : String
       return "n=" + x
     end
     puts(label("42"))
@@ -262,7 +262,7 @@ end
 
 rats "annotated param with default value"
   source = <<~RUGO
-    def greet(name : string = "world") : string
+    def greet(name : String = "world") : String
       return "hi, " + name
     end
     puts(greet())
@@ -276,7 +276,7 @@ end
 
 rats "annotation plus default on single int param"
   source = <<~RUGO
-    def inc(a : int = 5) : int
+    def inc(a : Integer = 5) : Integer
       return a + 1
     end
     puts(inc())
@@ -290,7 +290,7 @@ end
 
 rats "mixed annotated and default in same signature"
   source = <<~RUGO
-    def f(a : int, b : int = 10) : int
+    def f(a : Integer, b : Integer = 10) : Integer
       return a + b
     end
     puts(f(2))
@@ -302,13 +302,101 @@ rats "mixed annotated and default in same signature"
   test.assert_contains(result["output"], "5")
 end
 
+rats "default literal mismatch: string default for int param"
+  source = <<~RUGO
+    def f(x : Integer = "hi") : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use String literal as default for parameter 'x' declared as Integer")
+end
+
+rats "default literal mismatch: nil default for int param"
+  source = <<~RUGO
+    def f(x : Integer = nil) : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Nil literal as default for parameter 'x' declared as Integer")
+end
+
+rats "default literal mismatch: int default for array param"
+  source = <<~RUGO
+    def f(x : Array = 42)
+      puts(len(x))
+    end
+    f()
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use Integer literal as default for parameter 'x' declared as Array")
+end
+
+rats "default literal mismatch in fn lambda"
+  source = <<~RUGO
+    double = fn(n : Integer = "oops") : Integer
+      return n
+    end
+    puts(double())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot use String literal as default for parameter 'n' declared as Integer")
+end
+
+rats "default literal: string param accepts int default (permissive)"
+  source = <<~RUGO
+    def f(x : String = 42) : String
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "42")
+end
+
+rats "default literal: int param accepts float default (numeric compat)"
+  source = <<~RUGO
+    def f(x : Integer = 1.5) : Integer
+      return x + 1
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+end
+
+rats "default literal mismatch silenced under --no-infer"
+  source = <<~RUGO
+    def f(x : Integer = "hi") : Integer
+      return x
+    end
+    puts(f())
+  RUGO
+  test.write_file("default_no_infer.rugo", source)
+  result = test.run("rugo run --no-infer default_no_infer.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hi")
+end
+
 # =====================================================================
 # Section 5 — fn lambdas with annotations
 # =====================================================================
 
 rats "fn lambda with int param and return"
   source = <<~RUGO
-    double = fn(x : int) : int
+    double = fn(x : Integer) : Integer
       return x * 2
     end
     puts(double(21))
@@ -323,7 +411,7 @@ rats "fn lambda passed as higher-order argument"
     def apply(f, x)
       return f(x)
     end
-    inc = fn(n : int) : int
+    inc = fn(n : Integer) : Integer
       return n + 1
     end
     puts(apply(inc, 41))
@@ -336,7 +424,7 @@ end
 rats "typed fn lambda used with array.map"
   source = <<~RUGO
     arr = [1, 2, 3]
-    out = arr.map(fn(x : int) : int
+    out = arr.map(fn(x : Integer) : Integer
       return x * 10
     end)
     puts(out)
@@ -348,7 +436,7 @@ end
 
 rats "fn lambda with nil return annotation"
   source = <<~RUGO
-    f = fn() : nil
+    f = fn() : Nil
       return nil
     end
     puts(f())
@@ -364,7 +452,7 @@ end
 
 rats "integer division returns int"
   source = <<~RUGO
-    def div(a : int, b : int) : int
+    def div(a : Integer, b : Integer) : Integer
       return a / b
     end
     puts(div(10, 3))
@@ -376,7 +464,7 @@ end
 
 rats "recursive annotated function (factorial)"
   source = <<~RUGO
-    def factorial(n : int) : int
+    def factorial(n : Integer) : Integer
       if n <= 1
         return 1
       end
@@ -391,13 +479,13 @@ end
 
 rats "mutually recursive annotated functions"
   source = <<~RUGO
-    def is_even(n : int) : bool
+    def is_even(n : Integer) : Bool
       if n == 0
         return true
       end
       return is_odd(n - 1)
     end
-    def is_odd(n : int) : bool
+    def is_odd(n : Integer) : Bool
       if n == 0
         return false
       end
@@ -413,7 +501,7 @@ end
 
 rats "annotated function with multiple return branches"
   source = <<~RUGO
-    def sign(n : int) : string
+    def sign(n : Integer) : String
       if n > 0
         return "positive"
       end
@@ -436,7 +524,7 @@ end
 rats "typed-return function relying on coercion of dynamic body"
   source = <<~RUGO
     use "math"
-    def hypot(a : float, b : float) : float
+    def hypot(a : Float, b : Float) : Float
       return math.sqrt(a * a + b * b)
     end
     puts(hypot(3.0, 4.0))
@@ -452,7 +540,7 @@ end
 
 rats "annotated function chained through pipe"
   source = <<~RUGO
-    def shout(s : string) : string
+    def shout(s : String) : String
       return s + "!"
     end
     echo "hi" | shout | puts
@@ -464,7 +552,7 @@ end
 
 rats "annotated function called from spawn"
   source = <<~RUGO
-    def add(a : int, b : int) : int
+    def add(a : Integer, b : Integer) : Integer
       return a + b
     end
     t = spawn add(2, 3)
@@ -477,10 +565,10 @@ end
 
 rats "annotated functions chained"
   source = <<~RUGO
-    def inc(n : int) : int
+    def inc(n : Integer) : Integer
       return n + 1
     end
-    def dbl(n : int) : int
+    def dbl(n : Integer) : Integer
       return n * 2
     end
     puts(dbl(inc(5)))
@@ -501,7 +589,7 @@ end
 
 rats "int argument coerced to float param"
   source = <<~RUGO
-    def f(a : float, b : float) : float
+    def f(a : Float, b : Float) : Float
       return a + b
     end
     puts(f(3, 4))
@@ -513,7 +601,7 @@ end
 
 rats "int argument coerced to string param"
   source = <<~RUGO
-    def f(a : string) : string
+    def f(a : String) : String
       return a
     end
     puts(f(42))
@@ -525,7 +613,7 @@ end
 
 rats "bool argument coerced to int param"
   source = <<~RUGO
-    def f(a : int) : int
+    def f(a : Integer) : Integer
       return a
     end
     puts(f(true))
@@ -537,9 +625,9 @@ rats "bool argument coerced to int param"
   test.assert_contains(result["output"], "0")
 end
 
-rats "non-numeric string literal as int argument is a compile error"
+rats "non-numeric String literal as int argument is a compile error"
   source = <<~RUGO
-    def add(a : int, b : int) : int
+    def add(a : Integer, b : Integer) : Integer
       return a + b
     end
     puts(add("xyz", "abc"))
@@ -547,8 +635,8 @@ rats "non-numeric string literal as int argument is a compile error"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'add'")
-  test.assert_contains(combined, "parameter 'a' declared as int")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'add'")
+  test.assert_contains(combined, "parameter 'a' declared as Integer")
 end
 
 # =====================================================================
@@ -557,7 +645,7 @@ end
 
 rats "unknown type name in param produces compile error"
   source = <<~RUGO
-    def f(x : integer) : int
+    def f(x : integer) : Integer
       return x
     end
   RUGO
@@ -569,13 +657,14 @@ end
 
 rats "unknown type name in return produces compile error"
   source = <<~RUGO
-    def f(x) : integer
+    def f(x) : foobar
       return x
     end
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["output"], "unknown return type")
+  test.assert_contains(result["output"] + result["output"], "unknown type")
+  test.assert_contains(result["output"] + result["output"], "return type")
 end
 
 rats "capitalized type name rejected (case sensitive)"
@@ -590,15 +679,20 @@ rats "capitalized type name rejected (case sensitive)"
   test.assert_contains(result["output"] + result["output"], "Int")
 end
 
-rats "capitalized nil keyword as type rejected"
+rats "bare nil keyword as type rejected with legacy hint"
+  # Grammar `TypeName = ident | "nil"` accepts the bare `nil` keyword in
+  # annotation position, but it is now rejected as a legacy v0.29
+  # lowercase form with a "did you mean Nil?" hint.
   source = <<~RUGO
-    def f() : Nil
+    def f() : nil
       return nil
     end
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["output"], "unknown return type")
+  test.assert_contains(result["output"] + result["output"], "unknown type")
+  test.assert_contains(result["output"] + result["output"], "did you mean")
+  test.assert_contains(result["output"] + result["output"], "Nil")
 end
 
 rats "uppercase type name rejected"
@@ -620,15 +714,15 @@ rats "valid-types list appears in error message"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["output"], "int")
-  test.assert_contains(result["output"] + result["output"], "float")
-  test.assert_contains(result["output"] + result["output"], "string")
-  test.assert_contains(result["output"] + result["output"], "any")
+  test.assert_contains(result["output"] + result["output"], "Integer")
+  test.assert_contains(result["output"] + result["output"], "Float")
+  test.assert_contains(result["output"] + result["output"], "String")
+  test.assert_contains(result["output"] + result["output"], "Any")
 end
 
 rats "unknown type name inside fn lambda param"
   source = <<~RUGO
-    sq = fn(x : foobar) : int
+    sq = fn(x : foobar) : Integer
       return x * x
     end
   RUGO
@@ -640,13 +734,14 @@ end
 
 rats "unknown type name on fn lambda return"
   source = <<~RUGO
-    sq = fn(x : int) : foobar
+    sq = fn(x : Integer) : foobar
       return x * x
     end
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"] + result["output"], "unknown return type")
+  test.assert_contains(result["output"] + result["output"], "unknown type")
+  test.assert_contains(result["output"] + result["output"], "return type")
   test.assert_contains(result["output"] + result["output"], "fn lambda")
 end
 
@@ -656,7 +751,7 @@ end
 
 rats "numeric literal in place of type name is a parse error"
   source = <<~RUGO
-    def f(x : 42) : int
+    def f(x : 42) : Integer
       return x
     end
   RUGO
@@ -664,9 +759,9 @@ rats "numeric literal in place of type name is a parse error"
   test.assert_neq(result["status"], 0)
 end
 
-rats "string literal in place of type name is a parse error"
+rats "String literal in place of type name is a parse error"
   source = <<~RUGO
-    def f(x : "int") : int
+    def f(x : "int") : Integer
       return x
     end
   RUGO
@@ -676,7 +771,7 @@ end
 
 rats "empty annotation after colon on param is a parse error"
   source = <<~RUGO
-    def f(x : ) : int
+    def f(x : ) : Integer
       return x
     end
   RUGO
@@ -696,7 +791,7 @@ end
 
 rats "double colon is a parse error"
   source = <<~RUGO
-    def f(x : : int) : int
+    def f(x : : Integer) : Integer
       return x
     end
   RUGO
@@ -712,7 +807,7 @@ end
 # =====================================================================
 
 rats "primitive annotations produce typed Go signatures"
-  src = "def add(a : int, b : int) : int\n  return a + b\nend\nputs(add(2, 3))\n"
+  src = "def add(a : Integer, b : Integer) : Integer\n  return a + b\nend\nputs(add(2, 3))\n"
   path = test.tmpdir() + "/typed.rugo"
   test.write_file(path, src)
   result = test.run("rugo emit #{path}")
@@ -721,7 +816,7 @@ rats "primitive annotations produce typed Go signatures"
 end
 
 rats "string annotation produces typed Go string signature"
-  src = "def greet(name : string) : string\n  return \"hi, \" + name\nend\nputs(greet(\"x\"))\n"
+  src = "def greet(name : String) : String\n  return \"hi, \" + name\nend\nputs(greet(\"x\"))\n"
   path = test.tmpdir() + "/str.rugo"
   test.write_file(path, src)
   result = test.run("rugo emit #{path}")
@@ -730,7 +825,7 @@ rats "string annotation produces typed Go string signature"
 end
 
 rats "bool annotation produces typed Go bool signature"
-  src = "def neg(x : bool) : bool\n  return !x\nend\nputs(neg(true))\n"
+  src = "def neg(x : Bool) : Bool\n  return !x\nend\nputs(neg(true))\n"
   path = test.tmpdir() + "/bool.rugo"
   test.write_file(path, src)
   result = test.run("rugo emit #{path}")
@@ -739,7 +834,7 @@ rats "bool annotation produces typed Go bool signature"
 end
 
 rats "any annotation produces interface{} Go signature"
-  src = "def echo(x : any) : any\n  return x\nend\nputs(echo(1))\n"
+  src = "def echo(x : Any) : Any\n  return x\nend\nputs(echo(1))\n"
   path = test.tmpdir() + "/any.rugo"
   test.write_file(path, src)
   result = test.run("rugo emit #{path}")
@@ -748,7 +843,7 @@ rats "any annotation produces interface{} Go signature"
 end
 
 rats "array annotation does not produce typed Go array signature"
-  src = "def first(arr : array) : array\n  return [arr[0]]\nend\nputs(first([1, 2]))\n"
+  src = "def first(arr : Array) : Array\n  return [arr[0]]\nend\nputs(first([1, 2]))\n"
   path = test.tmpdir() + "/arr.rugo"
   test.write_file(path, src)
   result = test.run("rugo emit #{path}")
@@ -757,7 +852,7 @@ rats "array annotation does not produce typed Go array signature"
 end
 
 rats "emit --stats reports annotation coverage"
-  src = "def add(a : int, b : int) : int\n  return a + b\nend\ndef noop(a, b)\n  return nil\nend\nputs(add(1, 2))\n"
+  src = "def add(a : Integer, b : Integer) : Integer\n  return a + b\nend\ndef noop(a, b)\n  return nil\nend\nputs(add(1, 2))\n"
   path = test.tmpdir() + "/stats.rugo"
   test.write_file(path, src)
   result = test.run("rugo emit --stats #{path}")
@@ -776,9 +871,9 @@ end
 rats "limitation: multi-line annotated parameter list is a parse error"
   source = <<~RUGO
     def add(
-      a : int,
-      b : int
-    ) : int
+      a : Integer,
+      b : Integer
+    ) : Integer
       return a + b
     end
     puts(add(2, 3))
@@ -792,7 +887,7 @@ rats "limitation: reassigning annotated int param to string in body errors"
   # for the full structured-diagnostic coverage. This test stays as a
   # smoke check that the exit status is non-zero.
   source = <<~RUGO
-    def f(a : int)
+    def f(a : Integer)
       a = "hello"
       return a
     end
@@ -802,20 +897,24 @@ rats "limitation: reassigning annotated int param to string in body errors"
   test.assert_neq(result["status"], 0)
 end
 
-rats "limitation: no space before colon parses as hash-colon sugar"
-  # The preprocessor rewrites `ident:` (no space) into `"ident" =>`,
-  # so `def f(x:int)` is interpreted differently and the program ends
-  # up running the un-annotated form. This is the documented reason
-  # why a space before ':' is required for type annotations.
+rats "no space before colon still parses as type annotation"
+  # `def f(x:int)` (no space before `:`) is still recognised as a type
+  # annotation site — the preprocessor's hash-colon sugar does not
+  # rewrite identifier-colon-identifier inside a def parameter list.
+  # The legacy lowercase `int` therefore gets caught by the
+  # annotation-vocabulary check and produces the standard
+  # "did you mean Integer?" hint.
   source = <<~RUGO
-    def f(x:int) : int
+    def f(x:int) : Integer
       return x
     end
     puts(f(5))
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "5")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["output"], "unknown type")
+  test.assert_contains(result["output"] + result["output"], "did you mean")
+  test.assert_contains(result["output"] + result["output"], "Integer")
 end
 
 # =====================================================================
@@ -837,7 +936,7 @@ end
 
 rats "mismatch: reassigning annotated int param to string errors with structured message"
   source = <<~RUGO
-    def f(a : int)
+    def f(a : Integer)
       a = "hello"
     end
     puts(f(1))
@@ -845,12 +944,12 @@ rats "mismatch: reassigning annotated int param to string errors with structured
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
+  test.assert_contains(combined, "cannot assign String value to parameter 'a' declared as Integer")
 end
 
 rats "mismatch: error points at the rugo source line, not generated Go"
   source = <<~RUGO
-    def f(a : int)
+    def f(a : Integer)
       a = "hello"
     end
     puts(f(1))
@@ -863,7 +962,7 @@ end
 
 rats "mismatch: reassigning annotated float param to string errors"
   source = <<~RUGO
-    def f(a : float)
+    def f(a : Float)
       a = "oops"
     end
     f(1.0)
@@ -871,12 +970,12 @@ rats "mismatch: reassigning annotated float param to string errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as float")
+  test.assert_contains(combined, "cannot assign String value to parameter 'a' declared as Float")
 end
 
 rats "mismatch: reassigning annotated array param to int errors"
   source = <<~RUGO
-    def f(a : array)
+    def f(a : Array)
       a = 42
     end
     f([1, 2, 3])
@@ -884,12 +983,12 @@ rats "mismatch: reassigning annotated array param to int errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign int value to parameter 'a' declared as array")
+  test.assert_contains(combined, "cannot assign Integer value to parameter 'a' declared as Array")
 end
 
 rats "mismatch: reassigning annotated hash param to array errors"
   source = <<~RUGO
-    def f(h : hash)
+    def f(h : Hash)
       h = [1, 2, 3]
     end
     f({a: 1})
@@ -897,12 +996,12 @@ rats "mismatch: reassigning annotated hash param to array errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign array value to parameter 'h' declared as hash")
+  test.assert_contains(combined, "cannot assign Array value to parameter 'h' declared as Hash")
 end
 
 rats "mismatch: reassigning annotated nil param to int errors"
   source = <<~RUGO
-    def f(x : nil)
+    def f(x : Nil)
       x = 42
     end
     f(nil)
@@ -910,12 +1009,12 @@ rats "mismatch: reassigning annotated nil param to int errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign int value to parameter 'x' declared as nil")
+  test.assert_contains(combined, "cannot assign Integer value to parameter 'x' declared as Nil")
 end
 
 rats "mismatch: int -> float param reassignment errors (strict assign rule)"
   source = <<~RUGO
-    def f(a : int)
+    def f(a : Integer)
       a = 3.14
       return a
     end
@@ -924,12 +1023,12 @@ rats "mismatch: int -> float param reassignment errors (strict assign rule)"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign float value to parameter 'a' declared as int")
+  test.assert_contains(combined, "cannot assign Float value to parameter 'a' declared as Integer")
 end
 
 rats "mismatch: float -> int param reassignment errors (strict assign rule)"
   source = <<~RUGO
-    def f(a : float)
+    def f(a : Float)
       a = 7
       return a
     end
@@ -938,12 +1037,12 @@ rats "mismatch: float -> int param reassignment errors (strict assign rule)"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign int value to parameter 'a' declared as float")
+  test.assert_contains(combined, "cannot assign Integer value to parameter 'a' declared as Float")
 end
 
 rats "mismatch: string annotation rejects non-string reassignment (strict)"
   source = <<~RUGO
-    def f(s : string)
+    def f(s : String)
       s = 42
       return s
     end
@@ -952,12 +1051,12 @@ rats "mismatch: string annotation rejects non-string reassignment (strict)"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign int value to parameter 's' declared as string")
+  test.assert_contains(combined, "cannot assign Integer value to parameter 's' declared as String")
 end
 
 rats "mismatch: bool annotation rejects non-bool reassignment (strict)"
   source = <<~RUGO
-    def f(b : bool)
+    def f(b : Bool)
       b = "anything"
       return b
     end
@@ -966,12 +1065,12 @@ rats "mismatch: bool annotation rejects non-bool reassignment (strict)"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign string value to parameter 'b' declared as bool")
+  test.assert_contains(combined, "cannot assign String value to parameter 'b' declared as Bool")
 end
 
 rats "mismatch: same-type reassignment is fine (int -> int)"
   source = <<~RUGO
-    def f(a : int)
+    def f(a : Integer)
       a = 99
       return a
     end
@@ -984,7 +1083,7 @@ end
 
 rats "mismatch: same-type reassignment is fine (string -> string)"
   source = <<~RUGO
-    def f(s : string)
+    def f(s : String)
       s = "new value"
       return s
     end
@@ -997,7 +1096,7 @@ end
 
 rats "mismatch: any annotation accepts any reassignment"
   source = <<~RUGO
-    def f(x : any)
+    def f(x : Any)
       x = "ok"
       x = 42
       x = [1, 2]
@@ -1009,9 +1108,9 @@ rats "mismatch: any annotation accepts any reassignment"
   test.assert_eq(result["status"], 0)
 end
 
-rats "mismatch: returning string from int-annotated function errors"
+rats "mismatch: returning String from int-annotated function errors"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       return "hi"
     end
     puts(f())
@@ -1019,12 +1118,12 @@ rats "mismatch: returning string from int-annotated function errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot return string value from function declared returning int")
+  test.assert_contains(combined, "cannot return String value from function declared returning Integer")
 end
 
-rats "mismatch: returning array from int-annotated function errors"
+rats "mismatch: returning Array from int-annotated function errors"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       return [1, 2, 3]
     end
     f()
@@ -1032,12 +1131,12 @@ rats "mismatch: returning array from int-annotated function errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot return array value from function declared returning int")
+  test.assert_contains(combined, "cannot return Array value from function declared returning Integer")
 end
 
-rats "mismatch: returning int from nil-annotated function errors"
+rats "mismatch: returning Integer from nil-annotated function errors"
   source = <<~RUGO
-    def f() : nil
+    def f() : Nil
       return 42
     end
     f()
@@ -1045,12 +1144,12 @@ rats "mismatch: returning int from nil-annotated function errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot return int value from function declared returning nil")
+  test.assert_contains(combined, "cannot return Integer value from function declared returning Nil")
 end
 
-rats "mismatch: returning hash from array-annotated function errors"
+rats "mismatch: returning Hash from array-annotated function errors"
   source = <<~RUGO
-    def f() : array
+    def f() : Array
       return {a: 1}
     end
     f()
@@ -1058,12 +1157,12 @@ rats "mismatch: returning hash from array-annotated function errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot return hash value from function declared returning array")
+  test.assert_contains(combined, "cannot return Hash value from function declared returning Array")
 end
 
 rats "mismatch: int -> float return is allowed (numeric coercion)"
   source = <<~RUGO
-    def f() : float
+    def f() : Float
       return 42
     end
     puts(f())
@@ -1074,7 +1173,7 @@ end
 
 rats "mismatch: float -> int return is allowed (numeric coercion)"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       return 3.14
     end
     puts(f())
@@ -1083,9 +1182,9 @@ rats "mismatch: float -> int return is allowed (numeric coercion)"
   test.assert_eq(result["status"], 0)
 end
 
-rats "mismatch: returning anything from string-annotated function is allowed"
+rats "mismatch: returning Anything from string-annotated function is allowed"
   source = <<~RUGO
-    def f() : string
+    def f() : String
       return 42
     end
     puts(f())
@@ -1096,7 +1195,7 @@ end
 
 rats "mismatch: any-annotated return accepts anything"
   source = <<~RUGO
-    def f() : any
+    def f() : Any
       return [1, 2, 3]
     end
     f()
@@ -1107,7 +1206,7 @@ end
 
 rats "mismatch: implicit return of wrong type errors"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       "hello"
     end
     f()
@@ -1115,12 +1214,12 @@ rats "mismatch: implicit return of wrong type errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot implicitly return string value")
+  test.assert_contains(combined, "cannot implicitly return String value")
 end
 
 rats "mismatch: implicit return of array from int-annotated function errors"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       [1, 2, 3]
     end
     f()
@@ -1128,12 +1227,12 @@ rats "mismatch: implicit return of array from int-annotated function errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot implicitly return array value")
+  test.assert_contains(combined, "cannot implicitly return Array value")
 end
 
 rats "mismatch: fn lambda param reassignment to wrong type errors"
   source = <<~RUGO
-    f = fn(a : int)
+    f = fn(a : Integer)
       a = "oops"
     end
     f(1)
@@ -1141,12 +1240,12 @@ rats "mismatch: fn lambda param reassignment to wrong type errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
+  test.assert_contains(combined, "cannot assign String value to parameter 'a' declared as Integer")
 end
 
 rats "mismatch: fn lambda return-type mismatch errors"
   source = <<~RUGO
-    f = fn() : int
+    f = fn() : Integer
       return "no"
     end
     f()
@@ -1154,13 +1253,13 @@ rats "mismatch: fn lambda return-type mismatch errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot return string value from function declared returning int")
+  test.assert_contains(combined, "cannot return String value from function declared returning Integer")
 end
 
 rats "mismatch: nested fn lambda inside def is also checked"
   source = <<~RUGO
     def outer()
-      inner = fn(a : int)
+      inner = fn(a : Integer)
         a = "oops"
       end
       return inner(1)
@@ -1170,7 +1269,7 @@ rats "mismatch: nested fn lambda inside def is also checked"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot assign string value to parameter 'a' declared as int")
+  test.assert_contains(combined, "cannot assign String value to parameter 'a' declared as Integer")
 end
 
 rats "mismatch: unannotated functions are not checked"
@@ -1189,7 +1288,7 @@ end
 
 rats "mismatch: branch-aware: each return checked independently"
   source = <<~RUGO
-    def f(x : int) : int
+    def f(x : Integer) : Integer
       if x > 0
         return "positive"
       end
@@ -1200,12 +1299,12 @@ rats "mismatch: branch-aware: each return checked independently"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot return string value from function declared returning int")
+  test.assert_contains(combined, "cannot return String value from function declared returning Integer")
 end
 
 rats "mismatch: only the conflicting return errors, valid returns are fine"
   source = <<~RUGO
-    def f(x : int) : int
+    def f(x : Integer) : Integer
       if x > 0
         return x * 2
       end
@@ -1225,9 +1324,9 @@ end
 # annotated parameter and the literal type is incompatible with the
 # annotation, the compiler emits an error pointing at the source line.
 
-rats "call-site: string literal passed to int param errors"
+rats "call-site: String literal passed to int param errors"
   source = <<~RUGO
-    def f(a : int) : int
+    def f(a : Integer) : Integer
       return a + 1
     end
     puts(f("oops"))
@@ -1235,13 +1334,13 @@ rats "call-site: string literal passed to int param errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
-  test.assert_contains(combined, "parameter 'a' declared as int")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'f'")
+  test.assert_contains(combined, "parameter 'a' declared as Integer")
 end
 
-rats "call-site: array literal passed to int param errors"
+rats "call-site: Array literal passed to int param errors"
   source = <<~RUGO
-    def f(a : int) : int
+    def f(a : Integer) : Integer
       return a
     end
     puts(f([1, 2, 3]))
@@ -1249,13 +1348,13 @@ rats "call-site: array literal passed to int param errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass array literal")
-  test.assert_contains(combined, "parameter 'a' declared as int")
+  test.assert_contains(combined, "cannot pass Array literal")
+  test.assert_contains(combined, "parameter 'a' declared as Integer")
 end
 
-rats "call-site: hash literal passed to array param errors"
+rats "call-site: Hash literal passed to array param errors"
   source = <<~RUGO
-    def f(xs : array) : array
+    def f(xs : Array) : Array
       return xs
     end
     puts(f({a: 1}))
@@ -1263,13 +1362,13 @@ rats "call-site: hash literal passed to array param errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass hash literal")
-  test.assert_contains(combined, "parameter 'xs' declared as array")
+  test.assert_contains(combined, "cannot pass Hash literal")
+  test.assert_contains(combined, "parameter 'xs' declared as Array")
 end
 
-rats "call-site: nil literal passed to int param errors"
+rats "call-site: Nil literal passed to int param errors"
   source = <<~RUGO
-    def f(a : int)
+    def f(a : Integer)
       return a
     end
     puts(f(nil))
@@ -1277,12 +1376,12 @@ rats "call-site: nil literal passed to int param errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass nil literal")
+  test.assert_contains(combined, "cannot pass Nil literal")
 end
 
-rats "call-site: bool literal passed to array param errors"
+rats "call-site: Bool literal passed to array param errors"
   source = <<~RUGO
-    def f(xs : array)
+    def f(xs : Array)
       return xs
     end
     puts(f(true))
@@ -1290,12 +1389,12 @@ rats "call-site: bool literal passed to array param errors"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass bool literal")
+  test.assert_contains(combined, "cannot pass Bool literal")
 end
 
 rats "call-site: error points at the rugo source line"
   source = <<~RUGO
-    def f(a : int) : int
+    def f(a : Integer) : Integer
       return a + 1
     end
 
@@ -1309,7 +1408,7 @@ end
 
 rats "call-site: second argument mismatch reports correct index"
   source = <<~RUGO
-    def add(a : int, b : int) : int
+    def add(a : Integer, b : Integer) : Integer
       return a + b
     end
     puts(add(1, "x"))
@@ -1318,12 +1417,12 @@ rats "call-site: second argument mismatch reports correct index"
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
   test.assert_contains(combined, "argument 2 to 'add'")
-  test.assert_contains(combined, "parameter 'b' declared as int")
+  test.assert_contains(combined, "parameter 'b' declared as Integer")
 end
 
 rats "call-site: variable arg is NOT flagged"
   source = <<~RUGO
-    def add(a : int, b : int) : int
+    def add(a : Integer, b : Integer) : Integer
       return a + b
     end
     x = 5
@@ -1355,9 +1454,9 @@ rats "call-site: dot call (ns.f) is NOT flagged"
   test.assert_eq(result["output"], "HI")
 end
 
-rats "call-site: int literal to float param is allowed (numeric coercion)"
+rats "call-site: Integer literal to float param is allowed (numeric coercion)"
   source = <<~RUGO
-    def f(a : float) : float
+    def f(a : Float) : Float
       return a + 1.0
     end
     puts(f(2))
@@ -1367,9 +1466,9 @@ rats "call-site: int literal to float param is allowed (numeric coercion)"
   test.assert_contains(result["output"], "3")
 end
 
-rats "call-site: float literal to int param is allowed (numeric coercion)"
+rats "call-site: Float literal to int param is allowed (numeric coercion)"
   source = <<~RUGO
-    def f(a : int) : int
+    def f(a : Integer) : Integer
       return a + 1
     end
     puts(f(2.7))
@@ -1378,9 +1477,9 @@ rats "call-site: float literal to int param is allowed (numeric coercion)"
   test.assert_eq(result["status"], 0)
 end
 
-rats "call-site: int literal to string param is allowed (stringify)"
+rats "call-site: Integer literal to string param is allowed (stringify)"
   source = <<~RUGO
-    def f(a : string) : string
+    def f(a : String) : String
       return a
     end
     puts(f(42))
@@ -1390,9 +1489,9 @@ rats "call-site: int literal to string param is allowed (stringify)"
   test.assert_eq(result["output"], "42")
 end
 
-rats "call-site: any literal to string param is allowed"
+rats "call-site: Any literal to string param is allowed"
   source = <<~RUGO
-    def f(a : string) : string
+    def f(a : String) : String
       return a
     end
     puts(f([1, 2]))
@@ -1403,7 +1502,7 @@ end
 
 rats "call-site: anything to any-annotated param is allowed"
   source = <<~RUGO
-    def f(x : any) : any
+    def f(x : Any) : Any
       return x
     end
     puts(f("anything"))
@@ -1417,7 +1516,7 @@ end
 
 rats "call-site: negative integer literal to int param is allowed"
   source = <<~RUGO
-    def f(a : int) : int
+    def f(a : Integer) : Integer
       return a + 1
     end
     puts(f(-5))
@@ -1429,7 +1528,7 @@ end
 
 rats "call-site: negative integer literal to string param is allowed"
   source = <<~RUGO
-    def f(a : string) : string
+    def f(a : String) : String
       return a
     end
     puts(f(-5))
@@ -1440,7 +1539,7 @@ end
 
 rats "call-site: literal-arg mismatch inside fn lambda body is caught"
   source = <<~RUGO
-    def square(n : int) : int
+    def square(n : Integer) : Integer
       return n * n
     end
     f = fn()
@@ -1451,12 +1550,12 @@ rats "call-site: literal-arg mismatch inside fn lambda body is caught"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'square'")
 end
 
 rats "call-site: literal-arg mismatch in recursive self-call is caught"
   source = <<~RUGO
-    def f(n : int) : int
+    def f(n : Integer) : Integer
       if n <= 0
         return 0
       end
@@ -1467,12 +1566,12 @@ rats "call-site: literal-arg mismatch in recursive self-call is caught"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'f'")
 end
 
 rats "call-site: literal-arg mismatch inside if condition is caught"
   source = <<~RUGO
-    def is_pos(n : int) : bool
+    def is_pos(n : Integer) : Bool
       return n > 0
     end
     if is_pos("oops")
@@ -1482,12 +1581,12 @@ rats "call-site: literal-arg mismatch inside if condition is caught"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'is_pos'")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'is_pos'")
 end
 
 rats "call-site: literal-arg mismatch inside spawn body is caught"
   source = <<~RUGO
-    def square(n : int) : int
+    def square(n : Integer) : Integer
       return n * n
     end
     task = spawn
@@ -1498,12 +1597,12 @@ rats "call-site: literal-arg mismatch inside spawn body is caught"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'square'")
 end
 
 rats "call-site: literal-arg mismatch inside try expression is caught"
   source = <<~RUGO
-    def f(n : int) : int
+    def f(n : Integer) : Integer
       return n * 2
     end
     result = try f("oops") or 99
@@ -1512,12 +1611,12 @@ rats "call-site: literal-arg mismatch inside try expression is caught"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'f'")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'f'")
 end
 
 rats "call-site: pipe sugar with wrong literal-type is caught"
   source = <<~RUGO
-    def square(n : int) : int
+    def square(n : Integer) : Integer
       return n * n
     end
     puts(square("oops"))
@@ -1525,7 +1624,7 @@ rats "call-site: pipe sugar with wrong literal-type is caught"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'square'")
 end
 
 rats "call-site: unannotated function is NOT flagged"
@@ -1543,7 +1642,7 @@ end
 
 rats "call-site: function with default-arg + annotation still validates literals"
   source = <<~RUGO
-    def add(a : int = 1, b : int = 2) : int
+    def add(a : Integer = 1, b : Integer = 2) : Integer
       return a + b
     end
     puts(add("oops", 10))
@@ -1551,12 +1650,12 @@ rats "call-site: function with default-arg + annotation still validates literals
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'add'")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'add'")
 end
 
 rats "call-site: function with default-arg + annotation accepts valid args"
   source = <<~RUGO
-    def add(a : int = 1, b : int = 2) : int
+    def add(a : Integer = 1, b : Integer = 2) : Integer
       return a + b
     end
     puts(add(5, 10))
@@ -1569,17 +1668,17 @@ end
 rats "call-site: --no-infer disables the call-site check"
   tmp = test.tmpdir()
   src_path = tmp + "/no_infer_t2.rugo"
-  test.write_file(src_path, "def f(a : int) : int\n  return a + 1\nend\nputs(f(\"oops\"))\n")
+  test.write_file(src_path, "def f(a : Integer) : Integer\n  return a + 1\nend\nputs(f(\"oops\"))\n")
   result = test.run("rugo run --no-infer " + src_path)
   # With --no-infer the call-site check is skipped so we never see the
   # compile-time "cannot pass" message (program may succeed or fail at
   # runtime depending on the operation, but the compile error is gone).
-  test.assert_true(!str.contains(result["output"], "cannot pass string literal"))
+  test.assert_true(!str.contains(result["output"], "cannot pass String literal"))
 end
 
-rats "call-site: bool literal to int param is allowed (numeric mutual)"
+rats "call-site: Bool literal to int param is allowed (numeric mutual)"
   source = <<~RUGO
-    def f(a : int) : int
+    def f(a : Integer) : Integer
       return a
     end
     puts(f(true))
@@ -1590,7 +1689,7 @@ end
 
 rats "call-site: anything to bool param is allowed (truthiness)"
   source = <<~RUGO
-    def f(a : bool) : bool
+    def f(a : Bool) : Bool
       return a
     end
     puts(f(0))
@@ -1607,7 +1706,7 @@ end
 
 rats "var annot: typed binding compiles and runs"
   source = <<~RUGO
-    x : int = 42
+    x : Integer = 42
     puts(x)
   RUGO
   result = eval.run(source)
@@ -1617,14 +1716,14 @@ end
 
 rats "var annot: each builtin type name is accepted"
   source = <<~RUGO
-    a : int = 1
-    b : float = 1.5
-    c : string = "hi"
-    d : bool = true
-    e : array = [1, 2]
-    f : hash = {1 => 2}
-    g : nil = nil
-    h : any = 42
+    a : Integer = 1
+    b : Float = 1.5
+    c : String = "hi"
+    d : Bool = true
+    e : Array = [1, 2]
+    f : Hash = {1 => 2}
+    g : Nil = nil
+    h : Any = 42
     puts(a)
     puts(b)
     puts(c)
@@ -1639,26 +1738,26 @@ end
 
 rats "var annot: init type mismatch errors"
   source = <<~RUGO
-    x : int = "hello"
+    x : Integer = "hello"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot assign string value to")
+  test.assert_contains(result["output"], "cannot assign String value to")
 end
 
 rats "var annot: reassign with incompatible type errors"
   source = <<~RUGO
-    x : int = 0
+    x : Integer = 0
     x = "hello"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot assign string value to")
+  test.assert_contains(result["output"], "cannot assign String value to")
 end
 
 rats "var annot: any permits any reassignment"
   source = <<~RUGO
-    x : any = 0
+    x : Any = 0
     x = "hello"
     x = [1, 2]
     puts(x)
@@ -1680,8 +1779,8 @@ end
 
 rats "var annot: re-annotation in same scope errors"
   source = <<~RUGO
-    x : int = 0
-    x : int = 1
+    x : Integer = 0
+    x : Integer = 1
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
@@ -1702,7 +1801,7 @@ end
 rats "var annot: inside function body"
   source = <<~RUGO
     def f()
-      x : int = 10
+      x : Integer = 10
       return x * 2
     end
     puts(f())
@@ -1715,7 +1814,7 @@ end
 rats "var annot: function-body reassignment violation"
   source = <<~RUGO
     def f()
-      x : int = 10
+      x : Integer = 10
       x = "oops"
       return x
     end
@@ -1723,17 +1822,17 @@ rats "var annot: function-body reassignment violation"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot assign string value to")
+  test.assert_contains(result["output"], "cannot assign String value to")
 end
 
 rats "var annot: independent scopes in different functions"
   source = <<~RUGO
     def a()
-      x : int = 1
+      x : Integer = 1
       return x
     end
     def b()
-      x : string = "hi"
+      x : String = "hi"
       return x
     end
     puts(a())
@@ -1745,12 +1844,12 @@ end
 
 rats "var annot: numeric promotion not permitted at assignment site"
   source = <<~RUGO
-    x : float = 1.0
+    x : Float = 1.0
     x = 42
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot assign int value to")
+  test.assert_contains(result["output"], "cannot assign Integer value to")
 end
 
 # =====================================================================
@@ -1759,7 +1858,7 @@ end
 
 rats "tier3: callsite flow flags identifier arg with concrete string type"
   source = <<~RUGO
-    def f(x : int)
+    def f(x : Integer)
       return x
     end
     y = "hello"
@@ -1767,12 +1866,12 @@ rats "tier3: callsite flow flags identifier arg with concrete string type"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot pass string value as argument 1 to 'f'")
+  test.assert_contains(result["output"], "cannot pass String value as argument 1 to 'f'")
 end
 
 rats "tier3: callsite flow allows arg narrowed back to compatible type"
   source = <<~RUGO
-    def f(x : int)
+    def f(x : Integer)
       return x + 1
     end
     y = "h"
@@ -1786,7 +1885,7 @@ end
 
 rats "tier3: callsite flow flags arg from if/else union"
   source = <<~RUGO
-    def f(x : int)
+    def f(x : Integer)
       return x
     end
     if true
@@ -1803,7 +1902,7 @@ end
 
 rats "tier3: callsite flow passes dynamic argument silently"
   source = <<~RUGO
-    def f(x : int)
+    def f(x : Integer)
       return x
     end
     h = {1 => 100}
@@ -1820,7 +1919,7 @@ end
 
 rats "tier3: return flow flags ident return with concrete mismatch"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       x = "hello"
       return x
     end
@@ -1828,12 +1927,12 @@ rats "tier3: return flow flags ident return with concrete mismatch"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot return string value from function declared returning int")
+  test.assert_contains(result["output"], "cannot return String value from function declared returning Integer")
 end
 
 rats "tier3: return flow allows ident return narrowed back to compat"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       x = "h"
       x = 42
       return x
@@ -1847,7 +1946,7 @@ end
 
 rats "tier3: implicit return flow flags ident with concrete mismatch"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       x = "hello"
       x
     end
@@ -1855,12 +1954,12 @@ rats "tier3: implicit return flow flags ident with concrete mismatch"
   RUGO
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
-  test.assert_contains(result["output"], "cannot implicitly return string value")
+  test.assert_contains(result["output"], "cannot implicitly return String value")
 end
 
 rats "tier3: return flow flags ident from union via if-no-else"
   source = <<~RUGO
-    def f() : int
+    def f() : Integer
       x = 1
       if true
         x = "h"
@@ -1876,7 +1975,7 @@ end
 
 rats "tier3: combined callsite + return flow with narrowed ident"
   source = <<~RUGO
-    def f(x : int) : int
+    def f(x : Integer) : Integer
       return x * 2
     end
     y = "h"
@@ -1890,7 +1989,7 @@ end
 
 rats "tier3: after for-loop maybe-not-executed, ident arg is union and flagged"
   source = <<~RUGO
-    def f(x : int)
+    def f(x : Integer)
       return x
     end
     y = 1
@@ -1906,7 +2005,7 @@ end
 
 rats "tier3: after while-loop maybe-not-executed, ident arg is union and flagged"
   source = <<~RUGO
-    def f(x : int)
+    def f(x : Integer)
       return x
     end
     y = 1
@@ -1922,7 +2021,7 @@ end
 
 rats "tier3: after case-stmt no-else, ident arg is union and flagged"
   source = <<~RUGO
-    def f(x : int)
+    def f(x : Integer)
       return x
     end
     s = "a"
@@ -1951,7 +2050,7 @@ end
 
 rats "tier4: lambda direct binding rejects literal type mismatch"
   source = <<~RUGO
-    square = fn(n : int) : int
+    square = fn(n : Integer) : Integer
       return n * n
     end
     puts(square("oops"))
@@ -1959,13 +2058,13 @@ rats "tier4: lambda direct binding rejects literal type mismatch"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'square'")
-  test.assert_contains(combined, "parameter 'n' declared as int")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'square'")
+  test.assert_contains(combined, "parameter 'n' declared as Integer")
 end
 
 rats "tier4: lambda direct binding accepts matching literal"
   source = <<~RUGO
-    square = fn(n : int) : int
+    square = fn(n : Integer) : Integer
       return n * n
     end
     puts(square(7))
@@ -1977,7 +2076,7 @@ end
 
 rats "tier4: lambda binding flagged for second-arg mismatch"
   source = <<~RUGO
-    add = fn(a : int, b : int) : int
+    add = fn(a : Integer, b : Integer) : Integer
       return a + b
     end
     puts(add(1, "oops"))
@@ -1985,13 +2084,13 @@ rats "tier4: lambda binding flagged for second-arg mismatch"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 2 to 'add'")
-  test.assert_contains(combined, "parameter 'b' declared as int")
+  test.assert_contains(combined, "cannot pass String literal as argument 2 to 'add'")
+  test.assert_contains(combined, "parameter 'b' declared as Integer")
 end
 
 rats "tier4: aliasing propagates the lambda signature"
   source = <<~RUGO
-    square = fn(n : int) : int
+    square = fn(n : Integer) : Integer
       return n * n
     end
     g = square
@@ -2000,13 +2099,13 @@ rats "tier4: aliasing propagates the lambda signature"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'g'")
-  test.assert_contains(combined, "parameter 'n' declared as int")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'g'")
+  test.assert_contains(combined, "parameter 'n' declared as Integer")
 end
 
 rats "tier4: aliased lambda accepts matching literal"
   source = <<~RUGO
-    square = fn(n : int) : int
+    square = fn(n : Integer) : Integer
       return n * n
     end
     g = square
@@ -2019,10 +2118,10 @@ end
 
 rats "tier4: reassignment to a different annotated lambda uses new sig"
   source = <<~RUGO
-    f = fn(n : int) : int
+    f = fn(n : Integer) : Integer
       return n
     end
-    f = fn(arr : array) : array
+    f = fn(arr : Array) : Array
       return arr
     end
     puts(f(42))
@@ -2030,13 +2129,13 @@ rats "tier4: reassignment to a different annotated lambda uses new sig"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass int literal as argument 1 to 'f'")
-  test.assert_contains(combined, "parameter 'arr' declared as array")
+  test.assert_contains(combined, "cannot pass Integer literal as argument 1 to 'f'")
+  test.assert_contains(combined, "parameter 'arr' declared as Array")
 end
 
 rats "tier4: reassignment to non-fn value clears signature (silent)"
   source = <<~RUGO
-    f = fn(n : int) : int
+    f = fn(n : Integer) : Integer
       return n
     end
     f = "not a fn anymore"
@@ -2049,7 +2148,7 @@ end
 
 rats "tier4: variable arg flow-sensitive narrowing through reassignment"
   source = <<~RUGO
-    square = fn(n : int) : int
+    square = fn(n : Integer) : Integer
       return n * n
     end
     y = "h"
@@ -2063,7 +2162,7 @@ end
 
 rats "tier4: variable arg with concrete wrong type flagged"
   source = <<~RUGO
-    square = fn(n : int) : int
+    square = fn(n : Integer) : Integer
       return n * n
     end
     y = "hello"
@@ -2072,17 +2171,17 @@ rats "tier4: variable arg with concrete wrong type flagged"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string value as argument 1 to 'square'")
+  test.assert_contains(combined, "cannot pass String value as argument 1 to 'square'")
 end
 
 rats "tier4: branch divergence drops signature (silent at call)"
   source = <<~RUGO
     if true
-      f = fn(n : int) : int
+      f = fn(n : Integer) : Integer
         return n
       end
     else
-      f = fn(s : string) : string
+      f = fn(s : String) : String
         return s
       end
     end
@@ -2100,7 +2199,7 @@ rats "tier4: lambda passed as arg to higher-order func is silent"
     def apply(f, x)
       return f(x)
     end
-    inc = fn(n : int) : int
+    inc = fn(n : Integer) : Integer
       return n + 1
     end
     # apply's parameter has no annotation, so passing inc here cannot
@@ -2114,7 +2213,7 @@ end
 
 rats "tier4: lambda inside an array is silent at call site"
   source = <<~RUGO
-    arr = [fn(n : int) : int
+    arr = [fn(n : Integer) : Integer
       return n + 1
     end]
     # arr[0]("oops") is an indexed call; the callee is not a bare
@@ -2129,7 +2228,7 @@ end
 rats "tier4: lambda inside function body — local scope check"
   source = <<~RUGO
     def outer()
-      g = fn(n : int) : int
+      g = fn(n : Integer) : Integer
         return n * 2
       end
       return g("oops")
@@ -2139,7 +2238,7 @@ rats "tier4: lambda inside function body — local scope check"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'g'")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'g'")
 end
 
 rats "tier4: lambda with no annotated params — no check fires"
@@ -2156,7 +2255,7 @@ end
 
 rats "tier4: mixed annotated/unannotated lambda params — only annotated checked"
   source = <<~RUGO
-    f = fn(a, b : int)
+    f = fn(a, b : Integer)
       return b
     end
     puts(f("anything", "oops"))
@@ -2164,13 +2263,13 @@ rats "tier4: mixed annotated/unannotated lambda params — only annotated checke
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 2 to 'f'")
-  test.assert_contains(combined, "parameter 'b' declared as int")
+  test.assert_contains(combined, "cannot pass String literal as argument 2 to 'f'")
+  test.assert_contains(combined, "parameter 'b' declared as Integer")
 end
 
 rats "tier4: lambda with return-only annotation does NOT trigger arg checks"
   source = <<~RUGO
-    f = fn(n) : int
+    f = fn(n) : Integer
       return 0
     end
     puts(f("anything"))
@@ -2184,7 +2283,7 @@ end
 
 rats "tier4: --no-infer disables lambda call-site checks"
   source = <<~RUGO
-    square = fn(n : int) : int
+    square = fn(n : Integer) : Integer
       return n
     end
     puts(square("oops"))
@@ -2197,12 +2296,12 @@ rats "tier4: --no-infer disables lambda call-site checks"
   test.write_file(path, source)
   result = test.run("rugo run --no-infer " + path)
   combined = result["output"] + result["output"]
-  test.assert_eq(str.contains(combined, "cannot pass string literal"), false)
+  test.assert_eq(str.contains(combined, "cannot pass String literal"), false)
 end
 
 rats "tier4: permissive rule — int passed where string-annotated lambda param"
   source = <<~RUGO
-    f = fn(name : string)
+    f = fn(name : String)
       puts("hi " + name)
     end
     x = 42
@@ -2216,7 +2315,7 @@ end
 
 rats "tier4: permissive rule — int passed where float-annotated lambda param"
   source = <<~RUGO
-    f = fn(x : float) : float
+    f = fn(x : Float) : Float
       return x + 1.0
     end
     puts(f(2))
@@ -2229,7 +2328,7 @@ end
 
 rats "tier4: lambda call-site check skips method/dot calls"
   source = <<~RUGO
-    f = fn(n : int) : int
+    f = fn(n : Integer) : Integer
       return n
     end
     h = {"go" => f}
@@ -2239,7 +2338,7 @@ rats "tier4: lambda call-site check skips method/dot calls"
   result = eval.run(source)
   # Should compile (no compile error from Tier 4); runtime may fail.
   combined = result["output"] + result["output"]
-  test.assert_eq(str.contains(combined, "cannot pass string literal"), false)
+  test.assert_eq(str.contains(combined, "cannot pass String literal"), false)
 end
 
 rats "tier4: lambda param shadows outer fn binding (no false positive)"
@@ -2247,7 +2346,7 @@ rats "tier4: lambda param shadows outer fn binding (no false positive)"
   # variable that happens to hold an annotated lambda. The inner call
   # MUST resolve to the param, not fall through to the outer binding.
   source = <<~RUGO
-    f = fn(n : int) : int
+    f = fn(n : Integer) : Integer
       return n
     end
     g = fn(f)
@@ -2258,7 +2357,7 @@ rats "tier4: lambda param shadows outer fn binding (no false positive)"
   result = eval.run(source)
   # The compile-time Tier 4 check must NOT fire on `f("ok")` inside g.
   combined = result["output"] + result["output"]
-  test.assert_eq(str.contains(combined, "cannot pass string literal"), false)
+  test.assert_eq(str.contains(combined, "cannot pass String literal"), false)
 end
 
 rats "tier4: function-body local shadows top-level fn binding"
@@ -2266,7 +2365,7 @@ rats "tier4: function-body local shadows top-level fn binding"
   # confused with the outer fn variable. (def bodies use a fresh
   # inference scope so this is naturally silent, but keep a guard.)
   source = <<~RUGO
-    f = fn(n : int) : int
+    f = fn(n : Integer) : Integer
       return n
     end
     def use_local()
@@ -2284,7 +2383,7 @@ rats "tier4: inner if/else cannot leak fn binding to outer scope"
   # Both arms drop the binding (or never establish one); after the if,
   # the outer call must resolve against the original fn binding.
   source = <<~RUGO
-    f = fn(n : int) : int
+    f = fn(n : Integer) : Integer
       return n
     end
     if 1 == 1
@@ -2302,7 +2401,7 @@ end
 
 rats "tier4: aliasing chain of three propagates signature"
   source = <<~RUGO
-    f = fn(n : int) : int
+    f = fn(n : Integer) : Integer
       return n
     end
     g = f
@@ -2312,6 +2411,179 @@ rats "tier4: aliasing chain of three propagates signature"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   combined = result["output"] + result["output"]
-  test.assert_contains(combined, "cannot pass string literal as argument 1 to 'h'")
-  test.assert_contains(combined, "parameter 'n' declared as int")
+  test.assert_contains(combined, "cannot pass String literal as argument 1 to 'h'")
+  test.assert_contains(combined, "parameter 'n' declared as Integer")
+end
+
+# =====================================================================
+# Section — Legacy v0.29 lowercase annotation names rejected with hint
+#
+# v0.29.0/v0.29.1 shipped with lowercase annotation names (`int`,
+# `float`, `string`, `bool`, `array`, `hash`, `nil`, `any`). Those
+# are no longer accepted; the canonical capitalised names (`Integer`,
+# `Float`, ...) mirror what `type_of()` returns. The compiler emits a
+# targeted "did you mean Foo?" hint for each legacy name so old code
+# is easy to update.
+# =====================================================================
+
+rats "legacy lowercase 'int' rejected with hint pointing to Integer"
+  source = <<~RUGO
+    def f(x : int)
+      return x
+    end
+    puts(f(1))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "unknown type")
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "Integer")
+end
+
+rats "legacy lowercase 'float' rejected with hint pointing to Float"
+  source = <<~RUGO
+    def f(x : float)
+      return x
+    end
+    puts(f(1.0))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "Float")
+end
+
+rats "legacy lowercase 'string' rejected with hint pointing to String"
+  source = <<~RUGO
+    def f(x : string)
+      return x
+    end
+    puts(f("hi"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "String")
+end
+
+rats "legacy lowercase 'bool' rejected with hint pointing to Bool"
+  source = <<~RUGO
+    def f(x : bool)
+      return x
+    end
+    puts(f(true))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "Bool")
+end
+
+rats "legacy lowercase 'array' rejected with hint pointing to Array"
+  source = <<~RUGO
+    def f(x : array)
+      return x
+    end
+    puts(f([1, 2]))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "Array")
+end
+
+rats "legacy lowercase 'hash' rejected with hint pointing to Hash"
+  source = <<~RUGO
+    def f(x : hash)
+      return x
+    end
+    puts(f({1 => 2}))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "Hash")
+end
+
+rats "legacy lowercase 'any' rejected with hint pointing to Any"
+  source = <<~RUGO
+    def f(x : any)
+      return x
+    end
+    puts(f(1))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "Any")
+end
+
+rats "legacy lowercase on return type rejected with hint"
+  source = <<~RUGO
+    def f(x : Integer) : int
+      return x
+    end
+    puts(f(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "unknown type")
+  test.assert_contains(combined, "Integer")
+end
+
+rats "legacy lowercase on fn lambda param rejected with hint"
+  source = <<~RUGO
+    f = fn(x : int) : Integer
+      return x
+    end
+    puts(f(1))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "Integer")
+end
+
+rats "legacy lowercase on var annotation rejected with hint"
+  source = <<~RUGO
+    x : int = 42
+    puts(x)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "unknown type")
+  test.assert_contains(combined, "did you mean")
+  test.assert_contains(combined, "Integer")
+end
+
+rats "type_of returns capitalised names that match annotations"
+  source = <<~RUGO
+    puts(type_of(1))
+    puts(type_of(1.5))
+    puts(type_of("hi"))
+    puts(type_of(true))
+    puts(type_of([1]))
+    puts(type_of({1 => 2}))
+    puts(type_of(nil))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  combined = result["output"]
+  test.assert_contains(combined, "Integer")
+  test.assert_contains(combined, "Float")
+  test.assert_contains(combined, "String")
+  test.assert_contains(combined, "Bool")
+  test.assert_contains(combined, "Array")
+  test.assert_contains(combined, "Hash")
+  test.assert_contains(combined, "Nil")
 end

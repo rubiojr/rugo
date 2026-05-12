@@ -5,9 +5,10 @@
 # type. They are entirely optional — annotated and unannotated params can
 # be freely mixed.
 #
-# Recognised type names: int, float, string, bool, array, hash, nil, any
-# (matching what `type_of()` returns). `any` is an explicit escape hatch
-# that means "dynamic".
+# Recognised type names (mirroring `type_of()`'s return values):
+# Integer, Float, String, Bool, Array, Hash, Nil, Any. `Any` is the
+# explicit escape hatch meaning "dynamic, no check". Annotations are
+# case-sensitive.
 #
 # Annotations are:
 #   1. checked at compile time (unknown type names are errors)
@@ -18,29 +19,29 @@
 use "math"
 
 # A fully annotated function: typed params and typed return.
-def add(a : int, b : int) : int
+def add(a : Integer, b : Integer) : Integer
   return a + b
 end
 
 # Mixing annotated and unannotated params is fine.
-def scale(factor : float, x)
+def scale(factor : Float, x)
   return factor * x
 end
 
 # Return-only annotation, no param annotations.
-def greet(name) : string
+def greet(name) : String
   return "hello, " + name
 end
 
 # Default values combine with annotations. (Functions with defaults are
 # always compiled to a variadic shape, so annotations on such functions
 # act as documentation only — the actual signature stays dynamic.)
-def shout(msg : string = "hi") : string
+def shout(msg : String = "hi") : String
   return msg + "!"
 end
 
 # Lambdas (`fn`) accept the same annotations.
-square = fn(n : int) : int
+square = fn(n : Integer) : Integer
   return n * n
 end
 
@@ -53,14 +54,14 @@ end
 # A small, realistic typed example. We use parentheses on subtraction
 # because Rugo's shell-fallback heuristic would otherwise read
 # `bx - ax` as a shell command.
-def distance(ax : float, ay : float, bx : float, by : float) : float
+def distance(ax : Float, ay : Float, bx : Float, by : Float) : Float
   dx = (bx - ax)
   dy = (by - ay)
   return math.sqrt(dx * dx + dy * dy)
 end
 
 # Use `any` when you need to opt out of typing on a single argument.
-def echo(value : any) : any
+def echo(value : Any) : Any
   return value
 end
 

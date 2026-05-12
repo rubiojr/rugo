@@ -82,7 +82,7 @@ Supported value types:
 | Integer   | `int` |
 | Float     | `float64` |
 | String    | `string` |
-| Boolean   | `bool` |
+| Bool      | `bool` |
 | Nil       | `nil` |
 | Array     | `[]interface{}` |
 | Hash      | `map[interface{}]interface{}` |
@@ -453,21 +453,21 @@ Functions are hoisted to the Go package level during codegen. Inside function bo
 Function parameters and return types can carry optional type annotations using the form `name : type` (note the space before `:` — it is required so the preprocessor's hash-colon sugar doesn't rewrite the line) and `: type` after the parameter list:
 
 ```ruby
-def add(a : int, b : int) : int
+def add(a : Integer, b : Integer) : Integer
   return a + b
 end
 
-def greet(name : string) : string
+def greet(name : String) : String
   return "hello, " + name
 end
 
 # Mix annotated and unannotated freely
-def scale(factor : float, x)
+def scale(factor : Float, x)
   return factor * x
 end
 
 # Return-only annotation
-def label(x) : string
+def label(x) : String
   return "value: " + x
 end
 ```
@@ -475,62 +475,62 @@ end
 Annotations are optional everywhere — adding them is purely additive and never required. Lambdas use the same syntax:
 
 ```ruby
-square = fn(n : int) : int
+square = fn(n : Integer) : Integer
   return n * n
 end
 ```
 
-The recognised type names mirror what `type_of()` returns:
+The recognised type names mirror exactly what `type_of()` returns at runtime — annotations and runtime types share one vocabulary:
 
-| Annotation | Meaning                              |
-|------------|--------------------------------------|
-| `int`      | 64-bit integer                       |
-| `float`    | 64-bit float                         |
-| `string`   | Go `string`                          |
-| `bool`     | Go `bool`                            |
-| `array`    | Rugo array (`[]interface{}`)         |
-| `hash`     | Rugo hash (`map[interface{}]interface{}`) |
-| `nil`      | Always nil                           |
-| `any`      | Explicit dynamic (interface{})       |
+| Annotation | Meaning                                   |
+|------------|-------------------------------------------|
+| `Integer`  | 64-bit integer                            |
+| `Float`    | 64-bit float                              |
+| `String`   | Go `string`                               |
+| `Bool`     | Go `bool`                                 |
+| `Array`    | Rugo array (`[]interface{}`)              |
+| `Hash`     | Rugo hash (`map[interface{}]interface{}`) |
+| `Nil`      | Always nil                                |
+| `Any`      | Explicit dynamic (interface{})            |
 
-Unknown names produce a compile-time error pointing at the offending position.
+Annotations are case-sensitive. Unknown names produce a compile-time error pointing at the offending position. The v0.29.0/v0.29.1 lowercase forms (`int`, `float`, …) are no longer accepted — the compiler suggests the canonical capitalised name with a "did you mean Integer?" hint to make migration painless.
 
 Annotations have five effects:
 
-1. **Compile-time validation.** The annotation name must be recognised; misspellings (`integer`, `String`) fail at compile time.
+1. **Compile-time validation.** The annotation name must be recognised; misspellings (`integer`, `Boolean`) and the legacy lowercase forms (`int`, `bool`, …) fail at compile time with a targeted hint.
 2. **Seeded type inference.** `Infer()` plants the annotated types into `FuncTypeInfo.ParamTypes`/`ReturnType` before walking the body. The inferrer treats annotated params as ground truth and will not widen them to `interface{}` if a later assignment is dynamic. Annotated returns are not overwritten by the inferred return type.
-3. **Typed Go signatures.** When the annotated type is a primitive (`int`, `float`, `string`, `bool`), codegen emits a typed Go signature (`func rugofn_add(a int, b int) int`) instead of the default `func(... interface{}) interface{}`. The return path inserts a `rugo_to_*` coercion if the body produced a dynamic value, so calls into runtime helpers (e.g. `math.sqrt`) still work without manual casts.
-4. **Body/annotation mismatch detection.** After inference, the compiler walks every annotated function body and flags two patterns the inferrer can prove are wrong: reassigning an annotated parameter to a value of a concretely conflicting type (e.g. `a = "hello"` inside `def f(a : int)`) and returning a value whose inferred type conflicts with the annotated return type. Errors point at the rugo source line with a structured message instead of a Go-level compiler error. Assignment is strict (the generated Go has a concrete variable, no coercion at the reassignment site); returns are permissive in the numeric family and for `string`/`bool`/`any` (the codegen inserts coercion). Pass `--no-infer` to skip the check.
+3. **Typed Go signatures.** When the annotated type is a primitive (`Integer`, `Float`, `String`, `Bool`), codegen emits a typed Go signature (`func rugofn_add(a int, b int) int`) instead of the default `func(... interface{}) interface{}`. The return path inserts a `rugo_to_*` coercion if the body produced a dynamic value, so calls into runtime helpers (e.g. `math.sqrt`) still work without manual casts.
+4. **Body/annotation mismatch detection.** After inference, the compiler walks every annotated function body and flags two patterns the inferrer can prove are wrong: reassigning an annotated parameter to a value of a concretely conflicting type (e.g. `a = "hello"` inside `def f(a : Integer)`) and returning a value whose inferred type conflicts with the annotated return type. Errors point at the rugo source line with a structured message instead of a Go-level compiler error. Assignment is strict (the generated Go has a concrete variable, no coercion at the reassignment site); returns are permissive in the numeric family and for `String`/`Bool`/`Any` (the codegen inserts coercion). Pass `--no-infer` to skip the check.
 5. **Call-site and return-site flow validation.** Beyond literal arguments, the compiler also flags **variable** arguments and **variable** return values when the inferrer can prove a concrete type conflict at that program point.
-   - **Literal arguments.** When a literal (number, string, bool, nil, array, hash, or `-N`/`!b` over a literal) is passed to an annotated parameter with a concretely-conflicting type, the call is rejected (e.g. `f("oops")` where `f` is `def f(a : int)`).
-   - **Variable arguments (Tier 3 flow-sensitive).** Each identifier read site carries a *flow-sensitive* per-use type (`TypeInfo.VarUseTypes`) that reflects the variable's type at exactly that program point — not the conservative storage union of every value it ever held. Sequential reassignments narrow the per-use type (`y = "h"; y = 42; f(y)` passes because at the call site `y` is provably `int`); union outcomes from `if` without `else`, loops that may not run, or `case` without `else` keep the union and produce a precise error message.
+   - **Literal arguments.** When a literal (number, string, bool, nil, array, hash, or `-N`/`!b` over a literal) is passed to an annotated parameter with a concretely-conflicting type, the call is rejected (e.g. `f("oops")` where `f` is `def f(a : Integer)`).
+   - **Variable arguments (Tier 3 flow-sensitive).** Each identifier read site carries a *flow-sensitive* per-use type (`TypeInfo.VarUseTypes`) that reflects the variable's type at exactly that program point — not the conservative storage union of every value it ever held. Sequential reassignments narrow the per-use type (`y = "h"; y = 42; f(y)` passes because at the call site `y` is provably `Integer`); union outcomes from `if` without `else`, loops that may not run, or `case` without `else` keep the union and produce a precise error message.
    - **Variable returns (Tier 3 flow-sensitive).** Symmetrically, `return x` is checked against the flow-sensitive type of `x` at the return site, not the storage union. Returning a variable that was reassigned back to a compatible type is permitted even when its history includes incompatible values.
-   - **fn lambda call sites (Tier 4 flow-sensitive).** When an annotated `fn` lambda is bound to a variable (`f = fn(n : int) ... end`), every call through that variable (`f(...)`) is checked against the lambda's annotated parameters using the same compatibility rules as a `def` call. The binding is tracked **flow-sensitively**: aliasing (`g = f`) propagates the signature, reassigning to a different annotated lambda uses the new signature, reassigning to a non-fn value clears the binding, and any merge across branches with different bindings drops the binding. Higher-order use (passing a lambda to another function, storing it in an array/hash, returning it from a function) is silent — Tier 4 only fires for direct identifier-named calls of variables that hold an annotated lambda in the current scope.
-   - The compatibility rule is the permissive one: numeric family is mutually compatible, `string`/`bool`/`any` accept anything. Module-style `ns.f(...)` calls are skipped. Dynamic or unresolved expressions are silent — annotations stay user assertions where inference cannot decide. Pass `--no-infer` to disable.
+   - **fn lambda call sites (Tier 4 flow-sensitive).** When an annotated `fn` lambda is bound to a variable (`f = fn(n : Integer) ... end`), every call through that variable (`f(...)`) is checked against the lambda's annotated parameters using the same compatibility rules as a `def` call. The binding is tracked **flow-sensitively**: aliasing (`g = f`) propagates the signature, reassigning to a different annotated lambda uses the new signature, reassigning to a non-fn value clears the binding, and any merge across branches with different bindings drops the binding. Higher-order use (passing a lambda to another function, storing it in an array/hash, returning it from a function) is silent — Tier 4 only fires for direct identifier-named calls of variables that hold an annotated lambda in the current scope.
+   - The compatibility rule is the permissive one: numeric family is mutually compatible, `String`/`Bool`/`Any` accept anything. Module-style `ns.f(...)` calls are skipped. Dynamic or unresolved expressions are silent — annotations stay user assertions where inference cannot decide. Pass `--no-infer` to disable.
 
 ##### Variable Type Annotations
 
 Local variables can also carry type annotations on their first assignment using the same `name : type = expr` shape:
 
 ```ruby
-x : int = 42
-name : string = "world"
-items : array = [1, 2, 3]
+x : Integer = 42
+name : String = "world"
+items : Array = [1, 2, 3]
 ```
 
-Variable annotations are **sticky**: once `x` is bound as `int`, every later assignment to `x` in the same scope is checked against that annotation. Reassigning to a concretely-conflicting type fails at compile time:
+Variable annotations are **sticky**: once `x` is bound as `Integer`, every later assignment to `x` in the same scope is checked against that annotation. Reassigning to a concretely-conflicting type fails at compile time:
 
 ```ruby
-x : int = 42
-x = "oops"      # compile error: cannot assign string value to variable 'x' declared as int
+x : Integer = 42
+x = "oops"      # compile error: cannot assign String value to variable 'x' declared as Integer
 ```
 
-Re-annotating the same name in the same scope (`x : int = ...; x : int = ...`) is also rejected. The annotation lives until the enclosing function or block returns, so two functions can each declare their own `x : T` independently.
+Re-annotating the same name in the same scope (`x : Integer = ...; x : Integer = ...`) is also rejected. The annotation lives until the enclosing function or block returns, so two functions can each declare their own `x : T` independently.
 
-Use `: any` to opt out of the check while keeping the annotation as documentation:
+Use `: Any` to opt out of the check while keeping the annotation as documentation:
 
 ```ruby
-x : any = 0
+x : Any = 0
 x = "h"         # allowed
 x = [1, 2]      # allowed
 ```
@@ -548,9 +548,9 @@ The `typed` column reflects what inference resolved (with or without annotations
 
 - Local variable annotations apply only to first assignment (`x : T = expr`). There is no syntax for re-annotating, nor for annotating index assignments (`a[i] : T = ...`) or dot assignments (`o.f : T = ...`).
 - Functions with default parameter values compile to a variadic shape; on such functions the annotations act as documentation only, since the runtime signature is dynamic.
-- `array`, `hash`, `nil`, `any` are accepted but do not produce typed Go signatures (the corresponding runtime shapes are already `interface{}`-typed).
+- `Array`, `Hash`, `Nil`, `Any` are accepted but do not produce typed Go signatures (the corresponding runtime shapes are already `interface{}`-typed).
 - Mismatch detection only fires when the inferrer can *prove* a conflict (the value's type is concrete and not in the compatibility set). Dynamic / unknown values are silent — annotations stay user assertions where inference cannot decide.
-- A space is required before `:` (`x : int`, not `x:int`) because the preprocessor would otherwise interpret `x:` as the start of a hash literal.
+- A space is required before `:` (`x : Integer`, not `x:Integer`) because the preprocessor would otherwise interpret `x:` as the start of a hash literal.
 
 ### Lambdas (First-Class Functions)
 

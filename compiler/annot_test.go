@@ -28,7 +28,7 @@ func findFunc(prog *ast.Program, name string) *ast.FuncDef {
 
 func TestParseAnnotationsParams(t *testing.T) {
 	src := `
-def add(a : int, b : int) : int
+def add(a : Integer, b : Integer) : Integer
   return a + b
 end
 `
@@ -37,14 +37,14 @@ end
 	require.NotNil(t, f, "function 'add' not found")
 
 	require.Len(t, f.Params, 2)
-	assert.Equal(t, "int", f.Params[0].TypeAnnot)
-	assert.Equal(t, "int", f.Params[1].TypeAnnot)
-	assert.Equal(t, "int", f.ReturnType)
+	assert.Equal(t, "Integer", f.Params[0].TypeAnnot)
+	assert.Equal(t, "Integer", f.Params[1].TypeAnnot)
+	assert.Equal(t, "Integer", f.ReturnType)
 }
 
 func TestParseAnnotationsMixed(t *testing.T) {
 	src := `
-def f(x, y : string, z) : bool
+def f(x, y : String, z) : Bool
   return x == y
 end
 `
@@ -53,14 +53,14 @@ end
 	require.NotNil(t, f)
 
 	assert.Equal(t, "", f.Params[0].TypeAnnot, "unannotated param keeps empty TypeAnnot")
-	assert.Equal(t, "string", f.Params[1].TypeAnnot)
+	assert.Equal(t, "String", f.Params[1].TypeAnnot)
 	assert.Equal(t, "", f.Params[2].TypeAnnot)
-	assert.Equal(t, "bool", f.ReturnType)
+	assert.Equal(t, "Bool", f.ReturnType)
 }
 
 func TestParseAnnotationsWithDefault(t *testing.T) {
 	src := `
-def greet(name : string = "world") : string
+def greet(name : String = "world") : String
   return name
 end
 `
@@ -68,9 +68,9 @@ end
 	f := findFunc(prog, "greet")
 	require.NotNil(t, f)
 
-	assert.Equal(t, "string", f.Params[0].TypeAnnot)
+	assert.Equal(t, "String", f.Params[0].TypeAnnot)
 	assert.NotNil(t, f.Params[0].Default, "default value preserved alongside annotation")
-	assert.Equal(t, "string", f.ReturnType)
+	assert.Equal(t, "String", f.ReturnType)
 }
 
 func TestParseAnnotationsNoAnnotations(t *testing.T) {
@@ -103,24 +103,52 @@ func TestParseTypeAnnotationUnknown(t *testing.T) {
 	assert.False(t, ok)
 	_, ok = ParseTypeAnnotation("")
 	assert.False(t, ok)
+	// v0.29-era lowercase forms are rejected too (the canonical
+	// vocabulary is now capitalised).
+	_, ok = ParseTypeAnnotation("int")
+	assert.False(t, ok, "lowercase 'int' is no longer a recognised annotation")
+	_, ok = ParseTypeAnnotation("string")
+	assert.False(t, ok, "lowercase 'string' is no longer a recognised annotation")
 }
 
 func TestParseTypeAnnotationMapping(t *testing.T) {
 	cases := map[string]RugoType{
-		"int":    TypeInt,
-		"float":  TypeFloat,
-		"string": TypeString,
-		"bool":   TypeBool,
-		"array":  TypeArray,
-		"hash":   TypeHash,
-		"nil":    TypeNil,
-		"any":    TypeDynamic,
+		"Integer": TypeInt,
+		"Float":   TypeFloat,
+		"String":  TypeString,
+		"Bool":    TypeBool,
+		"Array":   TypeArray,
+		"Hash":    TypeHash,
+		"Nil":     TypeNil,
+		"Any":     TypeDynamic,
 	}
 	for name, want := range cases {
 		got, ok := ParseTypeAnnotation(name)
 		require.True(t, ok)
 		assert.Equal(t, want, got, "ParseTypeAnnotation(%q)", name)
 	}
+}
+
+func TestLegacyLowercaseAnnotationMapping(t *testing.T) {
+	cases := map[string]string{
+		"int":    "Integer",
+		"float":  "Float",
+		"string": "String",
+		"bool":   "Bool",
+		"array":  "Array",
+		"hash":   "Hash",
+		"nil":    "Nil",
+		"any":    "Any",
+	}
+	for legacy, canonical := range cases {
+		got, ok := LegacyLowercaseAnnotation(legacy)
+		require.True(t, ok, "%q should be recognised as legacy lowercase", legacy)
+		assert.Equal(t, canonical, got)
+	}
+	_, ok := LegacyLowercaseAnnotation("Integer")
+	assert.False(t, ok, "already-canonical names are not legacy lowercase")
+	_, ok = LegacyLowercaseAnnotation("integer")
+	assert.False(t, ok, "misspellings are not legacy lowercase")
 }
 
 func TestUnknownTypeIsCompileError(t *testing.T) {
@@ -136,7 +164,21 @@ puts(f(1))`))
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "unknown type")
 	assert.Contains(t, err.Error(), "integer")
-	assert.Contains(t, err.Error(), "int, float, string, bool")
+	assert.Contains(t, err.Error(), "Integer, Float, String, Bool")
+}
+
+func TestLegacyLowercaseAnnotationGivesHint(t *testing.T) {
+	tmp := t.TempDir() + "/legacy.rugo"
+	require.NoError(t, writeFile(tmp, `def f(x : int) : int
+  return x
+end
+puts(f(1))`))
+	c := &Compiler{}
+	_, err := c.Compile(tmp)
+	require.Error(t, err, "lowercase 'int' must be rejected as a v0.29-era spelling")
+	msg := err.Error()
+	assert.Contains(t, msg, "unknown type \"int\"")
+	assert.Contains(t, msg, "did you mean \"Integer\"")
 }
 
 func TestUnknownReturnTypeIsCompileError(t *testing.T) {
@@ -146,13 +188,13 @@ puts(f(1))`))
 	c := &Compiler{}
 	_, err := c.Compile(tmp)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "unknown return type")
+	assert.Contains(t, err.Error(), "unknown type")
 	assert.Contains(t, err.Error(), "integer")
 }
 
 func TestInferRespectsParamAnnotation(t *testing.T) {
 	src := `
-def add(a : int, b : int) : int
+def add(a : Integer, b : Integer) : Integer
   return a + b
 end
 `
@@ -172,7 +214,7 @@ func TestAnnotationSeedsInferenceWhereInferenceWouldFail(t *testing.T) {
 	// Without an annotation, a param only used via .method() would stay
 	// dynamic. The annotation seeds it as int.
 	src := `
-def length(s : string) : int
+def length(s : String) : Integer
   return len(s)
 end
 `
@@ -187,7 +229,7 @@ end
 
 func TestFnExprAnnotations(t *testing.T) {
 	src := `
-double = fn(x : int) : int
+double = fn(x : Integer) : Integer
   return x * 2
 end
 puts(double(5))
@@ -204,13 +246,13 @@ puts(double(5))
 		return false
 	})
 	require.NotNil(t, found, "fn expression not found in AST")
-	assert.Equal(t, "int", found.Params[0].TypeAnnot)
-	assert.Equal(t, "int", found.ReturnType)
+	assert.Equal(t, "Integer", found.Params[0].TypeAnnot)
+	assert.Equal(t, "Integer", found.ReturnType)
 }
 
 func TestStatsTracksAnnotated(t *testing.T) {
 	src := `
-def annotated(a : int, b : int) : int
+def annotated(a : Integer, b : Integer) : Integer
   return a + b
 end
 

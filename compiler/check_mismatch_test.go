@@ -145,11 +145,11 @@ func TestCompatibleAssignToAnnotation(t *testing.T) {
 }
 
 // TestCheckMismatchAssignToAnnotatedParam exercises the full pipeline:
-// reassigning an annotated `int` param to a string literal must produce
+// reassigning an annotated `int` param to a String literal must produce
 // a structured rugo-level error pointing at the assignment line.
 func TestCheckMismatchAssignToAnnotatedParam(t *testing.T) {
 	source := `
-def f(a : int)
+def f(a : Integer)
   a = "hello"
 end
 puts(f(1))
@@ -158,44 +158,44 @@ puts(f(1))
 	require.Error(t, err)
 	msg := err.Error()
 	assert.Contains(t, msg, "mismatch.rugo:3:")
-	assert.Contains(t, msg, "cannot assign string value to parameter 'a' declared as int")
+	assert.Contains(t, msg, "cannot assign String value to parameter 'a' declared as Integer")
 }
 
 // TestCheckMismatchAssignToAnnotatedParamFloat verifies that
-// reassigning an int-annotated parameter to a float literal is caught
+// reassigning an int-annotated parameter to a Float literal is caught
 // (assignment context is strict — generated Go has a concrete int
 // variable, no coercion at the reassignment site).
 func TestCheckMismatchAssignToAnnotatedParamFloat(t *testing.T) {
 	source := `
-def f(a : int)
+def f(a : Integer)
   a = 3.14
 end
 puts(f(1))
 `
 	err := compileSource(t, "ok.rugo", source)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot assign float value to parameter 'a' declared as int")
+	assert.Contains(t, err.Error(), "cannot assign Float value to parameter 'a' declared as Integer")
 }
 
 // TestCheckMismatchAssignToAnnotatedStringParam verifies the strict
-// rule for string annotations: reassigning to an int literal errors.
+// rule for string annotations: reassigning to an Integer literal errors.
 func TestCheckMismatchAssignToAnnotatedStringParam(t *testing.T) {
 	source := `
-def f(s : string)
+def f(s : String)
   s = 42
 end
 f("hi")
 `
 	err := compileSource(t, "s.rugo", source)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot assign int value to parameter 's' declared as string")
+	assert.Contains(t, err.Error(), "cannot assign Integer value to parameter 's' declared as String")
 }
 
 // TestCheckMismatchAssignToAnnotatedAnyParam verifies that `any`
 // remains permissive in assignment context.
 func TestCheckMismatchAssignToAnnotatedAnyParam(t *testing.T) {
 	source := `
-def f(x : any)
+def f(x : Any)
   x = "ok"
   x = 42
   x = [1, 2]
@@ -210,7 +210,7 @@ f(1)
 // explicit `return` statement.
 func TestCheckMismatchReturnTypeConflict(t *testing.T) {
 	source := `
-def f() : int
+def f() : Integer
   return "hi"
 end
 puts(f())
@@ -219,41 +219,41 @@ puts(f())
 	require.Error(t, err)
 	msg := err.Error()
 	assert.Contains(t, msg, "ret.rugo:3:")
-	assert.Contains(t, msg, "cannot return string value from function declared returning int")
+	assert.Contains(t, msg, "cannot return String value from function declared returning Integer")
 }
 
 // TestCheckMismatchImplicitReturn locks return-type mismatch on the
 // implicit-return (last-expression-as-value) form.
 func TestCheckMismatchImplicitReturn(t *testing.T) {
 	source := `
-def f() : int
+def f() : Integer
   "hi"
 end
 puts(f())
 `
 	err := compileSource(t, "impret.rugo", source)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot implicitly return string value")
+	assert.Contains(t, err.Error(), "cannot implicitly return String value")
 }
 
 // TestCheckMismatchInFnLambda verifies the check descends into fn lambdas.
 func TestCheckMismatchInFnLambda(t *testing.T) {
 	source := `
-f = fn(a : int)
+f = fn(a : Integer)
   a = "x"
 end
 f(1)
 `
 	err := compileSource(t, "lambda.rugo", source)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot assign string value to parameter 'a' declared as int")
+	assert.Contains(t, err.Error(), "cannot assign String value to parameter 'a' declared as Integer")
 }
 
 // TestCheckMismatchSilentWhenDisableInfer makes sure --no-infer disables
 // the check (no TypeInfo means no proof of conflict).
 func TestCheckMismatchSilentWhenDisableInfer(t *testing.T) {
 	source := `
-def f() : int
+def f() : Integer
   return "hi"
 end
 puts(f())
@@ -279,7 +279,7 @@ puts(f(1))
 // declared return type is flagged, even though the value is not a literal.
 func TestTier3ReturnFlow_ReturnIdentMismatch(t *testing.T) {
 	source := `
-def f() : int
+def f() : Integer
   x = "hello"
   return x
 end
@@ -287,7 +287,7 @@ puts(f())
 `
 	err := compileSource(t, "tier3ret.rugo", source)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot return string value from function declared returning int")
+	assert.Contains(t, err.Error(), "cannot return String value from function declared returning Integer")
 }
 
 // TestTier3ReturnFlow_ReturnIdentNarrowedBack verifies that a variable
@@ -295,7 +295,7 @@ puts(f())
 // even though its storage union would include the earlier incompatible type.
 func TestTier3ReturnFlow_ReturnIdentNarrowedBack(t *testing.T) {
 	source := `
-def f() : int
+def f() : Integer
   x = "h"
   x = 42
   return x
@@ -310,7 +310,7 @@ puts(f())
 // implicit-return (last-expression-as-value) form.
 func TestTier3ReturnFlow_ImplicitReturnIdentMismatch(t *testing.T) {
 	source := `
-def f() : int
+def f() : Integer
   x = "hello"
   x
 end
@@ -318,7 +318,7 @@ puts(f())
 `
 	err := compileSource(t, "tier3impret.rugo", source)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "cannot implicitly return string value")
+	assert.Contains(t, err.Error(), "cannot implicitly return String value")
 }
 
 // compileSource compiles a source string through the standard pipeline
@@ -352,7 +352,7 @@ func compileSource(t *testing.T, sourceFile, src string) error {
 //
 // Rule: a union is compatible with an annotation iff EVERY single-bit
 // member of the union is independently compatible. This prevents a
-// partially-resolved type (e.g. int|string) from sneaking through a
+// partially-resolved type (e.g. Integer|String) from sneaking through a
 // narrow annotation by relying on the most-compatible member.
 func TestCompatibleWithAnnotationUnions(t *testing.T) {
 cases := []struct {
@@ -362,24 +362,24 @@ inferred   RugoType
 compatible bool
 }{
 // Numeric-only union passes numeric annotation.
-{"int annot, int|float union", TypeInt, TypeInt | TypeFloat, true},
-{"float annot, int|float union", TypeFloat, TypeInt | TypeFloat, true},
+{"int annot, Integer|Float union", TypeInt, TypeInt | TypeFloat, true},
+{"float annot, Integer|Float union", TypeFloat, TypeInt | TypeFloat, true},
 // String coerces everything -> any union OK.
-{"string annot, int|nil union", TypeString, TypeInt | TypeNil, true},
-{"string annot, array|hash union", TypeString, TypeArray | TypeHash, true},
+{"string annot, Integer|Nil union", TypeString, TypeInt | TypeNil, true},
+{"string annot, Array|Hash union", TypeString, TypeArray | TypeHash, true},
 // Bool coerces everything -> any union OK.
-{"bool annot, int|string union", TypeBool, TypeInt | TypeString, true},
+{"bool annot, Integer|String union", TypeBool, TypeInt | TypeString, true},
 // `any` annotation accepts any union.
-{"any annot, string|int union", TypeDynamic, TypeString | TypeInt, true},
-{"any annot, hash|nil union", TypeDynamic, TypeHash | TypeNil, true},
+{"any annot, String|Integer union", TypeDynamic, TypeString | TypeInt, true},
+{"any annot, Hash|Nil union", TypeDynamic, TypeHash | TypeNil, true},
 // Concrete conflicts: union contains a non-coercible member.
-{"int annot, int|string union", TypeInt, TypeInt | TypeString, false},
-{"int annot, int|nil union", TypeInt, TypeInt | TypeNil, false},
-{"int annot, int|array union", TypeInt, TypeInt | TypeArray, false},
-{"float annot, float|string union", TypeFloat, TypeFloat | TypeString, false},
-{"array annot, array|hash union", TypeArray, TypeArray | TypeHash, false},
-{"hash annot, hash|array union", TypeHash, TypeHash | TypeArray, false},
-{"nil annot, nil|int union", TypeNil, TypeNil | TypeInt, false},
+{"int annot, Integer|String union", TypeInt, TypeInt | TypeString, false},
+{"int annot, Integer|Nil union", TypeInt, TypeInt | TypeNil, false},
+{"int annot, Integer|Array union", TypeInt, TypeInt | TypeArray, false},
+{"float annot, Float|String union", TypeFloat, TypeFloat | TypeString, false},
+{"array annot, Array|Hash union", TypeArray, TypeArray | TypeHash, false},
+{"hash annot, Hash|Array union", TypeHash, TypeHash | TypeArray, false},
+{"nil annot, Nil|Integer union", TypeNil, TypeNil | TypeInt, false},
 }
 for _, tc := range cases {
 t.Run(tc.name, func(t *testing.T) {
@@ -401,17 +401,17 @@ inferred   RugoType
 compatible bool
 }{
 // `any` accepts any union.
-{"any annot, int|string union", TypeDynamic, TypeInt | TypeString, true},
-{"any annot, hash|nil union", TypeDynamic, TypeHash | TypeNil, true},
+{"any annot, Integer|String union", TypeDynamic, TypeInt | TypeString, true},
+{"any annot, Hash|Nil union", TypeDynamic, TypeHash | TypeNil, true},
 // Strict: numeric union does NOT pass int (float member differs).
-{"int annot, int|float union", TypeInt, TypeInt | TypeFloat, false},
-{"float annot, int|float union", TypeFloat, TypeInt | TypeFloat, false},
+{"int annot, Integer|Float union", TypeInt, TypeInt | TypeFloat, false},
+{"float annot, Integer|Float union", TypeFloat, TypeInt | TypeFloat, false},
 // Strict: any cross-family union fails.
-{"int annot, int|string union", TypeInt, TypeInt | TypeString, false},
-{"string annot, int|string union", TypeString, TypeInt | TypeString, false},
-{"array annot, array|hash union", TypeArray, TypeArray | TypeHash, false},
-{"string annot, int|nil union", TypeString, TypeInt | TypeNil, false},
-{"bool annot, int|string union", TypeBool, TypeInt | TypeString, false},
+{"int annot, Integer|String union", TypeInt, TypeInt | TypeString, false},
+{"string annot, Integer|String union", TypeString, TypeInt | TypeString, false},
+{"array annot, Array|Hash union", TypeArray, TypeArray | TypeHash, false},
+{"string annot, Integer|Nil union", TypeString, TypeInt | TypeNil, false},
+{"bool annot, Integer|String union", TypeBool, TypeInt | TypeString, false},
 }
 for _, tc := range cases {
 t.Run(tc.name, func(t *testing.T) {
@@ -423,19 +423,19 @@ assert.Equal(t, tc.compatible, got,
 }
 
 // TestVarAnnotInitMismatch asserts that the initial binding value must
-// be compatible with the annotation: `x : int = "hi"` is a compile
+// be compatible with the annotation: `x : Integer = "hi"` is a compile
 // error.
 func TestVarAnnotInitMismatch(t *testing.T) {
 source := `
 def main()
-  x : int = "hello"
+  x : Integer = "hello"
 end
 main()
 `
 err := compileSource(t, "init.rugo", source)
 require.Error(t, err)
-assert.Contains(t, err.Error(), "cannot assign string value to")
-assert.Contains(t, err.Error(), "declared as int")
+assert.Contains(t, err.Error(), "cannot assign String value to")
+assert.Contains(t, err.Error(), "declared as Integer")
 }
 
 // TestVarAnnotReassignMismatch asserts that reassigning an annotated
@@ -443,22 +443,22 @@ assert.Contains(t, err.Error(), "declared as int")
 func TestVarAnnotReassignMismatch(t *testing.T) {
 source := `
 def main()
-  x : int = 0
+  x : Integer = 0
   x = "hello"
 end
 main()
 `
 err := compileSource(t, "reassign.rugo", source)
 require.Error(t, err)
-assert.Contains(t, err.Error(), "cannot assign string value to")
+assert.Contains(t, err.Error(), "cannot assign String value to")
 }
 
-// TestVarAnnotAnyIsPermissive asserts that `x : any` silences the check
+// TestVarAnnotAnyIsPermissive asserts that `x : Any` silences the check
 // for every subsequent assignment (the explicit suppression hatch).
 func TestVarAnnotAnyIsPermissive(t *testing.T) {
 source := `
 def main()
-  x : any = 0
+  x : Any = 0
   x = "hello"
   x = [1, 2]
 end
@@ -488,8 +488,8 @@ assert.Contains(t, err.Error(), "foobar")
 func TestVarAnnotReannotationError(t *testing.T) {
 source := `
 def main()
-  x : int = 0
-  x : int = 1
+  x : Integer = 0
+  x : Integer = 1
 end
 main()
 `
@@ -512,12 +512,12 @@ err := compileSource(t, "unannot.rugo", source)
 assert.NoError(t, err)
 }
 
-// TestVarAnnotNumericPromotion asserts that `x : float = 0` allows
-// reassignment with an int literal (numeric coercion).
+// TestVarAnnotNumericPromotion asserts that `x : Float = 0` allows
+// reassignment with an Integer literal (numeric coercion).
 func TestVarAnnotNumericPromotion(t *testing.T) {
 source := `
 def main()
-  x : float = 1.0
+  x : Float = 1.0
   x = 42
 end
 main()
@@ -527,6 +527,148 @@ main()
 // assignment site). The check_mismatch error makes this user-visible.
 err := compileSource(t, "promote.rugo", source)
 require.Error(t, err)
-assert.Contains(t, err.Error(), "cannot assign int value to")
-assert.Contains(t, err.Error(), "declared as float")
+assert.Contains(t, err.Error(), "cannot assign Integer value to")
+assert.Contains(t, err.Error(), "declared as Float")
+}
+
+// TestParamDefaultLiteralMismatch verifies that a default-value literal
+// whose static type concretely conflicts with the parameter's annotation
+// is rejected at compile time. The default expression is a contract:
+// callers that omit the argument receive that exact value, so a literal
+// mismatch is a guaranteed type-violation that the compiler can prove.
+//
+// The compatibility rule is the permissive one (matches call-site
+// checks): `string`/`bool`/`any` accept anything, numeric types are
+// mutually compatible, and `nil`/`array`/`hash` only accept their own
+// type.
+func TestParamDefaultLiteralMismatch(t *testing.T) {
+	cases := []struct {
+		name       string
+		source     string
+		wantSubstr string
+	}{
+		{
+			name: "string default for int param",
+			source: `
+def f(x : Integer = "hi") : Integer
+  return x
+end
+puts(f())
+`,
+			wantSubstr: "cannot use String literal as default for parameter 'x' declared as Integer",
+		},
+		{
+			name: "nil default for int param",
+			source: `
+def f(x : Integer = nil) : Integer
+  return x
+end
+puts(f())
+`,
+			wantSubstr: "cannot use Nil literal as default for parameter 'x' declared as Integer",
+		},
+		{
+			name: "int default for array param",
+			source: `
+def f(x : Array = 42) : Integer
+  return len(x)
+end
+puts(f())
+`,
+			wantSubstr: "cannot use Integer literal as default for parameter 'x' declared as Array",
+		},
+		{
+			name: "array default for hash param",
+			source: `
+def f(x : Hash = [1, 2]) : Integer
+  return len(x)
+end
+puts(f())
+`,
+			wantSubstr: "cannot use Array literal as default for parameter 'x' declared as Hash",
+		},
+		{
+			name: "int default for nil param",
+			source: `
+def f(x : Nil = 42)
+  puts(x)
+end
+f()
+`,
+			wantSubstr: "cannot use Integer literal as default for parameter 'x' declared as Nil",
+		},
+		{
+			name: "fn lambda also checked",
+			source: `
+double = fn(n : Integer = "oops") : Integer
+  return n
+end
+puts(double())
+`,
+			wantSubstr: "cannot use String literal as default for parameter 'n' declared as Integer",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := compileSource(t, "paramdef.rugo", tc.source)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tc.wantSubstr)
+		})
+	}
+}
+
+// TestParamDefaultLiteralCompatible verifies the permissive rule:
+// defaults that the runtime / codegen can legitimately accept must be
+// allowed (string/bool/any accept anything, numeric mutual compatibility).
+func TestParamDefaultLiteralCompatible(t *testing.T) {
+	cases := []struct {
+		name   string
+		source string
+	}{
+		{"string param accepts int default", `
+def f(x : String = 42) : String
+  return x
+end
+puts(f())
+`},
+		{"bool param accepts int default", `
+def f(x : Bool = 1) : Bool
+  return x
+end
+puts(f())
+`},
+		{"any param accepts anything", `
+def f(x : Any = [1, 2, 3])
+  puts(x)
+end
+f()
+`},
+		{"int param accepts float default (numeric)", `
+def f(x : Integer = 1.5) : Integer
+  return x + 1
+end
+puts(f())
+`},
+		{"float param accepts int default (numeric)", `
+def f(x : Float = 1) : Float
+  return x
+end
+puts(f())
+`},
+		{"computed (non-literal) default is silently allowed", `
+def helper() : Integer
+  return 10
+end
+def f(x : Array = helper()) : Integer
+  return 0
+end
+puts(f())
+`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := compileSource(t, "paramdefok.rugo", tc.source)
+			assert.NoError(t, err, "default should be accepted")
+		})
+	}
 }

@@ -55,10 +55,10 @@ var declaredOrder = []RugoType{
 
 func (t RugoType) String() string {
 	if t == TypeUnknown {
-		return "unknown"
+		return "Unknown"
 	}
 	if t == TypeDynamic {
-		return "any"
+		return "Any"
 	}
 	parts := make([]string, 0, 4)
 	for _, bit := range declaredOrder {
@@ -77,24 +77,29 @@ func (t RugoType) String() string {
 // Callers are responsible for ensuring t is a single bit (or TypeDynamic);
 // multi-bit values must be formatted via String(). This is the
 // diagnostic-side name, NOT the Go-codegen name (use GoType() for that).
+//
+// The user-facing names mirror what `type_of()` returns at runtime, so the
+// annotation surface, diagnostic vocabulary, and runtime introspection
+// share one set of strings (Integer, Float, String, Bool, Nil, Array,
+// Hash, Any, plus Lambda/Bytes at runtime).
 func singleBitName(t RugoType) string {
 	switch t {
 	case TypeInt:
-		return "int"
+		return "Integer"
 	case TypeFloat:
-		return "float"
+		return "Float"
 	case TypeString:
-		return "string"
+		return "String"
 	case TypeBool:
-		return "bool"
+		return "Bool"
 	case TypeNil:
-		return "nil"
+		return "Nil"
 	case TypeArray:
-		return "array"
+		return "Array"
 	case TypeHash:
-		return "hash"
+		return "Hash"
 	case TypeDynamic:
-		return "any"
+		return "Any"
 	}
 	return "?"
 }
@@ -174,33 +179,35 @@ func (t RugoType) NarrowGoType() string {
 	return t.GoType()
 }
 
-// ParseTypeAnnotation converts a source-level type annotation (e.g. "int")
+// ParseTypeAnnotation converts a source-level type annotation (e.g. "Integer")
 // into a RugoType. The second return value reports whether the name is a
 // recognised type — callers should surface a user-facing error when false.
 //
 // Recognised names mirror what `type_of()` returns at runtime:
 //
-//	int, float, string, bool, array, hash, nil, any
+//	Integer, Float, String, Bool, Array, Hash, Nil, Any
 //
-// "any" is the explicit dynamic type — the inference engine treats it as
-// "give up, leave as interface{}".
+// "Any" is the explicit dynamic type — the inference engine treats it as
+// "give up, leave as interface{}". Names are case-sensitive (capitalised);
+// LegacyLowercaseAnnotation reports the deprecated lowercase form, which
+// is rejected with a "did you mean X?" hint by the annotation check.
 func ParseTypeAnnotation(name string) (RugoType, bool) {
 	switch name {
-	case "int":
+	case "Integer":
 		return TypeInt, true
-	case "float":
+	case "Float":
 		return TypeFloat, true
-	case "string":
+	case "String":
 		return TypeString, true
-	case "bool":
+	case "Bool":
 		return TypeBool, true
-	case "array":
+	case "Array":
 		return TypeArray, true
-	case "hash":
+	case "Hash":
 		return TypeHash, true
-	case "nil":
+	case "Nil":
 		return TypeNil, true
-	case "any":
+	case "Any":
 		return TypeDynamic, true
 	}
 	return TypeDynamic, false
@@ -209,7 +216,34 @@ func ParseTypeAnnotation(name string) (RugoType, bool) {
 // KnownTypeNames returns the set of valid type annotation names for use in
 // error messages.
 func KnownTypeNames() []string {
-	return []string{"int", "float", "string", "bool", "array", "hash", "nil", "any"}
+	return []string{"Integer", "Float", "String", "Bool", "Array", "Hash", "Nil", "Any"}
+}
+
+// LegacyLowercaseAnnotation maps a v0.29-era lowercase annotation name
+// ("int", "string", …) to its current capitalised form. Returns the
+// canonical name and true when the input is one of the deprecated
+// lowercase names; "" and false otherwise. The annotation check uses
+// this to produce a "did you mean Integer?" hint for v0.29-era code.
+func LegacyLowercaseAnnotation(name string) (string, bool) {
+	switch name {
+	case "int":
+		return "Integer", true
+	case "float":
+		return "Float", true
+	case "string":
+		return "String", true
+	case "bool":
+		return "Bool", true
+	case "array":
+		return "Array", true
+	case "hash":
+		return "Hash", true
+	case "nil":
+		return "Nil", true
+	case "any":
+		return "Any", true
+	}
+	return "", false
 }
 
 // GoType returns the Go type string for codegen, or "" for untyped.

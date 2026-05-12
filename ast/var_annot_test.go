@@ -36,14 +36,14 @@ func TestVarAnnotParsesTypeAnnot(t *testing.T) {
 		src  string
 		want string
 	}{
-		{"int", "x : int = 42", "int"},
-		{"float", "x : float = 3.14", "float"},
-		{"string", `x : string = "hi"`, "string"},
-		{"bool", "x : bool = true", "bool"},
-		{"array", "x : array = [1, 2, 3]", "array"},
-		{"hash", "x : hash = {1 => 2}", "hash"},
-		{"nil", "x : nil = nil", "nil"},
-		{"any", "x : any = 42", "any"},
+		{"int", "x : Integer = 42", "Integer"},
+		{"float", "x : Float = 3.14", "Float"},
+		{"string", `x : String = "hi"`, "String"},
+		{"bool", "x : Bool = true", "Bool"},
+		{"array", "x : Array = [1, 2, 3]", "Array"},
+		{"hash", "x : Hash = {1 => 2}", "Hash"},
+		{"nil", "x : Nil = nil", "Nil"},
+		{"any", "x : Any = 42", "Any"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -73,8 +73,8 @@ func TestVarAnnotRejectsIndexAndDotAssign(t *testing.T) {
 		name string
 		src  string
 	}{
-		{"index assign", "arr = [1, 2]\narr[0] : int = 99"},
-		{"dot assign", "obj.field : int = 5"},
+		{"index assign", "arr = [1, 2]\narr[0] : Integer = 99"},
+		{"dot assign", "obj.field : Integer = 5"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

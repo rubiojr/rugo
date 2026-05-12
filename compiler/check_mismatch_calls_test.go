@@ -17,13 +17,13 @@ func TestLiteralType(t *testing.T) {
 		want   RugoType
 		ok     bool
 	}{
-		{"int literal", &ast.IntLiteral{Value: "1"}, TypeInt, true},
-		{"float literal", &ast.FloatLiteral{Value: "1.5"}, TypeFloat, true},
-		{"string literal", &ast.StringLiteral{Value: "x"}, TypeString, true},
-		{"bool literal", &ast.BoolLiteral{Value: true}, TypeBool, true},
-		{"nil literal", &ast.NilLiteral{}, TypeNil, true},
-		{"array literal", &ast.ArrayLiteral{}, TypeArray, true},
-		{"hash literal", &ast.HashLiteral{}, TypeHash, true},
+		{"Integer literal", &ast.IntLiteral{Value: "1"}, TypeInt, true},
+		{"Float literal", &ast.FloatLiteral{Value: "1.5"}, TypeFloat, true},
+		{"String literal", &ast.StringLiteral{Value: "x"}, TypeString, true},
+		{"Bool literal", &ast.BoolLiteral{Value: true}, TypeBool, true},
+		{"Nil literal", &ast.NilLiteral{}, TypeNil, true},
+		{"Array literal", &ast.ArrayLiteral{}, TypeArray, true},
+		{"Hash literal", &ast.HashLiteral{}, TypeHash, true},
 		{
 			"negative int via unary minus",
 			&ast.UnaryExpr{Op: "-", Operand: &ast.IntLiteral{Value: "5"}},
@@ -85,64 +85,64 @@ func TestCheckCallSitesMismatch(t *testing.T) {
 		shouldError bool
 	}{
 		{
-			name: "string literal to int param",
+			name: "String literal to int param",
 			source: `
-def f(a : int) : int
+def f(a : Integer) : Integer
   return a + 1
 end
 puts(f("oops"))
 `,
-			wantSubstr:  "cannot pass string literal as argument 1 to 'f'",
+			wantSubstr:  "cannot pass String literal as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
-			name: "array literal to int param",
+			name: "Array literal to int param",
 			source: `
-def f(a : int)
+def f(a : Integer)
   return a
 end
 puts(f([1, 2, 3]))
 `,
-			wantSubstr:  "cannot pass array literal as argument 1 to 'f'",
+			wantSubstr:  "cannot pass Array literal as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
-			name: "hash literal to array param",
+			name: "Hash literal to array param",
 			source: `
-def f(xs : array)
+def f(xs : Array)
   return xs
 end
 puts(f({a: 1}))
 `,
-			wantSubstr:  "cannot pass hash literal as argument 1 to 'f'",
+			wantSubstr:  "cannot pass Hash literal as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
-			name: "nil literal to int param",
+			name: "Nil literal to int param",
 			source: `
-def f(a : int)
+def f(a : Integer)
   return a
 end
 puts(f(nil))
 `,
-			wantSubstr:  "cannot pass nil literal as argument 1 to 'f'",
+			wantSubstr:  "cannot pass Nil literal as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
-			name: "bool literal to array param",
+			name: "Bool literal to array param",
 			source: `
-def f(xs : array)
+def f(xs : Array)
   return xs
 end
 puts(f(true))
 `,
-			wantSubstr:  "cannot pass bool literal as argument 1 to 'f'",
+			wantSubstr:  "cannot pass Bool literal as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
 			name: "second argument index reported correctly",
 			source: `
-def add(a : int, b : int) : int
+def add(a : Integer, b : Integer) : Integer
   return a + b
 end
 puts(add(1, "x"))
@@ -152,9 +152,9 @@ puts(add(1, "x"))
 		},
 		// Permissive cases (no error)
 		{
-			name: "int literal to float param is permitted",
+			name: "Integer literal to float param is permitted",
 			source: `
-def f(a : float) : float
+def f(a : Float) : Float
   return a + 1.0
 end
 puts(f(2))
@@ -162,9 +162,9 @@ puts(f(2))
 			shouldError: false,
 		},
 		{
-			name: "int literal to string param is permitted",
+			name: "Integer literal to string param is permitted",
 			source: `
-def f(a : string) : string
+def f(a : String) : String
   return a
 end
 puts(f(42))
@@ -174,7 +174,7 @@ puts(f(42))
 		{
 			name: "anything to any-annotated param is permitted",
 			source: `
-def f(x : any) : any
+def f(x : Any) : Any
   return x
 end
 puts(f(nil))
@@ -186,7 +186,7 @@ puts(f([1, 2]))
 		{
 			name: "anything to bool-annotated param is permitted",
 			source: `
-def f(a : bool) : bool
+def f(a : Bool) : Bool
   return a
 end
 puts(f(0))
@@ -198,7 +198,7 @@ puts(f([1, 2]))
 		{
 			name: "negative integer literal to int param",
 			source: `
-def f(a : int) : int
+def f(a : Integer) : Integer
   return a + 1
 end
 puts(f(-5))
@@ -209,7 +209,7 @@ puts(f(-5))
 		{
 			name: "variable arg with dynamic type is not flagged",
 			source: `
-def f(a : int) : int
+def f(a : Integer) : Integer
   return a + 1
 end
 h = {1 => 2}
@@ -225,32 +225,32 @@ puts(f(x))
 		{
 			name: "variable arg with concrete string is flagged (Tier 3)",
 			source: `
-def f(a : int) : int
+def f(a : Integer) : Integer
   return a + 1
 end
 x = "hello"
 puts(f(x))
 `,
-			wantSubstr:  "cannot pass string value as argument 1 to 'f'",
+			wantSubstr:  "cannot pass String value as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
 			name: "variable arg sequential overwrite to incompat is flagged (Tier 3)",
 			source: `
-def f(a : int) : int
+def f(a : Integer) : Integer
   return a
 end
 x = 1
 x = "oops"
 puts(f(x))
 `,
-			wantSubstr:  "cannot pass string value as argument 1 to 'f'",
+			wantSubstr:  "cannot pass String value as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
 			name: "variable arg sequential overwrite back to compat type passes (Tier 3)",
 			source: `
-def f(a : int) : int
+def f(a : Integer) : Integer
   return a
 end
 x = "h"
@@ -262,7 +262,7 @@ puts(f(x))
 		{
 			name: "variable arg post-no-else-if is union and flagged (Tier 3)",
 			source: `
-def f(a : int) : int
+def f(a : Integer) : Integer
   return a
 end
 x = 1
@@ -283,7 +283,7 @@ puts(str.upper(42))
 			shouldError: false,
 		},
 		{
-			name: "unannotated function accepts any literal",
+			name: "unannotated function accepts Any literal",
 			source: `
 def f(a)
   return a
@@ -298,18 +298,18 @@ puts(f([1, 2]))
 		{
 			name: "function with defaults still validates literals",
 			source: `
-def add(a : int = 1, b : int = 2) : int
+def add(a : Integer = 1, b : Integer = 2) : Integer
   return a + b
 end
 puts(add("oops", 10))
 `,
-			wantSubstr:  "cannot pass string literal as argument 1 to 'add'",
+			wantSubstr:  "cannot pass String literal as argument 1 to 'add'",
 			shouldError: true,
 		},
 		{
 			name: "function with defaults accepts valid literals",
 			source: `
-def add(a : int = 1, b : int = 2) : int
+def add(a : Integer = 1, b : Integer = 2) : Integer
   return a + b
 end
 puts(add(5, 10))
@@ -320,7 +320,7 @@ puts(add(5, 10))
 		{
 			name: "mismatch inside fn lambda body is caught",
 			source: `
-def square(n : int) : int
+def square(n : Integer) : Integer
   return n * n
 end
 f = fn()
@@ -328,13 +328,13 @@ f = fn()
 end
 puts(f())
 `,
-			wantSubstr:  "cannot pass string literal as argument 1 to 'square'",
+			wantSubstr:  "cannot pass String literal as argument 1 to 'square'",
 			shouldError: true,
 		},
 		{
 			name: "mismatch in recursive self-call is caught",
 			source: `
-def f(n : int) : int
+def f(n : Integer) : Integer
   if n <= 0
     return 0
   end
@@ -342,38 +342,38 @@ def f(n : int) : int
 end
 puts(f(3))
 `,
-			wantSubstr:  "cannot pass string literal as argument 1 to 'f'",
+			wantSubstr:  "cannot pass String literal as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
 			name: "mismatch inside if condition is caught",
 			source: `
-def is_pos(n : int) : bool
+def is_pos(n : Integer) : Bool
   return n > 0
 end
 if is_pos("oops")
   puts("yes")
 end
 `,
-			wantSubstr:  "cannot pass string literal as argument 1 to 'is_pos'",
+			wantSubstr:  "cannot pass String literal as argument 1 to 'is_pos'",
 			shouldError: true,
 		},
 		{
 			name: "mismatch inside try expression is caught",
 			source: `
-def f(n : int) : int
+def f(n : Integer) : Integer
   return n * 2
 end
 result = try f("oops") or 99
 puts(result)
 `,
-			wantSubstr:  "cannot pass string literal as argument 1 to 'f'",
+			wantSubstr:  "cannot pass String literal as argument 1 to 'f'",
 			shouldError: true,
 		},
 		{
 			name: "mismatch inside spawn body is caught",
 			source: `
-def square(n : int) : int
+def square(n : Integer) : Integer
   return n * n
 end
 task = spawn
@@ -381,7 +381,7 @@ task = spawn
 end
 puts(task.value)
 `,
-			wantSubstr:  "cannot pass string literal as argument 1 to 'square'",
+			wantSubstr:  "cannot pass String literal as argument 1 to 'square'",
 			shouldError: true,
 		},
 	}
@@ -404,7 +404,7 @@ puts(task.value)
 
 // TestCheckCallSitesErrorPointsAtSourceLine verifies the error includes the rugo line.
 func TestCheckCallSitesErrorPointsAtSourceLine(t *testing.T) {
-	source := `def f(a : int) : int
+	source := `def f(a : Integer) : Integer
   return a + 1
 end
 
@@ -423,7 +423,7 @@ puts(f("oops"))
 // TestCheckCallSitesNoInferDisabled — the call-site check is skipped when --no-infer.
 func TestCheckCallSitesNoInferDisabled(t *testing.T) {
 	source := `
-def f(a : int) : int
+def f(a : Integer) : Integer
   return a + 1
 end
 puts(f("oops"))

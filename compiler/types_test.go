@@ -146,19 +146,19 @@ func TestRugoTypeNarrowGoType(t *testing.T) {
 }
 
 // String() prints unions in declaration order, joined by '|', so diagnostics
-// have a stable, readable shape ("int|string", not "string|int").
+// have a stable, readable shape ("Integer|String", not "String|Integer").
 func TestRugoTypeStringUnion(t *testing.T) {
 	tests := []struct {
 		name string
 		t    RugoType
 		want string
 	}{
-		{"single int", TypeInt, "int"},
-		{"single any (dynamic)", TypeDynamic, "any"},
-		{"unknown", TypeUnknown, "unknown"},
-		{"int|string", TypeInt | TypeString, "int|string"},
-		{"int|float|string", TypeInt | TypeFloat | TypeString, "int|float|string"},
-		{"string|nil", TypeString | TypeNil, "string|nil"},
+		{"single Integer", TypeInt, "Integer"},
+		{"single Any (dynamic)", TypeDynamic, "Any"},
+		{"unknown", TypeUnknown, "Unknown"},
+		{"Integer|String", TypeInt | TypeString, "Integer|String"},
+		{"Integer|Float|String", TypeInt | TypeFloat | TypeString, "Integer|Float|String"},
+		{"String|Nil", TypeString | TypeNil, "String|Nil"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
