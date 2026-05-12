@@ -84,8 +84,12 @@ func checkMismatchStmt(s ast.Statement, ti *TypeInfo, sourceFile string, paramAn
 		return checkMismatchExpr(st.Value, ti, sourceFile)
 
 	case *ast.ReturnStmt:
-		if retAnnot != "" && st.Value != nil {
-			if err := checkReturnValue(st.Value, st.SourceLine, retAnnot, ti, sourceFile, false); err != nil {
+		if retAnnot != "" {
+			if st.Value == nil {
+				if err := checkBareReturn(st.SourceLine, retAnnot, sourceFile); err != nil {
+					return err
+				}
+			} else if err := checkReturnValue(st.Value, st.SourceLine, retAnnot, ti, sourceFile, false); err != nil {
 				return err
 			}
 		}
@@ -243,6 +247,30 @@ func checkAssignValue(st *ast.AssignStmt, annot RugoType, kind string, ti *TypeI
 	return &ast.UserError{Msg: fmt.Sprintf(
 		"%s:%d: cannot assign %s value to %s '%s' declared as %s",
 		sourceFile, st.SourceLine, displayTypeName(inferred), kind, st.Target, displayTypeName(annot),
+	)}
+}
+
+// checkBareReturn flags a bare `return` (no value) inside a function
+// whose return annotation cannot accept Nil. A bare return is
+// conceptually `return nil`, so any annotation other than `Nil` or
+// `Any` is a concrete type-violation the compiler can prove. Without
+// this check the violation would either fall through to a Go-level
+// diagnostic that leaks lowercase Go type names (`int`, `string`,
+// `float64`, `bool`) or be silently accepted for reference-typed
+// annotations (`Array`, `Hash`) where Go's nil happens to be a valid
+// zero value.
+func checkBareReturn(line int, retAnnot, sourceFile string) error {
+	annot, ok := ParseTypeAnnotation(retAnnot)
+	if !ok {
+		// Unknown type names are caught by TypeAnnotationCheck.
+		return nil
+	}
+	if compatibleWithAnnotation(annot, TypeNil) {
+		return nil
+	}
+	return &ast.UserError{Msg: fmt.Sprintf(
+		"%s:%d: cannot return without a value from function declared returning %s",
+		sourceFile, line, displayTypeName(annot),
 	)}
 }
 

@@ -1441,6 +1441,177 @@ rats "mismatch: only the conflicting return errors, valid returns are fine"
   test.assert_eq(result["output"], "10")
 end
 
+# ---------------------------------------------------------------------
+# Section 13b — Empty (bare) `return` against a typed return slot
+#
+# A bare `return` is conceptually returning nil. It must be rejected at
+# compile time when the function's return annotation is anything other
+# than `Nil` or `Any`, with a clean rugo-level error message — no
+# Go-level type names (e.g. `int`, `string`, `float64`, `bool`) should
+# leak into the diagnostic.
+# ---------------------------------------------------------------------
+
+rats "mismatch: bare return in int-annotated function errors"
+  source = <<~RUGO
+    def f() : Integer
+      return
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return without a value from function declared returning Integer")
+end
+
+rats "mismatch: bare return in string-annotated function errors"
+  source = <<~RUGO
+    def f() : String
+      return
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return without a value from function declared returning String")
+end
+
+rats "mismatch: bare return in float-annotated function errors"
+  source = <<~RUGO
+    def f() : Float
+      return
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return without a value from function declared returning Float")
+end
+
+rats "mismatch: bare return in bool-annotated function errors"
+  source = <<~RUGO
+    def f() : Bool
+      return
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return without a value from function declared returning Bool")
+end
+
+rats "mismatch: bare return in array-annotated function errors"
+  source = <<~RUGO
+    def f() : Array
+      return
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return without a value from function declared returning Array")
+end
+
+rats "mismatch: bare return in hash-annotated function errors"
+  source = <<~RUGO
+    def f() : Hash
+      return
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return without a value from function declared returning Hash")
+end
+
+rats "mismatch: bare return error does NOT leak Go-internal type names"
+  source = <<~RUGO
+    def f() : Integer
+      return
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  # No lowercase Go primitives should appear in the diagnostic.
+  test.assert_true(!str.contains(combined, "int value"))
+  test.assert_true(!str.contains(combined, "float64"))
+end
+
+rats "mismatch: bare return inside branch in int-annotated function errors"
+  source = <<~RUGO
+    def f(flag : Bool) : Integer
+      if flag
+        return 42
+      end
+      return
+    end
+    puts(f(false))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return without a value from function declared returning Integer")
+end
+
+rats "mismatch: bare return in nil-annotated function is allowed"
+  source = <<~RUGO
+    def f() : Nil
+      return
+    end
+    f()
+    puts("ok")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ok")
+end
+
+rats "mismatch: bare return in any-annotated function is allowed"
+  source = <<~RUGO
+    def f() : Any
+      return
+    end
+    f()
+    puts("ok")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ok")
+end
+
+rats "mismatch: bare return in unannotated function is allowed"
+  source = <<~RUGO
+    def f()
+      return
+    end
+    f()
+    puts("ok")
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "ok")
+end
+
+rats "mismatch: bare return inside fn lambda with int return annotation errors"
+  source = <<~RUGO
+    g = fn() : Integer
+      return
+    end
+    puts(g())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return without a value from function declared returning Integer")
+end
+
 # =====================================================================
 # Section 14 — Call-site argument mismatches with literal args
 # =====================================================================
