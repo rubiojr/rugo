@@ -1,0 +1,72 @@
+---
+image: fedora:44
+cpus: 4
+memory: 4G
+disk-size: 32G 
+---
+#!/usr/bin/env bash
+# Yolofile — provisions a yolo development VM with mise + Go (latest) + rugo.
+# Runs as root inside the guest microVM via `matchlock exec -i -- bash`.
+
+set -euo pipefail
+
+# ---------------- Non-interactive dnf ----------------
+if ! grep -q '^assumeyes' /etc/dnf/dnf.conf 2>/dev/null; then
+    echo 'assumeyes=True'          >> /etc/dnf/dnf.conf
+    echo 'install_weak_deps=False' >> /etc/dnf/dnf.conf
+fi
+
+# ---------------- Base tooling ----------------
+dnf -q install \
+    tar gzip xz which findutils ca-certificates curl-minimal \
+    git make gcc procps-ng net-tools psmisc iproute vim file
+
+# ---------------- mise ----------------
+echo "==> [yolofile] installing mise"
+export MISE_INSTALL_PATH=/usr/local/bin/mise
+curl -fsSL https://mise.run | sh
+
+# Activate mise globally (shims dir on PATH for all login shells).
+cat > /etc/profile.d/mise.sh <<'PROFILE'
+export PATH=/root/.local/share/mise/shims:$HOME/go/bin:$PATH
+export GOPATH=$HOME/go
+PROFILE
+chmod 0644 /etc/profile.d/mise.sh
+
+# Fresh fedora:44 ships no /root/.bashrc; create one that sources /etc/bashrc.
+if [ ! -f /root/.bashrc ]; then
+    cat > /root/.bashrc <<'BASHRC'
+if [ -f /etc/bashrc ]; then . /etc/bashrc; fi
+eval "$(/usr/local/bin/mise activate bash)"
+BASHRC
+fi
+if [ ! -f /root/.bash_profile ]; then
+    cat > /root/.bash_profile <<'BP'
+if [ -f ~/.bashrc ]; then . ~/.bashrc; fi
+BP
+fi
+
+# Make mise + Go available for the rest of THIS script.
+export PATH=/root/.local/share/mise/shims:/root/go/bin:$PATH
+export GOPATH=/root/go
+
+# ---------------- Latest Go via mise ----------------
+echo "==> [yolofile] installing Go (latest) via mise"
+mise use --global go@latest
+mise reshim
+
+echo "==> [yolofile] Go version:"
+go version
+
+# ---------------- rugo ----------------
+echo "==> [yolofile] installing rugo (latest)"
+go install github.com/rubiojr/rugo@latest
+mise reshim
+
+# Symlink rugo into /usr/local/bin so it's on PATH without sourcing the profile.
+ln -sf /root/go/bin/rugo /usr/local/bin/rugo
+
+echo "==> [yolofile] rugo version:"
+/usr/local/bin/rugo --version || true
+
+echo "==> [yolofile] done. Try: mise ls && go version && rugo --version"
