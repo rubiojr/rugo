@@ -1,0 +1,78 @@
+# Optional type annotations in Rugo
+#
+# Annotations have the form `name : type` (with a space before `:`) on
+# function parameters, and `: type` after the closing paren for the return
+# type. They are entirely optional — annotated and unannotated params can
+# be freely mixed.
+#
+# Recognised type names: int, float, string, bool, array, hash, nil, any
+# (matching what `type_of()` returns). `any` is an explicit escape hatch
+# that means "dynamic".
+#
+# Annotations are:
+#   1. checked at compile time (unknown type names are errors)
+#   2. used to seed type inference, which lets the compiler emit typed
+#      Go signatures and skip boxing/unboxing in the generated code
+#   3. reported by `rugo emit --stats` so you can track coverage
+
+use "math"
+
+# A fully annotated function: typed params and typed return.
+def add(a : int, b : int) : int
+  return a + b
+end
+
+# Mixing annotated and unannotated params is fine.
+def scale(factor : float, x)
+  return factor * x
+end
+
+# Return-only annotation, no param annotations.
+def greet(name) : string
+  return "hello, " + name
+end
+
+# Default values combine with annotations. (Functions with defaults are
+# always compiled to a variadic shape, so annotations on such functions
+# act as documentation only — the actual signature stays dynamic.)
+def shout(msg : string = "hi") : string
+  return msg + "!"
+end
+
+# Lambdas (`fn`) accept the same annotations.
+square = fn(n : int) : int
+  return n * n
+end
+
+# Higher-order use: annotations on the lambda are kept locally and don't
+# affect the surrounding `apply`.
+def apply(f, x)
+  return f(x)
+end
+
+# A small, realistic typed example. We use parentheses on subtraction
+# because Rugo's shell-fallback heuristic would otherwise read
+# `bx - ax` as a shell command.
+def distance(ax : float, ay : float, bx : float, by : float) : float
+  dx = (bx - ax)
+  dy = (by - ay)
+  return math.sqrt(dx * dx + dy * dy)
+end
+
+# Use `any` when you need to opt out of typing on a single argument.
+def echo(value : any) : any
+  return value
+end
+
+puts add(2, 3)
+puts scale(1.5, 4)
+puts greet("rugo")
+puts shout()
+puts shout("yo")
+puts square(7)
+puts apply(square, 6)
+puts distance(0.0, 0.0, 3.0, 4.0)
+puts echo("anything")
+
+# Run `bin/rugo emit --stats examples/typed_functions.rugo` to see the
+# annotation coverage and the inferred types side by side.

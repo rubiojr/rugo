@@ -217,6 +217,7 @@ func (g *codeGen) buildReturn(r *ast.ReturnStmt) ([]GoStmt, error) {
 	if err != nil {
 		return nil, err
 	}
+	expr = g.coerceReturnExpr(r.Value, expr)
 	return []GoStmt{GoReturnStmt{Value: expr}}, nil
 }
 
@@ -225,7 +226,43 @@ func (g *codeGen) buildImplicitReturn(r *ast.ImplicitReturnStmt) ([]GoStmt, erro
 	if err != nil {
 		return nil, err
 	}
+	expr = g.coerceReturnExpr(r.Value, expr)
 	return []GoStmt{GoReturnStmt{Value: expr}}, nil
+}
+
+// coerceReturnExpr inserts a runtime conversion when the enclosing function
+// has a typed (annotated) return type and the source expression is not
+// already Go-typed. This lets the user write `def f(x : float) : float`
+// even when the body calls into a dynamic helper (e.g. math.sqrt) that
+// produces interface{}.
+//
+// Lambdas always emit interface{}-returning closures, so we skip coercion
+// while inside one — otherwise we'd wrap the lambda's implicit return with
+// e.g. `rugo_to_int(...)` even though the closure signature is dynamic.
+func (g *codeGen) coerceReturnExpr(srcExpr ast.Expr, val GoExpr) GoExpr {
+	if g.lambdaDepth > 0 {
+		return val
+	}
+	fti := g.currentFuncTypeInfo()
+	if fti == nil || !fti.ReturnType.IsTyped() {
+		return val
+	}
+	if g.goTyped(srcExpr) && g.exprType(srcExpr) == fti.ReturnType {
+		return val
+	}
+	p := &goPrinter{}
+	s := p.exprStr(val)
+	switch fti.ReturnType {
+	case TypeInt:
+		return GoRawExpr{Code: fmt.Sprintf("rugo_to_int(%s)", s)}
+	case TypeFloat:
+		return GoRawExpr{Code: fmt.Sprintf("rugo_to_float(%s)", s)}
+	case TypeString:
+		return GoRawExpr{Code: fmt.Sprintf("rugo_to_string(%s)", s)}
+	case TypeBool:
+		return GoRawExpr{Code: fmt.Sprintf("rugo_to_bool(%s)", s)}
+	}
+	return val
 }
 
 func (g *codeGen) buildTryResult(r *ast.TryResultStmt) ([]GoStmt, error) {

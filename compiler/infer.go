@@ -27,11 +27,30 @@ func Infer(prog *ast.Program) *TypeInfo {
 				continue // duplicate — codegen will report the error
 			}
 			funcs = append(funcs, st)
-			ti.FuncTypes[key] = &FuncTypeInfo{
-				ParamTypes:  make([]RugoType, len(st.Params)),
-				ReturnType:  TypeUnknown,
-				HasDefaults: ast.HasDefaults(st.Params),
+			fti := &FuncTypeInfo{
+				ParamTypes:    make([]RugoType, len(st.Params)),
+				AnnotatedArgs: make([]bool, len(st.Params)),
+				ReturnType:    TypeUnknown,
+				HasDefaults:   ast.HasDefaults(st.Params),
 			}
+			// Seed param types from annotations.
+			for i, p := range st.Params {
+				if p.TypeAnnot == "" {
+					continue
+				}
+				if t, ok := ParseTypeAnnotation(p.TypeAnnot); ok {
+					fti.ParamTypes[i] = t
+					fti.AnnotatedArgs[i] = true
+				}
+			}
+			// Seed return type from annotation.
+			if st.ReturnType != "" {
+				if t, ok := ParseTypeAnnotation(st.ReturnType); ok {
+					fti.ReturnType = t
+					fti.AnnotatedReturn = true
+				}
+			}
+			ti.FuncTypes[key] = fti
 		default:
 			topStmts = append(topStmts, s)
 		}
@@ -186,10 +205,15 @@ func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 
 	// Functions with default params use variadic signature (_args ...interface{}),
 	// so all params are interface{} at runtime — force them to TypeDynamic.
+	// The return value is also boxed through interface{}, so we cannot honor a
+	// return-type annotation either. Annotations are still parsed and recorded
+	// for documentation, but the runtime shape forces dynamic.
 	if ast.HasDefaults(f.Params) {
 		for i := range fti.ParamTypes {
 			fti.ParamTypes[i] = TypeDynamic
 		}
+		fti.ReturnType = TypeDynamic
+		fti.AnnotatedReturn = false
 	}
 
 	// Bind parameters to their current inferred types.
@@ -210,7 +234,13 @@ func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 	// If a parameter was reassigned from a dynamic expression (e.g.
 	// s = str.trim(s)), its var type will have been widened to dynamic.
 	// Widen ParamTypes to match so the Go declaration uses interface{}.
+	//
+	// Annotated params are NOT widened — the user has asserted the type, so
+	// we trust them. The conflict detector below catches mismatches.
 	for i, p := range f.Params {
+		if i < len(fti.AnnotatedArgs) && fti.AnnotatedArgs[i] {
+			continue
+		}
 		if fti.ParamTypes[i].IsTyped() && scope.get(p.Name) == TypeDynamic {
 			fti.ParamTypes[i] = TypeDynamic
 		}
@@ -237,12 +267,9 @@ func inferFunc(ti *TypeInfo, f *ast.FuncDef) {
 		retType = TypeDynamic
 	}
 
-	changed := false
-	if retType != fti.ReturnType {
+	if !fti.AnnotatedReturn && retType != fti.ReturnType {
 		fti.ReturnType = retType
-		changed = true
 	}
-	_ = changed
 }
 
 // inferStmt infers types within a statement, updating the scope.
@@ -768,7 +795,15 @@ func snapshotFuncTypes(m map[string]*FuncTypeInfo) map[string]*FuncTypeInfo {
 	for k, v := range m {
 		params := make([]RugoType, len(v.ParamTypes))
 		copy(params, v.ParamTypes)
-		snap[k] = &FuncTypeInfo{ParamTypes: params, ReturnType: v.ReturnType, HasDefaults: v.HasDefaults}
+		annot := make([]bool, len(v.AnnotatedArgs))
+		copy(annot, v.AnnotatedArgs)
+		snap[k] = &FuncTypeInfo{
+			ParamTypes:      params,
+			AnnotatedArgs:   annot,
+			ReturnType:      v.ReturnType,
+			AnnotatedReturn: v.AnnotatedReturn,
+			HasDefaults:     v.HasDefaults,
+		}
 	}
 	return snap
 }

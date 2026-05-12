@@ -69,6 +69,44 @@ func (t RugoType) IsTyped() bool {
 	return t == TypeInt || t == TypeFloat || t == TypeString || t == TypeBool
 }
 
+// ParseTypeAnnotation converts a source-level type annotation (e.g. "int")
+// into a RugoType. The second return value reports whether the name is a
+// recognised type — callers should surface a user-facing error when false.
+//
+// Recognised names mirror what `type_of()` returns at runtime:
+//
+//	int, float, string, bool, array, hash, nil, any
+//
+// "any" is the explicit dynamic type — the inference engine treats it as
+// "give up, leave as interface{}".
+func ParseTypeAnnotation(name string) (RugoType, bool) {
+	switch name {
+	case "int":
+		return TypeInt, true
+	case "float":
+		return TypeFloat, true
+	case "string":
+		return TypeString, true
+	case "bool":
+		return TypeBool, true
+	case "array":
+		return TypeArray, true
+	case "hash":
+		return TypeHash, true
+	case "nil":
+		return TypeNil, true
+	case "any":
+		return TypeDynamic, true
+	}
+	return TypeDynamic, false
+}
+
+// KnownTypeNames returns the set of valid type annotation names for use in
+// error messages.
+func KnownTypeNames() []string {
+	return []string{"int", "float", "string", "bool", "array", "hash", "nil", "any"}
+}
+
 // GoType returns the Go type string for codegen, or "" for untyped.
 func (t RugoType) GoType() string {
 	switch t {
@@ -119,10 +157,19 @@ type TypeInfo struct {
 }
 
 // FuncTypeInfo holds the inferred signature for a function.
+//
+// AnnotatedArgs[i] reports whether ParamTypes[i] came from an explicit
+// "name : Type" annotation (user-asserted) rather than inference. Annotated
+// types are "sticky": the inferrer treats them as ground truth and reports a
+// compile error if usage contradicts them.
+//
+// AnnotatedReturn reports the same for ReturnType.
 type FuncTypeInfo struct {
-	ParamTypes  []RugoType
-	ReturnType  RugoType
-	HasDefaults bool // true if the function has params with default values (variadic signature)
+	ParamTypes      []RugoType
+	AnnotatedArgs   []bool
+	ReturnType      RugoType
+	AnnotatedReturn bool
+	HasDefaults     bool // true if the function has params with default values (variadic signature)
 }
 
 // ExprType returns the inferred type of an expression, or TypeDynamic if unknown.

@@ -102,10 +102,16 @@ type SandboxStmt struct {
 func (s *SandboxStmt) node() {}
 func (s *SandboxStmt) stmt() {}
 
-// Param represents a function parameter with an optional default value.
+// Param represents a function parameter with an optional default value
+// and an optional type annotation (e.g. "name : int").
+//
+// TypeAnnot is the source-level annotation as a lowercase type name
+// ("int", "float", "string", "bool", "array", "hash", "nil", "any"), or
+// empty string when no annotation was provided.
 type Param struct {
-	Name    string
-	Default Expr // nil if no default value
+	Name      string
+	Default   Expr   // nil if no default value
+	TypeAnnot string // "" if no annotation
 }
 
 // ParamNames returns just the parameter names from a slice of Params.
@@ -138,13 +144,17 @@ func MinArity(params []Param) int {
 	return count
 }
 
-// FuncDef represents def name(params) body end.
+// FuncDef represents def name(params) [: type] body end.
+//
+// ReturnType is the optional source-level return annotation as a
+// lowercase type name, or empty string when no annotation was provided.
 type FuncDef struct {
 	BaseStmt
-	Name      string
-	Params    []Param
-	Body      []Statement
-	Namespace string // set during require resolution for namespaced functions
+	Name       string
+	Params     []Param
+	Body       []Statement
+	Namespace  string // set during require resolution for namespaced functions
+	ReturnType string // "" if no annotation
 }
 
 func (f *FuncDef) node() {}
@@ -539,10 +549,14 @@ type TryHandlerReturnStmt struct {
 func (r *TryHandlerReturnStmt) node() {}
 func (r *TryHandlerReturnStmt) stmt() {}
 
-// FnExpr represents fn(params) body end (first-class lambda).
+// FnExpr represents fn(params) [: type] body end (first-class lambda).
+//
+// ReturnType is the optional source-level return annotation as a
+// lowercase type name, or empty string when no annotation was provided.
 type FnExpr struct {
-	Params []Param
-	Body   []Statement
+	Params     []Param
+	Body       []Statement
+	ReturnType string // "" if no annotation
 }
 
 func (f *FnExpr) node() {}

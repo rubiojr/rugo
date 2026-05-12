@@ -26,6 +26,7 @@ In a future where code will be written by agents, do we even care about language
 
 - Ruby-like syntax
 - Compiles to native binaries — no runtime needed
+- [Optional type annotations](docs/language.md#optional-type-annotations) — gradually type your code; primitives compile to typed Go signatures
 - [Shell fallback](docs/quickstart/09-shell.md) — unknown commands run as shell commands, like Bash
 - [Modules](docs/quickstart/10-modules.md) with namespaces
 - [Go stdlib bridge](docs/quickstart/16-go-bridge.md) - call Go standard library functions directly
@@ -106,6 +107,30 @@ puts double(5)
 add = fn(a, b) a + b end
 puts add(2, 3)
 ```
+
+#### Optional type annotations
+
+Annotate function params and return types when you want — the compiler emits
+typed Go signatures and skips runtime boxing for `int`, `float`, `string`, and
+`bool`:
+
+```ruby
+def add(a : int, b : int) : int
+  return a + b
+end
+
+def greet(name : string) : string
+  return "hello, " + name
+end
+
+# Mix annotated and unannotated freely
+square = fn(n : int) : int
+  return n * n
+end
+```
+
+Run `rugo emit --stats script.rugo` to see annotation coverage and how typed
+the generated Go is.
 
 #### Modules
 

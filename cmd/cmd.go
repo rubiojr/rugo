@@ -75,6 +75,10 @@ func Execute(version string) {
 						Name:  "show-warnings",
 						Usage: "Show bridge warnings about unbridgeable Go functions",
 					},
+					&cli.BoolFlag{
+						Name:  "no-infer",
+						Usage: "Disable type inference (forces interface{} everywhere)",
+					},
 				},
 				Action: buildAction,
 			},
@@ -82,7 +86,22 @@ func Execute(version string) {
 				Name:      "emit",
 				Usage:     "Output the generated Go source code",
 				ArgsUsage: "<file.rugo>",
-				Action:    emitAction,
+				Flags: []cli.Flag{
+					&cli.BoolFlag{
+						Name:  "stats",
+						Usage: "Print type coverage and codegen stats instead of the Go source",
+					},
+					&cli.StringFlag{
+						Name:  "format",
+						Usage: "Output format when --stats is set: text or json",
+						Value: "text",
+					},
+					&cli.BoolFlag{
+						Name:  "no-infer",
+						Usage: "Disable type inference (forces interface{} everywhere)",
+					},
+				},
+				Action: emitAction,
 			},
 			{
 				Name:            "eval",
@@ -126,6 +145,10 @@ func Execute(version string) {
 						Name:  "recap",
 						Usage: "Print all failures with details at the end",
 					},
+					&cli.BoolFlag{
+						Name:  "no-infer",
+						Usage: "Disable type inference when compiling tests (forces interface{} everywhere)",
+					},
 				},
 				Action: testAction,
 			},
@@ -144,6 +167,10 @@ func Execute(version string) {
 						Aliases: []string{"n"},
 						Usage:   "Run each benchmark file N times (best result kept)",
 						Value:   1,
+					},
+					&cli.BoolFlag{
+						Name:  "no-infer",
+						Usage: "Disable type inference when compiling benchmarks (forces interface{} everywhere)",
 					},
 				},
 				Action: benchAction,
@@ -223,10 +250,11 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 	args := cmd.Args().Slice()
 	sandbox, args := parseSandboxFlags(args)
 	showWarnings, args := extractBoolFlag(args, "--show-warnings")
+	noInfer, args := extractBoolFlag(args, "--no-infer")
 	if len(args) == 0 {
-		return fmt.Errorf("usage: rugo run [--sandbox flags...] <file.rugo> [args...]")
+		return fmt.Errorf("usage: rugo run [--sandbox flags...] [--no-infer] <file.rugo> [args...]")
 	}
-	comp := &compiler.Compiler{Sandbox: sandbox, ShowWarnings: showWarnings}
+	comp := &compiler.Compiler{Sandbox: sandbox, ShowWarnings: showWarnings, DisableInfer: noInfer}
 	scriptArgs := args[1:]
 	// Strip leading "--" separator so `rugo run script -- args` passes
 	// only the actual args to the script (SkipFlagParsing keeps "--" literal).
@@ -238,10 +266,15 @@ func runAction(ctx context.Context, cmd *cli.Command) error {
 
 func buildAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
-		return fmt.Errorf("usage: rugo build [-o output] [--frozen] [--sandbox flags...] <file.rugo>")
+		return fmt.Errorf("usage: rugo build [-o output] [--frozen] [--no-infer] [--sandbox flags...] <file.rugo>")
 	}
 	sandbox, _ := parseSandboxFlags(cmd.Args().Slice())
-	comp := &compiler.Compiler{Frozen: cmd.Bool("frozen"), ShowWarnings: cmd.Bool("show-warnings"), Sandbox: sandbox}
+	comp := &compiler.Compiler{
+		Frozen:       cmd.Bool("frozen"),
+		ShowWarnings: cmd.Bool("show-warnings"),
+		Sandbox:      sandbox,
+		DisableInfer: cmd.Bool("no-infer"),
+	}
 	output := cmd.String("output")
 	// Also check if -o was passed after the filename (urfave quirk)
 	if output == "" {
@@ -336,14 +369,32 @@ func parseSandboxFlags(args []string) (*compiler.SandboxConfig, []string) {
 
 func emitAction(ctx context.Context, cmd *cli.Command) error {
 	if cmd.NArg() < 1 {
-		return fmt.Errorf("usage: rugo emit <file.rugo>")
+		return fmt.Errorf("usage: rugo emit [--stats] [--format text|json] [--no-infer] <file.rugo>")
 	}
-	comp := &compiler.Compiler{}
-	src, err := comp.Emit(cmd.Args().First())
+	comp := &compiler.Compiler{DisableInfer: cmd.Bool("no-infer")}
+	result, err := comp.Compile(cmd.Args().First())
 	if err != nil {
 		return err
 	}
-	fmt.Print(src)
+
+	if cmd.Bool("stats") {
+		stats := compiler.ComputeStats(result.Program, result.TypeInfo, result.GoSource, result.SourceFile)
+		switch cmd.String("format") {
+		case "json":
+			out, err := stats.JSON()
+			if err != nil {
+				return err
+			}
+			fmt.Print(out)
+		case "text", "":
+			fmt.Print(stats.Text())
+		default:
+			return fmt.Errorf("unknown format %q (use text or json)", cmd.String("format"))
+		}
+		return nil
+	}
+
+	fmt.Print(result.GoSource)
 	return nil
 }
 
@@ -890,7 +941,7 @@ func benchAction(ctx context.Context, cmd *cli.Command) error {
 			if count > 1 {
 				fmt.Fprintf(os.Stderr, "  --- run %d/%d ---\n", i+1, count)
 			}
-			comp := &compiler.Compiler{}
+			comp := &compiler.Compiler{DisableInfer: cmd.Bool("no-infer")}
 			if err := comp.Run(f); err != nil {
 				return err
 			}
@@ -983,7 +1034,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	// Single file: run directly (no subprocess overhead)
 	if len(files) == 1 {
 		fmt.Fprintf(os.Stderr, "=== %s ===\n", files[0])
-		comp := &compiler.Compiler{TestMode: true}
+		comp := &compiler.Compiler{TestMode: true, DisableInfer: cmd.Bool("no-infer")}
 		if err := comp.Run(files[0]); err != nil {
 			fmt.Fprintln(os.Stderr, formatError(err.Error()))
 			os.Exit(1)
@@ -1014,10 +1065,15 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 	showTiming := os.Getenv("RUGO_TEST_TIMING") != ""
 	suiteStart := time.Now()
 
+	subArgs := []string{"rats"}
+	if cmd.Bool("no-infer") {
+		subArgs = append(subArgs, "--no-infer")
+	}
+
 	if jobs == 1 {
 		// Sequential: run each file with live output
 		for i, f := range files {
-			c := exec.Command(self, "rats", f)
+			c := exec.Command(self, append(subArgs, f)...)
 			var buf bytes.Buffer
 			c.Stdout = io.MultiWriter(os.Stdout, &buf)
 			c.Stderr = io.MultiWriter(os.Stderr, &buf)
@@ -1047,7 +1103,7 @@ func testAction(ctx context.Context, cmd *cli.Command) error {
 			go func() {
 				defer wg.Done()
 				for i := range work {
-					c := exec.Command(self, "rats", files[i])
+					c := exec.Command(self, append(subArgs, files[i])...)
 					c.Stdout = &async[i].buf
 					c.Stderr = &async[i].buf
 					if err := c.Run(); err != nil {

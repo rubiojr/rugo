@@ -21,7 +21,7 @@ import (
 func compileToGo(t *testing.T, src string) string {
 	t.Helper()
 	prog := parseAndWalk(t, src)
-	goSrc, err := generate(prog, "test.rugo", false, nil, false)
+	goSrc, err := generate(prog, "test.rugo", false, nil, false, false)
 	if err != nil {
 		t.Fatalf("Generate error: %v", err)
 	}
@@ -802,7 +802,7 @@ func TestPreprocessShellBeforeDefFuncAfter(t *testing.T) {
 func TestGenDotCall(t *testing.T) {
 	// Unknown ns.func() should compile to rugo_dot_call (runtime dispatch)
 	prog := parseAndWalk(t, `ns.func(1, 2)`)
-	_, err := generate(prog, "test.rugo", false, nil, false)
+	_, err := generate(prog, "test.rugo", false, nil, false, false)
 	if err != nil {
 		t.Errorf("unexpected error for dot call: %v", err)
 	}

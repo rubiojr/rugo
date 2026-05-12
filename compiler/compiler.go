@@ -51,6 +51,10 @@ type Compiler struct {
 	// Sandbox, when non-nil, overrides any sandbox directive in the script.
 	// Populated by CLI flags (--sandbox --ro, --rw, etc.).
 	Sandbox *SandboxConfig
+	// DisableInfer turns off type inference. All variables, params and
+	// return types fall back to interface{} in the generated Go source.
+	// Useful for measuring the speedup that inference provides.
+	DisableInfer bool
 	// Resolver overrides the default remote resolver. When set, the compiler
 	// uses this resolver instead of creating one. Used by mod tidy to share
 	// a single resolver across multiple compilations.
@@ -84,6 +88,11 @@ type CompileResult struct {
 	Program    *ast.Program
 	SourceFile string         // original source filename
 	Sandbox    *SandboxConfig // sandbox config (nil = no sandbox)
+	// TypeInfo is the inferred type information used (or that would have been
+	// used) during code generation. It is populated even when DisableInfer is
+	// set on the compiler, so analysis tools like `rugo emit --stats` can
+	// still report what inference can see.
+	TypeInfo *TypeInfo
 	// GoModuleRequires maps Go module paths to local cache directories
 	// for Go modules discovered via require. Used by go.mod generation.
 	GoModuleRequires map[string]string
@@ -159,6 +168,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 
 	// Run semantic checks before code generation
 	checks := ast.CheckChain{
+		TypeAnnotationCheck(filename),
 		UndefinedIdentCheck(filename),
 	}
 	if err := checks.Run(resolved); err != nil {
@@ -166,12 +176,20 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	}
 
 	// Generate Go source
-	genResult, err := generate(resolved, filename, c.TestMode, c.Sandbox, c.DisableEmbed)
+	genResult, err := generate(resolved, filename, c.TestMode, c.Sandbox, c.DisableEmbed, c.DisableInfer)
 	if err != nil {
 		return nil, err
 	}
 
-	return &CompileResult{GoSource: genResult.GoSource, Program: resolved, SourceFile: filename, Sandbox: c.Sandbox, GoModuleRequires: c.goModuleRequires, EmbedFiles: genResult.EmbedFiles}, nil
+	return &CompileResult{
+		GoSource:         genResult.GoSource,
+		Program:          resolved,
+		SourceFile:       filename,
+		Sandbox:          c.Sandbox,
+		TypeInfo:         genResult.TypeInfo,
+		GoModuleRequires: c.goModuleRequires,
+		EmbedFiles:       genResult.EmbedFiles,
+	}, nil
 }
 
 // discoverHelpers finds Rugo files in a helpers/ directory next to the test file

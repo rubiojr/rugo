@@ -613,7 +613,7 @@ func (w *walker) walkBenchDef(ast []int32) (Statement, error) {
 }
 
 func (w *walker) walkFuncDef(ast []int32) (Statement, error) {
-	// FuncDef = "def" ident '(' [ ParamList ] ')' Body "end" .
+	// FuncDef = "def" ident '(' [ ParamList ] ')' [ ':' ident ] Body "end" .
 	_, ast = w.readToken(ast) // "def"
 	nameTok, ast := w.readToken(ast)
 	_, ast = w.readToken(ast) // '('
@@ -634,6 +634,18 @@ func (w *walker) walkFuncDef(ast []int32) (Statement, error) {
 
 	_, ast = w.readToken(ast) // ')'
 
+	// Optional return type annotation: ':' ident
+	var returnType string
+	if len(ast) > 0 && ast[0] >= 0 {
+		tok := w.p.Token(ast[0])
+		if parser.Symbol(tok.Ch) == parser.RugoTOK_003a { // ':'
+			_, ast = w.readToken(ast) // consume ':'
+			typeTok, rest := w.readToken(ast)
+			ast = rest
+			returnType = typeTok.src
+		}
+	}
+
 	// Body
 	var body []Statement
 	if len(ast) > 0 && ast[0] < 0 {
@@ -647,10 +659,7 @@ func (w *walker) walkFuncDef(ast []int32) (Statement, error) {
 		}
 	}
 
-	// "end"
-	// _, _ = w.readToken(ast)
-
-	return &FuncDef{Name: nameTok.src, Params: params, Body: body}, nil
+	return &FuncDef{Name: nameTok.src, Params: params, Body: body, ReturnType: returnType}, nil
 }
 
 func (w *walker) walkParamList(ast []int32) ([]Param, error) {
@@ -698,16 +707,24 @@ func (w *walker) walkParamList(ast []int32) ([]Param, error) {
 }
 
 func (w *walker) walkParam(ast []int32) (Param, error) {
-	// Param = ident [ '=' Expr ] .
+	// Param = ident [ ':' ident ] [ '=' Expr ] .
 	nameTok, ast := w.readToken(ast)
 	p := Param{Name: nameTok.src}
 
+	// Optional type annotation: ':' ident
+	if len(ast) > 0 && ast[0] >= 0 {
+		tok := w.p.Token(ast[0])
+		if parser.Symbol(tok.Ch) == parser.RugoTOK_003a { // ':'
+			_, ast = w.readToken(ast) // consume ':'
+			typeTok, rest := w.readToken(ast)
+			ast = rest
+			p.TypeAnnot = typeTok.src
+		}
+	}
+
 	// Check for optional '=' Expr
 	if len(ast) > 0 {
-		tok, rest := w.readToken(ast) // '='
-		_ = tok
-		ast = rest
-		// Parse the default expression
+		_, ast = w.readToken(ast) // '='
 		defaultExpr, _, err := w.walkExpr(ast)
 		if err != nil {
 			return p, err
@@ -1575,7 +1592,7 @@ func (w *walker) walkParallelExpr(ast []int32) (Expr, error) {
 }
 
 func (w *walker) walkFnExpr(ast []int32) (Expr, error) {
-	// FnExpr = "fn" '(' [ ParamList ] ')' Body "end" .
+	// FnExpr = "fn" '(' [ ParamList ] ')' [ ':' ident ] Body "end" .
 	_, ast = w.readToken(ast) // "fn"
 	_, ast = w.readToken(ast) // '('
 
@@ -1594,6 +1611,18 @@ func (w *walker) walkFnExpr(ast []int32) (Expr, error) {
 
 	_, ast = w.readToken(ast) // ')'
 
+	// Optional return type annotation: ':' ident
+	var returnType string
+	if len(ast) > 0 && ast[0] >= 0 {
+		tok := w.p.Token(ast[0])
+		if parser.Symbol(tok.Ch) == parser.RugoTOK_003a { // ':'
+			_, ast = w.readToken(ast)
+			typeTok, rest := w.readToken(ast)
+			ast = rest
+			returnType = typeTok.src
+		}
+	}
+
 	var body []Statement
 	if len(ast) > 0 && ast[0] < 0 {
 		sym, children, _ := w.readNonTerminal(ast)
@@ -1605,9 +1634,8 @@ func (w *walker) walkFnExpr(ast []int32) (Expr, error) {
 			}
 		}
 	}
-	// "end" consumed by parser
 
-	return &FnExpr{Params: params, Body: body}, nil
+	return &FnExpr{Params: params, Body: body, ReturnType: returnType}, nil
 }
 
 // unquoteString removes surrounding quotes and processes escape sequences.

@@ -448,6 +448,76 @@ label("hello", "red")    # no defaults used
 
 Functions are hoisted to the Go package level during codegen. Inside function bodies, all function names are visible (forward references work). At the top level, function names are only recognized after their `def` line (positional resolution).
 
+#### Optional Type Annotations
+
+Function parameters and return types can carry optional type annotations using the form `name : type` (note the space before `:` — it is required so the preprocessor's hash-colon sugar doesn't rewrite the line) and `: type` after the parameter list:
+
+```ruby
+def add(a : int, b : int) : int
+  return a + b
+end
+
+def greet(name : string) : string
+  return "hello, " + name
+end
+
+# Mix annotated and unannotated freely
+def scale(factor : float, x)
+  return factor * x
+end
+
+# Return-only annotation
+def label(x) : string
+  return "value: " + x
+end
+```
+
+Annotations are optional everywhere — adding them is purely additive and never required. Lambdas use the same syntax:
+
+```ruby
+square = fn(n : int) : int
+  return n * n
+end
+```
+
+The recognised type names mirror what `type_of()` returns:
+
+| Annotation | Meaning                              |
+|------------|--------------------------------------|
+| `int`      | 64-bit integer                       |
+| `float`    | 64-bit float                         |
+| `string`   | Go `string`                          |
+| `bool`     | Go `bool`                            |
+| `array`    | Rugo array (`[]interface{}`)         |
+| `hash`     | Rugo hash (`map[interface{}]interface{}`) |
+| `nil`      | Always nil                           |
+| `any`      | Explicit dynamic (interface{})       |
+
+Unknown names produce a compile-time error pointing at the offending position.
+
+Annotations have three effects:
+
+1. **Compile-time validation.** The annotation name must be recognised; misspellings (`integer`, `String`) fail at compile time.
+2. **Seeded type inference.** `Infer()` plants the annotated types into `FuncTypeInfo.ParamTypes`/`ReturnType` before walking the body. The inferrer treats annotated params as ground truth and will not widen them to `interface{}` if a later assignment is dynamic. Annotated returns are not overwritten by the inferred return type.
+3. **Typed Go signatures.** When the annotated type is a primitive (`int`, `float`, `string`, `bool`), codegen emits a typed Go signature (`func rugofn_add(a int, b int) int`) instead of the default `func(... interface{}) interface{}`. The return path inserts a `rugo_to_*` coercion if the body produced a dynamic value, so calls into runtime helpers (e.g. `math.sqrt`) still work without manual casts.
+
+Coverage is reported by `rugo emit --stats`:
+
+```
+Params:    13   typed: 10 (76.9%)   dynamic: 3   annotated: 9 (69.2%)
+Returns:    7   typed: 4 (57.1%)    dynamic: 3   annotated: 5 (71.4%)
+```
+
+The `typed` column reflects what inference resolved (with or without annotations); `annotated` counts only positions where the user wrote an explicit annotation.
+
+**Limitations and caveats:**
+
+- Annotations apply only to function parameters and return types — there is no syntax for local variable annotations.
+- Functions with default parameter values compile to a variadic shape; on such functions the annotations act as documentation only, since the runtime signature is dynamic.
+- `array`, `hash`, `nil`, `any` are accepted but do not produce typed Go signatures (the corresponding runtime shapes are already `interface{}`-typed).
+- There is no annotation/body conflict detector in this version: an annotation is treated as a user assertion the inferrer trusts. If the body cannot satisfy the annotation, the Go compiler will surface a mismatch.
+- A space is required before `:` (`x : int`, not `x:int`) because the preprocessor would otherwise interpret `x:` as the start of a hash literal.
+
 ### Lambdas (First-Class Functions)
 
 Rugo supports anonymous functions (lambdas) using `fn(params) body end` syntax. Lambdas are first-class values — they can be stored in variables, passed as arguments, returned from functions, and stored in data structures.

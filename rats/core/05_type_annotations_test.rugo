@@ -1,0 +1,188 @@
+# RATS: Optional type annotations on def/fn params and return types
+use "test"
+use "eval"
+
+rats "annotated function with int params and int return"
+  source = <<~RUGO
+    def add(a : int, b : int) : int
+      return a + b
+    end
+    puts(add(2, 3))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "5")
+end
+
+rats "annotated function with string params and string return"
+  source = <<~RUGO
+    def greet(name : string) : string
+      return "hello, " + name
+    end
+    puts(greet("rugo"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "hello, rugo")
+end
+
+rats "annotated function with bool return"
+  source = <<~RUGO
+    def positive(n : int) : bool
+      return n > 0
+    end
+    puts(positive(5))
+    puts(positive(-1))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "mixed annotated and unannotated params"
+  source = <<~RUGO
+    def compare(a, b : int) : bool
+      return a == b
+    end
+    puts(compare(1, 1))
+    puts(compare(1, 2))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "false")
+end
+
+rats "annotation works alongside default value"
+  source = <<~RUGO
+    def greet(name : string = "world") : string
+      return "hi, " + name
+    end
+    puts(greet())
+    puts(greet("rugo"))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "hi, world")
+  test.assert_contains(result["output"], "hi, rugo")
+end
+
+rats "fn lambda with annotated params and return"
+  source = <<~RUGO
+    double = fn(x : int) : int
+      return x * 2
+    end
+    puts(double(21))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "fn lambda annotation in higher-order context"
+  source = <<~RUGO
+    def apply(f, x)
+      return f(x)
+    end
+    inc = fn(n : int) : int
+      return n + 1
+    end
+    puts(apply(inc, 41))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "unknown type name produces compile error"
+  source = <<~RUGO
+    def f(x : integer) : int
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown type")
+  test.assert_contains(result["output"] + result["error"], "integer")
+end
+
+rats "unknown return type produces compile error"
+  source = <<~RUGO
+    def f(x) : integer
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"] + result["error"], "unknown return type")
+end
+
+rats "valid type names cover the documented set"
+  source = <<~RUGO
+    def a(x : int) : int
+      return x
+    end
+    def b(x : float) : float
+      return x
+    end
+    def c(x : string) : string
+      return x
+    end
+    def d(x : bool) : bool
+      return x
+    end
+    def e(x : array) : array
+      return x
+    end
+    def f(x : hash) : hash
+      return x
+    end
+    def g(x : any) : any
+      return x
+    end
+    puts(a(1))
+    puts(b(2.5))
+    puts(c("ok"))
+    puts(d(true))
+    puts(e([1, 2]))
+    puts(f({k: "v"}))
+    puts(g(42))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "1")
+  test.assert_contains(result["output"], "2.5")
+  test.assert_contains(result["output"], "ok")
+  test.assert_contains(result["output"], "true")
+  test.assert_contains(result["output"], "[1, 2]")
+  test.assert_contains(result["output"], "v")
+  test.assert_contains(result["output"], "42")
+end
+
+rats "annotations produce typed go signatures"
+  source = <<~RUGO
+    def squared(n : int) : int
+      return n * n
+    end
+    puts(squared(7))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "49")
+end
+
+rats "recursive annotated function"
+  source = <<~RUGO
+    def factorial(n : int) : int
+      if n <= 1
+        return 1
+      end
+      return n * factorial(n - 1)
+    end
+    puts(factorial(5))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "120")
+end

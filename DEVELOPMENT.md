@@ -127,3 +127,108 @@ compiler.WalkExprs(prog, func(e ast.Expr) bool {
     _, isCall := e.(*ast.CallExpr)
     return isCall // stops on first call expression found
 })
+```
+
+## Measuring Type Coverage & Inference Impact
+
+Rugo emits typed Go where it can infer concrete types, falling back to
+`interface{}` plus `rugo_*` runtime helpers where it cannot. Two CLI features
+make this trade-off visible:
+
+### `rugo emit --stats`
+
+Compiles a script and prints a snapshot of how much was typed at the source
+level and what shape the generated Go has:
+
+```bash
+rugo emit --stats script.rugo            # human-readable
+rugo emit --stats --format json script.rugo
+```
+
+The report covers:
+
+- **Source side** — functions (fully typed / partial / untyped), params,
+  returns, locals, and expressions with typed vs dynamic counts.
+- **Generated Go** — total lines, user-function count, `interface{}`
+  occurrences, boxing casts (`interface{}(x)`), and `rugo_*` helper call counts
+  bucketed by category (coerce, arith, compare, access, builtin, iter, method,
+  shell, other).
+
+The numbers are designed to be diffable between commits as a CI signal: more
+"dynamic" and more `rugo_*` helper calls means more runtime boxing and worse
+codegen.
+
+### `--no-infer` — disable inference for A/B comparisons
+
+`emit`, `build`, `run`, `rats`, and `bench` all accept `--no-infer`, which
+forces the codegen to treat every value as `interface{}`. The inference engine
+still runs (so `--stats` still reports what it would have found), but the
+generated Go ignores it:
+
+```bash
+rugo emit --stats             script.rugo   # typed codegen
+rugo emit --stats --no-infer  script.rugo   # untyped codegen (same source stats)
+
+rugo bench           bench/   # current behaviour
+rugo bench --no-infer bench/  # what perf looks like without inference
+```
+
+This is how you size the win from a new inference rule before/after writing
+it.
+
+### Baseline workflow (Makefile)
+
+Use the baseline targets to measure the impact of compiler changes against a
+saved older binary:
+
+```bash
+# 1. Check out the "before" revision and snapshot it
+git checkout main
+make baseline             # builds and copies bin/rugo -> bin/rugo-baseline
+
+# 2. Switch to your branch and build the new compiler
+git checkout my-branch
+make build                # produces bin/rugo
+
+# 3. Run both binaries against the same suite
+make rats-compare         # wall-clock for full RATS suite, baseline vs current
+make bench-compare        # bench suite with vs without --no-infer
+make stats FILE=script.rugo   # type coverage for one script
+```
+
+`bin/rugo-baseline` is gitignored (matches `/bin/`). Re-running `make baseline`
+overwrites the snapshot, so always make it from the revision you want as the
+"before" reference.
+
+Note: `rats-compare` runs the baseline first and the current build second, so
+the second run benefits from a warm Go build cache. Compare runs from the same
+state and use the trend across many invocations rather than a single number.
+
+### Optional type annotations
+
+Function params and return types can carry annotations of the form
+`name : type` and `: type`. They are validated at compile time, used to seed
+type inference, and (for the four primitive types `int`/`float`/`string`/`bool`)
+cause codegen to emit typed Go signatures.
+
+Internals:
+
+| Layer | Where |
+|-------|-------|
+| Grammar | `parser/rugo.ebnf` — `Param`, `FuncDef`, `FnExpr` each take an optional `[ ':' ident ]`. After editing, regenerate `parser.go` with `egg`. |
+| AST | `ast/nodes.go` — `Param.TypeAnnot`, `FuncDef.ReturnType`, `FnExpr.ReturnType`. |
+| Walker | `ast/walker.go` — `walkParam`, `walkFuncDef`, `walkFnExpr` read the optional `:` ident token. |
+| Validation | `compiler/check_annot.go` — `TypeAnnotationCheck()` rejects unknown type names. Recurses manually into `FnExpr` bodies because `visitor.WalkExprs` doesn't descend into them. |
+| Seeding | `compiler/infer.go` — `Infer()` populates `FuncTypeInfo.ParamTypes`/`ReturnType` from annotations and sets `AnnotatedArgs[i]`/`AnnotatedReturn`. Annotated params are not widened by `inferFunc`; annotated returns are not overwritten. |
+| Codegen | `compiler/codegen_build.go` — `coerceReturnExpr()` wraps the return value in `rugo_to_int/_float/_string/_bool` when the body is dynamic but the annotated return is typed. |
+| Stats | `compiler/stats.go` — `Counter.Annotated` and `AnnotatedPct()` make annotation coverage visible in `rugo emit --stats`. |
+
+The recognised names (`int`, `float`, `string`, `bool`, `array`, `hash`, `nil`,
+`any`) are defined by `KnownTypeNames()` in `compiler/types.go`. To add a new
+type name, extend `ParseTypeAnnotation` and (if it should produce a typed Go
+signature) the `IsTyped`/`GoType` machinery in the same file.
+
+When working on annotations, a space before `:` is mandatory in source — the
+preprocessor's hash-colon expansion rewrites bare `ident:` into `"ident" =>`
+before the parser sees it.
+

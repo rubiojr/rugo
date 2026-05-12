@@ -63,18 +63,28 @@ type codeGen struct {
 type generateResult struct {
 	GoSource   string
 	EmbedFiles map[string]string // staged name → absolute source path
+	TypeInfo   *TypeInfo         // inference output (always populated, even when codegen skips it)
 }
 
 // generate produces Go source code from a ast.Program AST.
-func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *SandboxConfig, disableEmbed bool) (*generateResult, error) {
+// When disableInfer is true, type inference is still run (so callers like
+// `--stats` can introspect what inference would say) but the codegen pass is
+// fed a nil TypeInfo, forcing it to emit interface{} everywhere.
+func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *SandboxConfig, disableEmbed, disableInfer bool) (*generateResult, error) {
 	// Run AST transform chain before type inference and codegen.
 	prog = ast.Chain(
 		ast.ConcurrencyLowering(),
 		ast.ImplicitReturnLowering(),
 	).Transform(prog)
 
-	// Run type inference before code generation.
+	// Run type inference before code generation. Always populate the result
+	// so analysis tools can read it; only hide it from codegen when the
+	// caller has asked for a fully-dynamic build.
 	ti := Infer(prog)
+	codegenTI := ti
+	if disableInfer {
+		codegenTI = nil
+	}
 
 	g := &codeGen{
 		declared:    make(map[string]bool),
@@ -88,7 +98,7 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 		sourceFile:  sourceFile,
 		funcDefs:    make(map[string]funcArity),
 		testMode:    testMode,
-		typeInfo:    ti,
+		typeInfo:    codegenTI,
 		sandbox:      sandbox,
 		embedFiles:   make(map[string]string),
 		disableEmbed: disableEmbed,
@@ -98,7 +108,7 @@ func generate(prog *ast.Program, sourceFile string, testMode bool, sandbox *Sand
 	if err != nil {
 		return nil, err
 	}
-	return &generateResult{GoSource: src, EmbedFiles: g.embedFiles}, nil
+	return &generateResult{GoSource: src, EmbedFiles: g.embedFiles, TypeInfo: ti}, nil
 }
 
 func (g *codeGen) generate(prog *ast.Program) (string, error) {
