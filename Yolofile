@@ -58,6 +58,16 @@ mise reshim
 echo "==> [yolofile] Go version:"
 go version
 
+# ---------------- Go tooling ----------------
+echo "==> [yolofile] installing Go tooling (gopls, delve, staticcheck, ...)"
+go install golang.org/x/tools/gopls@latest
+go install github.com/go-delve/delve/cmd/dlv@latest
+go install honnef.co/go/tools/cmd/staticcheck@latest
+go install golang.org/x/tools/cmd/goimports@latest
+go install mvdan.cc/gofumpt@latest
+go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
+mise reshim
+
 # ---------------- rugo ----------------
 echo "==> [yolofile] installing rugo (latest)"
 go install github.com/rubiojr/rugo@latest
