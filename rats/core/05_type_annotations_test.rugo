@@ -366,7 +366,7 @@ rats "default literal: string param rejects int default (strict)"
   test.assert_contains(result["output"], "cannot use Integer literal as default for parameter 'x' declared as String")
 end
 
-rats "default literal: int param accepts float default (numeric compat)"
+rats "default literal: int param rejects float default (lossy)"
   source = <<~RUGO
     def f(x : Integer = 1.5) : Integer
       return x + 1
@@ -374,7 +374,8 @@ rats "default literal: int param accepts float default (numeric compat)"
     puts(f())
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot use Float literal as default for parameter 'x' declared as Integer")
 end
 
 rats "default literal mismatch silenced under --no-infer"
@@ -929,7 +930,8 @@ end
 #   - Returning the wrong type via explicit `return`
 #   - Implicit return (last-expression-as-value) of the wrong type
 #   - The same patterns inside `fn` lambdas
-#   - Numeric coercion (int <-> float) is allowed (no error)
+#   - Numeric widening (int -> float) is allowed (no error);
+#     Float -> Integer is rejected because it would silently truncate.
 #   - `string`, `bool`, `any` annotations accept anything (no error)
 #   - Unannotated functions are not checked at all
 # =====================================================================
@@ -1171,7 +1173,7 @@ rats "mismatch: int -> float return is allowed (numeric coercion)"
   test.assert_eq(result["status"], 0)
 end
 
-rats "mismatch: float -> int return is allowed (numeric coercion)"
+rats "mismatch: float -> int return is rejected (lossy truncation)"
   source = <<~RUGO
     def f() : Integer
       return 3.14
@@ -1179,7 +1181,9 @@ rats "mismatch: float -> int return is allowed (numeric coercion)"
     puts(f())
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Float value from function declared returning Integer")
 end
 
 rats "mismatch: returning Integer from string-annotated function errors"
@@ -1586,7 +1590,7 @@ rats "call-site: Integer literal to float param is allowed (numeric coercion)"
   test.assert_contains(result["output"], "3")
 end
 
-rats "call-site: Float literal to int param is allowed (numeric coercion)"
+rats "call-site: Float literal to int param is rejected (lossy truncation)"
   source = <<~RUGO
     def f(a : Integer) : Integer
       return a + 1
@@ -1594,7 +1598,8 @@ rats "call-site: Float literal to int param is allowed (numeric coercion)"
     puts(f(2.7))
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Float literal as argument 1 to 'f' (parameter 'a' declared as Integer)")
 end
 
 rats "call-site: Integer literal to string param is flagged (strict)"
@@ -1657,6 +1662,152 @@ rats "call-site: negative integer literal to string param is flagged (strict)"
   result = eval.run(source)
   test.assert_neq(result["status"], 0)
   test.assert_contains(result["output"], "cannot pass Integer literal as argument 1 to 'f' (parameter 'a' declared as String)")
+end
+
+# =====================================================================
+# Section 8b — Numeric coercion is asymmetric: widening allowed,
+# narrowing (Float -> Integer) rejected because it would silently
+# truncate.
+# =====================================================================
+
+rats "call-site: negative Float literal to int param is rejected (lossy)"
+  source = <<~RUGO
+    def f(a : Integer) : Integer
+      return a
+    end
+    puts(f(-1.5))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Float literal as argument 1 to 'f' (parameter 'a' declared as Integer)")
+end
+
+rats "call-site: whole-number Float literal to int param is rejected (lossy)"
+  source = <<~RUGO
+    def f(a : Integer) : Integer
+      return a
+    end
+    puts(f(2.0))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Float literal as argument 1 to 'f' (parameter 'a' declared as Integer)")
+end
+
+rats "call-site: Float variable to int param is rejected (lossy)"
+  source = <<~RUGO
+    def f(a : Integer) : Integer
+      return a
+    end
+    x = 1.5
+    puts(f(x))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass Float value as argument 1 to 'f' (parameter 'a' declared as Integer)")
+end
+
+rats "call-site: Float-producing expression to int param is rejected (lossy)"
+  source = <<~RUGO
+    def f(a : Integer) : Integer
+      return a
+    end
+    puts(f(1.5 + 2))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot pass Float")
+  test.assert_contains(combined, "declared as Integer")
+end
+
+rats "call-site: Bool literal to float param is rejected (would panic at runtime)"
+  source = <<~RUGO
+    def f(a : Float) : Float
+      return a
+    end
+    puts(f(true))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Bool literal as argument 1 to 'f' (parameter 'a' declared as Float)")
+end
+
+rats "call-site: Integer literal to float param remains allowed (widening)"
+  source = <<~RUGO
+    def f(a : Float) : Float
+      return a + 1.0
+    end
+    puts(f(2))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3")
+end
+
+rats "call-site: Bool literal to int param remains allowed (0/1 semantics)"
+  source = <<~RUGO
+    def f(a : Integer) : Integer
+      return a
+    end
+    puts(f(true))
+    puts(f(false))
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "1")
+  test.assert_contains(combined, "0")
+end
+
+rats "return: Float-producing expression from int-annotated function is rejected"
+  source = <<~RUGO
+    def f() : Integer
+      return 1.5 + 2
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  combined = result["output"] + result["output"]
+  test.assert_contains(combined, "cannot return Float value from function declared returning Integer")
+end
+
+rats "return: Integer return from Float-annotated function remains allowed (widening)"
+  source = <<~RUGO
+    def f() : Float
+      return 42
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "42")
+end
+
+rats "default literal: float param accepts integer default (widening)"
+  source = <<~RUGO
+    def f(x : Float = 3) : Float
+      return x + 0.5
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "3.5")
+end
+
+rats "default literal: float param rejects bool default (would panic at runtime)"
+  source = <<~RUGO
+    def f(x : Float = true) : Float
+      return x
+    end
+    puts(f())
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot use Bool literal as default for parameter 'x' declared as Float")
 end
 
 rats "call-site: literal-arg mismatch inside fn lambda body is caught"

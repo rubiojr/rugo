@@ -48,13 +48,16 @@ func TestCompatibleWithAnnotation(t *testing.T) {
 		{"bool annot, nil inferred", TypeBool, TypeNil, false},
 		{"bool annot, array inferred", TypeBool, TypeArray, false},
 
-		// Numeric family is mutually compatible (codegen coerces).
+		// Numeric carve-out is asymmetric: Integer widens to Float and
+		// Bool flows into Integer (0/1), but Float → Integer and
+		// Bool → Float are rejected (lossy / unsupported by the runtime
+		// helper, respectively).
 		{"int annot, int inferred", TypeInt, TypeInt, true},
-		{"int annot, float inferred", TypeInt, TypeFloat, true},
+		{"int annot, float inferred", TypeInt, TypeFloat, false},
 		{"int annot, bool inferred", TypeInt, TypeBool, true},
 		{"float annot, int inferred", TypeFloat, TypeInt, true},
 		{"float annot, float inferred", TypeFloat, TypeFloat, true},
-		{"float annot, bool inferred", TypeFloat, TypeBool, true},
+		{"float annot, bool inferred", TypeFloat, TypeBool, false},
 
 		// Concrete conflicts that fire the check.
 		{"int annot, string inferred", TypeInt, TypeString, false},
@@ -155,18 +158,18 @@ func TestCompatibleAssignToAnnotation(t *testing.T) {
 // TestCompatibleCallArgToAnnotation locks the compatibility table for
 // **call-site** checks: passing an argument whose inferred type
 // concretely conflicts with the parameter's annotation. The call-site
-// rule is strict (same as assignment) plus a numeric runtime-coercion
-// carve-out: codegen inserts rugo_to_int / rugo_to_float wrappers at
-// the call boundary, so Integer ↔ Float are mutually compatible, and
-// Bool flows freely into numeric params (runtime treats it as 0/1).
+// rule is strict (same as assignment) plus a narrow asymmetric
+// numeric carve-out:
 //
-// Unlike the assignment-context rule (compatibleAssignToAnnotation),
-// the numeric carve-out also makes Integer and Float mutually
-// compatible at call sites and at return sites. The return-context
-// predicate (compatibleWithAnnotation) is now an alias of this one —
-// `String` / `Bool` annotations no longer silently accept arbitrary
-// values at returns either, matching the same strict rule a
-// `x : String = ...` local variable enforces.
+//   - Integer → Float at the call boundary (widening; codegen inserts
+//     rugo_to_float). Float → Integer is rejected because it would
+//     silently truncate.
+//   - Bool → Integer (runtime 0/1; codegen inserts rugo_to_int).
+//     Bool → Float is rejected because the runtime helper would panic.
+//
+// The return-context predicate (compatibleWithAnnotation) is an alias
+// of this one — `String` / `Bool` / `Integer` annotations no longer
+// silently accept lossy conversions at returns either.
 func TestCompatibleCallArgToAnnotation(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -194,13 +197,15 @@ func TestCompatibleCallArgToAnnotation(t *testing.T) {
 		{"hash annot, hash inferred", TypeHash, TypeHash, true},
 		{"nil annot, nil inferred", TypeNil, TypeNil, true},
 
-		// Numeric carve-out: Integer ↔ Float (codegen coerces).
-		{"int annot, float inferred", TypeInt, TypeFloat, true},
+		// Numeric carve-out is asymmetric: Integer widens to Float,
+		// but Float → Integer is rejected (lossy truncation).
+		{"int annot, float inferred", TypeInt, TypeFloat, false},
 		{"float annot, int inferred", TypeFloat, TypeInt, true},
 
-		// Numeric carve-out: Bool flows into numeric (runtime 0/1).
+		// Bool flows into Integer (runtime 0/1). Bool → Float is rejected
+		// because the runtime helper would panic.
 		{"int annot, bool inferred", TypeInt, TypeBool, true},
-		{"float annot, bool inferred", TypeFloat, TypeBool, true},
+		{"float annot, bool inferred", TypeFloat, TypeBool, false},
 
 		// Strict: String / Bool no longer accept everything at call sites.
 		{"string annot, int inferred", TypeString, TypeInt, false},
@@ -231,7 +236,9 @@ func TestCompatibleCallArgToAnnotation(t *testing.T) {
 		{"nil annot, string inferred", TypeNil, TypeString, false},
 
 		// Unions: every member must independently pass.
-		{"int annot, Integer|Float union", TypeInt, TypeInt | TypeFloat, true},
+		// Integer|Float into Integer fails (Float member is lossy).
+		// Integer|Float into Float passes (Int member widens, Float exact).
+		{"int annot, Integer|Float union", TypeInt, TypeInt | TypeFloat, false},
 		{"float annot, Integer|Float union", TypeFloat, TypeInt | TypeFloat, true},
 		{"int annot, Integer|Bool union", TypeInt, TypeInt | TypeBool, true},
 		{"int annot, Integer|String union", TypeInt, TypeInt | TypeString, false},
@@ -465,8 +472,9 @@ annot      RugoType
 inferred   RugoType
 compatible bool
 }{
-// Numeric-only union passes numeric annotation.
-{"int annot, Integer|Float union", TypeInt, TypeInt | TypeFloat, true},
+// Numeric union behaviour mirrors the asymmetric carve-out:
+// Integer|Float passes Float (widening), but NOT Integer (lossy).
+{"int annot, Integer|Float union", TypeInt, TypeInt | TypeFloat, false},
 {"float annot, Integer|Float union", TypeFloat, TypeInt | TypeFloat, true},
 // String/Bool annotations are strict: any non-matching member fails.
 {"string annot, Integer|Nil union", TypeString, TypeInt | TypeNil, false},
@@ -641,9 +649,10 @@ assert.Contains(t, err.Error(), "declared as Float")
 // mismatch is a guaranteed type-violation that the compiler can prove.
 //
 // The compatibility rule is the strict call-site rule (now also used
-// at return sites): numeric types are mutually compatible, `Any`
-// accepts anything, and every other annotation requires a same-type
-// literal.
+// at return sites): `Any` accepts anything; Integer widens to Float and
+// Bool flows into Integer (0/1); every other annotation requires a
+// same-type literal. Float → Integer (lossy) and Bool → Float (panics
+// at runtime) are rejected here.
 func TestParamDefaultLiteralMismatch(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -669,6 +678,26 @@ end
 puts(f())
 `,
 			wantSubstr: "cannot use Nil literal as default for parameter 'x' declared as Integer",
+		},
+		{
+			name: "float default for int param (lossy truncation)",
+			source: `
+def f(x : Integer = 1.5) : Integer
+  return x
+end
+puts(f())
+`,
+			wantSubstr: "cannot use Float literal as default for parameter 'x' declared as Integer",
+		},
+		{
+			name: "bool default for float param (would panic at runtime)",
+			source: `
+def f(x : Float = true) : Float
+  return x
+end
+puts(f())
+`,
+			wantSubstr: "cannot use Bool literal as default for parameter 'x' declared as Float",
 		},
 		{
 			name: "int default for array param",
@@ -720,14 +749,14 @@ puts(double())
 	}
 }
 
-// TestParamDefaultLiteralCompatible verifies the strict-with-numeric-
-// carve-out rule for parameter defaults: the same rule the call-site
-// checker uses (defaults flow into the param at call time).
+// TestParamDefaultLiteralCompatible verifies the strict-with-narrow-
+// numeric-carve-out rule for parameter defaults: the same rule the
+// call-site checker uses (defaults flow into the param at call time).
 //
-// Numeric family (Integer/Float/Bool) flows freely between Integer and
-// Float annotations; `Any` accepts anything; everything else must match
-// the annotation exactly. String / Bool annotations no longer accept
-// arbitrary defaults — that's covered by TestParamDefaultLiteralMismatch.
+// Allowed numeric coercions: Integer → Float (widening) and
+// Bool → Integer (0/1). Float → Integer is rejected because it would
+// silently truncate; Bool → Float is rejected because the runtime
+// helper would panic.
 func TestParamDefaultLiteralCompatible(t *testing.T) {
 	cases := []struct {
 		name   string
@@ -751,19 +780,13 @@ def f(x : Any = [1, 2, 3])
 end
 f()
 `},
-		{"int param accepts float default (numeric carve-out)", `
-def f(x : Integer = 1.5) : Integer
-  return x + 1
-end
-puts(f())
-`},
-		{"float param accepts int default (numeric carve-out)", `
+		{"float param accepts int default (widening)", `
 def f(x : Float = 1) : Float
   return x
 end
 puts(f())
 `},
-		{"int param accepts bool default (numeric carve-out)", `
+		{"int param accepts bool default (0/1 semantics)", `
 def f(x : Integer = true) : Integer
   return x + 1
 end

@@ -480,11 +480,12 @@ puts(f(x))
 			shouldError: true,
 		},
 		// ---------------------------------------------------------------
-		// Numeric carve-out: still permissive at call sites for the
-		// Integer/Float/Bool numeric family.
+		// Asymmetric numeric carve-out: Integer widens to Float and
+		// Bool flows into Integer (0/1). Float → Integer is rejected
+		// (lossy), Bool → Float is rejected (runtime helper would panic).
 		// ---------------------------------------------------------------
 		{
-			name: "Integer literal to float param is permitted (numeric carve-out)",
+			name: "Integer literal to float param is permitted (widening)",
 			source: `
 def f(a : Float) : Float
   return a + 1.0
@@ -494,17 +495,17 @@ puts(f(2))
 			shouldError: false,
 		},
 		{
-			name: "Float literal to int param is permitted (numeric carve-out)",
+			name: "Float literal to int param is rejected (lossy truncation)",
 			source: `
 def f(a : Integer) : Integer
   return a + 1
 end
 puts(f(2.5))
 `,
-			shouldError: false,
+			shouldError: true,
 		},
 		{
-			name: "Bool literal to int param is permitted (numeric carve-out)",
+			name: "Bool literal to int param is permitted (0/1 semantics)",
 			source: `
 def f(a : Integer) : Integer
   return a + 1
@@ -512,6 +513,16 @@ end
 puts(f(true))
 `,
 			shouldError: false,
+		},
+		{
+			name: "Bool literal to float param is rejected (would panic at runtime)",
+			source: `
+def f(a : Float) : Float
+  return a + 1.0
+end
+puts(f(true))
+`,
+			shouldError: true,
 		},
 		// ---------------------------------------------------------------
 		// Any annot still accepts anything.

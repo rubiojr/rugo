@@ -359,26 +359,27 @@ func compatibleAssignToAnnotation(annot, inferred RugoType) bool {
 // validating an argument's inferred type against the callee's parameter
 // annotation. It is strict like compatibleAssignToAnnotation (so a
 // `: String` param does NOT silently accept an Integer literal, matching
-// the same rule a `x : String = ...` local variable enforces), with one
-// runtime-coercion carve-out:
+// the same rule a `x : String = ...` local variable enforces), with a
+// narrow asymmetric numeric carve-out:
 //
-//   - Integer ↔ Float at the call boundary (codegen inserts
-//     rugo_to_int / rugo_to_float wrappers, so numeric values flow
-//     freely between the two annotated numeric types).
-//   - Bool → Integer and Bool → Float (runtime treats bool as 0/1, and
-//     the wrappers above handle the conversion).
+//   - Integer → Float widening at the call boundary (codegen inserts
+//     rugo_to_float). Float → Integer is rejected because it would
+//     silently truncate (e.g. `f(1.5)` against `: Integer`).
+//   - Bool → Integer is accepted (runtime treats bool as 0/1; codegen
+//     inserts rugo_to_int). Bool → Float is rejected because the
+//     runtime helper does not handle that conversion and would panic.
 //
 // `Any` annotations and `Unknown`/`Dynamic` inferred types remain
 // silent. Unions are checked member-wise: every member must
 // independently pass, so an Integer|String value can't sneak into a
-// `: Integer` parameter, but Integer|Float into `: Integer` is fine
-// because each member is independently compatible (the second via the
-// numeric carve-out).
+// `: Integer` parameter. An Integer|Float union no longer fits a
+// `: Integer` parameter (Float member fails), but Integer|Bool does
+// (both members pass).
 //
 // Use this for call-site checks (literal args, variable args) and for
 // parameter default-value checks. The return-context predicate
-// (compatibleWithAnnotation) is currently a thin alias of this function
-// — return slots use the same strict rule with the numeric carve-out.
+// (compatibleWithAnnotation) is a thin alias of this function — return
+// slots use the same strict rule with the asymmetric numeric carve-out.
 func compatibleCallArgToAnnotation(annot, inferred RugoType) bool {
 	if inferred == TypeUnknown || inferred == TypeDynamic {
 		return true
@@ -398,13 +399,14 @@ func compatibleCallArgToAnnotation(annot, inferred RugoType) bool {
 	if annot == inferred {
 		return true
 	}
-	// Single-bit numeric carve-out: Integer ↔ Float, plus Bool into
-	// either numeric type. Codegen inserts rugo_to_int / rugo_to_float
-	// at the call boundary so the conversion is well-defined.
-	if annot == TypeInt || annot == TypeFloat {
-		if inferred == TypeInt || inferred == TypeFloat || inferred == TypeBool {
-			return true
-		}
+	// Asymmetric numeric carve-out: only widening / well-defined
+	// conversions are silent. Codegen inserts rugo_to_float /
+	// rugo_to_int wrappers at the call boundary for these cases.
+	if annot == TypeFloat && inferred == TypeInt {
+		return true
+	}
+	if annot == TypeInt && inferred == TypeBool {
+		return true
 	}
 	return false
 }
