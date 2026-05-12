@@ -144,6 +144,99 @@ func TestCompatibleAssignToAnnotation(t *testing.T) {
 	}
 }
 
+// TestCompatibleCallArgToAnnotation locks the compatibility table for
+// **call-site** checks: passing an argument whose inferred type
+// concretely conflicts with the parameter's annotation. The call-site
+// rule is strict (same as assignment) plus a numeric runtime-coercion
+// carve-out: codegen inserts rugo_to_int / rugo_to_float wrappers at
+// the call boundary, so Integer ↔ Float are mutually compatible, and
+// Bool flows freely into numeric params (runtime treats it as 0/1).
+//
+// Unlike the return-context rule (compatibleWithAnnotation), `String`
+// and `Bool` annotations do NOT accept arbitrary types here — passing
+// an Integer to a `: String` param is a compile error, matching the
+// existing `x : String = 42` strict rule for variables.
+func TestCompatibleCallArgToAnnotation(t *testing.T) {
+	cases := []struct {
+		name       string
+		annot      RugoType
+		inferred   RugoType
+		compatible bool
+	}{
+		// Unknown / dynamic on the inferred side: silent (no proof of conflict).
+		{"int annot, unknown inferred", TypeInt, TypeUnknown, true},
+		{"int annot, dynamic inferred", TypeInt, TypeDynamic, true},
+		{"string annot, dynamic inferred", TypeString, TypeDynamic, true},
+
+		// `any` annotation accepts anything.
+		{"any annot, int inferred", TypeDynamic, TypeInt, true},
+		{"any annot, string inferred", TypeDynamic, TypeString, true},
+		{"any annot, nil inferred", TypeDynamic, TypeNil, true},
+		{"any annot, array inferred", TypeDynamic, TypeArray, true},
+
+		// Same-type matches.
+		{"int annot, int inferred", TypeInt, TypeInt, true},
+		{"float annot, float inferred", TypeFloat, TypeFloat, true},
+		{"string annot, string inferred", TypeString, TypeString, true},
+		{"bool annot, bool inferred", TypeBool, TypeBool, true},
+		{"array annot, array inferred", TypeArray, TypeArray, true},
+		{"hash annot, hash inferred", TypeHash, TypeHash, true},
+		{"nil annot, nil inferred", TypeNil, TypeNil, true},
+
+		// Numeric carve-out: Integer ↔ Float (codegen coerces).
+		{"int annot, float inferred", TypeInt, TypeFloat, true},
+		{"float annot, int inferred", TypeFloat, TypeInt, true},
+
+		// Numeric carve-out: Bool flows into numeric (runtime 0/1).
+		{"int annot, bool inferred", TypeInt, TypeBool, true},
+		{"float annot, bool inferred", TypeFloat, TypeBool, true},
+
+		// Strict: String / Bool no longer accept everything at call sites.
+		{"string annot, int inferred", TypeString, TypeInt, false},
+		{"string annot, float inferred", TypeString, TypeFloat, false},
+		{"string annot, bool inferred", TypeString, TypeBool, false},
+		{"string annot, nil inferred", TypeString, TypeNil, false},
+		{"string annot, array inferred", TypeString, TypeArray, false},
+		{"string annot, hash inferred", TypeString, TypeHash, false},
+		{"bool annot, int inferred", TypeBool, TypeInt, false},
+		{"bool annot, float inferred", TypeBool, TypeFloat, false},
+		{"bool annot, string inferred", TypeBool, TypeString, false},
+		{"bool annot, nil inferred", TypeBool, TypeNil, false},
+		{"bool annot, array inferred", TypeBool, TypeArray, false},
+
+		// Concrete conflicts (same as strict rule).
+		{"int annot, string inferred", TypeInt, TypeString, false},
+		{"int annot, array inferred", TypeInt, TypeArray, false},
+		{"int annot, hash inferred", TypeInt, TypeHash, false},
+		{"int annot, nil inferred", TypeInt, TypeNil, false},
+		{"float annot, string inferred", TypeFloat, TypeString, false},
+		{"float annot, nil inferred", TypeFloat, TypeNil, false},
+		{"array annot, int inferred", TypeArray, TypeInt, false},
+		{"array annot, hash inferred", TypeArray, TypeHash, false},
+		{"array annot, string inferred", TypeArray, TypeString, false},
+		{"hash annot, array inferred", TypeHash, TypeArray, false},
+		{"hash annot, int inferred", TypeHash, TypeInt, false},
+		{"nil annot, int inferred", TypeNil, TypeInt, false},
+		{"nil annot, string inferred", TypeNil, TypeString, false},
+
+		// Unions: every member must independently pass.
+		{"int annot, Integer|Float union", TypeInt, TypeInt | TypeFloat, true},
+		{"float annot, Integer|Float union", TypeFloat, TypeInt | TypeFloat, true},
+		{"int annot, Integer|Bool union", TypeInt, TypeInt | TypeBool, true},
+		{"int annot, Integer|String union", TypeInt, TypeInt | TypeString, false},
+		{"string annot, String|Integer union", TypeString, TypeString | TypeInt, false},
+		{"bool annot, Bool|Integer union", TypeBool, TypeBool | TypeInt, false},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := compatibleCallArgToAnnotation(tc.annot, tc.inferred)
+			assert.Equal(t, tc.compatible, got,
+				"compatibleCallArgToAnnotation(%s, %s)", tc.annot, tc.inferred)
+		})
+	}
+}
+
 // TestCheckMismatchAssignToAnnotatedParam exercises the full pipeline:
 // reassigning an annotated `int` param to a String literal must produce
 // a structured rugo-level error pointing at the assignment line.
@@ -617,22 +710,27 @@ puts(double())
 	}
 }
 
-// TestParamDefaultLiteralCompatible verifies the permissive rule:
-// defaults that the runtime / codegen can legitimately accept must be
-// allowed (string/bool/any accept anything, numeric mutual compatibility).
+// TestParamDefaultLiteralCompatible verifies the strict-with-numeric-
+// carve-out rule for parameter defaults: the same rule the call-site
+// checker uses (defaults flow into the param at call time).
+//
+// Numeric family (Integer/Float/Bool) flows freely between Integer and
+// Float annotations; `Any` accepts anything; everything else must match
+// the annotation exactly. String / Bool annotations no longer accept
+// arbitrary defaults — that's covered by TestParamDefaultLiteralMismatch.
 func TestParamDefaultLiteralCompatible(t *testing.T) {
 	cases := []struct {
 		name   string
 		source string
 	}{
-		{"string param accepts int default", `
-def f(x : String = 42) : String
+		{"string param accepts string default", `
+def f(x : String = "hi") : String
   return x
 end
 puts(f())
 `},
-		{"bool param accepts int default", `
-def f(x : Bool = 1) : Bool
+		{"bool param accepts bool default", `
+def f(x : Bool = true) : Bool
   return x
 end
 puts(f())
@@ -643,15 +741,21 @@ def f(x : Any = [1, 2, 3])
 end
 f()
 `},
-		{"int param accepts float default (numeric)", `
+		{"int param accepts float default (numeric carve-out)", `
 def f(x : Integer = 1.5) : Integer
   return x + 1
 end
 puts(f())
 `},
-		{"float param accepts int default (numeric)", `
+		{"float param accepts int default (numeric carve-out)", `
 def f(x : Float = 1) : Float
   return x
+end
+puts(f())
+`},
+		{"int param accepts bool default (numeric carve-out)", `
+def f(x : Integer = true) : Integer
+  return x + 1
 end
 puts(f())
 `},
@@ -671,4 +775,35 @@ puts(f())
 			assert.NoError(t, err, "default should be accepted")
 		})
 	}
+}
+
+// TestParamDefaultLiteralStrictString verifies that under the strict
+// call-site rule, a `: String` parameter rejects non-String literal
+// defaults at compile time (an Integer default would silently flow
+// into the param at every defaulted call site, which is the same kind
+// of mismatch the call-site checker now flags for explicit args).
+func TestParamDefaultLiteralStrictString(t *testing.T) {
+	source := `
+def f(x : String = 42) : String
+  return x
+end
+puts(f())
+`
+	err := compileSource(t, "strictdef.rugo", source)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot use Integer literal as default for parameter 'x' declared as String")
+}
+
+// TestParamDefaultLiteralStrictBool verifies the same for Bool defaults:
+// an Integer literal is no longer accepted as a Bool default value.
+func TestParamDefaultLiteralStrictBool(t *testing.T) {
+	source := `
+def f(x : Bool = "yes") : Bool
+  return x
+end
+puts(f())
+`
+	err := compileSource(t, "strictdef.rugo", source)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot use String literal as default for parameter 'x' declared as Bool")
 }

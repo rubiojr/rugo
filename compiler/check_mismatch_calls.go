@@ -18,12 +18,11 @@ import (
 // variable may legitimately hold a value of the annotated type even when
 // the inferrer cannot prove it.
 //
-// The compatibility rule is the permissive one (compatibleWithAnnotation),
-// the same predicate used at return sites: numeric types are mutually
-// compatible, `string` / `bool` annotations accept anything, and `any`
-// accepts anything. This mirrors what codegen actually does at the call
-// boundary (rugo_to_int / rugo_to_float / rugo_to_string / rugo_to_bool
-// coercions and numeric casts).
+// The compatibility rule is compatibleCallArgToAnnotation — strict like
+// the variable-assignment rule (`x : String = 42` errors, and so does
+// `f(x : String); f(42)`), with a numeric carve-out for Integer/Float/Bool
+// because codegen inserts rugo_to_int / rugo_to_float wrappers at the
+// call boundary.
 //
 // Module / method calls (`str.upper(...)`, `obj.method(...)`) are skipped
 // because they have no Rugo-level parameter annotations to compare. Calls
@@ -471,7 +470,7 @@ func (c *callChecker) checkArgs(args []ast.Expr, params []ast.Param, calleeName 
 		}
 		// Path 1: literal argument — flag immediately on concrete mismatch.
 		if argType, isLit := literalType(arg); isLit {
-			if compatibleWithAnnotation(annot, argType) {
+			if compatibleCallArgToAnnotation(annot, argType) {
 				continue
 			}
 			return &ast.UserError{Msg: fmt.Sprintf(
@@ -492,7 +491,7 @@ func (c *callChecker) checkArgs(args []ast.Expr, params []ast.Param, calleeName 
 		if !argType.IsResolved() {
 			continue
 		}
-		if compatibleWithAnnotation(annot, argType) {
+		if compatibleCallArgToAnnotation(annot, argType) {
 			continue
 		}
 		return &ast.UserError{Msg: fmt.Sprintf(

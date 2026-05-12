@@ -354,7 +354,7 @@ rats "default literal mismatch in fn lambda"
   test.assert_contains(combined, "cannot use String literal as default for parameter 'n' declared as Integer")
 end
 
-rats "default literal: string param accepts int default (permissive)"
+rats "default literal: string param rejects int default (strict)"
   source = <<~RUGO
     def f(x : String = 42) : String
       return x
@@ -362,8 +362,8 @@ rats "default literal: string param accepts int default (permissive)"
     puts(f())
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "42")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot use Integer literal as default for parameter 'x' declared as String")
 end
 
 rats "default literal: int param accepts float default (numeric compat)"
@@ -599,7 +599,7 @@ rats "int argument coerced to float param"
   test.assert_eq(result["output"], "7.0")
 end
 
-rats "int argument coerced to string param"
+rats "int argument to string param is flagged (strict)"
   source = <<~RUGO
     def f(a : String) : String
       return a
@@ -607,8 +607,8 @@ rats "int argument coerced to string param"
     puts(f(42))
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "42")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Integer literal as argument 1 to 'f' (parameter 'a' declared as String)")
 end
 
 rats "bool argument coerced to int param"
@@ -1477,7 +1477,7 @@ rats "call-site: Float literal to int param is allowed (numeric coercion)"
   test.assert_eq(result["status"], 0)
 end
 
-rats "call-site: Integer literal to string param is allowed (stringify)"
+rats "call-site: Integer literal to string param is flagged (strict)"
   source = <<~RUGO
     def f(a : String) : String
       return a
@@ -1485,11 +1485,11 @@ rats "call-site: Integer literal to string param is allowed (stringify)"
     puts(f(42))
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["output"], "42")
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Integer literal as argument 1 to 'f' (parameter 'a' declared as String)")
 end
 
-rats "call-site: Any literal to string param is allowed"
+rats "call-site: Array literal to string param is flagged (strict)"
   source = <<~RUGO
     def f(a : String) : String
       return a
@@ -1497,7 +1497,8 @@ rats "call-site: Any literal to string param is allowed"
     puts(f([1, 2]))
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Array literal as argument 1 to 'f' (parameter 'a' declared as String)")
 end
 
 rats "call-site: anything to any-annotated param is allowed"
@@ -1526,7 +1527,7 @@ rats "call-site: negative integer literal to int param is allowed"
   test.assert_eq(result["output"], "-4")
 end
 
-rats "call-site: negative integer literal to string param is allowed"
+rats "call-site: negative integer literal to string param is flagged (strict)"
   source = <<~RUGO
     def f(a : String) : String
       return a
@@ -1534,7 +1535,8 @@ rats "call-site: negative integer literal to string param is allowed"
     puts(f(-5))
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Integer literal as argument 1 to 'f' (parameter 'a' declared as String)")
 end
 
 rats "call-site: literal-arg mismatch inside fn lambda body is caught"
@@ -1687,17 +1689,40 @@ rats "call-site: Bool literal to int param is allowed (numeric mutual)"
   test.assert_eq(result["status"], 0)
 end
 
-rats "call-site: anything to bool param is allowed (truthiness)"
+rats "call-site: Integer literal to bool param is flagged (strict)"
   source = <<~RUGO
     def f(a : Bool) : Bool
       return a
     end
     puts(f(0))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Integer literal as argument 1 to 'f' (parameter 'a' declared as Bool)")
+end
+
+rats "call-site: String literal to bool param is flagged (strict)"
+  source = <<~RUGO
+    def f(a : Bool) : Bool
+      return a
+    end
     puts(f("hi"))
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass String literal as argument 1 to 'f' (parameter 'a' declared as Bool)")
+end
+
+rats "call-site: Array literal to bool param is flagged (strict)"
+  source = <<~RUGO
+    def f(a : Bool) : Bool
+      return a
+    end
     puts(f([1, 2]))
   RUGO
   result = eval.run(source)
-  test.assert_eq(result["status"], 0)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Array literal as argument 1 to 'f' (parameter 'a' declared as Bool)")
 end
 
 # =====================================================================
@@ -2299,7 +2324,7 @@ rats "tier4: --no-infer disables lambda call-site checks"
   test.assert_eq(str.contains(combined, "cannot pass String literal"), false)
 end
 
-rats "tier4: permissive rule — int passed where string-annotated lambda param"
+rats "tier4: strict rule — int variable passed to string-annotated lambda param is flagged"
   source = <<~RUGO
     f = fn(name : String)
       puts("hi " + name)
@@ -2308,9 +2333,9 @@ rats "tier4: permissive rule — int passed where string-annotated lambda param"
     f(x)
   RUGO
   result = eval.run(source)
-  # Per compatibility rule, `string` annotations accept anything.
-  test.assert_eq(result["status"], 0)
-  test.assert_contains(result["output"], "hi 42")
+  # String annotation no longer accepts arbitrary types at the call site.
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "cannot pass Integer value as argument 1 to 'f' (parameter 'name' declared as String)")
 end
 
 rats "tier4: permissive rule — int passed where float-annotated lambda param"

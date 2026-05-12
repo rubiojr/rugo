@@ -362,6 +362,60 @@ func compatibleAssignToAnnotation(annot, inferred RugoType) bool {
 	return annot == inferred
 }
 
+// compatibleCallArgToAnnotation is the predicate used at call sites:
+// validating an argument's inferred type against the callee's parameter
+// annotation. It is strict like compatibleAssignToAnnotation (so a
+// `: String` param does NOT silently accept an Integer literal, matching
+// the same rule a `x : String = ...` local variable enforces), with one
+// runtime-coercion carve-out:
+//
+//   - Integer ↔ Float at the call boundary (codegen inserts
+//     rugo_to_int / rugo_to_float wrappers, so numeric values flow
+//     freely between the two annotated numeric types).
+//   - Bool → Integer and Bool → Float (runtime treats bool as 0/1, and
+//     the wrappers above handle the conversion).
+//
+// `Any` annotations and `Unknown`/`Dynamic` inferred types remain
+// silent. Unions are checked member-wise: every member must
+// independently pass, so an Integer|String value can't sneak into a
+// `: Integer` parameter, but Integer|Float into `: Integer` is fine
+// because each member is independently compatible (the second via the
+// numeric carve-out).
+//
+// Use this for call-site checks (literal args, variable args) and for
+// parameter default-value checks. For *return* values, use the
+// permissive compatibleWithAnnotation — codegen really does stringify
+// or coerce-to-bool whatever the return slot needs.
+func compatibleCallArgToAnnotation(annot, inferred RugoType) bool {
+	if inferred == TypeUnknown || inferred == TypeDynamic {
+		return true
+	}
+	switch annot {
+	case TypeDynamic, TypeUnknown:
+		return true
+	}
+	if inferred.IsUnion() {
+		for _, m := range inferred.Members() {
+			if !compatibleCallArgToAnnotation(annot, m) {
+				return false
+			}
+		}
+		return true
+	}
+	if annot == inferred {
+		return true
+	}
+	// Single-bit numeric carve-out: Integer ↔ Float, plus Bool into
+	// either numeric type. Codegen inserts rugo_to_int / rugo_to_float
+	// at the call boundary so the conversion is well-defined.
+	if annot == TypeInt || annot == TypeFloat {
+		if inferred == TypeInt || inferred == TypeFloat || inferred == TypeBool {
+			return true
+		}
+	}
+	return false
+}
+
 // collectLocalAnnots scans a statement list (a function body, top-level
 // program, or test/bench block) for `x : T = expr` bindings and adds
 // them to dst. First-appearance wins (sticky semantics; re-annotation
@@ -451,10 +505,12 @@ func fileFor(f *ast.FuncDef, fallback string) string {
 // (function calls, identifiers) are silently allowed because their value
 // could legitimately match the annotation.
 //
-// The compatibility rule is the *permissive* one (compatibleWithAnnotation),
-// matching what call-site checks use: `string`/`bool`/`any` accept
-// anything, numeric types are mutually compatible, and `nil`/`array`/`hash`
-// only accept their own type.
+// The compatibility rule is the strict-with-numeric-carve-out one
+// (compatibleCallArgToAnnotation), matching call-site checks:
+// `String`/`Bool` annotations only accept their own type, the numeric
+// family (`Integer`/`Float`/`Bool`) flows freely between numeric
+// annotations, and `Any` accepts anything. A `: String` default value
+// of `42` is therefore a guaranteed type-violation.
 //
 // Both top-level FuncDefs and FnExpr lambdas (anywhere they appear) are
 // validated. Nested FuncDefs are reachable through walkStmtExprs's
@@ -560,7 +616,7 @@ func checkParamDefault(p ast.Param, sourceFile string, line int) error {
 	if !isLit {
 		return nil
 	}
-	if compatibleWithAnnotation(annot, litType) {
+	if compatibleCallArgToAnnotation(annot, litType) {
 		return nil
 	}
 	return &ast.UserError{Msg: fmt.Sprintf(

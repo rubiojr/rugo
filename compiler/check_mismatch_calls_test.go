@@ -162,34 +162,12 @@ puts(f(2))
 			shouldError: false,
 		},
 		{
-			name: "Integer literal to string param is permitted",
-			source: `
-def f(a : String) : String
-  return a
-end
-puts(f(42))
-`,
-			shouldError: false,
-		},
-		{
 			name: "anything to any-annotated param is permitted",
 			source: `
 def f(x : Any) : Any
   return x
 end
 puts(f(nil))
-puts(f("hi"))
-puts(f([1, 2]))
-`,
-			shouldError: false,
-		},
-		{
-			name: "anything to bool-annotated param is permitted",
-			source: `
-def f(a : Bool) : Bool
-  return a
-end
-puts(f(0))
 puts(f("hi"))
 puts(f([1, 2]))
 `,
@@ -383,6 +361,192 @@ puts(task.value)
 `,
 			wantSubstr:  "cannot pass String literal as argument 1 to 'square'",
 			shouldError: true,
+		},
+		// ---------------------------------------------------------------
+		// Strict call-site rule: String / Bool / Nil params no longer
+		// accept arbitrary types (matches the strict variable-annotation
+		// rule). Numeric carve-out preserved (Int↔Float, Bool→numeric).
+		// ---------------------------------------------------------------
+		{
+			name: "Integer literal to string param is flagged (strict)",
+			source: `
+def f(a : String) : String
+  return a
+end
+puts(f(42))
+`,
+			wantSubstr:  "cannot pass Integer literal as argument 1 to 'f' (parameter 'a' declared as String)",
+			shouldError: true,
+		},
+		{
+			name: "Float literal to string param is flagged (strict)",
+			source: `
+def f(a : String) : String
+  return a
+end
+puts(f(3.14))
+`,
+			wantSubstr:  "cannot pass Float literal as argument 1 to 'f' (parameter 'a' declared as String)",
+			shouldError: true,
+		},
+		{
+			name: "Bool literal to string param is flagged (strict)",
+			source: `
+def f(a : String) : String
+  return a
+end
+puts(f(true))
+`,
+			wantSubstr:  "cannot pass Bool literal as argument 1 to 'f' (parameter 'a' declared as String)",
+			shouldError: true,
+		},
+		{
+			name: "Nil literal to string param is flagged (strict)",
+			source: `
+def f(a : String) : String
+  return a
+end
+puts(f(nil))
+`,
+			wantSubstr:  "cannot pass Nil literal as argument 1 to 'f' (parameter 'a' declared as String)",
+			shouldError: true,
+		},
+		{
+			name: "Array literal to string param is flagged (strict)",
+			source: `
+def f(a : String) : String
+  return a
+end
+puts(f([1, 2]))
+`,
+			wantSubstr:  "cannot pass Array literal as argument 1 to 'f' (parameter 'a' declared as String)",
+			shouldError: true,
+		},
+		{
+			name: "String literal to bool param is flagged (strict)",
+			source: `
+def f(a : Bool) : Bool
+  return a
+end
+puts(f("hi"))
+`,
+			wantSubstr:  "cannot pass String literal as argument 1 to 'f' (parameter 'a' declared as Bool)",
+			shouldError: true,
+		},
+		{
+			name: "Integer literal to bool param is flagged (strict)",
+			source: `
+def f(a : Bool) : Bool
+  return a
+end
+puts(f(0))
+`,
+			wantSubstr:  "cannot pass Integer literal as argument 1 to 'f' (parameter 'a' declared as Bool)",
+			shouldError: true,
+		},
+		{
+			name: "Array literal to bool param is flagged (strict)",
+			source: `
+def f(a : Bool) : Bool
+  return a
+end
+puts(f([1, 2]))
+`,
+			wantSubstr:  "cannot pass Array literal as argument 1 to 'f' (parameter 'a' declared as Bool)",
+			shouldError: true,
+		},
+		{
+			name: "Tier 3: typed Integer variable to string param is flagged",
+			source: `
+def f(a : String) : String
+  return a
+end
+x : Integer = 42
+puts(f(x))
+`,
+			wantSubstr:  "cannot pass Integer value as argument 1 to 'f' (parameter 'a' declared as String)",
+			shouldError: true,
+		},
+		{
+			name: "Tier 3: typed String variable to bool param is flagged",
+			source: `
+def f(a : Bool) : Bool
+  return a
+end
+x : String = "hi"
+puts(f(x))
+`,
+			wantSubstr:  "cannot pass String value as argument 1 to 'f' (parameter 'a' declared as Bool)",
+			shouldError: true,
+		},
+		// ---------------------------------------------------------------
+		// Numeric carve-out: still permissive at call sites for the
+		// Integer/Float/Bool numeric family.
+		// ---------------------------------------------------------------
+		{
+			name: "Integer literal to float param is permitted (numeric carve-out)",
+			source: `
+def f(a : Float) : Float
+  return a + 1.0
+end
+puts(f(2))
+`,
+			shouldError: false,
+		},
+		{
+			name: "Float literal to int param is permitted (numeric carve-out)",
+			source: `
+def f(a : Integer) : Integer
+  return a + 1
+end
+puts(f(2.5))
+`,
+			shouldError: false,
+		},
+		{
+			name: "Bool literal to int param is permitted (numeric carve-out)",
+			source: `
+def f(a : Integer) : Integer
+  return a + 1
+end
+puts(f(true))
+`,
+			shouldError: false,
+		},
+		// ---------------------------------------------------------------
+		// Any annot still accepts anything.
+		// ---------------------------------------------------------------
+		{
+			name: "anything to any-annotated param is still permitted",
+			source: `
+def f(x : Any) : Any
+  return x
+end
+puts(f(nil))
+puts(f("hi"))
+puts(f([1, 2]))
+`,
+			shouldError: false,
+		},
+		{
+			name: "Same-type matches still pass: String to String",
+			source: `
+def f(s : String) : String
+  return s
+end
+puts(f("hello"))
+`,
+			shouldError: false,
+		},
+		{
+			name: "Same-type matches still pass: Bool to Bool",
+			source: `
+def f(b : Bool) : Bool
+  return !b
+end
+puts(f(true))
+`,
+			shouldError: false,
 		},
 	}
 
