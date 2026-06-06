@@ -1145,7 +1145,8 @@ func parseHeredocOpener(line string, pos int) (heredocOpener, int, bool) {
 
 // findHeredocOpener scans a line for a heredoc token. It matches <<DELIM
 // that appears after '=' (assignment context) or after 'return' (return context)
-// to avoid ambiguity.
+// to avoid ambiguity. The heredoc may appear anywhere in the expression
+// (e.g. `body = body + <<~TOML`), not just immediately after '='.
 // Returns the opener, the byte offset where the token starts, and whether found.
 func findHeredocOpener(line string) (heredocOpener, int, bool) {
 	// Check for 'return <<...' context first.
@@ -1166,7 +1167,8 @@ func findHeredocOpener(line string) (heredocOpener, int, bool) {
 		}
 	}
 
-	// Look for '=' followed by optional whitespace then <<
+	// Look for '=' then scan the entire RHS for a heredoc opener.
+	// The heredoc may appear in an expression (e.g. `x = x + <<~DELIM`).
 	for i := 0; i < len(line); i++ {
 		if line[i] == '=' {
 			// Skip == and !=
@@ -1177,21 +1179,47 @@ func findHeredocOpener(line string) (heredocOpener, int, bool) {
 			if i > 0 && (line[i-1] == '!' || line[i-1] == '<' || line[i-1] == '>') {
 				continue
 			}
-			// Found assignment '=', skip whitespace after it
-			j := i + 1
-			for j < len(line) && (line[j] == ' ' || line[j] == '\t') {
-				j++
+			// Found assignment '='. Scan the RHS for << outside strings.
+			rhs := i + 1
+			inDbl := false
+			inSgl := false
+			inBt := false
+			escaped := false
+			for j := rhs; j < len(line); j++ {
+				ch := line[j]
+				if escaped {
+					escaped = false
+					continue
+				}
+				if ch == '\\' && (inDbl || inSgl) {
+					escaped = true
+					continue
+				}
+				if ch == '"' && !inSgl && !inBt {
+					inDbl = !inDbl
+					continue
+				}
+				if ch == '\'' && !inDbl && !inBt {
+					inSgl = !inSgl
+					continue
+				}
+				if ch == '`' && !inDbl && !inSgl {
+					inBt = !inBt
+					continue
+				}
+				if inDbl || inSgl || inBt {
+					continue
+				}
+				if ch == '<' {
+					h, end, ok := parseHeredocOpener(line, j)
+					if ok {
+						rest := strings.TrimSpace(line[end:])
+						if rest == "" {
+							return h, j, true
+						}
+					}
+				}
 			}
-			h, end, ok := parseHeredocOpener(line, j)
-			if !ok {
-				continue
-			}
-			// Ensure nothing meaningful follows the opener on this line
-			rest := strings.TrimSpace(line[end:])
-			if rest != "" {
-				continue
-			}
-			return h, j, true
 		}
 	}
 	return heredocOpener{}, 0, false

@@ -1,5 +1,7 @@
 # RATS: Heredoc multiline strings
 use "test"
+use "eval"
+use "str"
 
 rats "basic interpolating heredoc"
   result = test.run("rugo run rats/fixtures/heredoc_basic.rugo")
@@ -112,4 +114,20 @@ rats "heredoc compiles to native binary"
   lines = result["lines"]
   test.assert_eq(lines[0], "Hello World")
   test.assert_eq(lines[1], "Welcome to Rugo")
+end
+
+rats "heredoc in concatenation expression"
+  source = <<~'RUGO'
+    body = "start\n"
+    body = body + <<~CONF
+      line1
+      line2
+    CONF
+    puts(body)
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_contains(result["output"], "start")
+  test.assert_contains(result["output"], "line1")
+  test.assert_contains(result["output"], "line2")
 end

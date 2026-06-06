@@ -559,7 +559,7 @@ func (c *Compiler) parseSource(source, displayName string) (*ast.Program, error)
 	p := &parser.Parser{}
 	flatAST, err := p.Parse(displayName, []byte(cleaned))
 	if err != nil {
-		return nil, firstParseError(err)
+		return nil, firstParseError(err, displayName)
 	}
 
 	prog, err := ast.WalkWithLineMap(p, flatAST, lineMap)
@@ -1123,7 +1123,7 @@ func displayPath(absPath string) string {
 
 // firstParseError extracts only the first error from a parser error list
 // and reformats it for human readability.
-func firstParseError(err error) error {
+func firstParseError(err error, displayName string) error {
 	if el, ok := err.(scanner.ErrList); ok && len(el) > 0 {
 		e := el[0]
 		msg := formatParseError(e)
@@ -1165,7 +1165,7 @@ func firstParseError(err error) error {
 	// unrecognized characters), wrap the raw Go error to avoid leaking
 	// runtime internals to the user.
 	if strings.Contains(err.Error(), "runtime error:") {
-		return fmt.Errorf("syntax error: invalid token in source")
+		return fmt.Errorf("%s: syntax error: invalid token in source", displayName)
 	}
 	return err
 }

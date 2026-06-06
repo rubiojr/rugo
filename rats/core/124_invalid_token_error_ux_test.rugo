@@ -1,0 +1,24 @@
+# RATS: "invalid token in source" error must include filename for debuggability
+use "test"
+use "str"
+
+rats "invalid token error includes filename"
+  dir = test.tmpdir()
+  # Write a file containing a control character (0x01) which bypasses
+  # validateSourceChars (only catches >= 0x80) but crashes the parser.
+  test.run("printf 'x = \\x01\\n' > #{dir}/bad_token.rugo")
+  result = test.run("rugo run #{dir}/bad_token.rugo")
+  test.assert_neq(result["status"], 0)
+  # The error MUST include the filename so the user knows which file has the problem
+  test.assert_contains(result["output"], "bad_token.rugo")
+end
+
+rats "invalid token error does not leak raw Go internals"
+  dir = test.tmpdir()
+  test.run("printf 'x = \\x01\\n' > #{dir}/bad_token2.rugo")
+  result = test.run("rugo run #{dir}/bad_token2.rugo")
+  test.assert_neq(result["status"], 0)
+  # Must NOT show raw "runtime error:" to the user
+  test.assert_false(str.contains(result["output"], "runtime error:"))
+  test.assert_false(str.contains(result["output"], "index out of range"))
+end
