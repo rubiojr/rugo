@@ -174,7 +174,11 @@ func rugo_add(a, b interface{}) interface{} {
 		if bv, ok := b.(float64); ok { return av + bv }
 		if bv, ok := b.(int); ok { return av + float64(bv) }
 	case string:
-		return av + rugo_to_string(b)
+		if b != nil {
+			return av + rugo_to_string(b)
+		}
+		// Adding nil to a string is almost always a bug; fall through to
+		// the panic so "str + nil" errors like "nil + str" already does.
 	}
 	panic(fmt.Sprintf("cannot add %s and %s", rugo_type_label(a), rugo_type_label(b)))
 }

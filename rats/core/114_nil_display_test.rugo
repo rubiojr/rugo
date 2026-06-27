@@ -32,15 +32,6 @@ rats "string interpolation with nil"
   test.assert_eq(result["lines"][0], "value: nil")
 end
 
-rats "string concatenation with nil"
-  source = <<~RUGO
-    puts "value: " + nil
-  RUGO
-  result = eval.run(source)
-  test.assert_eq(result["status"], 0)
-  test.assert_eq(result["lines"][0], "value: nil")
-end
-
 rats "hash missing key prints nil"
   source = <<~RUGO
     h = {name: "Alice"}

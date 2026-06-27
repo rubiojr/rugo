@@ -100,7 +100,7 @@ Arithmetic and comparison operators are dispatched dynamically through runtime h
 - **Logical**: `&&`, `||` (short-circuit, return values like Ruby — not booleans)
 - **Unary**: `-` (`rugo_negate`), `!` (`rugo_not`)
 
-The `+` operator supports string concatenation: when the left operand is a string, the right operand is automatically coerced to string.
+The `+` operator supports string concatenation: when the left operand is a string, the right operand is automatically coerced to string. The one exception is `nil`, which raises an error rather than coercing to `"nil"` (use string interpolation `#{x}` if you want a possibly-nil value to render as `"nil"`).
 
 **Logical operator semantics (Ruby-like):**
 - `a || b` — returns `a` if `a` is truthy, otherwise returns `b`

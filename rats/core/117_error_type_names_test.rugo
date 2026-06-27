@@ -34,6 +34,24 @@ rats "nil + integer shows Rugo type names"
   test.assert_contains(result["output"], "cannot add nil and Integer")
 end
 
+rats "string + nil errors instead of coercing"
+  source = <<~RUGO
+    x = "hello" + nil
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "cannot add String and nil")
+end
+
+rats "string + integer still coerces"
+  source = <<~RUGO
+    puts "count=" + 5
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "count=5")
+end
+
 rats "bool * string shows Rugo type names"
   source = <<~RUGO
     true * "hello"
