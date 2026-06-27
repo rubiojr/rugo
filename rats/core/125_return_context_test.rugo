@@ -1,0 +1,105 @@
+# RATS: `return` outside a function gives a clean Rugo error, not a raw Go error
+# Regression: git-bug cdf5a45, 44027e9, 5f3e168
+use "test"
+use "eval"
+
+# --- Invalid: return outside any function ---
+
+rats "return with value at top level errors cleanly"
+  source = <<~RUGO
+    return 5
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "return outside of a function")
+end
+
+rats "bare return at top level errors cleanly"
+  source = <<~RUGO
+    puts "a"
+    return
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "return outside of a function")
+end
+
+rats "return does not leak raw Go error"
+  source = <<~RUGO
+    return 5
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "return outside of a function")
+end
+
+rats "return inside top-level if errors cleanly"
+  source = <<~RUGO
+    if true
+      return 1
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "return outside of a function")
+end
+
+rats "return inside top-level for errors cleanly"
+  source = <<~RUGO
+    for x in [1, 2]
+      return x
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "return outside of a function")
+end
+
+rats "return inside top-level case errors cleanly"
+  source = <<~RUGO
+    x = 1
+    case x
+    of 1
+      return 9
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 1)
+  test.assert_contains(result["output"], "return outside of a function")
+end
+
+# --- Valid: return inside a function still works ---
+
+rats "return inside def still works"
+  source = <<~RUGO
+    def f()
+      return 42
+    end
+    puts f()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "42")
+end
+
+rats "return inside fn lambda still works"
+  source = <<~RUGO
+    g = fn() return 7 end
+    puts g()
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "7")
+end
+
+rats "lambda return nested in top-level if still works"
+  source = <<~RUGO
+    if true
+      g = fn() return 99 end
+      puts g()
+    end
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "99")
+end

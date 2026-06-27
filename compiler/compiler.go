@@ -170,6 +170,7 @@ func (c *Compiler) Compile(filename string) (*CompileResult, error) {
 	checks := ast.CheckChain{
 		TypeAnnotationCheck(filename),
 		UndefinedIdentCheck(filename),
+		ReturnContextCheck(filename),
 	}
 	if err := checks.Run(resolved); err != nil {
 		return nil, err
