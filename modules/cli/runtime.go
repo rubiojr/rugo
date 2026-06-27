@@ -156,7 +156,15 @@ func (c *CLI) parseArgs(args []string) {
 			os.Exit(0)
 		}
 		if arg == "--" {
+			// Bare "--" as the first arg: everything after it is opaque
+			// passthrough. Mirror the main loop's "--" handling instead of
+			// falling through to flag parsing (which would choke on
+			// flag-shaped passthrough like "-la").
 			i++
+			for i < len(args) {
+				c.remaining = append(c.remaining, args[i])
+				i++
+			}
 		} else if strings.HasPrefix(arg, "-") {
 			// Global flag or premature flag — skip for now, re-parse below
 		} else if matched, consumed := c.matchCommand(args[i:]); matched != "" {

@@ -1,0 +1,8 @@
+use "cli"
+
+cli.name "pass"
+cli.cmd "ls", "List"
+cli.parse()
+for arg in cli.args()
+  puts arg
+end

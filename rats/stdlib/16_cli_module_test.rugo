@@ -98,6 +98,22 @@ rats "cli positional args passed to handler"
   test.assert_eq(lines[2], "baz")
 end
 
+rats "cli leading -- gobbles flag-shaped passthrough"
+  result = test.run("rugo run rats/fixtures/cli_passthrough.rugo -- -- ls -la")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "ls")
+  test.assert_eq(lines[1], "-la")
+end
+
+rats "cli leading -- with only passthrough"
+  result = test.run("rugo run rats/fixtures/cli_passthrough.rugo -- -- foo bar")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "foo")
+  test.assert_eq(lines[1], "bar")
+end
+
 rats "cli unknown flag exits with error"
   result = test.run("rugo run rats/fixtures/cli_greet.rugo hello --bad")
   test.assert_neq(result["status"], 0)

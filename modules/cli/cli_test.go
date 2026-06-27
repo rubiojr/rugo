@@ -153,6 +153,29 @@ func TestParseDoubleDash(t *testing.T) {
 	assert.Equal(t, "--not-a-flag", c.remaining[0])
 }
 
+func TestParseLeadingDoubleDash(t *testing.T) {
+	// A bare "--" as the first arg must put everything after it into
+	// remaining as opaque passthrough, even flag-shaped tokens.
+	c := newCLI()
+	c.Cmd("ls", "List")
+	c.parseArgs([]string{"--", "ls", "-la"})
+
+	assert.Equal(t, "", c.matched, "nothing before -- so no command matches")
+	require.Len(t, c.remaining, 2)
+	assert.Equal(t, "ls", c.remaining[0])
+	assert.Equal(t, "-la", c.remaining[1])
+}
+
+func TestParseLeadingDoubleDashOnly(t *testing.T) {
+	// A lone "--" with nothing after it leaves remaining empty.
+	c := newCLI()
+	c.Cmd("ls", "List")
+	c.parseArgs([]string{"--"})
+
+	assert.Equal(t, "", c.matched)
+	assert.Empty(t, c.remaining)
+}
+
 func TestParseNoCommand(t *testing.T) {
 	c := newCLI()
 	c.Cmd("hello", "Say hello")
