@@ -21,7 +21,7 @@ func TestModuleRegistration(t *testing.T) {
 	for _, f := range m.Funcs {
 		funcNames[f.Name] = true
 	}
-	for _, name := range []string{"name", "version", "about", "cmd", "flag", "bool_flag", "run", "parse", "command", "get", "args", "help"} {
+	for _, name := range []string{"name", "version", "about", "cmd", "flag", "bool_flag", "run", "parse", "command", "get", "args", "passthrough", "help"} {
 		assert.True(t, funcNames[name], "missing function: %s", name)
 	}
 }
@@ -149,31 +149,61 @@ func TestParseDoubleDash(t *testing.T) {
 	c.parseArgs([]string{"run", "--", "--not-a-flag", "arg"})
 
 	assert.Equal(t, "run", c.matched)
-	require.Len(t, c.remaining, 2)
-	assert.Equal(t, "--not-a-flag", c.remaining[0])
+	assert.Empty(t, c.remaining, "everything after -- is passthrough, not positional")
+	require.Len(t, c.passthrough, 2)
+	assert.Equal(t, "--not-a-flag", c.passthrough[0])
+	assert.Equal(t, "arg", c.passthrough[1])
+}
+
+func TestParsePositionalsAndPassthroughSplit(t *testing.T) {
+	// Positionals before "--" and passthrough after it must be kept apart.
+	c := newCLI()
+	c.Cmd("rm", "Remove")
+	c.parseArgs([]string{"rm", "foo", "--", "bash", "-c", "echo hi"})
+
+	assert.Equal(t, "rm", c.matched)
+	require.Len(t, c.remaining, 1)
+	assert.Equal(t, "foo", c.remaining[0])
+	require.Len(t, c.passthrough, 3)
+	assert.Equal(t, "bash", c.passthrough[0])
+	assert.Equal(t, "-c", c.passthrough[1])
+	assert.Equal(t, "echo hi", c.passthrough[2])
 }
 
 func TestParseLeadingDoubleDash(t *testing.T) {
 	// A bare "--" as the first arg must put everything after it into
-	// remaining as opaque passthrough, even flag-shaped tokens.
+	// passthrough as opaque args, even flag-shaped tokens.
 	c := newCLI()
 	c.Cmd("ls", "List")
 	c.parseArgs([]string{"--", "ls", "-la"})
 
 	assert.Equal(t, "", c.matched, "nothing before -- so no command matches")
-	require.Len(t, c.remaining, 2)
-	assert.Equal(t, "ls", c.remaining[0])
-	assert.Equal(t, "-la", c.remaining[1])
+	assert.Empty(t, c.remaining)
+	require.Len(t, c.passthrough, 2)
+	assert.Equal(t, "ls", c.passthrough[0])
+	assert.Equal(t, "-la", c.passthrough[1])
 }
 
 func TestParseLeadingDoubleDashOnly(t *testing.T) {
-	// A lone "--" with nothing after it leaves remaining empty.
+	// A lone "--" with nothing after it leaves both lists empty.
 	c := newCLI()
 	c.Cmd("ls", "List")
 	c.parseArgs([]string{"--"})
 
 	assert.Equal(t, "", c.matched)
 	assert.Empty(t, c.remaining)
+	assert.Empty(t, c.passthrough)
+}
+
+func TestPassthroughEmptyWithoutSeparator(t *testing.T) {
+	// No "--" means no passthrough; positionals stay in Args().
+	c := newCLI()
+	c.Cmd("rm", "Remove")
+	c.parseArgs([]string{"rm", "foo", "bar"})
+
+	require.Len(t, c.remaining, 2)
+	assert.Empty(t, c.passthrough)
+	assert.Nil(t, c.Passthrough())
 }
 
 func TestParseNoCommand(t *testing.T) {
@@ -272,6 +302,22 @@ func TestArgsReturnsRemaining(t *testing.T) {
 	args, ok := c.Args().([]interface{})
 	require.True(t, ok)
 	assert.Len(t, args, 2)
+}
+
+func TestPassthroughReturnsPostSeparator(t *testing.T) {
+	c := newCLI()
+	c.Cmd("echo", "Echo")
+	c.parseArgs([]string{"echo", "a", "--", "b", "c"})
+
+	args, ok := c.Args().([]interface{})
+	require.True(t, ok)
+	assert.Len(t, args, 1)
+
+	pass, ok := c.Passthrough().([]interface{})
+	require.True(t, ok)
+	assert.Len(t, pass, 2)
+	assert.Equal(t, "b", pass[0])
+	assert.Equal(t, "c", pass[1])
 }
 
 func TestParseCalledOnce(t *testing.T) {

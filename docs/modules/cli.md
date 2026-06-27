@@ -133,7 +133,7 @@ Handler functions are matched by convention — command names map to function na
 
 Spaces, colons, and dashes become underscores.
 
-Each handler receives one argument: the array of remaining positional args after the command and flags.
+Each handler receives one argument: the array of positional args (before any `--` separator) after the command and flags. Arguments after a `--` are available separately via `cli.passthrough()`.
 
 ```ruby
 cli.cmd "add", "Add a todo"
@@ -175,12 +175,27 @@ cmd = cli.command()
 
 ### args
 
-Get remaining positional arguments as an array.
+Get the positional arguments that appear before a `--` separator, as an array.
 
 ```ruby
 cli.parse
 remaining = cli.args()
 ```
+
+### passthrough
+
+Get the opaque arguments that appear after a `--` separator, as an array. Everything
+after the first `--` is captured verbatim (including flag-shaped values like `-v`),
+which makes it easy to forward arguments to another command.
+
+```ruby
+# myapp run -- ls -la
+cli.parse
+cmd = cli.passthrough()   # ["ls", "-la"]
+```
+
+`args` and `passthrough` are kept separate, so positionals meant for your command
+never get mixed up with arguments meant to be forwarded.
 
 ## Help
 

@@ -501,7 +501,7 @@ require "github.com/user/lib@v1.0.0" as "utils"     # remote
 | re | test, find, find_all, replace, replace_all, split, match |
 | http | get, post, put, patch, delete |
 | os | exec, exit, file_exists, is_dir, read_line, getenv, setenv, cwd, chdir, hostname, read_file, write_file, remove, mkdir, rename, glob, tmp_dir, args, pid, symlink, readlink |
-| cli | name, version, about, cmd, flag, bool_flag, run, parse, command, get, args, help |
+| cli | name, version, about, cmd, flag, bool_flag, run, parse, command, get, args, passthrough, help |
 | color | red, green, yellow, blue, magenta, cyan, white, gray, bold, dim, underline, bg_* |
 | web | get, post, put, delete, patch, middleware, rate_limit, group, end_group, static, listen, port, free_port, text, html, json, redirect, status |
 | sqlite | open, exec, query, query_row, query_val, close |

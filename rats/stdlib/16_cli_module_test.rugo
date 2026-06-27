@@ -102,16 +102,35 @@ rats "cli leading -- gobbles flag-shaped passthrough"
   result = test.run("rugo run rats/fixtures/cli_passthrough.rugo -- -- ls -la")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
-  test.assert_eq(lines[0], "ls")
-  test.assert_eq(lines[1], "-la")
+  test.assert_eq(lines[0], "pass:ls")
+  test.assert_eq(lines[1], "pass:-la")
 end
 
 rats "cli leading -- with only passthrough"
   result = test.run("rugo run rats/fixtures/cli_passthrough.rugo -- -- foo bar")
   test.assert_eq(result["status"], 0)
   lines = result["lines"]
-  test.assert_eq(lines[0], "foo")
-  test.assert_eq(lines[1], "bar")
+  test.assert_eq(lines[0], "pass:foo")
+  test.assert_eq(lines[1], "pass:bar")
+end
+
+rats "cli splits positionals from -- passthrough"
+  result = test.run("rugo run rats/fixtures/cli_passthrough.rugo -- rm foo -- bash -c hi")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "arg:foo")
+  test.assert_eq(lines[1], "pass:bash")
+  test.assert_eq(lines[2], "pass:-c")
+  test.assert_eq(lines[3], "pass:hi")
+end
+
+rats "cli passthrough empty without separator"
+  result = test.run("rugo run rats/fixtures/cli_passthrough.rugo -- rm foo bar")
+  test.assert_eq(result["status"], 0)
+  lines = result["lines"]
+  test.assert_eq(lines[0], "arg:foo")
+  test.assert_eq(lines[1], "arg:bar")
+  test.assert_eq(len(lines), 2)
 end
 
 rats "cli unknown flag exits with error"

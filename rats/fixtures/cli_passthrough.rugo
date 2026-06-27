@@ -1,8 +1,11 @@
 use "cli"
 
 cli.name "pass"
-cli.cmd "ls", "List"
+cli.cmd "rm", "Remove"
 cli.parse()
-for arg in cli.args()
-  puts arg
+for a in cli.args()
+  puts "arg:#{a}"
+end
+for p in cli.passthrough()
+  puts "pass:#{p}"
 end

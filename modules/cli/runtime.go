@@ -23,15 +23,16 @@ type cliFlag struct {
 }
 
 type CLI struct {
-	appName    string
-	appVersion string
-	appAbout   string
-	commands   []cliCommand
-	flags      []cliFlag
-	parsed     bool
-	matched    string
-	values     map[string]string
-	remaining  []interface{}
+	appName     string
+	appVersion  string
+	appAbout    string
+	commands    []cliCommand
+	flags       []cliFlag
+	parsed      bool
+	matched     string
+	values      map[string]string
+	remaining   []interface{}
+	passthrough []interface{}
 }
 
 func (c *CLI) Name(name string) interface{} {
@@ -116,6 +117,10 @@ func (c *CLI) Args() interface{} {
 	return c.remaining
 }
 
+func (c *CLI) Passthrough() interface{} {
+	return c.passthrough
+}
+
 func (c *CLI) Help() interface{} {
 	c.printHelp()
 	os.Exit(0)
@@ -130,6 +135,7 @@ func (c *CLI) parseArgs(args []string) {
 	c.parsed = true
 	c.values = make(map[string]string)
 	c.remaining = nil
+	c.passthrough = nil
 
 	// Apply defaults
 	for _, f := range c.flags {
@@ -162,7 +168,7 @@ func (c *CLI) parseArgs(args []string) {
 			// flag-shaped passthrough like "-la").
 			i++
 			for i < len(args) {
-				c.remaining = append(c.remaining, args[i])
+				c.passthrough = append(c.passthrough, args[i])
 				i++
 			}
 		} else if strings.HasPrefix(arg, "-") {
@@ -179,9 +185,11 @@ func (c *CLI) parseArgs(args []string) {
 	for i < len(args) {
 		arg := args[i]
 		if arg == "--" {
+			// Everything after "--" is opaque passthrough, kept separate
+			// from the pre-"--" positionals returned by Args().
 			i++
 			for i < len(args) {
-				c.remaining = append(c.remaining, args[i])
+				c.passthrough = append(c.passthrough, args[i])
 				i++
 			}
 			break
