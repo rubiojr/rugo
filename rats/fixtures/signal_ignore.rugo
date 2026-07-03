@@ -1,0 +1,11 @@
+use "signal"
+use "os"
+
+# SIGUSR1 would terminate the process by default; ignoring it means the
+# process survives delivery.
+signal.ignore("USR1")
+
+pid = os.pid()
+`kill -USR1 #{pid}`
+`sleep 0.2`
+puts "survived USR1"

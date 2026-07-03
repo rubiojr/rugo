@@ -1,0 +1,16 @@
+use "signal"
+use "os"
+
+signal.on("INT", fn()
+  puts "shutting down"
+  exit(0)
+end)
+
+pid = os.pid()
+
+spawn
+  `sleep 0.2 && kill -INT #{pid}`
+end
+
+signal.wait()
+puts "UNREACHABLE"

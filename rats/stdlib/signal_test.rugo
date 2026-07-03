@@ -1,0 +1,88 @@
+# RATS: Test signal module
+# Covers race-free handler dispatch (on/wait), repeated handling, ignore,
+# reset, error cases, and native compilation. Signal delivery is inherently a
+# process-level concern, so these use self-signaling fixtures via test.run.
+use "test"
+use "eval"
+
+# --- Positive: graceful shutdown via signal.on + signal.wait ---
+
+rats "signal.on handler runs on wait() goroutine and exits cleanly"
+  result = test.run("rugo run rats/fixtures/signal_graceful.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "caught USR1")
+end
+
+rats "signal.wait dispatches SIGINT handler"
+  result = test.run("rugo run rats/fixtures/signal_int.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "shutting down")
+end
+
+# --- Positive: a non-exiting handler runs repeatedly (race-free counter) ---
+
+rats "handler fires repeatedly without racing shared state"
+  result = test.run("rugo run rats/fixtures/signal_repeat.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "2")
+end
+
+# --- Positive: ignore suppresses a signal that would otherwise terminate ---
+
+rats "signal.ignore prevents default termination"
+  result = test.run("rugo run rats/fixtures/signal_ignore.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "survived USR1")
+end
+
+# --- Positive: reset stops a handler from firing ---
+
+rats "signal.reset stops invoking a handler"
+  result = test.run("rugo run rats/fixtures/signal_reset.rugo")
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "clean exit")
+end
+
+# --- Error handling ---
+
+rats "unknown signal name raises a clear error"
+  source = <<~RUGO
+    use "signal"
+    signal.on("BOGUS", fn() end)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "unknown signal name")
+end
+
+rats "non-function handler raises a clear error"
+  source = <<~RUGO
+    use "signal"
+    signal.on("INT", 42)
+  RUGO
+  result = eval.run(source)
+  test.assert_neq(result["status"], 0)
+  test.assert_contains(result["output"], "expects a function handler")
+end
+
+rats "SIG-prefixed names are accepted"
+  source = <<~RUGO
+    use "signal"
+    signal.reset("SIGINT")
+    puts "ok"
+  RUGO
+  result = eval.run(source)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "ok")
+end
+
+# --- Compilation ---
+
+rats "signal compiles to native binary"
+  bin = test.tmpdir() + "/rugo_signal_build_test"
+  result = test.run("rugo build rats/fixtures/signal_build.rugo -o " + bin)
+  test.assert_eq(result["status"], 0)
+  result = test.run(bin)
+  test.assert_eq(result["status"], 0)
+  test.assert_eq(result["output"], "terminated")
+end

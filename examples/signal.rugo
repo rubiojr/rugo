@@ -1,0 +1,37 @@
+# Signal Module Example
+# Graceful shutdown with race-free OS signal handling.
+#
+# Handlers registered with signal.on() run on the goroutine that calls
+# signal.wait(). While a handler runs, the main flow is parked inside wait(),
+# so handlers never race the code that installed them.
+#
+# Try it:
+#   rugo run examples/signal.rugo
+# then press Ctrl-C, or from another terminal: kill -TERM <pid>
+
+use "signal"
+use "os"
+
+# Catch Ctrl-C (SIGINT) for a clean shutdown.
+signal.on("INT", fn()
+  puts ""
+  puts "SIGINT received — cleaning up and exiting."
+  exit(0)
+end)
+
+# Catch SIGTERM the same way (e.g. `kill <pid>` or a service manager stop).
+signal.on("TERM", fn()
+  puts "SIGTERM received — shutting down."
+  exit(0)
+end)
+
+# SIGHUP is a common "reload config" signal. This handler does not exit, so
+# wait() loops and keeps catching further signals.
+signal.on("HUP", fn()
+  puts "SIGHUP received — reloading configuration."
+end)
+
+puts "running as pid #{os.pid()} — press Ctrl-C to stop"
+
+# Block here forever, dispatching handlers as signals arrive.
+signal.wait()

@@ -1,0 +1,15 @@
+use "signal"
+use "os"
+
+signal.on("TERM", fn()
+  puts "terminated"
+  exit(0)
+end)
+
+pid = os.pid()
+
+spawn
+  `sleep 0.2 && kill -TERM #{pid}`
+end
+
+signal.wait()

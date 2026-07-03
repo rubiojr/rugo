@@ -25,6 +25,7 @@ import "embed"
 //go:embed queue/queue.go queue/runtime.go queue/stubs.go
 //go:embed rand/rand.go rand/runtime.go
 //go:embed re/re.go re/runtime.go re/stubs.go
+//go:embed signal/signal.go signal/runtime.go
 //go:embed sqlite/runtime.go sqlite/sqlite.go
 //go:embed str/runtime.go str/str.go
 //go:embed test/runtime.go test/stubs.go test/test.go

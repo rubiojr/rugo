@@ -1,0 +1,17 @@
+use "signal"
+use "os"
+
+signal.on("USR1", fn()
+  puts "caught USR1"
+  exit(0)
+end)
+
+pid = os.pid()
+
+# Deliver SIGUSR1 to ourselves from a background goroutine once wait() is armed.
+spawn
+  `sleep 0.2 && kill -USR1 #{pid}`
+end
+
+signal.wait()
+puts "UNREACHABLE"

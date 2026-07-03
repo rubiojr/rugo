@@ -506,6 +506,7 @@ require "github.com/user/lib@v1.0.0" as "utils"     # remote
 | web | get, post, put, delete, patch, middleware, rate_limit, group, end_group, static, listen, port, free_port, text, html, json, redirect, status |
 | sqlite | open, exec, query, query_row, query_val, close |
 | queue | new (then .push, .pop, .size, .close, .done) |
+| signal | on, wait, reset, ignore (race-free OS signal handling) |
 | math | abs, ceil, floor, round, max, min, pow, sqrt, log, log2, log10, sin, cos, tan, pi, e, clamp, random, random_int |
 | rand | int, float, string, choice, shuffle, uuid |
 | time | now, sleep, format, parse, since, millis |

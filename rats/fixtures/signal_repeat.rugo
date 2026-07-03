@@ -1,0 +1,26 @@
+use "signal"
+use "os"
+use "queue"
+use "conv"
+
+# The HUP handler does not exit — wait() keeps looping and dispatching it.
+# Both handlers run on the wait() goroutine, so the shared counter is race-free.
+hits = queue.new(100)
+
+signal.on("HUP", fn()
+  hits.push(1)
+end)
+
+signal.on("INT", fn()
+  puts conv.to_s(hits.size)
+  exit(0)
+end)
+
+pid = os.pid()
+
+# Two spaced HUPs, then INT to report the count and exit.
+spawn
+  `kill -HUP #{pid} && sleep 0.15 && kill -HUP #{pid} && sleep 0.15 && kill -INT #{pid}`
+end
+
+signal.wait()

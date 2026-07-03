@@ -39,6 +39,7 @@ puts resp.body
 | [queue](modules/queue.md) | Thread-safe queue for producer-consumer concurrency |
 | [rand](#rand) | Random number generation, shuffling, and UUIDs |
 | [re](modules/re.md) | Regular expressions |
+| [signal](modules/signal.md) | Race-free OS signal handling (SIGINT, SIGTERM, SIGHUP, ...) |
 | [sqlite](modules/sqlite.md) | SQLite database access |
 | [str](modules/str.md) | String utilities |
 | [test](modules/test.md) | Testing and assertions |

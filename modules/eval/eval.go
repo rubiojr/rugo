@@ -55,6 +55,7 @@ func init() {
 			`_ "github.com/rubiojr/rugo/modules/queue"`,
 			`_ "github.com/rubiojr/rugo/modules/rand"`,
 			`_ "github.com/rubiojr/rugo/modules/re"`,
+			`_ "github.com/rubiojr/rugo/modules/signal"`,
 			`_ "github.com/rubiojr/rugo/modules/str"`,
 			`_ "github.com/rubiojr/rugo/modules/test"`,
 			`_ "github.com/rubiojr/rugo/modules/time"`,

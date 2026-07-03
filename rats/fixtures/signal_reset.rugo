@@ -1,0 +1,24 @@
+use "signal"
+use "os"
+
+# Trap SIGUSR1, then reset it — the handler must no longer fire. A separate
+# INT handler proves the program keeps running and dispatching normally.
+signal.on("USR1", fn()
+  puts "USR1 handler ran"
+  exit(1)
+end)
+signal.reset("USR1")
+
+signal.on("INT", fn()
+  puts "clean exit"
+  exit(0)
+end)
+
+pid = os.pid()
+
+# Send the reset signal first (must be ignored), then INT to finish.
+spawn
+  `kill -USR1 #{pid} && sleep 0.3 && kill -INT #{pid}`
+end
+
+signal.wait()
