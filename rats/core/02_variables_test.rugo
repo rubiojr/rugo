@@ -1,30 +1,43 @@
-# RATS: Test variables, types, and expressions
+# RATS: Variables, literal values, and basic expressions.
 use "test"
 
 rats "variables and arithmetic"
-  x = 10
-  y = 20
-  test.assert_eq(x + y, 30)
+  subtotal = 10
+  shipping = 20
+
+  total = subtotal + shipping
+
+  test.assert_eq total, 30
 end
 
 rats "string concatenation"
   name = "world"
-  test.assert_eq("hello " + name, "hello world")
+
+  greeting = "hello " + name
+
+  test.assert_eq greeting, "hello world"
 end
 
 rats "boolean values"
-  test.assert_eq(true, true)
-  test.assert_eq(false, false)
+  enabled = true
+  disabled = false
+
+  test.assert_eq enabled, true
+  test.assert_eq disabled, false
 end
 
 rats "nil value"
-  x = nil
-  test.assert_nil(x)
+  missing = nil
+
+  test.assert_nil missing
 end
 
 rats "string interpolation"
   name = "rugo"
-  test.assert_eq("hello " + name, "hello rugo")
+
+  greeting = "hello #{name}"
+
+  test.assert_eq greeting, "hello rugo"
 end
 
 rats "arithmetic operations"
