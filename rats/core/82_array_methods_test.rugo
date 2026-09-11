@@ -1,102 +1,97 @@
-# RATS: Built-in array collection methods
-# Tests for .map, .filter, .reject, .each, .reduce, .find, .any, .all,
-# .count, .join, .first, .last, .min, .max, .sum, .flatten, .uniq,
-# .sort_by, .flat_map, .take, .drop, .zip, .chunk
+# RATS: Array transformations, queries, ordering, and method chains.
 use "test"
 
-# ============================================================
-# A. map
-# ============================================================
+# map
 
 rats "array.map transforms each element"
-  nums = [1, 2, 3]
-  result = nums.map(fn(x) x * 2 end)
-  test.assert_eq(result[0], 2)
-  test.assert_eq(result[1], 4)
-  test.assert_eq(result[2], 6)
+  numbers = [1, 2, 3]
+
+  doubled = numbers.map(fn(n) n * 2 end)
+
+  test.assert_eq doubled, [2, 4, 6]
 end
 
 rats "array.map on empty array returns empty"
   result = [].map(fn(x) x * 2 end)
-  test.assert_eq(len(result), 0)
+  test.assert_eq result, []
 end
 
-# ============================================================
-# B. filter
-# ============================================================
+# filter
 
 rats "array.filter keeps matching elements"
-  nums = [1, 2, 3, 4, 5]
-  result = nums.filter(fn(x) x > 3 end)
-  test.assert_eq(len(result), 2)
-  test.assert_eq(result[0], 4)
-  test.assert_eq(result[1], 5)
+  numbers = [1, 2, 3, 4, 5]
+
+  filtered = numbers.filter(fn(n) n > 3 end)
+
+  test.assert_eq filtered, [4, 5]
 end
 
 rats "array.filter on empty array returns empty"
   result = [].filter(fn(x) x > 0 end)
-  test.assert_eq(len(result), 0)
+  test.assert_eq result, []
 end
 
-# ============================================================
-# C. reject
-# ============================================================
+# reject
 
 rats "array.reject removes matching elements"
-  nums = [1, 2, 3, 4, 5]
-  result = nums.reject(fn(x) x > 3 end)
-  test.assert_eq(len(result), 3)
-  test.assert_eq(result[0], 1)
-  test.assert_eq(result[1], 2)
-  test.assert_eq(result[2], 3)
+  numbers = [1, 2, 3, 4, 5]
+
+  kept = numbers.reject(fn(n) n > 3 end)
+
+  test.assert_eq kept, [1, 2, 3]
 end
 
-# ============================================================
-# D. each
-# ============================================================
+# each
 
 rats "array.each iterates with side effects"
-  total = 0
-  nums = [10, 20, 30]
-  nums.each(fn(x) total = total end)
-  test.assert_eq(len(nums), 3)
+  numbers = [10, 20, 30]
+  visited = []
+
+  numbers.each(fn(number)
+    append visited, number
+  end)
+
+  test.assert_eq visited, [10, 20, 30]
+  test.assert_eq numbers, [10, 20, 30]
 end
 
-# ============================================================
-# E. reduce
-# ============================================================
+# reduce
 
 rats "array.reduce accumulates a result"
-  nums = [1, 2, 3, 4, 5]
-  sum = nums.reduce(0, fn(acc, x) acc + x end)
-  test.assert_eq(sum, 15)
+  numbers = [1, 2, 3, 4, 5]
+
+  total = numbers.reduce(0, fn(sum, n) sum + n end)
+
+  test.assert_eq total, 15
 end
 
 rats "array.reduce with string accumulator"
   words = ["hello", "world"]
-  result = words.reduce("", fn(acc, w) acc + w + " " end)
-  test.assert_eq(result, "hello world ")
+
+  sentence = words.reduce("", fn(text, word) text + word + " " end)
+
+  test.assert_eq sentence, "hello world "
 end
 
-# ============================================================
-# F. find
-# ============================================================
+# find
 
 rats "array.find returns first matching element"
-  nums = [1, 2, 3, 4, 5]
-  found = nums.find(fn(x) x > 3 end)
-  test.assert_eq(found, 4)
+  numbers = [1, 2, 3, 4, 5]
+
+  found = numbers.find(fn(n) n > 3 end)
+
+  test.assert_eq found, 4
 end
 
 rats "array.find returns nil when no match"
-  nums = [1, 2, 3]
-  found = nums.find(fn(x) x > 10 end)
-  test.assert_nil(found)
+  numbers = [1, 2, 3]
+
+  found = numbers.find(fn(n) n > 10 end)
+
+  test.assert_nil found
 end
 
-# ============================================================
-# G. any / all
-# ============================================================
+# any / all
 
 rats "array.any returns true when match exists"
   test.assert_true([1, 2, 3].any(fn(x) x > 2 end))
@@ -114,18 +109,14 @@ rats "array.all returns false when one fails"
   test.assert_false([1, 2, 3].all(fn(x) x > 1 end))
 end
 
-# ============================================================
-# H. count
-# ============================================================
+# count
 
 rats "array.count counts matching elements"
-  nums = [1, 2, 3, 4, 5]
-  test.assert_eq(nums.count(fn(x) x > 2 end), 3)
+  numbers = [1, 2, 3, 4, 5]
+  test.assert_eq(numbers.count(fn(n) n > 2 end), 3)
 end
 
-# ============================================================
-# I. join
-# ============================================================
+# join
 
 rats "array.join with separator"
   words = ["a", "b", "c"]
@@ -138,13 +129,11 @@ rats "array.join with empty separator"
 end
 
 rats "array.join converts non-strings"
-  nums = [1, 2, 3]
-  test.assert_eq(nums.join("-"), "1-2-3")
+  numbers = [1, 2, 3]
+  test.assert_eq(numbers.join("-"), "1-2-3")
 end
 
-# ============================================================
-# J. first / last
-# ============================================================
+# first / last
 
 rats "array.first returns first element"
   test.assert_eq([10, 20, 30].first(), 10)
@@ -158,9 +147,7 @@ rats "array.first on empty returns nil"
   test.assert_nil([].first())
 end
 
-# ============================================================
-# K. min / max / sum
-# ============================================================
+# min / max / sum
 
 rats "array.min returns minimum value"
   test.assert_eq([3, 1, 4, 1, 5].min(), 1)
@@ -174,123 +161,97 @@ rats "array.sum returns total"
   test.assert_eq([10, 20, 30].sum(), 60)
 end
 
-# ============================================================
-# L. flatten / uniq
-# ============================================================
+# flatten / uniq
 
-# Keep as shell-out: uses `use "conv"` inside the script
 rats "array.flatten one level deep"
   nested = [[1, 2], [3, 4], 5]
-  result = nested.flatten()
-  test.assert_eq(len(result), 5)
-  test.assert_eq(result[0], 1)
-  test.assert_eq(result[4], 5)
+
+  flattened = nested.flatten()
+
+  test.assert_eq flattened, [1, 2, 3, 4, 5]
 end
 
 rats "array.uniq removes duplicates preserving order"
   result = [1, 2, 2, 3, 1].uniq()
-  test.assert_eq(len(result), 3)
-  test.assert_eq(result[0], 1)
-  test.assert_eq(result[1], 2)
-  test.assert_eq(result[2], 3)
+  test.assert_eq result, [1, 2, 3]
 end
 
-# ============================================================
-# M. sort_by
-# ============================================================
+# sort_by
 
 rats "array.sort_by sorts by lambda result"
   fruits = ["banana", "apple", "cherry", "fig"]
-  result = fruits.sort_by(fn(s) len(s) end)
-  test.assert_eq(result[0], "fig")
-  test.assert_eq(result[1], "apple")
-  test.assert_eq(result[2], "banana")
-  test.assert_eq(result[3], "cherry")
+
+  sorted = fruits.sort_by(fn(fruit) len(fruit) end)
+
+  test.assert_eq sorted, ["fig", "apple", "banana", "cherry"]
 end
 
 rats "array.sort_by does not mutate original"
-  nums = [3, 1, 2]
-  sorted = nums.sort_by(fn(x) x end)
-  test.assert_eq(nums[0], 3)
-  test.assert_eq(sorted[0], 1)
+  numbers = [3, 1, 2]
+
+  sorted = numbers.sort_by(fn(n) n end)
+
+  test.assert_eq numbers, [3, 1, 2]
+  test.assert_eq sorted, [1, 2, 3]
 end
 
-# ============================================================
-# N. flat_map
-# ============================================================
+# flat_map
 
 rats "array.flat_map maps and flattens"
   result = [1, 2, 3].flat_map(fn(x) [x, x * 10] end)
-  test.assert_eq(len(result), 6)
-  test.assert_eq(result[0], 1)
-  test.assert_eq(result[1], 10)
-  test.assert_eq(result[4], 3)
-  test.assert_eq(result[5], 30)
+  test.assert_eq result, [1, 10, 2, 20, 3, 30]
 end
 
-# ============================================================
-# O. take / drop
-# ============================================================
+# take / drop
 
 rats "array.take returns first n elements"
   result = [1, 2, 3, 4, 5].take(3)
-  test.assert_eq(len(result), 3)
-  test.assert_eq(result[0], 1)
-  test.assert_eq(result[2], 3)
+  test.assert_eq result, [1, 2, 3]
 end
 
 rats "array.drop returns all but first n"
   result = [1, 2, 3, 4, 5].drop(3)
-  test.assert_eq(len(result), 2)
-  test.assert_eq(result[0], 4)
-  test.assert_eq(result[1], 5)
+  test.assert_eq result, [4, 5]
 end
 
-# ============================================================
-# P. zip
-# ============================================================
+# zip
 
 rats "array.zip pairs elements from two arrays"
-  a = [1, 2, 3]
-  b = ["x", "y", "z"]
-  result = a.zip(b)
-  test.assert_eq(len(result), 3)
-  test.assert_eq(result[0][0], 1)
-  test.assert_eq(result[0][1], "x")
-  test.assert_eq(result[2][0], 3)
-  test.assert_eq(result[2][1], "z")
+  numbers = [1, 2, 3]
+  letters = ["x", "y", "z"]
+
+  pairs = numbers.zip(letters)
+
+  test.assert_eq pairs, [[1, "x"], [2, "y"], [3, "z"]]
 end
 
-# ============================================================
-# Q. chunk
-# ============================================================
+# chunk
 
 rats "array.chunk splits into groups"
-  result = [1, 2, 3, 4, 5].chunk(2)
-  test.assert_eq(len(result), 3)
-  test.assert_eq(len(result[0]), 2)
-  test.assert_eq(len(result[2]), 1)
-  test.assert_eq(result[0][0], 1)
-  test.assert_eq(result[2][0], 5)
+  chunks = [1, 2, 3, 4, 5].chunk(2)
+  test.assert_eq chunks, [[1, 2], [3, 4], [5]]
 end
 
-# ============================================================
-# R. Chaining
-# ============================================================
+# Chaining
 
 rats "array method chaining works"
-  result = [1, 2, 3, 4, 5].filter(fn(x) x > 2 end).map(fn(x) x * 10 end).join(" + ")
-  test.assert_eq(result, "30 + 40 + 50")
+  result = [1, 2, 3, 4, 5]
+    .filter(fn(n) n > 2 end)
+    .map(fn(n) n * 10 end)
+    .join(" + ")
+
+  test.assert_eq result, "30 + 40 + 50"
 end
 
 rats "array map then reduce chain"
-  result = [1, 2, 3].map(fn(x) x * x end).reduce(0, fn(acc, x) acc + x end)
-  test.assert_eq(result, 14)
+  result = [1, 2, 3]
+    .map(fn(n) n * n end)
+    .reduce(0, fn(sum, n) sum + n end)
+
+  test.assert_eq result, 14
 end
 
-# ============================================================
-# S. contains
-# ============================================================
+# contains
 
 rats "array.contains returns true when value is present"
   test.assert_true([1, 2, 3].contains(2))
@@ -314,9 +275,7 @@ rats "array.contains uses deep equality"
   test.assert_false([[1, 2], [3, 4]].contains([5, 6]))
 end
 
-# ============================================================
-# T. index
-# ============================================================
+# index
 
 rats "array.index returns index of first occurrence"
   test.assert_eq([10, 20, 30, 20].index(20), 1)
@@ -338,66 +297,53 @@ rats "array.index uses deep equality"
   test.assert_eq([[1], [2], [3]].index([2]), 1)
 end
 
-# ============================================================
-# U. reverse
-# ============================================================
+# reverse
 
 rats "array.reverse returns new reversed array"
   result = [1, 2, 3].reverse()
-  test.assert_eq(result[0], 3)
-  test.assert_eq(result[1], 2)
-  test.assert_eq(result[2], 1)
+  test.assert_eq result, [3, 2, 1]
 end
 
 rats "array.reverse on empty array returns empty"
-  test.assert_eq(len([].reverse()), 0)
+  test.assert_eq([].reverse(), [])
 end
 
 rats "array.reverse does not mutate original"
-  arr = [1, 2, 3]
-  rev = arr.reverse()
-  test.assert_eq(arr[0], 1)
-  test.assert_eq(rev[0], 3)
+  numbers = [1, 2, 3]
+
+  reversed = numbers.reverse()
+
+  test.assert_eq numbers, [1, 2, 3]
+  test.assert_eq reversed, [3, 2, 1]
 end
 
 rats "array.reverse on single element"
   result = [42].reverse()
-  test.assert_eq(len(result), 1)
-  test.assert_eq(result[0], 42)
+  test.assert_eq result, [42]
 end
 
-# ============================================================
-# V. compact
-# ============================================================
+# compact
 
 rats "array.compact removes consecutive duplicates"
   result = [1, 1, 2, 2, 2, 3, 1, 1].compact()
-  test.assert_eq(len(result), 4)
-  test.assert_eq(result[0], 1)
-  test.assert_eq(result[1], 2)
-  test.assert_eq(result[2], 3)
-  test.assert_eq(result[3], 1)
+  test.assert_eq result, [1, 2, 3, 1]
 end
 
 rats "array.compact on empty array returns empty"
-  test.assert_eq(len([].compact()), 0)
+  test.assert_eq([].compact(), [])
 end
 
 rats "array.compact with no consecutive duplicates"
   result = [1, 2, 3].compact()
-  test.assert_eq(len(result), 3)
+  test.assert_eq result, [1, 2, 3]
 end
 
 rats "array.compact on single element"
   result = [42].compact()
-  test.assert_eq(len(result), 1)
-  test.assert_eq(result[0], 42)
+  test.assert_eq result, [42]
 end
 
 rats "array.compact works with strings"
   result = ["a", "a", "b", "b", "a"].compact()
-  test.assert_eq(len(result), 3)
-  test.assert_eq(result[0], "a")
-  test.assert_eq(result[1], "b")
-  test.assert_eq(result[2], "a")
+  test.assert_eq result, ["a", "b", "a"]
 end
