@@ -171,8 +171,27 @@ Fixture-based tests use `eval.run()` or `test.run()` to compile/execute `.rugo` 
 ## Checklist for Bug Fixes
 
 1. Add a regression test in `rats/`
-2. If fixing a git-bug issue, close it with a detailed comment
+2. If fixing a tracked issue, close it in kata with a detailed message and
+   evidence: `kata close <ref> --done --message "..." --test "make rats"`
 3. Run the full RATS suite: `make rats`
+
+## Issue Tracking
+
+Issues live in [kata](https://github.com/rubiojr/kata), project `rugo`
+(bound via `.kata.toml`). Search before creating to avoid duplicates:
+
+```bash
+kata search "parser error" --json   # find existing issues
+kata list --status open             # open issues
+kata show <ref>                     # issue + comments
+kata create "title" --body "..." --label bug --priority 1
+kata close <ref> --done --message "..." --test "make rats"
+```
+
+Refs are 4-char short IDs derived from each issue's ULID (e.g. `6tvy`).
+Older code comments and RATS tests reference legacy `git-bug <id>` hashes;
+those issues were migrated to kata and the original hash is recorded in the
+migrated issue body, so `kata search <hash>` still finds them.
 
 ---
 
