@@ -1,0 +1,45 @@
+# RATS: kata 9thj — uniq reports Rugo types for unhashable elements.
+use "test"
+use "eval"
+
+struct Item
+  value
+end
+
+rats "uniq rejects nested arrays with a Rugo error"
+  result = eval.run("arr = [[1, 2], [3, 4], [1, 2]]\nputs arr.uniq()")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, ".uniq() cannot compare Array elements: values of this type are not hashable")
+  test.assert_contains(result.output, "eval.rugo:2")
+end
+
+rats "uniq rejects hashes with a Rugo error"
+  values = [{a: 1}]
+  message = try values.uniq() or err
+    (err)
+  end
+  test.assert_eq(message, ".uniq() cannot compare Hash elements: values of this type are not hashable")
+end
+
+rats "uniq rejects lambdas with a Rugo error"
+  values = [fn() 1 end]
+  message = try values.uniq() or err
+    (err)
+  end
+  test.assert_eq(message, ".uniq() cannot compare Lambda elements: values of this type are not hashable")
+end
+
+rats "uniq reports the struct name for unhashable instances"
+  values = [Item(1)]
+  message = try values.uniq() or err
+    (err)
+  end
+  test.assert_eq(message, ".uniq() cannot compare Item elements: values of this type are not hashable")
+end
+
+rats "uniq preserves scalar order and leaves the input unchanged"
+  values = [nil, 2, "two", true, 2.5, nil, 2, "two", true, 2.5]
+  test.assert_eq(values.uniq(), [nil, 2, "two", true, 2.5])
+  test.assert_eq(len(values), 10)
+  test.assert_eq([].uniq(), [])
+end

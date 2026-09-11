@@ -324,6 +324,9 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		seen := make(map[interface{}]bool)
 		result := make([]interface{}, 0)
 		for _, v := range arr {
+			if v != nil && !reflect.ValueOf(v).Comparable() {
+				panic(fmt.Sprintf(".uniq() cannot compare %s elements: values of this type are not hashable", rugo_type_of(v)))
+			}
 			if !seen[v] {
 				seen[v] = true
 				result = append(result, v)
@@ -581,4 +584,3 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 }
 
 // --- End Rugo Runtime ---
-
