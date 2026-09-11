@@ -864,10 +864,10 @@ The preprocessor produces a line map that tracks the correspondence between prep
 
 ## Parser
 
-The parser is generated from an LL(1) grammar defined in `parser/rugo.ebnf` using the [egg](https://pkg.go.dev/modernc.org/egg) parser generator tool:
+The parser is generated from an LL(1) grammar defined in `parser/rugo.ebnf` using the [egg](https://pkg.go.dev/modernc.org/egg/v2) parser generator tool. Run from the repository root using the version pinned in `go.mod`:
 
 ```
-egg -o parser.go -package parser -start Program -type Parser -constprefix Rugo rugo.ebnf
+make generate-parser
 ```
 
 > **Important**: `parser/parser.go` is generated code and must never be hand-edited. All grammar changes go through `rugo.ebnf`.

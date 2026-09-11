@@ -42,8 +42,11 @@ Know which stage you're modifying:
 Regenerate the parser after grammar changes:
 
 ```bash
-egg -o parser.go -package parser -start Program -type Parser -constprefix Rugo rugo.ebnf
+make generate-parser
 ```
+
+Run this from the repository root. The target uses `go tool egg`, with egg
+v2.0.1 pinned in `go.mod`; no global installation is needed.
 
 ## Modules
 
@@ -231,4 +234,3 @@ signature) the `IsTyped`/`GoType` machinery in the same file.
 When working on annotations, a space before `:` is mandatory in source — the
 preprocessor's hash-colon expansion rewrites bare `ident:` into `"ident" =>`
 before the parser sees it.
-

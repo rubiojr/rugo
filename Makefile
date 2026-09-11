@@ -1,7 +1,11 @@
-.PHONY: build test rats baseline baseline-clean rats-compare bench-compare stats
+.PHONY: build test rats generate-parser baseline baseline-clean rats-compare bench-compare stats
 
 build:
 	@go build -o bin/rugo .
+
+generate-parser:
+	@cd parser && go tool egg -o parser.go -package parser -start Program -type Parser -constprefix Rugo rugo.ebnf
+	@gofmt -w parser/parser.go
 
 test:
 	@go test ./... -count=1
@@ -61,4 +65,3 @@ bench-compare: build
 stats: build
 	@if [ -z "$(FILE)" ]; then echo "usage: make stats FILE=path/to/script.rugo"; exit 1; fi
 	@bin/rugo emit --stats $(FILE)
-

@@ -46,8 +46,11 @@ Run with `--timing` and `--recap` to see timing info and errors summarized.
 
 Never hand-edit `parser/parser.go`. Regenerate from the EBNF grammar:
 ```bash
-egg -o parser.go -package parser -start Program -type Parser -constprefix Rugo rugo.ebnf
+make generate-parser
 ```
+
+Run from the repository root. This uses `go tool egg` with the version pinned
+in `go.mod`; no global `egg` installation is needed.
 
 ## Project Structure
 
