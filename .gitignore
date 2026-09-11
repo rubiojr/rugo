@@ -4,3 +4,6 @@
 /dist
 /plans
 /.agents
+.kata.local.toml
+/.kata.toml
+/.octmp
