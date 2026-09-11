@@ -1,0 +1,71 @@
+# RATS: kata zg09 — missing collection callbacks get actionable errors.
+use "test"
+use "eval"
+
+def assert_missing_callback(collection, method)
+  result = eval.run("items = #{collection}\nitems.#{method}()")
+  test.assert_neq(result.status, 0)
+  test.assert_contains(result.output, ".#{method}() requires a function argument")
+  test.assert_contains(result.output, "eval.rugo:2")
+end
+
+rats "array callback methods explain missing arguments"
+  for method in ["map", "filter", "reject", "each", "find", "any", "all", "count", "sort_by", "flat_map"]
+    assert_missing_callback("[1, 2, 3]", method)
+  end
+end
+
+rats "empty arrays still require callbacks"
+  for method in ["map", "filter", "reject", "each", "find", "any", "all", "count", "sort_by", "flat_map"]
+    assert_missing_callback("[]", method)
+  end
+end
+
+rats "hash callback methods explain missing arguments"
+  for method in ["map", "filter", "reject", "each", "find", "any", "all", "count"]
+    assert_missing_callback("{a: 1}", method)
+  end
+end
+
+rats "empty hashes still require callbacks"
+  for method in ["map", "filter", "reject", "each", "find", "any", "all", "count"]
+    assert_missing_callback("{}", method)
+  end
+end
+
+rats "missing callback errors are recoverable with try or"
+  items = [1, 2, 3]
+  message = try items.filter() or err
+    (err)
+  end
+  test.assert_eq(message, ".filter() requires a function argument")
+end
+
+rats "invalid callbacks retain their type information"
+  for collection in ["[1]", "[]", "{a: 1}", "{}"]
+    for arg, label in {"nil" => "nil", "42" => "Integer"}
+      result = eval.run("items = #{collection}\nitems.map(#{arg})")
+      test.assert_neq(result.status, 0)
+      test.assert_contains(result.output, ".map() requires a function argument, got #{label}")
+    end
+  end
+end
+
+rats "reduce retains its two argument validation"
+  for collection in ["[1]", "{a: 1}"]
+    for args in ["", "0"]
+      result = eval.run("items = #{collection}\nitems.reduce(#{args})")
+      test.assert_neq(result.status, 0)
+      test.assert_contains(result.output, ".reduce() requires an initial value and a function")
+    end
+    result = eval.run("items = #{collection}\nitems.reduce(0, nil)")
+    test.assert_neq(result.status, 0)
+    test.assert_contains(result.output, ".reduce() requires a function argument, got nil")
+  end
+end
+
+rats "custom hash callbacks are not mistaken for array methods"
+  object = {sort_by: fn() "custom sort" end, flat_map: fn() "custom map" end}
+  test.assert_eq(object.sort_by(), "custom sort")
+  test.assert_eq(object.flat_map(), "custom map")
+end

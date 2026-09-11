@@ -159,8 +159,12 @@ func rugo_type_label(obj interface{}) string {
 	return fmt.Sprintf("%T", obj)
 }
 
-// rugo_to_lambda extracts a lambda from an interface{} value.
-func rugo_to_lambda(v interface{}, method string) func(...interface{}) interface{} {
+// rugo_to_lambda validates and extracts the first callback argument.
+func rugo_to_lambda(args []interface{}, method string) func(...interface{}) interface{} {
+	if len(args) == 0 {
+		panic(fmt.Sprintf(".%s() requires a function argument", method))
+	}
+	v := args[0]
 	fn, ok := v.(func(...interface{}) interface{})
 	if !ok {
 		panic(fmt.Sprintf(".%s() requires a function argument, got %s", method, rugo_type_label(v)))
@@ -173,7 +177,7 @@ func rugo_to_lambda(v interface{}, method string) func(...interface{}) interface
 func rugo_array_method(arr []interface{}, method string, args ...interface{}) (interface{}, bool) {
 	switch method {
 	case "map":
-		fn := rugo_to_lambda(args[0], "map")
+		fn := rugo_to_lambda(args, "map")
 		result := make([]interface{}, len(arr))
 		for i, v := range arr {
 			result[i] = fn(v)
@@ -181,7 +185,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		return interface{}(result), true
 
 	case "filter":
-		fn := rugo_to_lambda(args[0], "filter")
+		fn := rugo_to_lambda(args, "filter")
 		result := make([]interface{}, 0)
 		for _, v := range arr {
 			if rugo_to_bool(fn(v)) {
@@ -191,7 +195,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		return interface{}(result), true
 
 	case "reject":
-		fn := rugo_to_lambda(args[0], "reject")
+		fn := rugo_to_lambda(args, "reject")
 		result := make([]interface{}, 0)
 		for _, v := range arr {
 			if !rugo_to_bool(fn(v)) {
@@ -201,7 +205,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		return interface{}(result), true
 
 	case "each":
-		fn := rugo_to_lambda(args[0], "each")
+		fn := rugo_to_lambda(args, "each")
 		for _, v := range arr {
 			fn(v)
 		}
@@ -212,14 +216,14 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 			panic(".reduce() requires an initial value and a function")
 		}
 		acc := args[0]
-		fn := rugo_to_lambda(args[1], "reduce")
+		fn := rugo_to_lambda(args[1:], "reduce")
 		for _, v := range arr {
 			acc = fn(acc, v)
 		}
 		return acc, true
 
 	case "find":
-		fn := rugo_to_lambda(args[0], "find")
+		fn := rugo_to_lambda(args, "find")
 		for _, v := range arr {
 			if rugo_to_bool(fn(v)) {
 				return v, true
@@ -228,7 +232,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		return nil, true
 
 	case "any":
-		fn := rugo_to_lambda(args[0], "any")
+		fn := rugo_to_lambda(args, "any")
 		for _, v := range arr {
 			if rugo_to_bool(fn(v)) {
 				return true, true
@@ -237,7 +241,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		return false, true
 
 	case "all":
-		fn := rugo_to_lambda(args[0], "all")
+		fn := rugo_to_lambda(args, "all")
 		for _, v := range arr {
 			if !rugo_to_bool(fn(v)) {
 				return false, true
@@ -246,7 +250,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		return true, true
 
 	case "count":
-		fn := rugo_to_lambda(args[0], "count")
+		fn := rugo_to_lambda(args, "count")
 		n := 0
 		for _, v := range arr {
 			if rugo_to_bool(fn(v)) {
@@ -335,7 +339,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		return interface{}(result), true
 
 	case "sort_by":
-		fn := rugo_to_lambda(args[0], "sort_by")
+		fn := rugo_to_lambda(args, "sort_by")
 		cp := make([]interface{}, len(arr))
 		copy(cp, arr)
 		sort.Slice(cp, func(i, j int) bool {
@@ -344,7 +348,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 		return interface{}(cp), true
 
 	case "flat_map":
-		fn := rugo_to_lambda(args[0], "flat_map")
+		fn := rugo_to_lambda(args, "flat_map")
 		result := make([]interface{}, 0)
 		for _, v := range arr {
 			mapped := fn(v)
@@ -460,7 +464,7 @@ func rugo_array_method(arr []interface{}, method string, args ...interface{}) (i
 func rugo_hash_method(m map[interface{}]interface{}, method string, args ...interface{}) (interface{}, bool) {
 	switch method {
 	case "map":
-		fn := rugo_to_lambda(args[0], "map")
+		fn := rugo_to_lambda(args, "map")
 		result := make([]interface{}, 0, len(m))
 		for k, v := range m {
 			result = append(result, fn(k, v))
@@ -468,7 +472,7 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 		return interface{}(result), true
 
 	case "filter":
-		fn := rugo_to_lambda(args[0], "filter")
+		fn := rugo_to_lambda(args, "filter")
 		result := make(map[interface{}]interface{})
 		for k, v := range m {
 			if rugo_to_bool(fn(k, v)) {
@@ -478,7 +482,7 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 		return interface{}(result), true
 
 	case "reject":
-		fn := rugo_to_lambda(args[0], "reject")
+		fn := rugo_to_lambda(args, "reject")
 		result := make(map[interface{}]interface{})
 		for k, v := range m {
 			if !rugo_to_bool(fn(k, v)) {
@@ -488,7 +492,7 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 		return interface{}(result), true
 
 	case "each":
-		fn := rugo_to_lambda(args[0], "each")
+		fn := rugo_to_lambda(args, "each")
 		for k, v := range m {
 			fn(k, v)
 		}
@@ -499,14 +503,14 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 			panic(".reduce() requires an initial value and a function")
 		}
 		acc := args[0]
-		fn := rugo_to_lambda(args[1], "reduce")
+		fn := rugo_to_lambda(args[1:], "reduce")
 		for k, v := range m {
 			acc = fn(acc, k, v)
 		}
 		return acc, true
 
 	case "find":
-		fn := rugo_to_lambda(args[0], "find")
+		fn := rugo_to_lambda(args, "find")
 		for k, v := range m {
 			if rugo_to_bool(fn(k, v)) {
 				return interface{}([]interface{}{k, v}), true
@@ -515,7 +519,7 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 		return nil, true
 
 	case "any":
-		fn := rugo_to_lambda(args[0], "any")
+		fn := rugo_to_lambda(args, "any")
 		for k, v := range m {
 			if rugo_to_bool(fn(k, v)) {
 				return true, true
@@ -524,7 +528,7 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 		return false, true
 
 	case "all":
-		fn := rugo_to_lambda(args[0], "all")
+		fn := rugo_to_lambda(args, "all")
 		for k, v := range m {
 			if !rugo_to_bool(fn(k, v)) {
 				return false, true
@@ -533,7 +537,7 @@ func rugo_hash_method(m map[interface{}]interface{}, method string, args ...inte
 		return true, true
 
 	case "count":
-		fn := rugo_to_lambda(args[0], "count")
+		fn := rugo_to_lambda(args, "count")
 		n := 0
 		for k, v := range m {
 			if rugo_to_bool(fn(k, v)) {
