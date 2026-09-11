@@ -563,6 +563,91 @@ Rex says woof!
 <p>Methods use <code>self</code> to access the instance. Callers pass the instance as the first
 argument through the namespace: <code>dog.speak(rex)</code>. The <code>new()</code> function is
 automatically created as an alias for the constructor.</p>
+<h2 id="the-class-like-pattern-struct--module">The Class-Like Pattern: Struct + Module</h2>
+<p>When you need class-like organization, use a module per type: a struct holds
+the state, and the module groups its constructor and behavior. Methods get
+<code>self</code> automatically; callers pass the instance explicitly.</p>
+<p><strong>counter.rugo:</strong></p>
+<pre><code>struct Counter
+  value
+end
+
+def Counter.increment(amount=1)
+  self.value = self.value + amount
+  return self.value
+end
+
+def Counter.reset()
+  self.value = 0
+end
+</code></pre>
+<p><strong>main.rugo:</strong></p>
+<pre><code>require &quot;counter&quot;
+
+hits = counter.new(0)
+
+counter.increment(hits)
+counter.increment(hits, 5)
+puts hits.value
+
+counter.reset(hits)
+puts hits.value
+
+other = counter.new(10)
+puts counter.increment(other)
+puts hits.value
+</code></pre>
+<p>Expected output:</p>
+<pre><code>6
+0
+11
+0
+</code></pre>
+<p>Each constructor call creates independent state. The fields are accessible to
+callers, so this pattern provides organization rather than private fields.
+For reuse, prefer composition: store another object in a field and delegate
+operations to its module.</p>
+<p>The runnable files are in <code>snippets/ch08_counters/</code>:</p>
+<pre><code class="language-sh">rugo run snippets/ch08_counters/main.rugo
+</code></pre>
+<h3 id="private-state-with-closure-factories">Private State with Closure Factories</h3>
+<p>When state should only be accessed through operations, return a hash of
+closures. The lambdas share a captured variable that is never exposed as a
+field on the returned hash.</p>
+<pre><code class="language-ruby">def make_counter(initial=0)
+  value = initial
+
+  return {
+    increment: fn(amount=1)
+      value = value + amount
+      return value
+    end,
+    get: fn()
+      return value
+    end
+  }
+end
+
+hits = make_counter()
+hits.increment()
+hits.increment(5)
+puts hits.get()
+
+other = make_counter(10)
+puts other.increment()
+puts hits.get()
+</code></pre>
+<pre><code class="language-text">6
+11
+6
+</code></pre>
+<p>Each factory call creates its own captured state. This gives you direct
+<code>hits.increment()</code> calls, but the result is a hash of functions rather than a
+named struct, and each instance creates its own closures.</p>
+<p>Run this example with <code>rugo run snippets/ch08_closure_counter.rugo</code>.</p>
+<p><strong>Idiom:</strong> Use structs and modules for named data with shared behavior. Reach
+for closure factories when you need encapsulated state and object-local
+operations. Both patterns use existing Rugo features.</p>
 <h2 id="type-introspection">Type Introspection</h2>
 <p><code>type_of()</code> works on every value. Use it for runtime type checking and
 debugging.</p>
