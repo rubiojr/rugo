@@ -1,0 +1,6 @@
+divisor = 0
+task = spawn
+  1 / divisor
+end
+puts "joining task"
+puts task.value

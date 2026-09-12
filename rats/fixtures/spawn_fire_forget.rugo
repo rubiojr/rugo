@@ -1,5 +1,17 @@
+use "queue"
+
+start = queue.new(1)
+finished = queue.new(1)
+
+# Leave the task unassigned: main must progress before the worker can print.
 spawn
+  start.pop(5)
   puts "bg"
+  finished.push(true)
 end
-`sleep 0.1`
+
 puts "main"
+start.push(true)
+finished.pop(5)
+start.close()
+finished.close()

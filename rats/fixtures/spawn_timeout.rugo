@@ -1,5 +1,15 @@
+use "queue"
+
+gate = queue.new(1)
 task = spawn
+  gate.pop(5)
   `sleep 2`
 end
+
+# Keep the historical one-second deadline and two-second shell workload.
+# The gate prevents task completion before wait starts, even under heavy load.
 result = try task.wait(1) or "timed out"
+gate.push(true)
+task.wait(5)
+gate.close()
 puts result

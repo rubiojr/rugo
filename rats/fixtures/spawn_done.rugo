@@ -1,7 +1,23 @@
+use "queue"
+use "test"
+
+gate = queue.new(1)
 task = spawn
+  gate.pop(5)
   `echo finished`
 end
-while !task.done
-  `sleep 0.01`
-end
-puts task.value
+
+# A gate makes the unfinished state certain, regardless of worker scheduling.
+before = task.done
+gate.push(true)
+task.wait(5)
+result = task.value
+after = task.done
+gate.close()
+
+# Assert only after joining, and require actual Bool values, not truthiness.
+test.assert_eq(type_of(before), "Bool")
+test.assert_eq before, false
+test.assert_eq(type_of(after), "Bool")
+test.assert_eq after, true
+puts result
