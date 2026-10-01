@@ -1,0 +1,153 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="160" viewBox="0 0 800 160" role="img" aria-labelledby="title desc">
+  <title id="title">Vibecoded</title>
+  <desc id="desc">Some or all of this code was written by AI and accepted on vibes. Review it before you rely on it.</desc>
+  <style>
+    .sans { font-family: system-ui, -apple-system, "Segoe UI", Roboto, Cantarell, "Helvetica Neue", Arial, sans-serif; }
+    .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace; }
+    .heading { font-size: 46px; font-weight: 800; letter-spacing: 2px; }
+    .tagline { font-size: 16px; fill: #d6cfe6; }
+    .label { font-size: 11px; letter-spacing: 1.5px; fill: #8a809f; }
+    .hazard { font-size: 14px; font-weight: 700; fill: #dcff4a; }
+    .bar { transform-box: fill-box; transform-origin: center; animation: pulse 1.8s ease-in-out infinite; }
+    .spark { transform-box: fill-box; transform-origin: center; animation: twinkle 2.4s ease-in-out infinite; }
+    .wave { animation: drift 6s linear infinite; }
+    .halo { animation: flicker 2.2s steps(1, end) infinite; }
+    .trefoil { transform-box: fill-box; transform-origin: center; animation: spin 8s linear infinite; }
+    @keyframes pulse { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(0.45); } }
+    @keyframes twinkle { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(0.5); opacity: 0.4; } }
+    @keyframes drift { from { transform: translateX(0); } to { transform: translateX(-100px); } }
+    @keyframes flicker { 0% { opacity: 0.75; } 38% { opacity: 1; } 42% { opacity: 0.35; } 46% { opacity: 0.95; } 50% { opacity: 0.5; } 54% { opacity: 1; } 80% { opacity: 0.8; } }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) { .bar, .spark, .wave, .halo, .trefoil { animation: none; } }
+  </style>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1c1529"/>
+      <stop offset="1" stop-color="#120f1a"/>
+    </linearGradient>
+    <linearGradient id="border" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a48bff"/>
+      <stop offset="0.5" stop-color="#ff5fa8"/>
+      <stop offset="1" stop-color="#ffb547"/>
+    </linearGradient>
+    <linearGradient id="icon" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="116" y2="0">
+      <stop offset="0" stop-color="#a48bff"/>
+      <stop offset="0.5" stop-color="#ff5fa8"/>
+      <stop offset="1" stop-color="#ffb547"/>
+    </linearGradient>
+    <linearGradient id="heading" gradientUnits="userSpaceOnUse" x1="140" y1="0" x2="460" y2="0">
+      <stop offset="0" stop-color="#b9a6ff"/>
+      <stop offset="0.5" stop-color="#ff6fb1"/>
+      <stop offset="1" stop-color="#ffc163"/>
+    </linearGradient>
+    <linearGradient id="meter" gradientUnits="userSpaceOnUse" x1="652" y1="0" x2="768" y2="0">
+      <stop offset="0" stop-color="#a48bff"/>
+      <stop offset="0.5" stop-color="#ff5fa8"/>
+      <stop offset="1" stop-color="#ffb547"/>
+    </linearGradient>
+    <linearGradient id="wave" gradientUnits="userSpaceOnUse" x1="400" y1="0" x2="900" y2="0">
+      <stop offset="0" stop-color="#a48bff"/>
+      <stop offset="0.5" stop-color="#ff5fa8"/>
+      <stop offset="1" stop-color="#ffb547"/>
+    </linearGradient>
+    <linearGradient id="fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0.7" stop-color="#fff" stop-opacity="0"/>
+      <stop offset="1" stop-color="#fff" stop-opacity="1"/>
+    </linearGradient>
+    <mask id="right" maskUnits="userSpaceOnUse" x="0" y="0" width="800" height="160">
+      <rect width="800" height="160" fill="url(#fade)"/>
+    </mask>
+    <radialGradient id="glow">
+      <stop offset="0" stop-color="#ff5fa8" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#ff5fa8" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="card">
+      <rect width="800" height="160" rx="14"/>
+    </clipPath>
+
+    <!-- radioactive warning -->
+    <clipPath id="label">
+      <rect x="140" y="106" width="382" height="28" rx="5"/>
+    </clipPath>
+    <pattern id="stripes" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="12" height="12" fill="#0c1604"/>
+      <rect width="6" height="12" fill="#c6ff1a"/>
+    </pattern>
+    <filter id="halo-blur" x="-20%" y="-150%" width="140%" height="400%">
+      <feGaussianBlur stdDeviation="8"/>
+    </filter>
+    <filter id="neon" x="-10%" y="-80%" width="120%" height="260%">
+      <feGaussianBlur stdDeviation="3"/>
+    </filter>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="799" height="159" rx="14" fill="url(#bg)"/>
+
+  <g clip-path="url(#card)">
+    <circle cx="73" cy="80" r="64" fill="url(#glow)"/>
+    <g mask="url(#right)" fill="none" stroke="url(#wave)" stroke-width="2" stroke-linecap="round">
+      <path class="wave" stroke-opacity="0.35" d="M400 128 Q425 110 450 128 T500 128 T550 128 T600 128 T650 128 T700 128 T750 128 T800 128 T850 128 T900 128"/>
+      <path class="wave" stroke-opacity="0.18" style="animation-duration:9s" d="M375 139 Q400 125 425 139 T475 139 T525 139 T575 139 T625 139 T675 139 T725 139 T775 139 T825 139 T875 139 T925 139"/>
+    </g>
+  </g>
+
+  <rect x="0.5" y="0.5" width="799" height="159" rx="14" fill="none" stroke="url(#border)" stroke-opacity="0.55"/>
+
+  <!-- the vibes: an equalizer -->
+  <g fill="url(#icon)">
+    <rect class="bar" x="30"  y="69" width="6" height="22" rx="3" style="animation-delay:0s"/>
+    <rect class="bar" x="40"  y="60" width="6" height="40" rx="3" style="animation-delay:-0.9s"/>
+    <rect class="bar" x="50"  y="49" width="6" height="62" rx="3" style="animation-delay:-0.3s"/>
+    <rect class="bar" x="60"  y="58" width="6" height="44" rx="3" style="animation-delay:-1.2s"/>
+    <rect class="bar" x="70"  y="40" width="6" height="80" rx="3" style="animation-delay:-0.6s"/>
+    <rect class="bar" x="80"  y="54" width="6" height="52" rx="3" style="animation-delay:-1.4s"/>
+    <rect class="bar" x="90"  y="45" width="6" height="70" rx="3" style="animation-delay:-0.2s"/>
+    <rect class="bar" x="100" y="62" width="6" height="36" rx="3" style="animation-delay:-1s"/>
+    <rect class="bar" x="110" y="70" width="6" height="20" rx="3" style="animation-delay:-0.5s"/>
+  </g>
+  <path class="spark" fill="#ffd27a" d="M120 27 C120 32.6 121.4 34 127 34 C121.4 34 120 35.4 120 41 C120 35.4 118.6 34 113 34 C118.6 34 120 32.6 120 27 Z"/>
+  <path class="spark" fill="#c9b8ff" style="animation-delay:-1.2s" d="M24 120 C24 123.2 24.8 124 28 124 C24.8 124 24 124.8 24 128 C24 124.8 23.2 124 20 124 C23.2 124 24 123.2 24 120 Z"/>
+
+  <text class="sans heading" x="140" y="64" fill="url(#heading)">VIBECODED</text>
+  <text class="sans tagline" x="141" y="92">Some or all of this code was written by AI and accepted on vibes.</text>
+
+  <!-- radioactive warning: review it before you rely on it -->
+  <rect class="halo" x="140" y="106" width="382" height="28" rx="5" fill="#a6ff00" opacity="0.55" filter="url(#halo-blur)"/>
+  <g clip-path="url(#label)">
+    <rect x="140" y="106" width="382" height="28" fill="#0c1604"/>
+    <rect x="140" y="106" width="30" height="28" fill="#c6ff1a"/>
+    <rect x="490" y="106" width="32" height="28" fill="url(#stripes)"/>
+  </g>
+  <g transform="translate(155 120)">
+    <g class="trefoil" fill="#0c1604">
+      <circle r="1.9"/>
+      <path d="M1.4 2.42 L4.5 7.79 A9 9 0 0 1 -4.5 7.79 L-1.4 2.42 A2.8 2.8 0 0 0 1.4 2.42 Z"/>
+      <path d="M1.4 -2.42 L4.5 -7.79 A9 9 0 0 1 9 0 L2.8 0 A2.8 2.8 0 0 0 1.4 -2.42 Z"/>
+      <path d="M-2.8 0 L-9 0 A9 9 0 0 1 -4.5 -7.79 L-1.4 -2.42 A2.8 2.8 0 0 0 -2.8 0 Z"/>
+    </g>
+  </g>
+  <g filter="url(#neon)">
+    <rect x="140.75" y="106.75" width="380.5" height="26.5" rx="4.5" fill="none" stroke="#c6ff1a" stroke-width="3"/>
+    <text class="mono hazard" x="180" y="125" textLength="300" lengthAdjust="spacing">REVIEW IT BEFORE YOU RELY ON IT</text>
+  </g>
+  <rect x="140.75" y="106.75" width="380.5" height="26.5" rx="4.5" fill="none" stroke="#c6ff1a" stroke-width="1.5"/>
+  <text class="mono hazard" x="180" y="125" textLength="300" lengthAdjust="spacing">REVIEW IT BEFORE YOU RELY ON IT</text>
+
+  <!-- vibe check -->
+  <text class="mono label" x="640" y="42" text-anchor="end">VIBES</text>
+  <g fill="url(#meter)">
+    <rect x="652" y="34" width="20" height="8" rx="2"/>
+    <rect x="676" y="34" width="20" height="8" rx="2"/>
+    <rect x="700" y="34" width="20" height="8" rx="2"/>
+    <rect x="724" y="34" width="20" height="8" rx="2"/>
+    <rect x="748" y="34" width="20" height="8" rx="2"/>
+  </g>
+  <text class="mono label" x="640" y="62" text-anchor="end">REVIEW</text>
+  <rect x="652" y="54" width="20" height="8" rx="2" fill="#ffb547"/>
+  <rect x="676" y="54" width="20" height="8" rx="2" fill="#ffb547"/>
+  <g fill="#2b2339">
+    <rect x="700" y="54" width="20" height="8" rx="2"/>
+    <rect x="724" y="54" width="20" height="8" rx="2"/>
+    <rect x="748" y="54" width="20" height="8" rx="2"/>
+  </g>
+</svg>

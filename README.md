@@ -4,6 +4,10 @@
 
 # Rugo
 
+<p align="center">
+  <img src="images/vibecoded.svg" alt="Vibecoded: some or all of this code was written by AI and accepted on vibes" width="800">
+</p>
+
 Ruby syntax - Shell power - Go binaries.
 
 In a world of software aboundance, agents create your favorite languages.
