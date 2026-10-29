@@ -19,7 +19,7 @@ require (
 	golang.org/x/sys v0.40.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	modernc.org/egg/v2 v2.0.1 // indirect
-	modernc.org/fsm v1.3.2 // indirect
+	modernc.org/fsm v1.3.4 // indirect
 	modernc.org/gc/v3 v3.1.5 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/opt v0.2.0 // indirect
